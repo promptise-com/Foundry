@@ -20,6 +20,7 @@ import json
 import shlex
 from importlib.metadata import version as get_version
 from typing import Annotated, Any, Literal, cast
+from urllib.parse import urlparse
 
 import typer
 from dotenv import load_dotenv
@@ -60,7 +61,7 @@ def _parse_kv(opts: list[str]) -> dict[str, str]:
     return out
 
 
-def _merge_servers(stdios: list[str], https: list[str]) -> dict[str, ServerSpec]:
+def _merge_servers(stdios: list[str], https: list[str], *, require_https: bool = False) -> dict[str, ServerSpec]:
     """
     Convert flat lists of block strings into server specs.
 
@@ -114,11 +115,21 @@ def _merge_servers(stdios: list[str], https: list[str]) -> dict[str, ServerSpec]
         if not url:
             raise typer.BadParameter("Missing required key: url (in --http block)")
 
+        parsed = urlparse(url)
+        if require_https and parsed.scheme != "https":
+            raise typer.BadParameter("HTTPS is required for --http blocks when https-only is enabled")
+
         transport_str = kv.pop("transport", "http")  # "http", "streamable-http", or "sse"
         transport = cast(Literal["http", "streamable-http", "sse"], transport_str)
 
         headers = {k.split(".", 1)[1]: v for k, v in list(kv.items()) if k.startswith("header.")}
         auth = kv.get("auth")
+
+        if "Authorization" in headers and parsed.scheme != "https":
+            console.print(
+                "[yellow]Warning:[/] Authorization header over non-HTTPS may leak credentials; use HTTPS or omit auth.",
+                highlight=False,
+            )
 
         http_spec: ServerSpec = HTTPServerSpec(
             url=url,
@@ -160,7 +171,7 @@ def list_tools(
             "--stdio",
             help=(
                 "Block string: \"name=... command=... args='...' "
-                '[env.X=Y] [cwd=...] [keep_alive=true|false]". Repeatable.'
+                '[env.X=Y] [cwd=...] [keep_alive=true|false]\". Repeatable.'
             ),
         ),
     ] = None,
@@ -178,9 +189,14 @@ def list_tools(
         str,
         typer.Option("--instructions", help="Optional system prompt override."),
     ] = "",
+    https_only: Annotated[
+        bool,
+        typer.Option("--https-only", help="Require HTTPS URLs for MCP servers."),
+    ] = False,
 ) -> None:
+
     """List all MCP tools discovered using the provided server specs."""
-    servers = _merge_servers(stdio or [], http or [])
+    servers = _merge_servers(stdio or [], http or [], require_https=https_only)
 
     async def _run() -> None:
         _, loader = await build_deep_agent(
@@ -217,7 +233,7 @@ def run(
             "--stdio",
             help=(
                 "Block string: \"name=... command=... args='...' "
-                '[env.X=Y] [cwd=...] [keep_alive=true|false]". Repeatable.'
+                '[env.X=Y] [cwd=...] [keep_alive=true|false]\". Repeatable.'
             ),
         ),
     ] = None,
@@ -244,9 +260,14 @@ def run(
         bool,
         typer.Option("--raw/--no-raw", help="Also print raw result object."),
     ] = False,
+    https_only: Annotated[
+        bool,
+        typer.Option("--https-only", help="Require HTTPS URLs for MCP servers."),
+    ] = False,
 ) -> None:
+
     """Start an interactive agent that uses only MCP tools."""
-    servers = _merge_servers(stdio or [], http or [])
+    servers = _merge_servers(stdio or [], http or [], require_https=https_only)
 
     async def _chat() -> None:
         graph, _ = await build_deep_agent(

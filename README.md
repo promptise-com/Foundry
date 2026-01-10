@@ -459,6 +459,9 @@ pytest -q
 
 - **Your keys, your model** — we don’t enforce a provider; pass any LangChain model.
 - Use **HTTP headers** in `HTTPServerSpec` to deliver bearer/OAuth tokens to servers.
+- Prefer **HTTPS** for MCP servers; `--https-only` in the CLI rejects non-HTTPS URLs and warns if you send auth over plain HTTP.
+- Tool schemas are validated with size/depth limits to reduce abuse; long/hanging calls are wrapped with timeouts and retries.
+- Stdio runners are supported but should be used only with trusted adapters/shims to avoid arbitrary code execution.
 
 ---
 

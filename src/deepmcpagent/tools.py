@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
+import anyio
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field, PrivateAttr, create_model
 
@@ -33,7 +35,56 @@ class MCPClientError(RuntimeError):
     """Raised when communicating with the MCP client fails."""
 
 
+# Conservative limits to avoid untrusted schemas causing resource exhaustion.
+_MAX_SCHEMA_CHARS = 20_000
+_MAX_SCHEMA_PROPERTIES = 50
+_MAX_SCHEMA_REQUIRED = 30
+_MAX_SCHEMA_DEPTH = 6
+
+# Network resilience defaults.
+_DEFAULT_TIMEOUT_S = 10.0
+_DEFAULT_RETRIES = 2
+_RETRY_BACKOFF_BASE_S = 0.5
+
+
+def _schema_depth(obj: Any, depth: int = 0) -> int:
+    if depth > _MAX_SCHEMA_DEPTH:
+        return depth
+    if isinstance(obj, dict):
+        return max((_schema_depth(v, depth + 1) for v in obj.values()), default=depth)
+    if isinstance(obj, list):
+        return max((_schema_depth(v, depth + 1) for v in obj), default=depth)
+    return depth
+
+
+def _validate_schema(schema: dict[str, Any]) -> None:
+    if not schema:
+        return
+    # Size guard.
+    approx = len(json.dumps(schema, default=str))
+    if approx > _MAX_SCHEMA_CHARS:
+        raise MCPClientError(
+            f"Schema too large ({approx} chars). Limit is {_MAX_SCHEMA_CHARS}."
+        )
+    props = (schema or {}).get("properties", {}) or {}
+    if len(props) > _MAX_SCHEMA_PROPERTIES:
+        raise MCPClientError(
+            f"Schema has too many properties ({len(props)}). Limit is {_MAX_SCHEMA_PROPERTIES}."
+        )
+    required = (schema or {}).get("required", []) or []
+    if len(required) > _MAX_SCHEMA_REQUIRED:
+        raise MCPClientError(
+            f"Schema has too many required fields ({len(required)}). Limit is {_MAX_SCHEMA_REQUIRED}."
+        )
+    depth = _schema_depth(schema)
+    if depth > _MAX_SCHEMA_DEPTH:
+        raise MCPClientError(
+            f"Schema nesting too deep ({depth}). Limit is {_MAX_SCHEMA_DEPTH}."
+        )
+
+
 def _jsonschema_to_pydantic(schema: dict[str, Any], *, model_name: str = "Args") -> type[BaseModel]:
+    _validate_schema(schema)
     props = (schema or {}).get("properties", {}) or {}
     required = set((schema or {}).get("required", []) or [])
 
@@ -43,10 +94,16 @@ def _jsonschema_to_pydantic(schema: dict[str, Any], *, model_name: str = "Args")
         desc = p.get("description")
         default = p.get("default")
         req = n in required
+        enum = p.get("enum")
 
         def default_val() -> Any:
             return ... if req else default
 
+        if enum and isinstance(enum, list) and enum:
+            # Constrain to the enum's base type when possible.
+            first = enum[0]
+            base_type = type(first) if all(isinstance(e, type(first)) for e in enum) else Any
+            return (base_type, Field(default_val(), description=desc, examples=list(enum)))
         if t == "string":
             return (str, Field(default_val(), description=desc))
         if t == "integer":
@@ -105,19 +162,40 @@ class _FastMCPTool(BaseTool):
         self._on_error = on_error
 
     async def _arun(self, **kwargs: Any) -> Any:
-        """Asynchronously execute the MCP tool via the FastMCP client."""
+        """Asynchronously execute the MCP tool via the FastMCP client.
+
+        Handles transport errors gracefully with timeout and retry logic.
+        """
         if self._on_before:
             with contextlib.suppress(Exception):
                 self._on_before(self.name, kwargs)
 
-        try:
-            async with self._client:
-                res = await self._client.call_tool(self._tool_name, kwargs)
-        except Exception as exc:  # surface transport/protocol issues
+        res: Any | None = None
+        last_exc: Exception | None = None
+        for attempt in range(_DEFAULT_RETRIES + 1):
+            try:
+                async with anyio.fail_after(_DEFAULT_TIMEOUT_S):
+                    async with self._client:
+                        res = await self._client.call_tool(self._tool_name, kwargs)
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < _DEFAULT_RETRIES:
+                    await anyio.sleep(_RETRY_BACKOFF_BASE_S * (2**attempt))
+                    continue
+                if self._on_error:
+                    with contextlib.suppress(Exception):
+                        self._on_error(self.name, exc)
+                raise MCPClientError(
+                    f"Failed to call MCP tool '{self._tool_name}': {exc}"
+                ) from exc
+
+        if res is None:
+            err = MCPClientError(f"Tool '{self._tool_name}' returned no result")
             if self._on_error:
                 with contextlib.suppress(Exception):
-                    self._on_error(self.name, exc)
-            raise MCPClientError(f"Failed to call MCP tool '{self._tool_name}': {exc}") from exc
+                    self._on_error(self.name, err)
+            raise err
 
         if self._on_after:
             with contextlib.suppress(Exception):
@@ -149,16 +227,23 @@ class MCPToolLoader:
         self._on_error = on_error
 
     async def _list_tools_raw(self) -> tuple[Any, list[Any]]:
-        """Fetch raw tool descriptors from all configured MCP servers."""
+        """Fetch raw tool descriptors from all configured MCP servers with timeout and retry."""
         c = self._multi.client
-        try:
-            async with c:
-                tools = await c.list_tools()
-        except Exception as exc:
-            raise MCPClientError(
-                f"Failed to list tools from MCP servers: {exc}. "
-                "Check server URLs, network connectivity, and authentication headers."
-            ) from exc
+        tools: list[Any] = []
+        for attempt in range(_DEFAULT_RETRIES + 1):
+            try:
+                async with anyio.fail_after(_DEFAULT_TIMEOUT_S):
+                    async with c:
+                        tools = await c.list_tools()
+                break
+            except Exception as exc:
+                if attempt < _DEFAULT_RETRIES:
+                    await anyio.sleep(_RETRY_BACKOFF_BASE_S * (2**attempt))
+                    continue
+                raise MCPClientError(
+                    f"Failed to list tools from MCP servers: {exc}. "
+                    "Check server URLs, network connectivity, and authentication headers."
+                ) from exc
         return c, list(tools or [])
 
     async def get_all_tools(self) -> list[BaseTool]:

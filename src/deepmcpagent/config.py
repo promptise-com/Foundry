@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Literal
+import warnings
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -70,6 +71,11 @@ def servers_to_mcp_config(servers: Mapping[str, ServerSpec]) -> dict[str, dict[s
     cfg: dict[str, dict[str, object]] = {}
     for name, s in servers.items():
         if isinstance(s, StdioServerSpec):
+            warnings.warn(
+                "StdioServerSpec requires a trusted adapter/shim; ensure the stdio server is sandboxed.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             cfg[name] = {
                 "transport": "stdio",
                 "command": s.command,
