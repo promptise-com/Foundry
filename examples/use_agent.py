@@ -9,7 +9,6 @@ Console output:
 
 import asyncio
 from typing import Any
-
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from rich.console import Console
@@ -19,18 +18,27 @@ from rich.table import Table
 from deepmcpagent import HTTPServerSpec, build_deep_agent
 
 
+def _extract_text_from_message(msg: Any) -> str | None:
+    """Best-effort extraction of text from a single LangGraph message."""
+    try:
+        content = getattr(msg, "content", None)
+        if isinstance(content, str) and content:
+            return content
+        if isinstance(content, list) and content and isinstance(content[0], dict):
+            return content[0].get("text") or str(content)
+        return None
+    except Exception:
+        return None
+
+
 def _extract_final_answer(result: Any) -> str:
     """Best-effort extraction of the final text from different executors."""
     try:
         # LangGraph prebuilt typically returns {"messages": [...]}
         if isinstance(result, dict) and "messages" in result and result["messages"]:
             last = result["messages"][-1]
-            content = getattr(last, "content", None)
-            if isinstance(content, str) and content:
-                return content
-            if isinstance(content, list) and content and isinstance(content[0], dict):
-                return content[0].get("text") or str(content)
-            return str(last)
+            text = _extract_text_from_message(last)
+            return text or str(last)
         return str(result)
     except Exception:
         return str(result)
@@ -74,12 +82,29 @@ async def main() -> None:
         table.add_row("— none —", "No tools discovered (is your MCP server running?)")
     console.print(table)
 
-    # Run a single-turn query. Tool traces will be printed automatically.
+    # Run a single-turn query with streaming. Tool traces will be printed automatically.
     query = "What is (3 + 5) * 7 using math tools?"
     console.print(Panel.fit(query, title="User Query", style="bold magenta"))
 
-    result = await graph.ainvoke({"messages": [{"role": "user", "content": query}]})
-    final_text = _extract_final_answer(result)
+    console.print("\n[bold yellow]Agent Trace (Streaming)[/bold yellow]")
+    final_text: str | None = None
+    # Use astream_log() to get RunLogPatch.ops; astream() yields dicts without .ops
+    async for patch in graph.astream_log({"messages": [{"role": "user", "content": query}]}, include_state=False):
+        for op in patch.ops:
+            # Look for new messages added to the conversation
+            path = op.get("path") if isinstance(op, dict) else getattr(op, "path", None)
+            is_add = (op.get("op") if isinstance(op, dict) else getattr(op, "op", None)) == "add"
+            if not (is_add and isinstance(path, str) and path.startswith("/messages/")):
+                continue
+            msg = op.get("value") if isinstance(op, dict) else getattr(op, "value", None)
+            if not msg:
+                continue
+            text = _extract_text_from_message(msg)
+            if text:
+                console.print(f"[cyan]{text}")
+                role = getattr(msg, "role", None) or (msg.get("role") if isinstance(msg, dict) else None)
+                if role == "assistant":
+                    final_text = text
 
     console.print(Panel(final_text or "(no content)", title="Final LLM Answer", style="bold green"))
 
