@@ -86,7 +86,7 @@ dev = [
   "types-PyYAML>=6.0",
   # Docs
   "mkdocs>=1.6",
-  "mkdocs-material>=9.5",
+  "mkdocs-material>=9.7.6",
   "mkdocstrings[python]>=0.29",
 ]
 
