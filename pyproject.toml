@@ -24,7 +24,7 @@ dependencies = [
   # Core agent framework
   "mcp>=1.9.0",
   "langchain>=0.3.27",
-  "pydantic>=2.8",
+  "pydantic>=2.13.3",
   "typer>=0.15.2",
   "rich>=14",
   "anyio>=4.5",
