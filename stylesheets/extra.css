@@ -1,0 +1,939 @@
+/* ==========================================================================
+   Promptise Foundry — Enterprise-minimalist docs theme
+   2026 intelligence aesthetic: monochromatic, restrained, typography-driven
+   ========================================================================== */
+
+/* ---------- Material Design Required Variables ---------- */
+/* These MUST be defined when using primary: custom / accent: custom */
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #6366f1;
+  --md-primary-fg-color--light: #818cf8;
+  --md-primary-fg-color--dark: #4f46e5;
+  --md-accent-fg-color: #6366f1;
+  --md-accent-fg-color--transparent: rgba(99,102,241,.1);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #818cf8;
+  --md-primary-fg-color--light: #a5b4fc;
+  --md-primary-fg-color--dark: #6366f1;
+  --md-accent-fg-color: #818cf8;
+  --md-accent-fg-color--transparent: rgba(129,140,248,.1);
+}
+
+
+/* ---------- CSS Custom Properties ---------- */
+:root {
+  /* Brand palette */
+  --cf-brand: #6366f1;
+  --cf-brand-light: #818cf8;
+  --cf-brand-dark: #4f46e5;
+  --cf-brand-subtle: #eef2ff;
+  --cf-accent: #06b6d4;
+
+  /* Surfaces */
+  --cf-bg: #ffffff;
+  --cf-bg-subtle: #f8fafc;
+  --cf-bg-muted: #f1f5f9;
+  --cf-border: #e2e8f0;
+  --cf-border-subtle: #f1f5f9;
+
+  /* Text */
+  --cf-text: #0f172a;
+  --cf-text-secondary: #475569;
+  --cf-text-muted: #94a3b8;
+
+  /* Code */
+  --cf-code-bg: #0f172a;
+  --cf-code-fg: #e2e8f0;
+
+  /* Radii */
+  --cf-radius: 12px;
+  --cf-radius-sm: 8px;
+  --cf-radius-lg: 16px;
+
+  /* Shadows — minimal, nearly flat */
+  --cf-shadow-sm: none;
+  --cf-shadow: none;
+  --cf-shadow-md: 0 1px 2px rgba(0,0,0,.04);
+  --cf-shadow-lg: 0 2px 4px rgba(0,0,0,.06);
+}
+
+/* Dark mode overrides */
+[data-md-color-scheme="slate"] {
+  --cf-bg: #0a0a0a;
+  --cf-bg-subtle: #111111;
+  --cf-bg-muted: #1a1a1a;
+  --cf-border: #262626;
+  --cf-border-subtle: #1a1a1a;
+  --cf-text: #fafafa;
+  --cf-text-secondary: #a1a1aa;
+  --cf-text-muted: #71717a;
+  --cf-brand-subtle: rgba(99,102,241,.1);
+  --cf-code-bg: #111111;
+  --cf-shadow-sm: none;
+  --cf-shadow: none;
+  --cf-shadow-md: 0 1px 2px rgba(0,0,0,.15);
+  --cf-shadow-lg: 0 2px 4px rgba(0,0,0,.2);
+
+  --md-default-bg-color: #0a0a0a;
+  --md-default-fg-color: #fafafa;
+  --md-default-fg-color--light: #a1a1aa;
+  --md-default-fg-color--lighter: #71717a;
+  --md-default-fg-color--lightest: #3f3f46;
+}
+
+
+/* ========================================================================
+   1. TYPOGRAPHY — Inter-inspired, clean hierarchy
+   ======================================================================== */
+
+:root {
+  --md-text-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --md-code-font: "JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", monospace;
+}
+
+.md-typeset {
+  font-size: .85rem;
+  line-height: 1.75;
+  color: var(--cf-text-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -.025em;
+  color: var(--cf-text);
+  margin-bottom: .5em;
+  font-size: 1.8em;
+  line-height: 1.2;
+}
+
+.md-typeset h2 {
+  font-weight: 650;
+  letter-spacing: -.02em;
+  color: var(--cf-text);
+  margin-top: 2em;
+  padding-bottom: .4em;
+  border-bottom: 1px solid var(--cf-border);
+  font-size: 1.35em;
+}
+
+.md-typeset h3 {
+  font-weight: 600;
+  letter-spacing: -.015em;
+  color: var(--cf-text);
+  font-size: 1.1em;
+}
+
+.md-typeset h4 {
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--cf-text);
+  font-size: .95em;
+}
+
+.md-typeset a {
+  color: var(--cf-text);
+  text-decoration: underline;
+  text-decoration-color: var(--cf-border);
+  text-underline-offset: 3px;
+  transition: text-decoration-color .15s ease;
+}
+
+.md-typeset a:hover {
+  text-decoration-color: var(--cf-text);
+}
+
+.md-typeset strong {
+  color: var(--cf-text);
+  font-weight: 600;
+}
+
+
+/* ========================================================================
+   2. HEADER — Frosted glass, visible text
+   ======================================================================== */
+
+.md-header {
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-bottom: 1px solid var(--cf-border);
+  box-shadow: none;
+}
+
+/* Force header text/icons to be dark in light mode */
+.md-header,
+.md-header .md-header__title,
+.md-header .md-header__topic,
+.md-header .md-header__button,
+.md-header .md-header__button.md-logo {
+  color: var(--cf-text);
+}
+
+.md-header .md-icon {
+  color: var(--cf-text-secondary);
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background: rgba(10,10,10,.85);
+  border-bottom-color: var(--cf-border);
+}
+
+[data-md-color-scheme="slate"] .md-header,
+[data-md-color-scheme="slate"] .md-header .md-header__title,
+[data-md-color-scheme="slate"] .md-header .md-header__topic,
+[data-md-color-scheme="slate"] .md-header .md-header__button {
+  color: var(--cf-text);
+}
+
+[data-md-color-scheme="slate"] .md-header .md-icon {
+  color: var(--cf-text-muted);
+}
+
+.md-header__title {
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.4rem;
+}
+
+/* Dark mode: invert the black logo to white */
+[data-md-color-scheme="slate"] .md-header__button.md-logo img {
+  filter: invert(1);
+}
+
+
+/* ========================================================================
+   3. NAVIGATION — Clean sidebar with clear category/page hierarchy
+   ======================================================================== */
+
+.md-sidebar {
+  scrollbar-width: none;
+}
+
+.md-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---- Page links (rendered as <a> tags) ---- */
+.md-nav__item a.md-nav__link {
+  font-size: .78rem;
+  font-weight: 450;
+  color: var(--cf-text-secondary);
+  border-radius: 6px;
+  padding: .35rem .6rem;
+  transition: all .15s ease;
+}
+
+.md-nav__item a.md-nav__link:hover {
+  color: var(--cf-text);
+  background: var(--cf-bg-muted);
+}
+
+.md-nav__item a.md-nav__link--active {
+  font-weight: 550;
+  color: var(--cf-text);
+  background: var(--cf-bg-muted);
+}
+
+/* ---- Top-level sidebar title (e.g. "Agent", "MCP") ---- */
+.md-nav__title {
+  font-size: .625rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--cf-text-muted);
+}
+
+/* ---- Section labels (category headers like "Setup", "Memory & State") ----
+   MkDocs Material renders sections as <label class="md-nav__link"> inside
+   md-nav__item--nested. Pages are <a class="md-nav__link">.
+   We target the <label> specifically to style sections differently. */
+
+.md-sidebar label.md-nav__link {
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--cf-text-muted);
+  padding: .6rem .6rem .2rem;
+  margin-top: .35rem;
+  border-radius: 0;
+  background: none !important;
+}
+
+.md-sidebar label.md-nav__link:hover {
+  background: none !important;
+  color: var(--cf-text-secondary);
+}
+
+/* The expand/collapse arrow on section headers */
+.md-sidebar label.md-nav__link .md-nav__icon {
+  color: var(--cf-text-muted);
+}
+
+/* ---- Section index pages (clickable section header with navigation.indexes) ----
+   These are <a> tags inside --index items — they should look like pages, not categories */
+.md-nav__item--index > a.md-nav__link {
+  font-size: .78rem !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: var(--cf-text-secondary) !important;
+  padding: .35rem .6rem !important;
+  margin-top: 0 !important;
+}
+
+.md-nav__item--index > a.md-nav__link:hover {
+  color: var(--cf-text) !important;
+  background: var(--cf-bg-muted) !important;
+}
+
+/* ---- Subtle separator between sections ---- */
+.md-sidebar .md-nav__item--nested + .md-nav__item--nested {
+  border-top: 1px solid var(--cf-border-subtle);
+  margin-top: .15rem;
+  padding-top: .1rem;
+}
+
+
+/* ========================================================================
+   4. TABS — Visible in both modes
+   ======================================================================== */
+
+.md-tabs {
+  background: transparent;
+  border-bottom: 1px solid var(--cf-border);
+}
+
+.md-tabs__link {
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--cf-text-muted) !important;
+  opacity: 1 !important;
+  transition: color .15s ease;
+}
+
+.md-tabs__link:hover {
+  color: var(--cf-text) !important;
+}
+
+.md-tabs__link--active {
+  color: var(--cf-text) !important;
+  font-weight: 600;
+}
+
+
+/* ========================================================================
+   5. CODE BLOCKS — Dark, rounded, monospace
+   ======================================================================== */
+
+.md-typeset code {
+  font-size: .78em;
+  padding: .15em .4em;
+  border-radius: 4px;
+  background: var(--cf-bg-muted);
+  color: var(--cf-text);
+  font-weight: 450;
+  border: 1px solid var(--cf-border-subtle);
+}
+
+[data-md-color-scheme="slate"] .md-typeset code {
+  background: var(--cf-bg-muted);
+  color: var(--cf-text);
+  border-color: var(--cf-border);
+}
+
+.md-typeset pre {
+  border-radius: var(--cf-radius-sm);
+  border: 1px solid var(--cf-border);
+  overflow: hidden;
+}
+
+.md-typeset pre > code {
+  font-size: .75rem;
+  padding: .85rem 1rem;
+  border-radius: 0;
+  background: var(--cf-code-bg);
+  color: var(--cf-code-fg);
+  border: none;
+  line-height: 1.65;
+}
+
+[data-md-color-scheme="slate"] .md-typeset pre {
+  border-color: var(--cf-border);
+}
+
+/* Copy button */
+.md-typeset .md-clipboard {
+  color: var(--cf-text-muted);
+}
+
+.md-typeset .md-clipboard:hover {
+  color: var(--cf-brand);
+}
+
+/* Line numbers */
+.md-typeset .highlight .linenodiv {
+  opacity: .35;
+}
+
+
+/* ========================================================================
+   6. TABLES — Clean with subtle striping
+   ======================================================================== */
+
+.md-typeset table:not([class]) {
+  font-size: .75rem;
+  border: 1px solid var(--cf-border);
+  border-radius: var(--cf-radius-sm);
+  border-spacing: 0;
+  overflow: hidden;
+  display: table;
+  width: 100%;
+}
+
+.md-typeset table:not([class]) th {
+  background: var(--cf-bg-subtle);
+  font-weight: 600;
+  color: var(--cf-text);
+  padding: .5rem .85rem;
+  border-bottom: 1px solid var(--cf-border);
+  text-align: left;
+  font-size: .7rem;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.md-typeset table:not([class]) td {
+  padding: .45rem .85rem;
+  border-bottom: 1px solid var(--cf-border-subtle);
+  vertical-align: top;
+}
+
+.md-typeset table:not([class]) tr:last-child td {
+  border-bottom: none;
+}
+
+.md-typeset table:not([class]) tbody tr:hover {
+  background: var(--cf-bg-subtle);
+}
+
+
+/* ========================================================================
+   7. ADMONITIONS — Rounded, modern cards
+   ======================================================================== */
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: var(--cf-radius-sm);
+  border: 1px solid var(--cf-border);
+  font-size: .75rem;
+  overflow: hidden;
+}
+
+.md-typeset .admonition-title,
+.md-typeset summary {
+  font-weight: 600;
+  font-size: .75rem;
+  letter-spacing: -.005em;
+  border-radius: var(--cf-radius) var(--cf-radius) 0 0;
+}
+
+
+/* ========================================================================
+   8. SEARCH — Rounded input
+   ======================================================================== */
+
+.md-search__input {
+  border-radius: var(--cf-radius);
+  background: var(--cf-bg-muted);
+  font-size: .75rem;
+}
+
+[data-md-color-scheme="slate"] .md-search__input {
+  background: var(--cf-bg-muted);
+}
+
+
+/* ========================================================================
+   9. FOOTER — Subtle
+   ======================================================================== */
+
+.md-footer {
+  background: var(--cf-bg-subtle);
+  border-top: 1px solid var(--cf-border);
+}
+
+[data-md-color-scheme="slate"] .md-footer {
+  background: var(--cf-bg-subtle);
+}
+
+
+/* ========================================================================
+   10. CONTENT AREA — Constrained width, proper spacing
+   ======================================================================== */
+
+.md-main__inner {
+  max-width: 100%;
+}
+
+.md-content {
+  max-width: 100%;
+}
+
+.md-content__inner {
+  max-width: 48rem;
+  padding-top: 1.5rem;
+  padding-bottom: 3rem;
+}
+
+
+/* (Homepage hero/feature/stat/path CSS removed — homepage is now Installation page) */
+
+
+/* ========================================================================
+   12. SCROLLBAR — Thin, modern
+   ======================================================================== */
+
+.md-content ::-webkit-scrollbar {
+  height: 5px;
+  width: 5px;
+}
+
+.md-content ::-webkit-scrollbar-thumb {
+  background: var(--cf-border);
+  border-radius: 3px;
+}
+
+.md-content ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+/* ========================================================================
+   13. RESPONSIVE
+   ======================================================================== */
+
+/* (Homepage responsive overrides removed — homepage is now Installation page) */
+
+
+/* ========================================================================
+   14. MISC POLISH
+   ======================================================================== */
+
+/* Horizontal rules */
+.md-typeset hr {
+  border: none;
+  height: 1px;
+  background: var(--cf-border);
+  margin: 1.75rem 0;
+}
+
+/* Lists */
+.md-typeset ul,
+.md-typeset ol {
+  color: var(--cf-text-secondary);
+}
+
+.md-typeset li {
+  margin-bottom: .2rem;
+}
+
+/* Blockquotes */
+.md-typeset blockquote {
+  border-left: 2px solid var(--cf-border);
+  background: transparent;
+  border-radius: 0;
+  padding: .65rem .85rem;
+  color: var(--cf-text-muted);
+}
+
+/* Task lists */
+.md-typeset .task-list-control input[type="checkbox"] {
+  accent-color: var(--cf-brand);
+}
+
+/* Images */
+.md-typeset img {
+  border-radius: var(--cf-radius);
+}
+
+/* Keyboard shortcuts */
+.md-typeset kbd {
+  border-radius: 6px;
+  box-shadow: var(--cf-shadow-sm);
+}
+
+/* Content tabs (Quick Start section) */
+.md-typeset .tabbed-labels {
+  border-bottom: 1px solid var(--cf-border);
+}
+
+.md-typeset .tabbed-labels > label {
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--cf-text-muted);
+}
+
+.md-typeset .tabbed-labels > label:hover {
+  color: var(--cf-text);
+}
+
+.md-typeset .tabbed-labels > label.tabbed-labels--active,
+.md-typeset .tabbed-labels > .tabbed-alternate:checked + label {
+  color: var(--cf-text);
+}
+
+/* (Homepage architecture diagram CSS removed — homepage is now Installation page) */
+
+
+/* ========================================================================
+   15. FULL-WIDTH CONTENT — when no sidebar is present
+   ======================================================================== */
+
+/* When no sidebar is present (homepage, pages with hide: navigation),
+   let the content span full width — individual sections control their own max-width. */
+.md-content:only-child {
+  max-width: 100%;
+}
+
+.md-content:only-child .md-content__inner {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+
+/* ========================================================================
+   16. LIGHT MODE — Ensure full consistency
+   ======================================================================== */
+
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: #ffffff;
+  --md-default-fg-color: #0f172a;
+  --md-default-fg-color--light: #475569;
+  --md-default-fg-color--lighter: #94a3b8;
+  --md-default-fg-color--lightest: #e2e8f0;
+}
+
+
+/* ========================================================================
+   17. HOMEPAGE — Enterprise-minimalist landing
+   ======================================================================== */
+
+/* Hero */
+.pf-hero {
+  max-width: 560px;
+  margin: 5rem auto 3.5rem;
+  text-align: center;
+}
+
+.pf-hero h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.2;
+  color: var(--cf-text);
+  margin: 0 0 1rem;
+  border: none;
+  padding: 0;
+}
+
+.pf-hero p {
+  font-size: .85rem;
+  line-height: 1.65;
+  color: var(--cf-text-muted);
+  margin: 0 auto 2rem;
+  max-width: 440px;
+}
+
+/* Install pill */
+.pf-install-row {
+  margin: 0 auto 1.5rem;
+  text-align: center;
+}
+
+.pf-install-row code {
+  display: inline-block;
+  font-family: var(--md-code-font);
+  font-size: .8rem;
+  font-weight: 400;
+  padding: .5rem 1.2rem;
+  border-radius: 6px;
+  border: 1px solid var(--cf-border);
+  background: var(--cf-bg-subtle);
+  color: var(--cf-text-secondary);
+}
+
+[data-md-color-scheme="slate"] .pf-install-row code {
+  background: var(--cf-bg-muted);
+}
+
+/* Links */
+.pf-links {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.pf-link {
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--cf-text-muted);
+  text-decoration: none;
+  transition: color .15s ease;
+}
+
+.pf-link:hover {
+  color: var(--cf-text);
+  text-decoration: none;
+}
+
+/* ── Reasoning Graph Feature Section ── */
+
+.pf-feature {
+  max-width: 700px;
+  margin: 0 auto 3.5rem;
+}
+
+.pf-feature-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.pf-feature-header h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--cf-text);
+  margin: 0 0 .6rem;
+  border: none;
+  padding: 0;
+}
+
+.pf-feature-header p {
+  font-size: .82rem;
+  line-height: 1.65;
+  color: var(--cf-text-muted);
+  margin: 0 auto;
+  max-width: 520px;
+}
+
+.pf-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--cf-border);
+  border: 1px solid var(--cf-border);
+  border-radius: var(--cf-radius-sm);
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.pf-feature-card {
+  padding: 1.25rem;
+  background: var(--cf-bg);
+}
+
+[data-md-color-scheme="slate"] .pf-feature-card {
+  background: var(--cf-bg-subtle);
+}
+
+.pf-feature-icon {
+  font-size: 1.2rem;
+  margin-bottom: .4rem;
+}
+
+.pf-feature-card h3 {
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--cf-text);
+  margin: 0 0 .3rem;
+  border: none;
+  padding: 0;
+}
+
+.pf-feature-card p {
+  font-size: .7rem;
+  line-height: 1.55;
+  color: var(--cf-text-muted);
+  margin: 0;
+}
+
+.pf-feature-code {
+  margin-bottom: 2rem;
+}
+
+.pf-feature-patterns {
+  margin-bottom: 1.5rem;
+}
+
+.pf-feature-patterns h3 {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--cf-text);
+  margin: 0 0 .8rem;
+  border: none;
+  padding: 0;
+  text-align: center;
+}
+
+.pf-pattern-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.pf-pattern {
+  padding: .45rem .75rem;
+  border: 1px solid var(--cf-border);
+  border-radius: 6px;
+  background: var(--cf-bg-subtle);
+  text-align: center;
+  font-size: .65rem;
+  line-height: 1.4;
+}
+
+[data-md-color-scheme="slate"] .pf-pattern {
+  background: var(--cf-bg-muted);
+}
+
+.pf-pattern strong {
+  display: block;
+  font-size: .7rem;
+  font-weight: 600;
+  color: var(--cf-text);
+}
+
+.pf-pattern span {
+  color: var(--cf-text-muted);
+  font-size: .6rem;
+}
+
+.pf-feature-cta {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+@media (max-width: 600px) {
+  .pf-feature {
+    margin: 0 1.5rem 2.5rem;
+  }
+
+  .pf-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pf-pattern-grid {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Pillar grid */
+.pf-pillars {
+  max-width: 640px;
+  margin: 0 auto 3rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--cf-border);
+  border-left: 1px solid var(--cf-border);
+}
+
+.pf-pillar {
+  padding: 1.5rem;
+  border-right: 1px solid var(--cf-border);
+  border-bottom: 1px solid var(--cf-border);
+}
+
+.pf-pillar h3 {
+  font-size: .82rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--cf-text);
+  margin: 0 0 .4rem;
+  border: none;
+  padding: 0;
+}
+
+.pf-pillar p {
+  font-size: .72rem;
+  line-height: 1.6;
+  color: var(--cf-text-muted);
+  margin: 0 0 .6rem;
+}
+
+.pf-pillar-link {
+  font-size: .68rem;
+  font-weight: 500;
+  color: var(--cf-text-secondary);
+  text-decoration: none;
+  letter-spacing: .01em;
+}
+
+.pf-pillar-link:hover {
+  color: var(--cf-text);
+  text-decoration: none;
+}
+
+/* Sections below fold */
+.pf-section {
+  max-width: 500px;
+  margin: 0 auto 2.5rem;
+}
+
+.pf-section h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--cf-text);
+  border: none;
+  margin: 0 0 .75rem;
+  padding: 0;
+}
+
+.pf-section p {
+  font-size: .8rem;
+  margin: 0 0 .5rem;
+}
+
+.pf-section ul {
+  padding-left: 0;
+  list-style: none;
+}
+
+.pf-section li {
+  font-size: .8rem;
+  margin-bottom: .3rem;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .pf-hero {
+    margin: 3rem 1.5rem 2rem;
+  }
+
+  .pf-hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .pf-pillars {
+    grid-template-columns: 1fr;
+    margin: 0 1.5rem 2.5rem;
+  }
+
+  .pf-section {
+    margin: 0 1.5rem 2rem;
+  }
+}

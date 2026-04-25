@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Promptise Foundry — Social Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #efefef;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: #000;
+  }
+
+  /* GitHub social preview spec: 1280x640 */
+  .card {
+    width: 1280px;
+    height: 640px;
+    position: relative;
+    overflow: hidden;
+    background-color: #ffffff;
+  }
+
+  /* Wavy pattern background — 1:1 from promptise.com */
+  .pattern {
+    position: absolute;
+    inset: 0;
+    background-image: url('./wavy-pattern-white.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 1;
+  }
+
+  /* Subtle gradient lift to keep text legible without darkening the page */
+  .lift {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0) 45%,
+      rgba(255,255,255,0.55) 100%);
+  }
+
+  /* Content — bottom-left, matching website hero */
+  .content {
+    position: absolute;
+    left: 56px;
+    bottom: 48px;
+    right: 56px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    max-width: 1100px;
+  }
+
+  /* Foundry pill badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: #000;
+    border: 1px solid #1f2937;
+    margin-bottom: 18px;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .badge .dot-red { color: #f87171; font-weight: 600; }
+  .badge .label { color: rgba(255,255,255,0.78); font-weight: 400; }
+  .badge .arrow { color: rgba(255,255,255,0.5); font-size: 12px; line-height: 0; }
+
+  h1 {
+    font-size: 96px;
+    line-height: 1.0;
+    letter-spacing: -0.04em;
+    color: #000;
+    margin: 0 0 18px;
+    font-weight: 100;
+  }
+  h1 .second {
+    font-weight: 300;
+  }
+
+  .desc {
+    font-size: 22px;
+    line-height: 1.45;
+    font-weight: 300;
+    color: #4b5563;
+    max-width: 880px;
+    margin-bottom: 22px;
+  }
+
+  /* Buttons row */
+  .buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1;
+  }
+  .btn-primary {
+    background: #000;
+    color: #fff;
+    border: 1px solid #000;
+  }
+  .btn-secondary {
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  }
+  .btn-secondary .prompt { color: #9ca3af; }
+  .btn-icon {
+    width: 14px; height: 14px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* Highlights row */
+  .highlights {
+    display: flex;
+    gap: 22px;
+    align-items: center;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 400;
+  }
+  .highlights .item { display: inline-flex; align-items: center; gap: 7px; }
+  .highlights .pip {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .pip.green { background: #22c55e; }
+  .pip.blue { background: #3b82f6; }
+  .pip.orange { background: #f97316; }
+
+  /* Top-right: github URL watermark */
+  .url-mark {
+    position: absolute;
+    top: 28px;
+    right: 36px;
+    font-size: 13px;
+    color: #6b7280;
+    font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    letter-spacing: -0.005em;
+  }
+
+  /* Help block — only shown in browser, hidden when capturing */
+  .help {
+    max-width: 1280px;
+    margin: 24px auto 80px;
+    padding: 20px 24px;
+    color: #555;
+    font-size: 14px;
+    line-height: 1.55;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  .help code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  body { padding: 24px; display: flex; flex-direction: column; align-items: center; }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="pattern"></div>
+  <div class="lift"></div>
+
+  <div class="url-mark">github.com/promptise-com/foundry</div>
+
+  <div class="content">
+
+    <div class="badge">
+      <span class="dot-red">Foundry</span>
+      <span class="label">is now available</span>
+      <span class="arrow">→</span>
+    </div>
+
+    <h1>
+      The foundation layer<br/>
+      <span class="second">for agentic intelligence.</span>
+    </h1>
+
+    <p class="desc">
+      One framework to go from prototype to production. Agents that discover tools, remember context, and guard themselves. Build production MCP servers with auth, governance, and audit trails — multi-user, scalable, secure by default. Deploy autonomous agents that work around the clock.
+    </p>
+
+    <div class="buttons">
+      <span class="btn btn-primary">Get Started</span>
+      <span class="btn btn-secondary">
+        <span class="prompt">$</span>
+        <span>pip install promptise</span>
+      </span>
+      <span class="btn btn-secondary" style="font-family: 'Inter', system-ui, sans-serif;">
+        <svg class="btn-icon" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 005.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        GitHub
+      </span>
+    </div>
+
+    <div class="highlights">
+      <span class="item"><span class="pip green"></span>Production-Ready</span>
+      <span class="item"><span class="pip blue"></span>Type-Safe</span>
+      <span class="item"><span class="pip orange"></span>Open Source</span>
+    </div>
+
+  </div>
+</div>
+
+<div class="help">
+<strong>Export as a 1280×640 PNG for GitHub Social preview:</strong><br/><br/>
+<strong>Option A — Chrome DevTools (no install):</strong><br/>
+1. Open this file in Chrome<br/>
+2. Right-click the white card above → <strong>Inspect</strong><br/>
+3. Find the <code>&lt;div class="card"&gt;</code> element in the Elements panel<br/>
+4. Right-click it → <strong>Capture node screenshot</strong><br/>
+5. Save as <code>social-preview.png</code> in <code>docs/assets/</code><br/>
+6. Upload at <code>https://github.com/promptise-com/foundry/settings</code> → <strong>Social preview</strong><br/><br/>
+<strong>Option B — Playwright (one command after install):</strong><br/>
+<code>pip install playwright && playwright install chromium && python scripts/generate-social-preview.py</code>
+</div>
+
+</body>
+</html>
