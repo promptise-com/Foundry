@@ -6,37 +6,35 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="The MCPToolAdapter discovers tools from connected MCP servers and converts them into fully-typed LangChain BaseTool instances. It builds recursive Pydantic">
+        <meta name="description" content="Common questions about Promptise Foundry — installation, MCP support, security, comparison to LangChain and LangGraph, model support, and production readiness.">
       
       
         <meta name="author" content="Manser Ventures">
       
       
-        <link rel="canonical" href="https://docs.promptise.com/mcp/client/tool-adapter/">
+        <link rel="canonical" href="https://docs.promptise.com/faq/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../resources/contributing/">
       
-      
-        <link rel="next" href="../../../runtime/">
       
       
         
       
       
-      <link rel="icon" href="../../../assets/favicon.png">
+      <link rel="icon" href="../assets/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Tool Adapter - Promptise Foundry</title>
+        <title>Promptise Foundry FAQ — Questions about the Python AI agent framework - Promptise Foundry</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -55,11 +53,11 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
-      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -75,7 +73,7 @@
   
 
   
-  <link rel="canonical" href="https://docs.promptise.com/mcp/client/tool-adapter/">
+  <link rel="canonical" href="https://docs.promptise.com/faq/">
 
   
   
@@ -88,13 +86,15 @@
 
   
   
+    <meta name="keywords" content="Promptise Foundry FAQ, Python AI agent framework, MCP framework, LangChain alternative, LangGraph alternative, agent framework comparison">
+  
 
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
-  <meta property="og:title" content="Tool Adapter">
-  <meta property="og:description" content="The MCPToolAdapter discovers tools from connected MCP servers and converts them into fully-typed LangChain BaseTool instances. It builds recursive Pydantic">
-  <meta property="og:url" content="https://docs.promptise.com/mcp/client/tool-adapter/">
+  <meta property="og:title" content="Promptise Foundry FAQ — Questions about the Python AI agent framework">
+  <meta property="og:description" content="Common questions about Promptise Foundry — installation, MCP support, security, comparison to LangChain and LangGraph, model support, and production readiness.">
+  <meta property="og:url" content="https://docs.promptise.com/faq/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
@@ -102,8 +102,8 @@
 
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Tool Adapter">
-  <meta name="twitter:description" content="The MCPToolAdapter discovers tools from connected MCP servers and converts them into fully-typed LangChain BaseTool instances. It builds recursive Pydantic">
+  <meta name="twitter:title" content="Promptise Foundry FAQ — Questions about the Python AI agent framework">
+  <meta name="twitter:description" content="Common questions about Promptise Foundry — installation, MCP support, security, comparison to LangChain and LangGraph, model support, and production readiness.">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -177,10 +177,10 @@
     {
       "@context": "https://schema.org",
       "@type": "TechArticle",
-      "headline": "Tool Adapter",
-      "name": "Tool Adapter",
-      "description": "The MCPToolAdapter discovers tools from connected MCP servers and converts them into fully-typed LangChain BaseTool instances. It builds recursive Pydantic",
-      "url": "https://docs.promptise.com/mcp/client/tool-adapter/",
+      "headline": "Promptise Foundry FAQ \u2014 Questions about the Python AI agent framework",
+      "name": "Promptise Foundry FAQ \u2014 Questions about the Python AI agent framework",
+      "description": "Common questions about Promptise Foundry \u2014 installation, MCP support, security, comparison to LangChain and LangGraph, model support, and production readiness.",
+      "url": "https://docs.promptise.com/faq/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
         "@type": "WebSite",
@@ -215,6 +215,142 @@
 
   
   
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      
+      {
+        "@type": "Question",
+        "name": "What is Promptise Foundry?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Promptise Foundry is a production-grade Python framework for building AI agents, MCP (Model Context Protocol) servers, prompt engineering systems, and autonomous runtimes. It is secure by default, model-agnostic, MCP-native, and designed for teams shipping agentic AI to production."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "How is Promptise Foundry different from LangChain?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "LangChain is a general-purpose LLM toolkit with hundreds of integrations. Promptise Foundry is a focused production framework \u2014 it ships one coherent stack covering agents, MCP servers, prompt engineering, and autonomous runtime, with built-in access control, audit trails, sandboxing, and governance. Promptise has fewer abstractions, no fallbacks (errors raise instead of silently degrading), and is async-first."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "How does Promptise Foundry compare to LangGraph?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "LangGraph is an orchestration layer on top of LangChain focused on stateful graphs. Promptise Foundry includes an autonomous Agent Runtime with crash recovery, journals, governance, and triggers (cron, events, webhooks, file watch) \u2014 built for long-running agents that survive restarts, not just stateful conversations."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "How does Promptise Foundry compare to CrewAI?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "CrewAI focuses on multi-agent role-playing setups. Promptise Foundry is broader \u2014 it covers single agents, multi-agent coordination via cross-agent delegation, plus the production infrastructure (MCP servers, governance, observability, sandboxing) that real deployments need."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "What is MCP and why does Promptise Foundry use it?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "MCP (Model Context Protocol) is the open standard for connecting LLMs to tools, resources, and prompts. Promptise Foundry is MCP-native \u2014 agents auto-discover tools from any MCP server, and the framework includes a production SDK for building your own MCP servers with authentication, middleware, rate limiting, and audit logging."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "Which LLM models does Promptise Foundry support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Any model. Promptise Foundry is model-agnostic. Use a string like \"openai:gpt-5-mini\", \"anthropic:claude-sonnet-4.5\", or \"ollama:llama3\", or pass any LangChain BaseChatModel directly. Switching providers requires changing one string."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "Is Promptise Foundry production-ready?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The framework is designed for production from day one \u2014 no stub implementations, no half-finished features, no NotImplementedError. Built-in features include access control, capability-based policies, audit logging, encrypted transport, sandboxed code execution, observability with 8 transporters (Prometheus, OpenTelemetry, webhook), and crash-recovery via journals."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "How do I install Promptise Foundry?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Install with pip \u2014 `pip install promptise`. Python 3.10 or newer is required. Optional extras for memory backends, sandboxing, and observability are available."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "Does Promptise Foundry support self-hosted or local LLMs?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Use any Ollama model via the \"ollama:model-name\" string. Local embeddings, local guardrail models (DeBERTa, GLiNER, Llama Guard), and local memory backends (ChromaDB) make air-gapped deployments fully supported."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "Is Promptise Foundry open source?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes \u2014 Apache 2.0 licensed. The source code is at github.com/promptise-com/foundry."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "Can I run autonomous agents with Promptise Foundry?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The Agent Runtime turns stateless LLM calls into persistent, governed processes with cron triggers, event triggers, message triggers, webhook triggers, and file-watch triggers. Includes budget governance, health monitoring, mission tracking, and automatic crash recovery from journaled state."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "Does Promptise Foundry handle multi-user access control?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The MCP server SDK has JWT and asymmetric JWT authentication, capability-based access policies, per-user audit trails, and CallerContext propagation across the entire agent stack. Built for multi-tenant production deployments."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "How does Promptise Foundry handle prompt injection and security?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The framework includes PromptiseSecurityScanner with six detection heads \u2014 DeBERTa-based prompt injection detection, PII detection (69 regex patterns), credential detection (96 patterns), GLiNER NER, content safety via Llama Guard or Azure AI, and custom rules. All models run locally. Input blocking and output redaction are built in."
+        }
+      },
+      
+      {
+        "@type": "Question",
+        "name": "Where can I find examples?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Runnable examples are at github.com/promptise-com/foundry/tree/main/examples \u2014 covering agents, MCP servers, prompt engineering, and runtime use cases. Every example uses real LLM calls, no mocks."
+        }
+      }
+      
+    ]
+  }
+  </script>
+  
 
   
   
@@ -233,20 +369,20 @@
       ,{
         "@type": "ListItem",
         "position": 2,
-        "name": "MCP"
+        "name": "Resources"
       }
       
       ,{
         "@type": "ListItem",
         "position": 3,
-        "name": "Client SDK"
+        "name": "Help"
       }
       
       ,{
         "@type": "ListItem",
         "position": 4,
-        "name": "Tool Adapter",
-        "item": "https://docs.promptise.com/mcp/client/tool-adapter/"
+        "name": "Promptise Foundry FAQ \u2014 Questions about the Python AI agent framework",
+        "item": "https://docs.promptise.com/faq/"
       }
     ]
   }
@@ -272,7 +408,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mcp-tool-adapter" class="md-skip">
+        <a href="#frequently-asked-questions" class="md-skip">
           Skip to content
         </a>
       
@@ -290,7 +426,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="https://promptise.com" title="Promptise Foundry" class="md-header__button md-logo" aria-label="Promptise Foundry" data-md-component="logo">
       
-  <img src="../../../assets/logo.png" alt="logo">
+  <img src="../assets/logo.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -307,7 +443,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Tool Adapter
+              Promptise Foundry FAQ — Questions about the Python AI agent framework
             
           </span>
         </div>
@@ -416,7 +552,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../.." class="md-tabs__link">
+        <a href=".." class="md-tabs__link">
           
   
   
@@ -438,7 +574,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../guides/" class="md-tabs__link">
+        <a href="../guides/" class="md-tabs__link">
           
   
   
@@ -460,7 +596,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../core/" class="md-tabs__link">
+        <a href="../core/" class="md-tabs__link">
           
   
   
@@ -482,7 +618,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../core/engine/" class="md-tabs__link">
+        <a href="../core/engine/" class="md-tabs__link">
           
   
   
@@ -500,13 +636,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../mcp/" class="md-tabs__link">
           
   
   
@@ -528,7 +662,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../runtime/" class="md-tabs__link">
+        <a href="../runtime/" class="md-tabs__link">
           
   
   
@@ -550,7 +684,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../prompting/" class="md-tabs__link">
+        <a href="../prompting/" class="md-tabs__link">
           
   
   
@@ -579,7 +713,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../api/agent/" class="md-tabs__link">
+        <a href="../api/agent/" class="md-tabs__link">
           
   
   
@@ -600,6 +734,8 @@
   
   
   
+    
+  
   
     
     
@@ -607,11 +743,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../resources/showcase/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../resources/showcase/" class="md-tabs__link">
           
   
   
@@ -658,7 +796,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="https://promptise.com" title="Promptise Foundry" class="md-nav__button md-logo" aria-label="Promptise Foundry" data-md-component="logo">
       
-  <img src="../../../assets/logo.png" alt="logo">
+  <img src="../assets/logo.png" alt="logo">
 
     </a>
     Promptise Foundry
@@ -718,7 +856,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../.." class="md-nav__link ">
+            <a href=".." class="md-nav__link ">
               
   
   
@@ -762,7 +900,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/installation-extras/" class="md-nav__link">
+      <a href="../getting-started/installation-extras/" class="md-nav__link">
         
   
   
@@ -790,7 +928,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/quickstart/" class="md-nav__link">
+      <a href="../getting-started/quickstart/" class="md-nav__link">
         
   
   
@@ -818,7 +956,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/model-setup/" class="md-nav__link">
+      <a href="../getting-started/model-setup/" class="md-nav__link">
         
   
   
@@ -846,7 +984,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/best-llms-for-agents/" class="md-nav__link">
+      <a href="../getting-started/best-llms-for-agents/" class="md-nav__link">
         
   
   
@@ -874,7 +1012,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/concepts/" class="md-nav__link">
+      <a href="../getting-started/concepts/" class="md-nav__link">
         
   
   
@@ -936,7 +1074,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../guides/" class="md-nav__link ">
+            <a href="../guides/" class="md-nav__link ">
               
   
   
@@ -1048,7 +1186,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/building-agents/" class="md-nav__link">
+      <a href="../guides/building-agents/" class="md-nav__link">
         
   
   
@@ -1076,7 +1214,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/production-mcp-servers/" class="md-nav__link">
+      <a href="../guides/production-mcp-servers/" class="md-nav__link">
         
   
   
@@ -1104,7 +1242,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/agentic-runtime/" class="md-nav__link">
+      <a href="../guides/agentic-runtime/" class="md-nav__link">
         
   
   
@@ -1132,7 +1270,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/prompt-engineering/" class="md-nav__link">
+      <a href="../guides/prompt-engineering/" class="md-nav__link">
         
   
   
@@ -1160,7 +1298,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/multi-user-systems/" class="md-nav__link">
+      <a href="../guides/multi-user-systems/" class="md-nav__link">
         
   
   
@@ -1188,7 +1326,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/multi-user-identity/" class="md-nav__link">
+      <a href="../guides/multi-user-identity/" class="md-nav__link">
         
   
   
@@ -1216,7 +1354,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/multi-agent-teams/" class="md-nav__link">
+      <a href="../guides/multi-agent-teams/" class="md-nav__link">
         
   
   
@@ -1314,7 +1452,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/lab-customer-support/" class="md-nav__link">
+      <a href="../guides/lab-customer-support/" class="md-nav__link">
         
   
   
@@ -1342,7 +1480,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/lab-data-analysis/" class="md-nav__link">
+      <a href="../guides/lab-data-analysis/" class="md-nav__link">
         
   
   
@@ -1370,7 +1508,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/lab-code-review/" class="md-nav__link">
+      <a href="../guides/lab-code-review/" class="md-nav__link">
         
   
   
@@ -1398,7 +1536,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/lab-pipeline-observer/" class="md-nav__link">
+      <a href="../guides/lab-pipeline-observer/" class="md-nav__link">
         
   
   
@@ -1478,7 +1616,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../core/" class="md-nav__link ">
+            <a href="../core/" class="md-nav__link ">
               
   
   
@@ -1588,7 +1726,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/agents/building-agents/" class="md-nav__link">
+      <a href="../core/agents/building-agents/" class="md-nav__link">
         
   
   
@@ -1616,7 +1754,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/agents/server-specs/" class="md-nav__link">
+      <a href="../core/agents/server-specs/" class="md-nav__link">
         
   
   
@@ -1644,7 +1782,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/agents/network-server/" class="md-nav__link">
+      <a href="../core/agents/network-server/" class="md-nav__link">
         
   
   
@@ -1672,7 +1810,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/agents/superagent-files/" class="md-nav__link">
+      <a href="../core/agents/superagent-files/" class="md-nav__link">
         
   
   
@@ -1700,7 +1838,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/agents/reasoning-patterns/" class="md-nav__link">
+      <a href="../core/agents/reasoning-patterns/" class="md-nav__link">
         
   
   
@@ -1728,7 +1866,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/agents/cross-agent/" class="md-nav__link">
+      <a href="../core/agents/cross-agent/" class="md-nav__link">
         
   
   
@@ -1828,7 +1966,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/memory/" class="md-nav__link">
+      <a href="../core/memory/" class="md-nav__link">
         
   
   
@@ -1856,7 +1994,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/rag/" class="md-nav__link">
+      <a href="../core/rag/" class="md-nav__link">
         
   
   
@@ -1884,7 +2022,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/conversations/" class="md-nav__link">
+      <a href="../core/conversations/" class="md-nav__link">
         
   
   
@@ -1912,7 +2050,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/cache/" class="md-nav__link">
+      <a href="../core/cache/" class="md-nav__link">
         
   
   
@@ -1940,7 +2078,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/context-engine/" class="md-nav__link">
+      <a href="../core/context-engine/" class="md-nav__link">
         
   
   
@@ -2038,7 +2176,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/guardrails/" class="md-nav__link">
+      <a href="../core/guardrails/" class="md-nav__link">
         
   
   
@@ -2066,7 +2204,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/approval/" class="md-nav__link">
+      <a href="../core/approval/" class="md-nav__link">
         
   
   
@@ -2094,7 +2232,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/approval-classifier/" class="md-nav__link">
+      <a href="../core/approval-classifier/" class="md-nav__link">
         
   
   
@@ -2122,7 +2260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/sandbox/" class="md-nav__link">
+      <a href="../core/sandbox/" class="md-nav__link">
         
   
   
@@ -2218,7 +2356,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/tool-optimization/" class="md-nav__link">
+      <a href="../core/tool-optimization/" class="md-nav__link">
         
   
   
@@ -2246,7 +2384,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/fallback/" class="md-nav__link">
+      <a href="../core/fallback/" class="md-nav__link">
         
   
   
@@ -2274,7 +2412,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/adaptive-strategy/" class="md-nav__link">
+      <a href="../core/adaptive-strategy/" class="md-nav__link">
         
   
   
@@ -2370,7 +2508,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/streaming/" class="md-nav__link">
+      <a href="../core/streaming/" class="md-nav__link">
         
   
   
@@ -2398,7 +2536,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/events/" class="md-nav__link">
+      <a href="../core/events/" class="md-nav__link">
         
   
   
@@ -2426,7 +2564,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/observability/" class="md-nav__link">
+      <a href="../core/observability/" class="md-nav__link">
         
   
   
@@ -2530,7 +2668,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/config/" class="md-nav__link">
+      <a href="../core/config/" class="md-nav__link">
         
   
   
@@ -2558,7 +2696,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/types/" class="md-nav__link">
+      <a href="../core/types/" class="md-nav__link">
         
   
   
@@ -2586,7 +2724,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/default-prompt/" class="md-nav__link">
+      <a href="../core/default-prompt/" class="md-nav__link">
         
   
   
@@ -2614,7 +2752,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/callback-handler/" class="md-nav__link">
+      <a href="../core/callback-handler/" class="md-nav__link">
         
   
   
@@ -2642,7 +2780,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/tools/" class="md-nav__link">
+      <a href="../core/tools/" class="md-nav__link">
         
   
   
@@ -2670,7 +2808,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/env-resolver/" class="md-nav__link">
+      <a href="../core/env-resolver/" class="md-nav__link">
         
   
   
@@ -2698,7 +2836,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/exceptions/" class="md-nav__link">
+      <a href="../core/exceptions/" class="md-nav__link">
         
   
   
@@ -2734,7 +2872,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/cli/" class="md-nav__link">
+      <a href="../core/cli/" class="md-nav__link">
         
   
   
@@ -2833,7 +2971,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine/" class="md-nav__link">
+      <a href="../core/engine/" class="md-nav__link">
         
   
   
@@ -2921,7 +3059,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-nodes/" class="md-nav__link">
+      <a href="../core/engine-nodes/" class="md-nav__link">
         
   
   
@@ -2949,7 +3087,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-edges/" class="md-nav__link">
+      <a href="../core/engine-edges/" class="md-nav__link">
         
   
   
@@ -2977,7 +3115,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-flags/" class="md-nav__link">
+      <a href="../core/engine-flags/" class="md-nav__link">
         
   
   
@@ -3075,7 +3213,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-prebuilts/" class="md-nav__link">
+      <a href="../core/engine-prebuilts/" class="md-nav__link">
         
   
   
@@ -3103,7 +3241,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-skills/" class="md-nav__link">
+      <a href="../core/engine-skills/" class="md-nav__link">
         
   
   
@@ -3131,7 +3269,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/skill-registry/" class="md-nav__link">
+      <a href="../core/skill-registry/" class="md-nav__link">
         
   
   
@@ -3159,7 +3297,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/custom-reasoning/" class="md-nav__link">
+      <a href="../guides/custom-reasoning/" class="md-nav__link">
         
   
   
@@ -3257,7 +3395,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-tools/" class="md-nav__link">
+      <a href="../core/engine-tools/" class="md-nav__link">
         
   
   
@@ -3285,7 +3423,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-processors/" class="md-nav__link">
+      <a href="../core/engine-processors/" class="md-nav__link">
         
   
   
@@ -3313,7 +3451,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-hooks/" class="md-nav__link">
+      <a href="../core/engine-hooks/" class="md-nav__link">
         
   
   
@@ -3341,7 +3479,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-serialization/" class="md-nav__link">
+      <a href="../core/engine-serialization/" class="md-nav__link">
         
   
   
@@ -3377,7 +3515,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../core/engine-internals/" class="md-nav__link">
+      <a href="../core/engine-internals/" class="md-nav__link">
         
   
   
@@ -3409,8 +3547,6 @@
       
   
   
-    
-  
   
   
     
@@ -3428,23 +3564,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../mcp/" class="md-nav__link ">
               
   
   
@@ -3462,13 +3595,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -3520,20 +3653,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
         
           
-          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
             
   
   
@@ -3569,7 +3699,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guides/production-mcp-servers/" class="md-nav__link">
+      <a href="../guides/production-mcp-servers/" class="md-nav__link">
         
   
   
@@ -3597,7 +3727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/building-servers/" class="md-nav__link">
+      <a href="../mcp/server/building-servers/" class="md-nav__link">
         
   
   
@@ -3625,7 +3755,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/routers-middleware/" class="md-nav__link">
+      <a href="../mcp/server/routers-middleware/" class="md-nav__link">
         
   
   
@@ -3653,7 +3783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/auth-security/" class="md-nav__link">
+      <a href="../mcp/server/auth-security/" class="md-nav__link">
         
   
   
@@ -3681,7 +3811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/production-features/" class="md-nav__link">
+      <a href="../mcp/server/production-features/" class="md-nav__link">
         
   
   
@@ -3709,7 +3839,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/caching-performance/" class="md-nav__link">
+      <a href="../mcp/server/caching-performance/" class="md-nav__link">
         
   
   
@@ -3737,7 +3867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/observability/" class="md-nav__link">
+      <a href="../mcp/server/observability/" class="md-nav__link">
         
   
   
@@ -3765,7 +3895,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/resilience-patterns/" class="md-nav__link">
+      <a href="../mcp/server/resilience-patterns/" class="md-nav__link">
         
   
   
@@ -3793,7 +3923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/queue/" class="md-nav__link">
+      <a href="../mcp/server/queue/" class="md-nav__link">
         
   
   
@@ -3821,7 +3951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/advanced-patterns/" class="md-nav__link">
+      <a href="../mcp/server/advanced-patterns/" class="md-nav__link">
         
   
   
@@ -3849,7 +3979,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/deployment/" class="md-nav__link">
+      <a href="../mcp/server/deployment/" class="md-nav__link">
         
   
   
@@ -3877,7 +4007,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../server/testing/" class="md-nav__link">
+      <a href="../mcp/server/testing/" class="md-nav__link">
         
   
   
@@ -3910,8 +4040,6 @@
                 
   
   
-    
-  
   
   
     
@@ -3929,21 +4057,18 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../mcp/client/" class="md-nav__link ">
               
   
   
@@ -3961,13 +4086,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -3984,37 +4109,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Tool Adapter
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../mcp/client/tool-adapter/" class="md-nav__link">
         
   
   
@@ -4030,225 +4128,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#quick-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick example
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#concepts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Concepts
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Concepts">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#how-mcptooladapter-fits-in" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How MCPToolAdapter fits in
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-it-works" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How it works
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#creating-an-adapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Creating an adapter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#getting-langchain-tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Getting LangChain tools
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tool-introspection" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tool introspection
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#callback-hooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Callback hooks
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#result-extraction" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Result extraction
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#error-handling" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error handling
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#api-summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API summary
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="API summary">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#mcptooladapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MCPToolAdapter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Methods
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#callback-types" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Callback types
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#toolinfo" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ToolInfo
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tips-and-gotchas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tips and gotchas
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#whats-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What's next
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -4315,7 +4194,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../runtime/" class="md-nav__link ">
+            <a href="../runtime/" class="md-nav__link ">
               
   
   
@@ -4427,7 +4306,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/processes/" class="md-nav__link">
+      <a href="../runtime/processes/" class="md-nav__link">
         
   
   
@@ -4455,7 +4334,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/api/" class="md-nav__link">
+      <a href="../runtime/api/" class="md-nav__link">
         
   
   
@@ -4483,7 +4362,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/runtime-manager/" class="md-nav__link">
+      <a href="../runtime/runtime-manager/" class="md-nav__link">
         
   
   
@@ -4511,7 +4390,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/context/" class="md-nav__link">
+      <a href="../runtime/context/" class="md-nav__link">
         
   
   
@@ -4539,7 +4418,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/lifecycle/" class="md-nav__link">
+      <a href="../runtime/lifecycle/" class="md-nav__link">
         
   
   
@@ -4567,7 +4446,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/hooks/" class="md-nav__link">
+      <a href="../runtime/hooks/" class="md-nav__link">
         
   
   
@@ -4595,7 +4474,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/conversation/" class="md-nav__link">
+      <a href="../runtime/conversation/" class="md-nav__link">
         
   
   
@@ -4691,7 +4570,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/configuration/" class="md-nav__link">
+      <a href="../runtime/configuration/" class="md-nav__link">
         
   
   
@@ -4719,7 +4598,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/manifests/" class="md-nav__link">
+      <a href="../runtime/manifests/" class="md-nav__link">
         
   
   
@@ -4747,7 +4626,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/meta-tools/" class="md-nav__link">
+      <a href="../runtime/meta-tools/" class="md-nav__link">
         
   
   
@@ -4845,7 +4724,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/governance/mission/" class="md-nav__link">
+      <a href="../runtime/governance/mission/" class="md-nav__link">
         
   
   
@@ -4873,7 +4752,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/governance/budget/" class="md-nav__link">
+      <a href="../runtime/governance/budget/" class="md-nav__link">
         
   
   
@@ -4901,7 +4780,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/governance/health/" class="md-nav__link">
+      <a href="../runtime/governance/health/" class="md-nav__link">
         
   
   
@@ -4929,7 +4808,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/governance/secrets/" class="md-nav__link">
+      <a href="../runtime/governance/secrets/" class="md-nav__link">
         
   
   
@@ -4994,7 +4873,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../runtime/triggers/" class="md-nav__link ">
+            <a href="../runtime/triggers/" class="md-nav__link ">
               
   
   
@@ -5038,7 +4917,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/triggers/cron/" class="md-nav__link">
+      <a href="../runtime/triggers/cron/" class="md-nav__link">
         
   
   
@@ -5066,7 +4945,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/triggers/event-webhook/" class="md-nav__link">
+      <a href="../runtime/triggers/event-webhook/" class="md-nav__link">
         
   
   
@@ -5094,7 +4973,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/triggers/file-watch/" class="md-nav__link">
+      <a href="../runtime/triggers/file-watch/" class="md-nav__link">
         
   
   
@@ -5159,7 +5038,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../runtime/journal/" class="md-nav__link ">
+            <a href="../runtime/journal/" class="md-nav__link ">
               
   
   
@@ -5203,7 +5082,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/journal/backends/" class="md-nav__link">
+      <a href="../runtime/journal/backends/" class="md-nav__link">
         
   
   
@@ -5231,7 +5110,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/journal/replay/" class="md-nav__link">
+      <a href="../runtime/journal/replay/" class="md-nav__link">
         
   
   
@@ -5259,7 +5138,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/journal/rewind/" class="md-nav__link">
+      <a href="../runtime/journal/rewind/" class="md-nav__link">
         
   
   
@@ -5353,7 +5232,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/distributed/coordinator/" class="md-nav__link">
+      <a href="../runtime/distributed/coordinator/" class="md-nav__link">
         
   
   
@@ -5381,7 +5260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/distributed/discovery-transport/" class="md-nav__link">
+      <a href="../runtime/distributed/discovery-transport/" class="md-nav__link">
         
   
   
@@ -5417,7 +5296,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/dashboard/" class="md-nav__link">
+      <a href="../runtime/dashboard/" class="md-nav__link">
         
   
   
@@ -5445,7 +5324,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../runtime/cli/" class="md-nav__link">
+      <a href="../runtime/cli/" class="md-nav__link">
         
   
   
@@ -5511,7 +5390,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../prompting/" class="md-nav__link ">
+            <a href="../prompting/" class="md-nav__link ">
               
   
   
@@ -5619,7 +5498,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/blocks/" class="md-nav__link">
+      <a href="../prompting/blocks/" class="md-nav__link">
         
   
   
@@ -5647,7 +5526,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/flows/" class="md-nav__link">
+      <a href="../prompting/flows/" class="md-nav__link">
         
   
   
@@ -5675,7 +5554,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/builder/" class="md-nav__link">
+      <a href="../prompting/builder/" class="md-nav__link">
         
   
   
@@ -5703,7 +5582,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/loader-templates/" class="md-nav__link">
+      <a href="../prompting/loader-templates/" class="md-nav__link">
         
   
   
@@ -5731,7 +5610,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/shell-interpolation/" class="md-nav__link">
+      <a href="../prompting/shell-interpolation/" class="md-nav__link">
         
   
   
@@ -5827,7 +5706,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/strategies/" class="md-nav__link">
+      <a href="../prompting/strategies/" class="md-nav__link">
         
   
   
@@ -5855,7 +5734,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/chaining/" class="md-nav__link">
+      <a href="../prompting/chaining/" class="md-nav__link">
         
   
   
@@ -5883,7 +5762,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/context/" class="md-nav__link">
+      <a href="../prompting/context/" class="md-nav__link">
         
   
   
@@ -5979,7 +5858,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/guards/" class="md-nav__link">
+      <a href="../prompting/guards/" class="md-nav__link">
         
   
   
@@ -6007,7 +5886,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/inspector/" class="md-nav__link">
+      <a href="../prompting/inspector/" class="md-nav__link">
         
   
   
@@ -6035,7 +5914,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/testing/" class="md-nav__link">
+      <a href="../prompting/testing/" class="md-nav__link">
         
   
   
@@ -6071,7 +5950,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../prompting/suite-registry/" class="md-nav__link">
+      <a href="../prompting/suite-registry/" class="md-nav__link">
         
   
   
@@ -6234,7 +6113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/agent/" class="md-nav__link">
+      <a href="../api/agent/" class="md-nav__link">
         
   
   
@@ -6262,7 +6141,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/config/" class="md-nav__link">
+      <a href="../api/config/" class="md-nav__link">
         
   
   
@@ -6290,7 +6169,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/memory/" class="md-nav__link">
+      <a href="../api/memory/" class="md-nav__link">
         
   
   
@@ -6318,7 +6197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/rag/" class="md-nav__link">
+      <a href="../api/rag/" class="md-nav__link">
         
   
   
@@ -6346,7 +6225,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/sandbox/" class="md-nav__link">
+      <a href="../api/sandbox/" class="md-nav__link">
         
   
   
@@ -6374,7 +6253,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/observability/" class="md-nav__link">
+      <a href="../api/observability/" class="md-nav__link">
         
   
   
@@ -6468,7 +6347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/mcp-server/" class="md-nav__link">
+      <a href="../api/mcp-server/" class="md-nav__link">
         
   
   
@@ -6496,7 +6375,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/mcp-client/" class="md-nav__link">
+      <a href="../api/mcp-client/" class="md-nav__link">
         
   
   
@@ -6590,7 +6469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/prompts/" class="md-nav__link">
+      <a href="../api/prompts/" class="md-nav__link">
         
   
   
@@ -6618,7 +6497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/runtime/" class="md-nav__link">
+      <a href="../api/runtime/" class="md-nav__link">
         
   
   
@@ -6714,7 +6593,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/cross-agent/" class="md-nav__link">
+      <a href="../api/cross-agent/" class="md-nav__link">
         
   
   
@@ -6742,7 +6621,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/superagent/" class="md-nav__link">
+      <a href="../api/superagent/" class="md-nav__link">
         
   
   
@@ -6770,7 +6649,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/utilities/" class="md-nav__link">
+      <a href="../api/utilities/" class="md-nav__link">
         
   
   
@@ -6810,8 +6689,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -6825,19 +6706,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
             
   
   
@@ -6855,7 +6739,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -6887,17 +6771,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_1" >
         
           
-          <label class="md-nav__link" for="__nav_9_1" id="__nav_9_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9_1" id="__nav_9_1_label" tabindex="">
             
   
   
@@ -6933,7 +6820,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../resources/showcase/" class="md-nav__link">
+      <a href="../resources/showcase/" class="md-nav__link">
         
   
   
@@ -6961,7 +6848,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../resources/submit-project/" class="md-nav__link">
+      <a href="../resources/submit-project/" class="md-nav__link">
         
   
   
@@ -6989,7 +6876,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../resources/examples/" class="md-nav__link">
+      <a href="../resources/examples/" class="md-nav__link">
         
   
   
@@ -7039,17 +6926,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_2" >
         
           
-          <label class="md-nav__link" for="__nav_9_2" id="__nav_9_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9_2" id="__nav_9_2_label" tabindex="">
             
   
   
@@ -7085,7 +6975,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../resources/migration/" class="md-nav__link">
+      <a href="../resources/migration/" class="md-nav__link">
         
   
   
@@ -7113,7 +7003,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../resources/changelog/" class="md-nav__link">
+      <a href="../resources/changelog/" class="md-nav__link">
         
   
   
@@ -7141,7 +7031,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../resources/contributing/" class="md-nav__link">
+      <a href="../resources/contributing/" class="md-nav__link">
         
   
   
@@ -7174,8 +7064,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -7186,18 +7078,21 @@
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" >
         
           
-          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="0">
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_9_3" id="__nav_9_3_label" tabindex="">
             
   
   
@@ -7215,7 +7110,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_9_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_9_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -7230,10 +7125,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../faq/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -7249,6 +7171,191 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-is-promptise-foundry-different-from-langchain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How is Promptise Foundry different from LangChain?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-compare-to-langgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry compare to LangGraph?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-compare-to-crewai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry compare to CrewAI?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-mcp-and-why-does-promptise-foundry-use-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is MCP and why does Promptise Foundry use it?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#which-llm-models-does-promptise-foundry-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which LLM models does Promptise Foundry support?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#is-promptise-foundry-production-ready" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is Promptise Foundry production-ready?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-do-i-install-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I install Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-self-hosted-or-local-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support self-hosted or local LLMs?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#is-promptise-foundry-open-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is Promptise Foundry open source?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-run-autonomous-agents-with-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I run autonomous agents with Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#does-promptise-foundry-handle-multi-user-access-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry handle multi-user access control?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-handle-prompt-injection-and-security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry handle prompt injection and security?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-can-i-find-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where can I find examples?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#still-have-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Still have questions?
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -7296,10 +7403,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-example" class="md-nav__link">
+  <a href="#what-is-promptise-foundry" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick example
+        What is Promptise Foundry?
       
     </span>
   </a>
@@ -7307,176 +7414,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#concepts" class="md-nav__link">
+  <a href="#how-is-promptise-foundry-different-from-langchain" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Concepts
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Concepts">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#how-mcptooladapter-fits-in" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How MCPToolAdapter fits in
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-it-works" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How it works
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#creating-an-adapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Creating an adapter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#getting-langchain-tools" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Getting LangChain tools
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tool-introspection" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tool introspection
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#callback-hooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Callback hooks
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#result-extraction" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Result extraction
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#error-handling" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Error handling
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#api-summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API summary
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="API summary">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#mcptooladapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MCPToolAdapter
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Methods
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#callback-types" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Callback types
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#toolinfo" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ToolInfo
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tips-and-gotchas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tips and gotchas
+        How is Promptise Foundry different from LangChain?
       
     </span>
   </a>
@@ -7484,10 +7425,142 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#whats-next" class="md-nav__link">
+  <a href="#how-does-promptise-foundry-compare-to-langgraph" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What's next
+        How does Promptise Foundry compare to LangGraph?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-compare-to-crewai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry compare to CrewAI?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-mcp-and-why-does-promptise-foundry-use-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is MCP and why does Promptise Foundry use it?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#which-llm-models-does-promptise-foundry-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which LLM models does Promptise Foundry support?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#is-promptise-foundry-production-ready" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is Promptise Foundry production-ready?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-do-i-install-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I install Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-self-hosted-or-local-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support self-hosted or local LLMs?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#is-promptise-foundry-open-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is Promptise Foundry open source?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#can-i-run-autonomous-agents-with-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I run autonomous agents with Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#does-promptise-foundry-handle-multi-user-access-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry handle multi-user access control?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-handle-prompt-injection-and-security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry handle prompt injection and security?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-can-i-find-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where can I find examples?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#still-have-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Still have questions?
       
     </span>
   </a>
@@ -7519,15 +7592,23 @@
   
     
     
+      
+  
+  
+    
+    
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../resources/showcase/" class="md-path__link">
           
   <span class="md-ellipsis">
-    MCP
+    Resources
   </span>
 
         </a>
       </li>
+    
+  
+
     
   
 
@@ -7538,10 +7619,10 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="./" class="md-path__link">
           
   <span class="md-ellipsis">
-    Client SDK
+    Help
   </span>
 
         </a>
@@ -7563,308 +7644,44 @@
   
 
 
-<h1 id="mcp-tool-adapter">MCP Tool Adapter<a class="headerlink" href="#mcp-tool-adapter" title="Link to this section">&para;</a></h1>
-<p>The <code>MCPToolAdapter</code> discovers tools from connected MCP servers and converts
-them into fully-typed LangChain <code>BaseTool</code> instances.  It builds recursive
-Pydantic models from MCP JSON Schemas -- preserving nested objects, arrays,
-unions, <code>$ref</code>/<code>$defs</code>, enums, defaults, and descriptions -- so LLMs can
-generate correct tool calls on the first attempt.</p>
-<p><strong>Source:</strong> <code>src/promptise/mcp/client/_tool_adapter.py</code></p>
-<h2 id="quick-example">Quick example<a class="headerlink" href="#quick-example" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPMultiClient</span><span class="p">,</span> <span class="n">MCPToolAdapter</span><span class="p">,</span> <span class="n">build_agent</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">multi</span> <span class="o">=</span> <span class="n">MCPMultiClient</span><span class="p">({</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="s2">&quot;math&quot;</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://localhost:8080/mcp&quot;</span><span class="p">),</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">})</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span><span class="n">multi</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="c1"># Use tools with build_agent</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>            <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-5-mini&quot;</span><span class="p">,</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>            <span class="n">servers</span><span class="o">=</span><span class="p">{},</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>            <span class="n">extra_tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="p">)</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span>
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>            <span class="p">{</span><span class="s2">&quot;messages&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;What is 7 + 3?&quot;</span><span class="p">}]}</span>
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="p">)</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;messages&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<h1 id="frequently-asked-questions">Frequently Asked Questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this section">&para;</a></h1>
+<p>Common questions about Promptise Foundry — the production Python framework for AI agents, MCP servers, and autonomous runtimes.</p>
+<h2 id="what-is-promptise-foundry">What is Promptise Foundry?<a class="headerlink" href="#what-is-promptise-foundry" title="Link to this section">&para;</a></h2>
+<p>Promptise Foundry is a production-grade Python framework for building AI agents, MCP (Model Context Protocol) servers, prompt engineering systems, and autonomous runtimes. It is <strong>secure by default, model-agnostic, MCP-native</strong>, and designed for teams shipping agentic AI to production.</p>
+<h2 id="how-is-promptise-foundry-different-from-langchain">How is Promptise Foundry different from LangChain?<a class="headerlink" href="#how-is-promptise-foundry-different-from-langchain" title="Link to this section">&para;</a></h2>
+<p>LangChain is a general-purpose LLM toolkit with hundreds of integrations. Promptise Foundry is a focused production framework — it ships one coherent stack covering agents, MCP servers, prompt engineering, and autonomous runtime, with <strong>built-in access control, audit trails, sandboxing, and governance</strong>. Promptise has fewer abstractions, no fallbacks (errors raise instead of silently degrading), and is async-first throughout.</p>
+<h2 id="how-does-promptise-foundry-compare-to-langgraph">How does Promptise Foundry compare to LangGraph?<a class="headerlink" href="#how-does-promptise-foundry-compare-to-langgraph" title="Link to this section">&para;</a></h2>
+<p>LangGraph is an orchestration layer on top of LangChain focused on stateful graphs. Promptise Foundry includes an <strong>autonomous Agent Runtime</strong> with crash recovery, journals, governance, and triggers (cron, events, webhooks, file watch) — built for long-running agents that survive restarts, not just stateful conversations.</p>
+<h2 id="how-does-promptise-foundry-compare-to-crewai">How does Promptise Foundry compare to CrewAI?<a class="headerlink" href="#how-does-promptise-foundry-compare-to-crewai" title="Link to this section">&para;</a></h2>
+<p>CrewAI focuses on multi-agent role-playing setups. Promptise Foundry is broader — it covers single agents, multi-agent coordination via cross-agent delegation, plus the production infrastructure (MCP servers, governance, observability, sandboxing) that real deployments need.</p>
+<h2 id="what-is-mcp-and-why-does-promptise-foundry-use-it">What is MCP and why does Promptise Foundry use it?<a class="headerlink" href="#what-is-mcp-and-why-does-promptise-foundry-use-it" title="Link to this section">&para;</a></h2>
+<p>MCP (<a href="https://modelcontextprotocol.io">Model Context Protocol</a>) is the open standard for connecting LLMs to tools, resources, and prompts. Promptise Foundry is <strong>MCP-native</strong> — agents auto-discover tools from any MCP server, and the framework includes a production SDK for building your own MCP servers with authentication, middleware, rate limiting, and audit logging.</p>
+<h2 id="which-llm-models-does-promptise-foundry-support">Which LLM models does Promptise Foundry support?<a class="headerlink" href="#which-llm-models-does-promptise-foundry-support" title="Link to this section">&para;</a></h2>
+<p><strong>Any model.</strong> Promptise Foundry is model-agnostic. Use a string like <code>"openai:gpt-5-mini"</code>, <code>"anthropic:claude-sonnet-4.5"</code>, or <code>"ollama:llama3"</code>, or pass any LangChain <code>BaseChatModel</code> directly. Switching providers requires changing one string.</p>
+<h2 id="is-promptise-foundry-production-ready">Is Promptise Foundry production-ready?<a class="headerlink" href="#is-promptise-foundry-production-ready" title="Link to this section">&para;</a></h2>
+<p><strong>Yes.</strong> The framework is designed for production from day one — no stub implementations, no half-finished features, no <code>NotImplementedError</code>. Built-in features include access control, capability-based policies, audit logging, encrypted transport, sandboxed code execution, observability with 8 transporters (Prometheus, OpenTelemetry, webhook), and crash-recovery via journals.</p>
+<h2 id="how-do-i-install-promptise-foundry">How do I install Promptise Foundry?<a class="headerlink" href="#how-do-i-install-promptise-foundry" title="Link to this section">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>promptise
 </span></code></pre></div>
-<h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
-<h3 id="how-mcptooladapter-fits-in">How MCPToolAdapter fits in<a class="headerlink" href="#how-mcptooladapter-fits-in" title="Link to this section">&para;</a></h3>
-<p><code>MCPToolAdapter</code> is the recommended way to convert MCP tools into LangChain
-<code>BaseTool</code> instances.  It is backed by <code>MCPMultiClient</code>, uses persistent
-connections for the entire agent lifetime, supports Bearer token and API key
-authentication, and provides recursive schema conversion.</p>
-<h3 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Link to this section">&para;</a></h3>
-<ol>
-<li><strong>Discovery</strong> -- <code>as_langchain_tools()</code> calls <code>MCPMultiClient.list_tools()</code>
-   to fetch tool definitions from all connected servers.</li>
-<li><strong>Schema conversion</strong> -- Each tool's <code>inputSchema</code> (a JSON Schema dict) is
-   recursively converted to a Pydantic <code>BaseModel</code> using
-   <code>_jsonschema_to_pydantic</code>.</li>
-<li><strong>Tool wrapping</strong> -- Each tool is wrapped in a <code>_PromptiseMCPTool</code> (a
-   <code>BaseTool</code> subclass) that calls <code>MCPMultiClient.call_tool()</code> on invocation.</li>
-<li><strong>Result extraction</strong> -- The MCP <code>CallToolResult</code> is converted to a plain
-   string by concatenating all text content parts.</li>
-</ol>
-<h3 id="creating-an-adapter">Creating an adapter<a class="headerlink" href="#creating-an-adapter" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPMultiClient</span><span class="p">,</span> <span class="n">MCPToolAdapter</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">multi</span> <span class="o">=</span> <span class="n">MCPMultiClient</span><span class="p">({</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">&quot;hr&quot;</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://hr-server:8080/mcp&quot;</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">),</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">&quot;docs&quot;</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://docs-server:9090/mcp&quot;</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;secret&quot;</span><span class="p">),</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">})</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span><span class="n">multi</span><span class="p">)</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
-</span></code></pre></div>
-<h3 id="getting-langchain-tools">Getting LangChain tools<a class="headerlink" href="#getting-langchain-tools" title="Link to this section">&para;</a></h3>
-<p><code>as_langchain_tools()</code> returns a list of <code>BaseTool</code> instances ready for any
-LangChain or LangGraph agent:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span><span class="n">multi</span><span class="p">)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">tools</span><span class="p">:</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Schema: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">args_schema</span><span class="o">.</span><span class="n">model_json_schema</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<p>Each tool's <code>args_schema</code> is a dynamically-created Pydantic model that
-preserves the full structure of the MCP server's JSON Schema, including:</p>
+<p>Python 3.10 or newer is required. Optional extras for memory backends, sandboxing, and observability are available — see <a href="../getting-started/installation-extras/">Installation Extras</a>.</p>
+<h2 id="does-promptise-foundry-support-self-hosted-or-local-llms">Does Promptise Foundry support self-hosted or local LLMs?<a class="headerlink" href="#does-promptise-foundry-support-self-hosted-or-local-llms" title="Link to this section">&para;</a></h2>
+<p><strong>Yes.</strong> Use any Ollama model via the <code>"ollama:model-name"</code> string. Local embeddings, local guardrail models (DeBERTa, GLiNER, Llama Guard), and local memory backends (ChromaDB) make <strong>air-gapped deployments</strong> fully supported.</p>
+<h2 id="is-promptise-foundry-open-source">Is Promptise Foundry open source?<a class="headerlink" href="#is-promptise-foundry-open-source" title="Link to this section">&para;</a></h2>
+<p>Yes — <strong>Apache 2.0</strong> licensed. The source code is at <a href="https://github.com/promptise-com/foundry">github.com/promptise-com/foundry</a>.</p>
+<h2 id="can-i-run-autonomous-agents-with-promptise-foundry">Can I run autonomous agents with Promptise Foundry?<a class="headerlink" href="#can-i-run-autonomous-agents-with-promptise-foundry" title="Link to this section">&para;</a></h2>
+<p>Yes. The <a href="../runtime/processes/">Agent Runtime</a> turns stateless LLM calls into persistent, governed processes with cron triggers, event triggers, message triggers, webhook triggers, and file-watch triggers. Includes budget governance, health monitoring, mission tracking, and automatic crash recovery from journaled state.</p>
+<h2 id="does-promptise-foundry-handle-multi-user-access-control">Does Promptise Foundry handle multi-user access control?<a class="headerlink" href="#does-promptise-foundry-handle-multi-user-access-control" title="Link to this section">&para;</a></h2>
+<p>Yes. The MCP server SDK has JWT and asymmetric JWT authentication, capability-based access policies, per-user audit trails, and <code>CallerContext</code> propagation across the entire agent stack. <strong>Built for multi-tenant production deployments.</strong></p>
+<h2 id="how-does-promptise-foundry-handle-prompt-injection-and-security">How does Promptise Foundry handle prompt injection and security?<a class="headerlink" href="#how-does-promptise-foundry-handle-prompt-injection-and-security" title="Link to this section">&para;</a></h2>
+<p>The framework includes <code>PromptiseSecurityScanner</code> with six detection heads — DeBERTa-based prompt injection detection, PII detection (69 regex patterns), credential detection (96 patterns), GLiNER NER, content safety via Llama Guard or Azure AI, and custom rules. All models run locally. Input blocking and output redaction are built in.</p>
+<h2 id="where-can-i-find-examples">Where can I find examples?<a class="headerlink" href="#where-can-i-find-examples" title="Link to this section">&para;</a></h2>
+<p>Runnable examples are at <a href="https://github.com/promptise-com/foundry/tree/main/examples">github.com/promptise-com/foundry/tree/main/examples</a> — covering agents, MCP servers, prompt engineering, and runtime use cases. Every example uses real LLM calls, no mocks.</p>
+<hr />
+<h2 id="still-have-questions">Still have questions?<a class="headerlink" href="#still-have-questions" title="Link to this section">&para;</a></h2>
 <ul>
-<li>Nested objects become nested Pydantic models</li>
-<li>Arrays of objects become <code>list[NestedModel]</code></li>
-<li><code>$ref</code> / <code>$defs</code> references are resolved and inlined</li>
-<li><code>anyOf</code> / <code>oneOf</code> become <code>Union[...]</code> or <code>Optional[...]</code></li>
-<li><code>allOf</code> properties are merged</li>
-<li>Enums become <code>Literal["a", "b", "c"]</code></li>
-<li>Descriptions and defaults are preserved as Pydantic <code>Field</code> metadata</li>
-</ul>
-<h3 id="tool-introspection">Tool introspection<a class="headerlink" href="#tool-introspection" title="Link to this section">&para;</a></h3>
-<p>Use <code>list_tool_info()</code> to get lightweight metadata about discovered tools
-without creating <code>BaseTool</code> wrappers:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span><span class="n">multi</span><span class="p">)</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">infos</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">list_tool_info</span><span class="p">()</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">infos</span><span class="p">:</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">server_guess</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Schema keys: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">input_schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;properties&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{})</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<p>This returns a list of <code>ToolInfo</code> dataclass instances -- useful for debugging,
-logging, or building tool registries.</p>
-<h3 id="callback-hooks">Callback hooks<a class="headerlink" href="#callback-hooks" title="Link to this section">&para;</a></h3>
-<p>Attach optional callbacks for tracing every tool invocation:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_before</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">arguments</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[TRACE] Calling </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_after</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[TRACE] </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> completed&quot;</span><span class="p">)</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_error</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[ERROR] </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">multi</span><span class="p">,</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="n">on_before</span><span class="o">=</span><span class="n">on_before</span><span class="p">,</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="n">on_after</span><span class="o">=</span><span class="n">on_after</span><span class="p">,</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">on_error</span><span class="o">=</span><span class="n">on_error</span><span class="p">,</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="p">)</span>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
-</span></code></pre></div>
-<p>Callbacks are wrapped in <code>contextlib.suppress(Exception)</code> so a failing callback
-never breaks the actual tool call.</p>
-<h3 id="result-extraction">Result extraction<a class="headerlink" href="#result-extraction" title="Link to this section">&para;</a></h3>
-<p>MCP servers return <code>CallToolResult</code> objects containing a list of content items
-(text, images, embedded resources).  The adapter extracts all text parts and
-joins them with newlines:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># What the MCP server returns:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># CallToolResult(content=[</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1">#     TextContent(type=&quot;text&quot;, text=&quot;Found 3 results&quot;),</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1">#     TextContent(type=&quot;text&quot;, text=&quot;Result 1: ...&quot;),</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># ])</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># What the LangChain tool returns:</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># &quot;Found 3 results\nResult 1: ...&quot;</span>
-</span></code></pre></div>
-<p>If the result has <code>isError=True</code>, the text is still returned so the LLM can
-see the error message and decide how to proceed.</p>
-<h3 id="error-handling">Error handling<a class="headerlink" href="#error-handling" title="Link to this section">&para;</a></h3>
-<p>When a tool call fails at the transport or protocol level, the adapter raises
-<code>MCPClientError</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcp.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClientError</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">tool</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;test&quot;</span><span class="p">})</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">except</span> <span class="n">MCPClientError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tool call failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="api-summary">API summary<a class="headerlink" href="#api-summary" title="Link to this section">&para;</a></h2>
-<h3 id="mcptooladapter">MCPToolAdapter<a class="headerlink" href="#mcptooladapter" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Parameter</th>
-<th>Type</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>multi</code></td>
-<td><code>MCPMultiClient</code></td>
-<td><em>required</em></td>
-<td>Connected multi-server client</td>
-</tr>
-<tr>
-<td><code>on_before</code></td>
-<td><code>OnBefore \| None</code></td>
-<td><code>None</code></td>
-<td>Callback fired before each tool invocation</td>
-</tr>
-<tr>
-<td><code>on_after</code></td>
-<td><code>OnAfter \| None</code></td>
-<td><code>None</code></td>
-<td>Callback fired after each tool invocation</td>
-</tr>
-<tr>
-<td><code>on_error</code></td>
-<td><code>OnError \| None</code></td>
-<td><code>None</code></td>
-<td>Callback fired on tool errors</td>
-</tr>
-</tbody>
-</table>
-<h3 id="methods">Methods<a class="headerlink" href="#methods" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Returns</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>as_langchain_tools()</code></td>
-<td><code>list[BaseTool]</code></td>
-<td>Discover tools and return as LangChain <code>BaseTool</code> instances</td>
-</tr>
-<tr>
-<td><code>list_tool_info()</code></td>
-<td><code>list[ToolInfo]</code></td>
-<td>Return tool metadata for introspection</td>
-</tr>
-</tbody>
-</table>
-<h3 id="callback-types">Callback types<a class="headerlink" href="#callback-types" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>Signature</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>OnBefore</code></td>
-<td><code>Callable[[str, dict[str, Any]], None]</code></td>
-</tr>
-<tr>
-<td><code>OnAfter</code></td>
-<td><code>Callable[[str, Any], None]</code></td>
-</tr>
-<tr>
-<td><code>OnError</code></td>
-<td><code>Callable[[str, Exception], None]</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="toolinfo">ToolInfo<a class="headerlink" href="#toolinfo" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Attribute</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>server_guess</code></td>
-<td><code>str</code></td>
-<td>Server name that owns the tool</td>
-</tr>
-<tr>
-<td><code>name</code></td>
-<td><code>str</code></td>
-<td>Tool name</td>
-</tr>
-<tr>
-<td><code>description</code></td>
-<td><code>str</code></td>
-<td>Human-readable description</td>
-</tr>
-<tr>
-<td><code>input_schema</code></td>
-<td><code>dict[str, Any]</code></td>
-<td>Raw JSON Schema for tool input</td>
-</tr>
-</tbody>
-</table>
-<h2 id="tips-and-gotchas">Tips and gotchas<a class="headerlink" href="#tips-and-gotchas" title="Link to this section">&para;</a></h2>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p><code>MCPToolAdapter</code> uses persistent connections via <code>MCPMultiClient</code>.  Create
-the adapter once and reuse the tools for the entire agent session -- do not
-recreate the adapter per invocation.</p>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>You must call <code>as_langchain_tools()</code> (or <code>list_tool_info()</code>) <strong>inside</strong>
-the <code>async with multi:</code> block.  The underlying <code>MCPMultiClient</code> must be
-connected for tool discovery to work.</p>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The recursive schema converter handles complex MCP schemas that would
-otherwise appear as opaque <code>dict</code> parameters to the LLM.  If your tool
-call accuracy is low, inspect the generated <code>args_schema</code> to verify the
-schema conversion is correct:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">tools</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">args_schema</span><span class="o">.</span><span class="n">model_json_schema</span><span class="p">())</span>
-</span></code></pre></div>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Callback hooks (<code>on_before</code>, <code>on_after</code>, <code>on_error</code>) are silenced on
-failure -- they never propagate exceptions.  If your callback raises,
-the error is swallowed and the tool call proceeds normally.  Use proper
-error handling inside your callbacks.</p>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>For simpler setups, <code>build_agent</code> handles tool adaptation internally.
-Use <code>MCPToolAdapter</code> directly when you need fine-grained control over
-tool discovery, callbacks, or when integrating with custom LangChain
-pipelines.</p>
-</div>
-<h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
-<ul>
-<li><a href="../">MCP Client</a> -- the <code>MCPClient</code> and <code>MCPMultiClient</code> that power the adapter</li>
-<li><a href="../../../core/tools/">Tools &amp; Schema Helpers</a> -- the schema conversion logic shared with the legacy loader</li>
-<li><a href="../../../core/agents/building-agents/">Building Agents</a> -- use adapted tools with <code>build_agent</code></li>
+<li><a href="https://github.com/promptise-com/foundry/issues">Open an issue on GitHub</a></li>
+<li><a href="../">Read the full documentation</a></li>
+<li><a href="../resources/examples/">See examples</a></li>
 </ul>
 
 
@@ -7888,7 +7705,7 @@ pipelines.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="May 3, 2026 19:20:35 UTC">2026-05-03</span>
   </span>
 
     
@@ -7898,7 +7715,7 @@ pipelines.</p>
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="August 29, 2025 15:59:20 UTC">2025-08-29</span>
   </span>
 
     
@@ -7977,10 +7794,10 @@ pipelines.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
