@@ -703,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -820,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -884,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -8488,8 +8578,7 @@ collisions.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>multi = MCPMultiClient({
+        <div class="language-text highlight"><pre><span></span><code>multi = MCPMultiClient({
     &quot;hr&quot;: MCPClient(url=&quot;http://localhost:8080/mcp&quot;, bearer_token=&quot;...&quot;),
     &quot;docs&quot;: MCPClient(url=&quot;http://localhost:9090/mcp&quot;, api_key=&quot;secret&quot;),
 })
@@ -8892,8 +8981,7 @@ async with multi:
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>multi = MCPMultiClient({&quot;hr&quot;: MCPClient(...)})
+        <div class="language-text highlight"><pre><span></span><code>multi = MCPMultiClient({&quot;hr&quot;: MCPClient(...)})
 async with multi:
     adapter = MCPToolAdapter(multi)
     tools = await adapter.as_langchain_tools()

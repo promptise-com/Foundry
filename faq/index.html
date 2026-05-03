@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Common questions about Promptise Foundry — installation, MCP support, security, comparison to LangChain and LangGraph, model support, and production readiness.">
+        <meta name="description" content="Honest, complete answers about Promptise Foundry — what it is, how it compares to LangChain, LangGraph, and CrewAI, what models it supports, security, MCP, autonomous runtime, governance, and production deployment.">
       
       
         <meta name="author" content="Manser Ventures">
@@ -27,7 +27,7 @@
     
     
       
-        <title>Promptise Foundry FAQ — Questions about the Python AI agent framework - Promptise Foundry</title>
+        <title>Promptise Foundry FAQ — Production Python framework for AI agents and MCP - Promptise Foundry</title>
       
     
     
@@ -86,14 +86,14 @@
 
   
   
-    <meta name="keywords" content="Promptise Foundry FAQ, Python AI agent framework, MCP framework, LangChain alternative, LangGraph alternative, agent framework comparison">
+    <meta name="keywords" content="Promptise Foundry FAQ, Python AI agent framework, MCP server framework, LangChain alternative, LangGraph alternative, CrewAI alternative, agentic AI, autonomous agents, Model Context Protocol">
   
 
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
-  <meta property="og:title" content="Promptise Foundry FAQ — Questions about the Python AI agent framework">
-  <meta property="og:description" content="Common questions about Promptise Foundry — installation, MCP support, security, comparison to LangChain and LangGraph, model support, and production readiness.">
+  <meta property="og:title" content="Promptise Foundry FAQ — Production Python framework for AI agents and MCP">
+  <meta property="og:description" content="Honest, complete answers about Promptise Foundry — what it is, how it compares to LangChain, LangGraph, and CrewAI, what models it supports, security, MCP, autonomous runtime, governance, and production deployment.">
   <meta property="og:url" content="https://docs.promptise.com/faq/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -102,8 +102,8 @@
 
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Promptise Foundry FAQ — Questions about the Python AI agent framework">
-  <meta name="twitter:description" content="Common questions about Promptise Foundry — installation, MCP support, security, comparison to LangChain and LangGraph, model support, and production readiness.">
+  <meta name="twitter:title" content="Promptise Foundry FAQ — Production Python framework for AI agents and MCP">
+  <meta name="twitter:description" content="Honest, complete answers about Promptise Foundry — what it is, how it compares to LangChain, LangGraph, and CrewAI, what models it supports, security, MCP, autonomous runtime, governance, and production deployment.">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -177,9 +177,9 @@
     {
       "@context": "https://schema.org",
       "@type": "TechArticle",
-      "headline": "Promptise Foundry FAQ \u2014 Questions about the Python AI agent framework",
-      "name": "Promptise Foundry FAQ \u2014 Questions about the Python AI agent framework",
-      "description": "Common questions about Promptise Foundry \u2014 installation, MCP support, security, comparison to LangChain and LangGraph, model support, and production readiness.",
+      "headline": "Promptise Foundry FAQ \u2014 Production Python framework for AI agents and MCP",
+      "name": "Promptise Foundry FAQ \u2014 Production Python framework for AI agents and MCP",
+      "description": "Honest, complete answers about Promptise Foundry \u2014 what it is, how it compares to LangChain, LangGraph, and CrewAI, what models it supports, security, MCP, autonomous runtime, governance, and production deployment.",
       "url": "https://docs.promptise.com/faq/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -215,142 +215,6 @@
 
   
   
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      
-      {
-        "@type": "Question",
-        "name": "What is Promptise Foundry?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Promptise Foundry is a production-grade Python framework for building AI agents, MCP (Model Context Protocol) servers, prompt engineering systems, and autonomous runtimes. It is secure by default, model-agnostic, MCP-native, and designed for teams shipping agentic AI to production."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "How is Promptise Foundry different from LangChain?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "LangChain is a general-purpose LLM toolkit with hundreds of integrations. Promptise Foundry is a focused production framework \u2014 it ships one coherent stack covering agents, MCP servers, prompt engineering, and autonomous runtime, with built-in access control, audit trails, sandboxing, and governance. Promptise has fewer abstractions, no fallbacks (errors raise instead of silently degrading), and is async-first."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "How does Promptise Foundry compare to LangGraph?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "LangGraph is an orchestration layer on top of LangChain focused on stateful graphs. Promptise Foundry includes an autonomous Agent Runtime with crash recovery, journals, governance, and triggers (cron, events, webhooks, file watch) \u2014 built for long-running agents that survive restarts, not just stateful conversations."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "How does Promptise Foundry compare to CrewAI?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "CrewAI focuses on multi-agent role-playing setups. Promptise Foundry is broader \u2014 it covers single agents, multi-agent coordination via cross-agent delegation, plus the production infrastructure (MCP servers, governance, observability, sandboxing) that real deployments need."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "What is MCP and why does Promptise Foundry use it?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "MCP (Model Context Protocol) is the open standard for connecting LLMs to tools, resources, and prompts. Promptise Foundry is MCP-native \u2014 agents auto-discover tools from any MCP server, and the framework includes a production SDK for building your own MCP servers with authentication, middleware, rate limiting, and audit logging."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "Which LLM models does Promptise Foundry support?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Any model. Promptise Foundry is model-agnostic. Use a string like \"openai:gpt-5-mini\", \"anthropic:claude-sonnet-4.5\", or \"ollama:llama3\", or pass any LangChain BaseChatModel directly. Switching providers requires changing one string."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "Is Promptise Foundry production-ready?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. The framework is designed for production from day one \u2014 no stub implementations, no half-finished features, no NotImplementedError. Built-in features include access control, capability-based policies, audit logging, encrypted transport, sandboxed code execution, observability with 8 transporters (Prometheus, OpenTelemetry, webhook), and crash-recovery via journals."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "How do I install Promptise Foundry?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Install with pip \u2014 `pip install promptise`. Python 3.10 or newer is required. Optional extras for memory backends, sandboxing, and observability are available."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "Does Promptise Foundry support self-hosted or local LLMs?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. Use any Ollama model via the \"ollama:model-name\" string. Local embeddings, local guardrail models (DeBERTa, GLiNER, Llama Guard), and local memory backends (ChromaDB) make air-gapped deployments fully supported."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "Is Promptise Foundry open source?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes \u2014 Apache 2.0 licensed. The source code is at github.com/promptise-com/foundry."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "Can I run autonomous agents with Promptise Foundry?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. The Agent Runtime turns stateless LLM calls into persistent, governed processes with cron triggers, event triggers, message triggers, webhook triggers, and file-watch triggers. Includes budget governance, health monitoring, mission tracking, and automatic crash recovery from journaled state."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "Does Promptise Foundry handle multi-user access control?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. The MCP server SDK has JWT and asymmetric JWT authentication, capability-based access policies, per-user audit trails, and CallerContext propagation across the entire agent stack. Built for multi-tenant production deployments."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "How does Promptise Foundry handle prompt injection and security?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "The framework includes PromptiseSecurityScanner with six detection heads \u2014 DeBERTa-based prompt injection detection, PII detection (69 regex patterns), credential detection (96 patterns), GLiNER NER, content safety via Llama Guard or Azure AI, and custom rules. All models run locally. Input blocking and output redaction are built in."
-        }
-      },
-      
-      {
-        "@type": "Question",
-        "name": "Where can I find examples?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Runnable examples are at github.com/promptise-com/foundry/tree/main/examples \u2014 covering agents, MCP servers, prompt engineering, and runtime use cases. Every example uses real LLM calls, no mocks."
-        }
-      }
-      
-    ]
-  }
-  </script>
-  
 
   
   
@@ -381,7 +245,7 @@
       ,{
         "@type": "ListItem",
         "position": 4,
-        "name": "Promptise Foundry FAQ \u2014 Questions about the Python AI agent framework",
+        "name": "Promptise Foundry FAQ \u2014 Production Python framework for AI agents and MCP",
         "item": "https://docs.promptise.com/faq/"
       }
     ]
@@ -443,7 +307,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Promptise Foundry FAQ — Questions about the Python AI agent framework
+              Promptise Foundry FAQ — Production Python framework for AI agents and MCP
             
           </span>
         </div>
@@ -839,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -956,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -1020,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -7188,6 +7142,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Foundations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Foundations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#what-is-promptise-foundry" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7197,63 +7163,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#how-is-promptise-foundry-different-from-langchain" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How is Promptise Foundry different from LangChain?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-does-promptise-foundry-compare-to-langgraph" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How does Promptise Foundry compare to LangGraph?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-does-promptise-foundry-compare-to-crewai" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How does Promptise Foundry compare to CrewAI?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-is-mcp-and-why-does-promptise-foundry-use-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What is MCP and why does Promptise Foundry use it?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#which-llm-models-does-promptise-foundry-support" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Which LLM models does Promptise Foundry support?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#is-promptise-foundry-production-ready" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7263,30 +7174,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#how-do-i-install-promptise-foundry" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How do I install Promptise Foundry?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#does-promptise-foundry-support-self-hosted-or-local-llms" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Does Promptise Foundry support self-hosted or local LLMs?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#is-promptise-foundry-open-source" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7296,19 +7185,269 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#can-i-run-autonomous-agents-with-promptise-foundry" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-install-promptise-foundry" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Can I run autonomous agents with Promptise Foundry?
+        How do I install Promptise Foundry?
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
+  <a href="#comparisons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparisons
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Comparisons">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-is-promptise-foundry-different-from-langchain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How is Promptise Foundry different from LangChain?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-compare-to-langgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry compare to LangGraph?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-compare-to-crewai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry compare to CrewAI?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#models-local-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models &amp; Local-First
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Models &amp; Local-First">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-llm-models-does-promptise-foundry-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which LLM models does Promptise Foundry support?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-self-hosted-or-local-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support self-hosted or local LLMs?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mcp-model-context-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP — Model Context Protocol
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCP — Model Context Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-mcp-and-why-does-promptise-foundry-use-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is MCP and why does Promptise Foundry use it?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-have-its-own-mcp-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry have its own MCP client?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-build-my-own-mcp-server-with-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I build my own MCP server with Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-deploy-a-promptise-foundry-mcp-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I deploy a Promptise Foundry MCP server?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent Runtime
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent Runtime">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-the-agent-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is the Agent Runtime?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whats-the-difference-between-promptiseagent-and-the-agent-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's the difference between PromptiseAgent and the Agent Runtime?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-trigger-types-can-launch-an-autonomous-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What trigger types can launch an autonomous agent?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-handle-crash-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry handle crash recovery?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-distributed-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support distributed deployments?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-governance-does-the-agent-runtime-provide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What governance does the Agent Runtime provide?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-multi-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security &amp; Multi-User
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security &amp; Multi-User">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#does-promptise-foundry-handle-multi-user-access-control" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7318,8 +7457,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#how-does-promptise-foundry-handle-prompt-injection-and-security" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7329,8 +7468,275 @@
   </a>
   
 </li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-sandbox-code-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I sandbox code execution?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
+  <a href="#memory-cache-and-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory, Cache, and Persistence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Memory, Cache, and Persistence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-memory-backends-does-promptise-foundry-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What memory backends does Promptise Foundry support?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-conversation-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support conversation persistence?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-semantic-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support semantic caching?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prompt-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt Engineering
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prompt Engineering">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-have-prompt-engineering-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry have prompt engineering features?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-agent-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Agent Systems
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-Agent Systems">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-multi-agent-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support multi-agent systems?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Files
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-a-superagent-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is a SuperAgent file?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-an-agent-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is an .agent manifest?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-open-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is Open Mode?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-does-observability-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does observability work?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is-there-a-dashboard-for-monitoring-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is there a dashboard for monitoring agents?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-track-costs-with-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I track costs with Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-about-job-queues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What about job queues?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-is-testing-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How is testing done?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-have-a-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry have a CLI?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples-and-community" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples and Community
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples and Community">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#where-can-i-find-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7338,6 +7744,22 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-contribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How can I contribute?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -7403,6 +7825,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Foundations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Foundations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#what-is-promptise-foundry" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7412,63 +7846,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#how-is-promptise-foundry-different-from-langchain" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How is Promptise Foundry different from LangChain?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-does-promptise-foundry-compare-to-langgraph" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How does Promptise Foundry compare to LangGraph?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-does-promptise-foundry-compare-to-crewai" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How does Promptise Foundry compare to CrewAI?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-is-mcp-and-why-does-promptise-foundry-use-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What is MCP and why does Promptise Foundry use it?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#which-llm-models-does-promptise-foundry-support" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Which LLM models does Promptise Foundry support?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#is-promptise-foundry-production-ready" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7478,30 +7857,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#how-do-i-install-promptise-foundry" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How do I install Promptise Foundry?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#does-promptise-foundry-support-self-hosted-or-local-llms" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Does Promptise Foundry support self-hosted or local LLMs?
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#is-promptise-foundry-open-source" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7511,19 +7868,269 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#can-i-run-autonomous-agents-with-promptise-foundry" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-install-promptise-foundry" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Can I run autonomous agents with Promptise Foundry?
+        How do I install Promptise Foundry?
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
+  <a href="#comparisons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparisons
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Comparisons">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-is-promptise-foundry-different-from-langchain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How is Promptise Foundry different from LangChain?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-compare-to-langgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry compare to LangGraph?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-compare-to-crewai" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry compare to CrewAI?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#models-local-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Models &amp; Local-First
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Models &amp; Local-First">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-llm-models-does-promptise-foundry-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which LLM models does Promptise Foundry support?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-self-hosted-or-local-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support self-hosted or local LLMs?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mcp-model-context-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP — Model Context Protocol
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCP — Model Context Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-mcp-and-why-does-promptise-foundry-use-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is MCP and why does Promptise Foundry use it?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-have-its-own-mcp-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry have its own MCP client?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-build-my-own-mcp-server-with-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I build my own MCP server with Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-deploy-a-promptise-foundry-mcp-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I deploy a Promptise Foundry MCP server?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent Runtime
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent Runtime">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-the-agent-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is the Agent Runtime?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whats-the-difference-between-promptiseagent-and-the-agent-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's the difference between PromptiseAgent and the Agent Runtime?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-trigger-types-can-launch-an-autonomous-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What trigger types can launch an autonomous agent?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-does-promptise-foundry-handle-crash-recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does Promptise Foundry handle crash recovery?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-distributed-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support distributed deployments?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-governance-does-the-agent-runtime-provide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What governance does the Agent Runtime provide?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-multi-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security &amp; Multi-User
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security &amp; Multi-User">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#does-promptise-foundry-handle-multi-user-access-control" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7533,8 +8140,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#how-does-promptise-foundry-handle-prompt-injection-and-security" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7544,8 +8151,275 @@
   </a>
   
 </li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-sandbox-code-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I sandbox code execution?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
+  <a href="#memory-cache-and-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory, Cache, and Persistence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Memory, Cache, and Persistence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-memory-backends-does-promptise-foundry-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What memory backends does Promptise Foundry support?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-conversation-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support conversation persistence?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-semantic-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support semantic caching?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prompt-engineering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prompt Engineering
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prompt Engineering">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-have-prompt-engineering-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry have prompt engineering features?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-agent-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-Agent Systems
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-Agent Systems">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-support-multi-agent-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry support multi-agent systems?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Files
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-a-superagent-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is a SuperAgent file?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-an-agent-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is an .agent manifest?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-open-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is Open Mode?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-does-observability-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How does observability work?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is-there-a-dashboard-for-monitoring-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Is there a dashboard for monitoring agents?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-track-costs-with-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Can I track costs with Promptise Foundry?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-about-job-queues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What about job queues?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-is-testing-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How is testing done?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#does-promptise-foundry-have-a-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Does Promptise Foundry have a CLI?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples-and-community" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples and Community
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples and Community">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#where-can-i-find-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7553,6 +8427,22 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-contribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How can I contribute?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -7644,44 +8534,323 @@
   
 
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type":"Question","name":"What is Promptise Foundry?","acceptedAnswer":{"@type":"Answer","text":"Promptise Foundry is a production-grade Python framework for building AI agents, MCP (Model Context Protocol) servers, prompt engineering systems, and autonomous runtimes. It is secure by default, model-agnostic, MCP-native, and designed for teams shipping agentic AI to production."}},
+    {"@type":"Question","name":"How is Promptise Foundry different from LangChain?","acceptedAnswer":{"@type":"Answer","text":"LangChain is a general-purpose LLM toolkit with hundreds of integrations. Promptise Foundry is a focused production framework that ships one coherent stack covering agents, MCP servers, prompt engineering, and autonomous runtime, with built-in access control, audit trails, sandboxing, and governance. Promptise has fewer abstractions, no silent fallbacks, is async-first, and uses MCP-native tool discovery instead of manual wiring."}},
+    {"@type":"Question","name":"How does Promptise Foundry compare to LangGraph?","acceptedAnswer":{"@type":"Answer","text":"LangGraph is an orchestration layer focused on stateful graphs. Promptise Foundry includes a full Agent Runtime with crash recovery via journals, governance (budget, health, mission), and five trigger types (cron, event, message, webhook, file watch) — built for long-running autonomous agents that survive restarts."}},
+    {"@type":"Question","name":"How does Promptise Foundry compare to CrewAI?","acceptedAnswer":{"@type":"Answer","text":"CrewAI focuses on multi-agent role-playing workflows. Promptise Foundry covers single agents, multi-agent coordination via cross-agent delegation (ask_peer and broadcast over HTTP+JWT), plus the production infrastructure — MCP servers, governance, observability, sandboxing."}},
+    {"@type":"Question","name":"What is MCP and why does Promptise Foundry use it?","acceptedAnswer":{"@type":"Answer","text":"MCP (Model Context Protocol) is the open standard for connecting LLMs to tools, resources, and prompts. Promptise Foundry is MCP-native — agents auto-discover tools from any MCP server URL, schemas convert to typed tools automatically, and the framework includes a production SDK for building MCP servers."}},
+    {"@type":"Question","name":"Does Promptise Foundry have its own MCP client?","acceptedAnswer":{"@type":"Answer","text":"Yes. Promptise Foundry ships a native MCP client built from scratch — MCPClient for single servers, MCPMultiClient for N servers with unified tool list and auto-routing, and MCPToolAdapter for LangChain BaseTool conversion. HTTP, SSE, and stdio transports with bearer token and API key authentication. No third-party MCP client dependencies."}},
+    {"@type":"Question","name":"Which LLM models does Promptise Foundry support?","acceptedAnswer":{"@type":"Answer","text":"Any model. Promptise Foundry is model-agnostic. Use a string like openai:gpt-5-mini, anthropic:claude-sonnet-4.5, or ollama:llama3, or pass any LangChain BaseChatModel directly. Switching providers requires changing one string."}},
+    {"@type":"Question","name":"Is Promptise Foundry production-ready?","acceptedAnswer":{"@type":"Answer","text":"Yes. No stub implementations, no half-finished features, no NotImplementedError in shipped code. Access control, capability-based policies, audit logging, encrypted transport, sandboxed code execution, observability with 8 transporters, and crash-recovery via journals are built in. Every backend listed as a parameter option works."}},
+    {"@type":"Question","name":"How do I install Promptise Foundry?","acceptedAnswer":{"@type":"Answer","text":"Run pip install promptise. Python 3.10 or newer is required. Optional extras for memory backends (Chroma, Mem0), sandboxing (Docker, gVisor), and observability (Prometheus, OpenTelemetry) are available."}},
+    {"@type":"Question","name":"Does Promptise Foundry support self-hosted or local LLMs?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use any Ollama model via the ollama:model-name string. Local embeddings via SentenceTransformers, local guardrail models (DeBERTa, GLiNER, Llama Guard), and local memory backends (ChromaDB) make air-gapped deployments fully supported."}},
+    {"@type":"Question","name":"Is Promptise Foundry open source?","acceptedAnswer":{"@type":"Answer","text":"Yes — Apache 2.0 licensed. The source code is at github.com/promptise-com/foundry."}},
+    {"@type":"Question","name":"What is the Agent Runtime?","acceptedAnswer":{"@type":"Answer","text":"The Agent Runtime is the operating system for autonomous AI agents. It turns stateless LLM calls into persistent, governed processes with lifecycle states (CREATED, STARTING, RUNNING, SUSPENDED, STOPPING, STOPPED, FAILED), trigger queues, heartbeat monitoring, concurrency control, conversation buffer, and journaled state for crash recovery."}},
+    {"@type":"Question","name":"What trigger types can launch an autonomous agent?","acceptedAnswer":{"@type":"Answer","text":"Five built-in trigger types — CronTrigger (cron expressions), EventTrigger (EventBus subscription), MessageTrigger (topic-based pub/sub with wildcards), WebhookTrigger (HTTP POST with HMAC verification), and FileWatchTrigger (directory monitoring with glob patterns). Multiple triggers can compose on one process."}},
+    {"@type":"Question","name":"How does Promptise Foundry handle crash recovery?","acceptedAnswer":{"@type":"Answer","text":"Through journals. InMemoryJournal and FileJournal record every state transition, trigger event, and invocation result. The ReplayEngine reconstructs state from a checkpoint plus replay log. When a process crashes, it restarts from the last known good state."}},
+    {"@type":"Question","name":"Does Promptise Foundry handle multi-user access control?","acceptedAnswer":{"@type":"Answer","text":"Yes. JWTAuth (HS256), AsymmetricJWTAuth (RS256/ES256), and APIKeyAuth. Capability-based access policies, per-tool permission guards, per-user audit trails (HMAC-chained for tamper detection), and CallerContext propagation across the entire stack via async contextvars."}},
+    {"@type":"Question","name":"How does Promptise Foundry handle prompt injection and security?","acceptedAnswer":{"@type":"Answer","text":"PromptiseSecurityScanner with six detection heads — DeBERTa-based prompt injection detection, PII detection (69 regex patterns), credential detection (96 patterns), GLiNER NER, content safety via Llama Guard or Azure AI, and custom rules. All models run locally."}},
+    {"@type":"Question","name":"What memory backends does Promptise Foundry support?","acceptedAnswer":{"@type":"Answer","text":"Three providers — InMemoryProvider (testing), ChromaProvider (local vector search, persistent), and Mem0Provider (enterprise-grade graph search). The agent auto-searches memory before every invocation and injects relevant results with prompt-injection mitigation."}},
+    {"@type":"Question","name":"Does Promptise Foundry support conversation persistence?","acceptedAnswer":{"@type":"Answer","text":"Yes. ConversationStore protocol with four backends — InMemoryConversationStore, SQLiteConversationStore, PostgresConversationStore, RedisConversationStore. The chat() method handles load, invoke, and persist automatically with session ownership enforcement."}},
+    {"@type":"Question","name":"Does Promptise Foundry support semantic caching?","acceptedAnswer":{"@type":"Answer","text":"Yes. SemanticCache with in-memory or Redis backends. Per-user, per-session, or shared scope isolation. Serves cached responses for semantically similar queries — typically 30-50% cost reduction. GDPR purge_user() supported. Encrypted-at-rest option for Redis."}},
+    {"@type":"Question","name":"Can I sandbox code execution in Promptise Foundry?","acceptedAnswer":{"@type":"Answer","text":"Yes. Docker-based sandbox with seccomp syscall filtering, capability dropping, read-only rootfs, resource limits, and network isolation. Optional gVisor kernel. Five agent tools auto-injected when sandbox is enabled. Path traversal and shell injection prevention built in."}},
+    {"@type":"Question","name":"How does observability work?","acceptedAnswer":{"@type":"Answer","text":"Four levels — OFF, BASIC, STANDARD, FULL. Every LLM turn, tool call, token count, latency, retry, cache hit/miss is recorded. Eight transporters — HTML report, JSON file, structured log, console, Prometheus, OpenTelemetry, webhook, callback."}},
+    {"@type":"Question","name":"What governance does the Agent Runtime provide?","acceptedAnswer":{"@type":"Answer","text":"Four governance subsystems — Budget (tool calls, LLM turns, cost units, irreversible actions), Health (anomaly detection), Mission (LLM-as-judge evaluation against success criteria), and Secrets (per-process credential context with TTL expiry, rotation, zero-fill revocation)."}},
+    {"@type":"Question","name":"Does Promptise Foundry support multi-agent systems?","acceptedAnswer":{"@type":"Answer","text":"Yes. Cross-agent delegation via ask_peer (send a question to another agent over HTTP+JWT and await the answer) and broadcast (send to multiple peers in parallel with timeout). Graceful degradation if a peer fails."}},
+    {"@type":"Question","name":"What is a SuperAgent file?","acceptedAnswer":{"@type":"Answer","text":"A .superagent YAML file that defines an entire agent declaratively — model, instructions, MCP servers, memory, sandbox, observability, cache, guardrails, cross-agents. Environment variable resolution via ${VAR}. Loadable via the CLI."}},
+    {"@type":"Question","name":"What is the Open Mode?","acceptedAnswer":{"@type":"Answer","text":"Open Mode lets agents self-modify with 14 meta-tools — modify_instructions, create_tool, connect_mcp_server, add_trigger, remove_trigger, spawn_process, list_processes, store_memory, search_memory, forget_memory, list_capabilities, get_secret, check_budget, check_mission. Guardrails enforce limits and require sandbox for agent-written code."}},
+    {"@type":"Question","name":"Does Promptise Foundry have prompt engineering features?","acceptedAnswer":{"@type":"Answer","text":"Yes. The @prompt decorator, 8 PromptBlock types with priority-based token budgeting, ConversationFlow for phase-based system prompts, 5 composable strategies (ChainOfThought, StructuredReasoning, SelfCritique, PlanAndExecute, Decompose), 4 perspectives (Analyst, Critic, Advisor, Creative), guards, 14 context providers, and a PromptInspector."}},
+    {"@type":"Question","name":"Can I build my own MCP server with Promptise Foundry?","acceptedAnswer":{"@type":"Answer","text":"Yes. Decorators for tools, resources, and prompts. Schema auto-generated from type hints. Middleware (logging, timeout, rate limit, circuit breaker, audit). Authentication, guards, caching, health checks, metrics, exception handlers, webhooks, FastAPI-style Depends, session state, versioning, namespace transforms, OpenAPI ingestion, streaming, elicitation, sampling, and a TestClient for in-process testing."}},
+    {"@type":"Question","name":"How do I deploy a Promptise Foundry MCP server?","acceptedAnswer":{"@type":"Answer","text":"Run promptise serve myapp:server --transport http --port 8080. Supports stdio, streamable HTTP, and SSE transports with configurable CORS. Auth gate at the transport level. CLI flags --dashboard (live terminal UI) and --reload (hot-reload). Kubernetes health probes (liveness, readiness, startup) built in."}},
+    {"@type":"Question","name":"Does Promptise Foundry support distributed deployments?","acceptedAnswer":{"@type":"Answer","text":"Yes. RuntimeCoordinator for multi-node coordination, with StaticDiscovery and RegistryDiscovery for node discovery. Health checks over HTTP. No etcd or Consul dependency."}},
+    {"@type":"Question","name":"Can I track costs with Promptise Foundry?","acceptedAnswer":{"@type":"Answer","text":"Promptise Foundry does not estimate or track LLM provider prices. The Budget governance subsystem tracks tool calls, LLM turns, and abstract cost units that you can map to your own pricing model. ToolCostAnnotations on tools let you assign per-call cost weights."}},
+    {"@type":"Question","name":"How is testing done?","acceptedAnswer":{"@type":"Answer","text":"For MCP servers, TestClient runs the full pipeline in-process — validation, DI, guards, middleware, handler — with no network. For prompts, mock_llm, mock_context, assert_schema, assert_contains, assert_latency, and assert_guard_passed work with pytest."}},
+    {"@type":"Question","name":"Where can I find examples?","acceptedAnswer":{"@type":"Answer","text":"Runnable examples at github.com/promptise-com/foundry/tree/main/examples — covering agents, MCP servers, prompt engineering, and runtime use cases. Every example uses real LLM calls."}}
+  ]
+}
+</script>
+
 <h1 id="frequently-asked-questions">Frequently Asked Questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this section">&para;</a></h1>
-<p>Common questions about Promptise Foundry — the production Python framework for AI agents, MCP servers, and autonomous runtimes.</p>
-<h2 id="what-is-promptise-foundry">What is Promptise Foundry?<a class="headerlink" href="#what-is-promptise-foundry" title="Link to this section">&para;</a></h2>
-<p>Promptise Foundry is a production-grade Python framework for building AI agents, MCP (Model Context Protocol) servers, prompt engineering systems, and autonomous runtimes. It is <strong>secure by default, model-agnostic, MCP-native</strong>, and designed for teams shipping agentic AI to production.</p>
-<h2 id="how-is-promptise-foundry-different-from-langchain">How is Promptise Foundry different from LangChain?<a class="headerlink" href="#how-is-promptise-foundry-different-from-langchain" title="Link to this section">&para;</a></h2>
-<p>LangChain is a general-purpose LLM toolkit with hundreds of integrations. Promptise Foundry is a focused production framework — it ships one coherent stack covering agents, MCP servers, prompt engineering, and autonomous runtime, with <strong>built-in access control, audit trails, sandboxing, and governance</strong>. Promptise has fewer abstractions, no fallbacks (errors raise instead of silently degrading), and is async-first throughout.</p>
-<h2 id="how-does-promptise-foundry-compare-to-langgraph">How does Promptise Foundry compare to LangGraph?<a class="headerlink" href="#how-does-promptise-foundry-compare-to-langgraph" title="Link to this section">&para;</a></h2>
-<p>LangGraph is an orchestration layer on top of LangChain focused on stateful graphs. Promptise Foundry includes an <strong>autonomous Agent Runtime</strong> with crash recovery, journals, governance, and triggers (cron, events, webhooks, file watch) — built for long-running agents that survive restarts, not just stateful conversations.</p>
-<h2 id="how-does-promptise-foundry-compare-to-crewai">How does Promptise Foundry compare to CrewAI?<a class="headerlink" href="#how-does-promptise-foundry-compare-to-crewai" title="Link to this section">&para;</a></h2>
-<p>CrewAI focuses on multi-agent role-playing setups. Promptise Foundry is broader — it covers single agents, multi-agent coordination via cross-agent delegation, plus the production infrastructure (MCP servers, governance, observability, sandboxing) that real deployments need.</p>
-<h2 id="what-is-mcp-and-why-does-promptise-foundry-use-it">What is MCP and why does Promptise Foundry use it?<a class="headerlink" href="#what-is-mcp-and-why-does-promptise-foundry-use-it" title="Link to this section">&para;</a></h2>
-<p>MCP (<a href="https://modelcontextprotocol.io">Model Context Protocol</a>) is the open standard for connecting LLMs to tools, resources, and prompts. Promptise Foundry is <strong>MCP-native</strong> — agents auto-discover tools from any MCP server, and the framework includes a production SDK for building your own MCP servers with authentication, middleware, rate limiting, and audit logging.</p>
-<h2 id="which-llm-models-does-promptise-foundry-support">Which LLM models does Promptise Foundry support?<a class="headerlink" href="#which-llm-models-does-promptise-foundry-support" title="Link to this section">&para;</a></h2>
-<p><strong>Any model.</strong> Promptise Foundry is model-agnostic. Use a string like <code>"openai:gpt-5-mini"</code>, <code>"anthropic:claude-sonnet-4.5"</code>, or <code>"ollama:llama3"</code>, or pass any LangChain <code>BaseChatModel</code> directly. Switching providers requires changing one string.</p>
-<h2 id="is-promptise-foundry-production-ready">Is Promptise Foundry production-ready?<a class="headerlink" href="#is-promptise-foundry-production-ready" title="Link to this section">&para;</a></h2>
-<p><strong>Yes.</strong> The framework is designed for production from day one — no stub implementations, no half-finished features, no <code>NotImplementedError</code>. Built-in features include access control, capability-based policies, audit logging, encrypted transport, sandboxed code execution, observability with 8 transporters (Prometheus, OpenTelemetry, webhook), and crash-recovery via journals.</p>
-<h2 id="how-do-i-install-promptise-foundry">How do I install Promptise Foundry?<a class="headerlink" href="#how-do-i-install-promptise-foundry" title="Link to this section">&para;</a></h2>
+<p>Honest, complete answers about Promptise Foundry — the production Python framework for building AI agents, MCP servers, and autonomous runtimes.</p>
+<h2 id="foundations">Foundations<a class="headerlink" href="#foundations" title="Link to this section">&para;</a></h2>
+<h3 id="what-is-promptise-foundry">What is Promptise Foundry?<a class="headerlink" href="#what-is-promptise-foundry" title="Link to this section">&para;</a></h3>
+<p>Promptise Foundry is a production-grade Python framework for building AI agents, MCP (Model Context Protocol) servers, prompt engineering systems, and autonomous runtimes. It is <strong>secure by default, model-agnostic, MCP-native</strong>, and designed for teams shipping agentic AI to production. One coherent stack instead of gluing libraries together.</p>
+<h3 id="is-promptise-foundry-production-ready">Is Promptise Foundry production-ready?<a class="headerlink" href="#is-promptise-foundry-production-ready" title="Link to this section">&para;</a></h3>
+<p><strong>Yes.</strong> No stub implementations, no half-finished features, no <code>NotImplementedError</code> in shipped code. Built-in: access control, capability-based policies, audit logging, encrypted transport, sandboxed code execution, observability with 8 transporters, crash-recovery via journals. Every backend listed as a parameter option works — if it's documented, it's implemented.</p>
+<h3 id="is-promptise-foundry-open-source">Is Promptise Foundry open source?<a class="headerlink" href="#is-promptise-foundry-open-source" title="Link to this section">&para;</a></h3>
+<p><strong>Apache 2.0</strong> — source at <a href="https://github.com/promptise-com/foundry">github.com/promptise-com/foundry</a>.</p>
+<h3 id="how-do-i-install-promptise-foundry">How do I install Promptise Foundry?<a class="headerlink" href="#how-do-i-install-promptise-foundry" title="Link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>promptise
 </span></code></pre></div>
-<p>Python 3.10 or newer is required. Optional extras for memory backends, sandboxing, and observability are available — see <a href="../getting-started/installation-extras/">Installation Extras</a>.</p>
-<h2 id="does-promptise-foundry-support-self-hosted-or-local-llms">Does Promptise Foundry support self-hosted or local LLMs?<a class="headerlink" href="#does-promptise-foundry-support-self-hosted-or-local-llms" title="Link to this section">&para;</a></h2>
-<p><strong>Yes.</strong> Use any Ollama model via the <code>"ollama:model-name"</code> string. Local embeddings, local guardrail models (DeBERTa, GLiNER, Llama Guard), and local memory backends (ChromaDB) make <strong>air-gapped deployments</strong> fully supported.</p>
-<h2 id="is-promptise-foundry-open-source">Is Promptise Foundry open source?<a class="headerlink" href="#is-promptise-foundry-open-source" title="Link to this section">&para;</a></h2>
-<p>Yes — <strong>Apache 2.0</strong> licensed. The source code is at <a href="https://github.com/promptise-com/foundry">github.com/promptise-com/foundry</a>.</p>
-<h2 id="can-i-run-autonomous-agents-with-promptise-foundry">Can I run autonomous agents with Promptise Foundry?<a class="headerlink" href="#can-i-run-autonomous-agents-with-promptise-foundry" title="Link to this section">&para;</a></h2>
-<p>Yes. The <a href="../runtime/processes/">Agent Runtime</a> turns stateless LLM calls into persistent, governed processes with cron triggers, event triggers, message triggers, webhook triggers, and file-watch triggers. Includes budget governance, health monitoring, mission tracking, and automatic crash recovery from journaled state.</p>
-<h2 id="does-promptise-foundry-handle-multi-user-access-control">Does Promptise Foundry handle multi-user access control?<a class="headerlink" href="#does-promptise-foundry-handle-multi-user-access-control" title="Link to this section">&para;</a></h2>
-<p>Yes. The MCP server SDK has JWT and asymmetric JWT authentication, capability-based access policies, per-user audit trails, and <code>CallerContext</code> propagation across the entire agent stack. <strong>Built for multi-tenant production deployments.</strong></p>
-<h2 id="how-does-promptise-foundry-handle-prompt-injection-and-security">How does Promptise Foundry handle prompt injection and security?<a class="headerlink" href="#how-does-promptise-foundry-handle-prompt-injection-and-security" title="Link to this section">&para;</a></h2>
-<p>The framework includes <code>PromptiseSecurityScanner</code> with six detection heads — DeBERTa-based prompt injection detection, PII detection (69 regex patterns), credential detection (96 patterns), GLiNER NER, content safety via Llama Guard or Azure AI, and custom rules. All models run locally. Input blocking and output redaction are built in.</p>
-<h2 id="where-can-i-find-examples">Where can I find examples?<a class="headerlink" href="#where-can-i-find-examples" title="Link to this section">&para;</a></h2>
-<p>Runnable examples are at <a href="https://github.com/promptise-com/foundry/tree/main/examples">github.com/promptise-com/foundry/tree/main/examples</a> — covering agents, MCP servers, prompt engineering, and runtime use cases. Every example uses real LLM calls, no mocks.</p>
+<p>Python 3.10 or newer required. Optional extras for memory backends, sandboxing, and observability — see <a href="../getting-started/installation-extras/">Installation Extras</a>.</p>
+<h2 id="comparisons">Comparisons<a class="headerlink" href="#comparisons" title="Link to this section">&para;</a></h2>
+<h3 id="how-is-promptise-foundry-different-from-langchain">How is Promptise Foundry different from LangChain?<a class="headerlink" href="#how-is-promptise-foundry-different-from-langchain" title="Link to this section">&para;</a></h3>
+<p>LangChain is a general-purpose LLM toolkit with hundreds of integrations. Promptise Foundry is a focused production framework — one coherent stack covering agents, MCP servers, prompt engineering, and autonomous runtime, with built-in access control, audit trails, sandboxing, and governance. <strong>Promptise has fewer abstractions, no silent fallbacks (errors raise instead of degrading), is async-first, and uses MCP-native tool discovery instead of manual wiring.</strong></p>
+<h3 id="how-does-promptise-foundry-compare-to-langgraph">How does Promptise Foundry compare to LangGraph?<a class="headerlink" href="#how-does-promptise-foundry-compare-to-langgraph" title="Link to this section">&para;</a></h3>
+<p>LangGraph is an orchestration layer focused on stateful graphs. Promptise Foundry includes a full <strong>Agent Runtime</strong> with crash recovery via journals, governance (budget, health, mission), and five trigger types (cron, event, message, webhook, file watch) — built for long-running autonomous agents that survive restarts, not just stateful conversations.</p>
+<h3 id="how-does-promptise-foundry-compare-to-crewai">How does Promptise Foundry compare to CrewAI?<a class="headerlink" href="#how-does-promptise-foundry-compare-to-crewai" title="Link to this section">&para;</a></h3>
+<p>CrewAI focuses on multi-agent role-playing workflows. Promptise Foundry covers single agents, multi-agent coordination via the <strong>cross-agent delegation system</strong> (<code>ask_peer</code> / <code>broadcast</code> over HTTP+JWT), plus the production infrastructure — MCP servers, governance, observability, sandboxing — that real deployments need.</p>
+<h2 id="models-local-first">Models &amp; Local-First<a class="headerlink" href="#models-local-first" title="Link to this section">&para;</a></h2>
+<h3 id="which-llm-models-does-promptise-foundry-support">Which LLM models does Promptise Foundry support?<a class="headerlink" href="#which-llm-models-does-promptise-foundry-support" title="Link to this section">&para;</a></h3>
+<p><strong>Any model.</strong> Use a string like <code>"openai:gpt-5-mini"</code>, <code>"anthropic:claude-sonnet-4.5"</code>, or <code>"ollama:llama3"</code>, or pass any LangChain <code>BaseChatModel</code> directly. Switching providers requires changing one string in <code>build_agent()</code>.</p>
+<h3 id="does-promptise-foundry-support-self-hosted-or-local-llms">Does Promptise Foundry support self-hosted or local LLMs?<a class="headerlink" href="#does-promptise-foundry-support-self-hosted-or-local-llms" title="Link to this section">&para;</a></h3>
+<p><strong>Yes.</strong> Use any Ollama model via <code>"ollama:model-name"</code>. Local embeddings via SentenceTransformers, local guardrail models (DeBERTa, GLiNER, Llama Guard), and local memory backends (ChromaDB) make <strong>air-gapped deployments</strong> fully supported.</p>
+<h2 id="mcp-model-context-protocol">MCP — Model Context Protocol<a class="headerlink" href="#mcp-model-context-protocol" title="Link to this section">&para;</a></h2>
+<h3 id="what-is-mcp-and-why-does-promptise-foundry-use-it">What is MCP and why does Promptise Foundry use it?<a class="headerlink" href="#what-is-mcp-and-why-does-promptise-foundry-use-it" title="Link to this section">&para;</a></h3>
+<p>MCP (<a href="https://modelcontextprotocol.io">Model Context Protocol</a>) is the open standard for connecting LLMs to tools, resources, and prompts. Promptise Foundry is <strong>MCP-native</strong> — agents auto-discover tools from any MCP server URL, schemas convert to typed tools automatically, and you can build your own MCP servers with the included SDK.</p>
+<h3 id="does-promptise-foundry-have-its-own-mcp-client">Does Promptise Foundry have its own MCP client?<a class="headerlink" href="#does-promptise-foundry-have-its-own-mcp-client" title="Link to this section">&para;</a></h3>
+<p>Yes — built from scratch, no third-party MCP client dependencies:</p>
+<ul>
+<li><code>MCPClient</code> for single servers</li>
+<li><code>MCPMultiClient</code> for connecting to N servers with unified tool list and auto-routing</li>
+<li><code>MCPToolAdapter</code> for converting MCP tools to LangChain <code>BaseTool</code> objects with recursive schema handling</li>
+</ul>
+<p>Supports HTTP, SSE, and stdio transports. Bearer token and API key authentication.</p>
+<h3 id="can-i-build-my-own-mcp-server-with-promptise-foundry">Can I build my own MCP server with Promptise Foundry?<a class="headerlink" href="#can-i-build-my-own-mcp-server-with-promptise-foundry" title="Link to this section">&para;</a></h3>
+<p>Yes — same relationship to MCP that FastAPI has to REST. Decorators for tools, resources, and prompts. Schema auto-generated from type hints. Middleware chain. Authentication, guards, caching, health checks, metrics, exception handlers, webhooks, dependency injection (FastAPI-style <code>Depends</code>), session state, versioning, namespace transforms, OpenAPI tool generation, streaming, elicitation, sampling, and a <code>TestClient</code> for in-process testing. See <a href="../guides/production-mcp-servers/">Building Production MCP Servers</a>.</p>
+<h3 id="how-do-i-deploy-a-promptise-foundry-mcp-server">How do I deploy a Promptise Foundry MCP server?<a class="headerlink" href="#how-do-i-deploy-a-promptise-foundry-mcp-server" title="Link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp:server<span class="w"> </span>--transport<span class="w"> </span>http<span class="w"> </span>--port<span class="w"> </span><span class="m">8080</span>
+</span></code></pre></div>
+<p>Supports <code>stdio</code>, <code>streamable HTTP</code>, and <code>SSE</code> transports with configurable CORS. Auth gate at the transport level. CLI flags: <code>--dashboard</code> (live terminal UI), <code>--reload</code> (hot-reload during development). Kubernetes health probes (liveness, readiness, startup) built in.</p>
+<h2 id="agent-runtime">Agent Runtime<a class="headerlink" href="#agent-runtime" title="Link to this section">&para;</a></h2>
+<h3 id="what-is-the-agent-runtime">What is the Agent Runtime?<a class="headerlink" href="#what-is-the-agent-runtime" title="Link to this section">&para;</a></h3>
+<p>The operating system for autonomous AI agents. Turns stateless LLM calls into <strong>persistent, governed processes</strong>. Each <code>AgentProcess</code> has lifecycle states (CREATED → STARTING → RUNNING → SUSPENDED → STOPPING → STOPPED/FAILED), trigger queues, heartbeat monitoring, concurrency control, conversation buffer, and journaled state for crash recovery.</p>
+<h3 id="whats-the-difference-between-promptiseagent-and-the-agent-runtime">What's the difference between PromptiseAgent and the Agent Runtime?<a class="headerlink" href="#whats-the-difference-between-promptiseagent-and-the-agent-runtime" title="Link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>PromptiseAgent</th>
+<th>Agent Runtime</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>What</strong></td>
+<td>Single agent created via <code>build_agent()</code></td>
+<td>Wraps an agent in an <code>AgentProcess</code></td>
+</tr>
+<tr>
+<td><strong>Invocation</strong></td>
+<td><code>.run()</code> or <code>.chat()</code></td>
+<td>Triggered by events, cron, webhooks, files</td>
+</tr>
+<tr>
+<td><strong>Lifecycle</strong></td>
+<td>Stateless between calls</td>
+<td>Long-running, persistent, recoverable</td>
+</tr>
+<tr>
+<td><strong>Use case</strong></td>
+<td>Request/response</td>
+<td>Autonomous, ambient, scheduled</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-trigger-types-can-launch-an-autonomous-agent">What trigger types can launch an autonomous agent?<a class="headerlink" href="#what-trigger-types-can-launch-an-autonomous-agent" title="Link to this section">&para;</a></h3>
+<p>Five built-in:</p>
+<ul>
+<li><strong>CronTrigger</strong> — cron expressions</li>
+<li><strong>EventTrigger</strong> — <code>EventBus</code> subscription</li>
+<li><strong>MessageTrigger</strong> — topic-based pub/sub with wildcards</li>
+<li><strong>WebhookTrigger</strong> — HTTP POST with HMAC verification</li>
+<li><strong>FileWatchTrigger</strong> — directory monitoring with glob patterns</li>
+</ul>
+<p>Multiple triggers compose on one process. Custom trigger types can be registered.</p>
+<h3 id="how-does-promptise-foundry-handle-crash-recovery">How does Promptise Foundry handle crash recovery?<a class="headerlink" href="#how-does-promptise-foundry-handle-crash-recovery" title="Link to this section">&para;</a></h3>
+<p>Through journals. <code>InMemoryJournal</code> and <code>FileJournal</code> record every state transition, trigger event, and invocation result. The <code>ReplayEngine</code> reconstructs state from a checkpoint plus replay log. <strong>When a process crashes, it restarts from the last known good state</strong> — no lost conversations, no lost trigger queue, no data loss.</p>
+<h3 id="does-promptise-foundry-support-distributed-deployments">Does Promptise Foundry support distributed deployments?<a class="headerlink" href="#does-promptise-foundry-support-distributed-deployments" title="Link to this section">&para;</a></h3>
+<p>Yes. <code>RuntimeCoordinator</code> for multi-node coordination, with <code>StaticDiscovery</code> and <code>RegistryDiscovery</code> for node discovery. Health checks over HTTP. <strong>No etcd or Consul dependency</strong> required.</p>
+<h3 id="what-governance-does-the-agent-runtime-provide">What governance does the Agent Runtime provide?<a class="headerlink" href="#what-governance-does-the-agent-runtime-provide" title="Link to this section">&para;</a></h3>
+<p>Four subsystems:</p>
+<table>
+<thead>
+<tr>
+<th>Subsystem</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Budget</strong></td>
+<td>Per-run and daily limits on tool calls, LLM turns, cost units, irreversible actions</td>
+</tr>
+<tr>
+<td><strong>Health</strong></td>
+<td>Anomaly detection — stuck loops, repeating patterns, empty responses, high error rates</td>
+</tr>
+<tr>
+<td><strong>Mission</strong></td>
+<td>LLM-as-judge evaluation against success criteria with confidence thresholds</td>
+</tr>
+<tr>
+<td><strong>Secrets</strong></td>
+<td>Per-process credentials with TTL expiry, rotation without restart, zero-fill revocation, never serialized to journal</td>
+</tr>
+</tbody>
+</table>
+<p>Escalation via webhook POST and <code>EventBus</code> emission. Enforcement: log, pause, stop, or escalate.</p>
+<h2 id="security-multi-user">Security &amp; Multi-User<a class="headerlink" href="#security-multi-user" title="Link to this section">&para;</a></h2>
+<h3 id="does-promptise-foundry-handle-multi-user-access-control">Does Promptise Foundry handle multi-user access control?<a class="headerlink" href="#does-promptise-foundry-handle-multi-user-access-control" title="Link to this section">&para;</a></h3>
+<p>Yes. The MCP server SDK ships:</p>
+<ul>
+<li><code>JWTAuth</code> (HS256), <code>AsymmetricJWTAuth</code> (RS256/ES256), <code>APIKeyAuth</code></li>
+<li>Capability-based access policies</li>
+<li>Per-tool permission guards: <code>HasRole</code>, <code>HasAllRoles</code>, <code>RequireAuth</code>, <code>RequireClientId</code></li>
+<li>Per-user audit trails (HMAC-chained for tamper detection)</li>
+<li><code>CallerContext</code> propagation across the entire stack via async contextvars</li>
+</ul>
+<p>Built for multi-tenant production deployments. See <a href="../guides/multi-user-systems/">Building Multi-User Systems</a>.</p>
+<h3 id="how-does-promptise-foundry-handle-prompt-injection-and-security">How does Promptise Foundry handle prompt injection and security?<a class="headerlink" href="#how-does-promptise-foundry-handle-prompt-injection-and-security" title="Link to this section">&para;</a></h3>
+<p><code>PromptiseSecurityScanner</code> with <strong>six detection heads</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Head</th>
+<th>Detects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DeBERTa</td>
+<td>Prompt injection (ML model)</td>
+</tr>
+<tr>
+<td>Regex (69 patterns)</td>
+<td>PII</td>
+</tr>
+<tr>
+<td>Regex (96 patterns)</td>
+<td>Credentials</td>
+</tr>
+<tr>
+<td>GLiNER</td>
+<td>Named entities</td>
+</tr>
+<tr>
+<td>Llama Guard / Azure AI</td>
+<td>Content safety</td>
+</tr>
+<tr>
+<td>Custom rules</td>
+<td>Domain-specific</td>
+</tr>
+</tbody>
+</table>
+<p>All models run <strong>locally</strong>. Input blocking and output redaction built in. Memory retrieval and semantic cache responses are also rescanned.</p>
+<h3 id="can-i-sandbox-code-execution">Can I sandbox code execution?<a class="headerlink" href="#can-i-sandbox-code-execution" title="Link to this section">&para;</a></h3>
+<p>Yes. Docker-based sandbox with <strong>seccomp syscall filtering</strong>, capability dropping (~40 caps), read-only rootfs, resource limits (CPU, memory, time), and network isolation (none, restricted, full). Optional <strong>gVisor</strong> kernel for stronger isolation. Five agent tools auto-injected when sandbox is enabled — execute, read file, write file, list files, install package. Path traversal and shell injection prevention built in.</p>
+<h2 id="memory-cache-and-persistence">Memory, Cache, and Persistence<a class="headerlink" href="#memory-cache-and-persistence" title="Link to this section">&para;</a></h2>
+<h3 id="what-memory-backends-does-promptise-foundry-support">What memory backends does Promptise Foundry support?<a class="headerlink" href="#what-memory-backends-does-promptise-foundry-support" title="Link to this section">&para;</a></h3>
+<p>Three providers ship in the framework:</p>
+<ul>
+<li><strong><code>InMemoryProvider</code></strong> — testing</li>
+<li><strong><code>ChromaProvider</code></strong> — local vector search, persistent</li>
+<li><strong><code>Mem0Provider</code></strong> — enterprise-grade graph search</li>
+</ul>
+<p>Configured on <code>build_agent()</code>. Before every invocation, the agent <strong>auto-searches memory</strong> and injects relevant results into the system prompt with prompt-injection mitigation built in.</p>
+<h3 id="does-promptise-foundry-support-conversation-persistence">Does Promptise Foundry support conversation persistence?<a class="headerlink" href="#does-promptise-foundry-support-conversation-persistence" title="Link to this section">&para;</a></h3>
+<p>Yes — <code>ConversationStore</code> protocol with four backends:</p>
+<ul>
+<li><code>InMemoryConversationStore</code></li>
+<li><code>SQLiteConversationStore</code></li>
+<li><code>PostgresConversationStore</code></li>
+<li><code>RedisConversationStore</code></li>
+</ul>
+<p>The <code>chat()</code> method handles load → invoke → persist automatically. Session ownership is enforced.</p>
+<h3 id="does-promptise-foundry-support-semantic-caching">Does Promptise Foundry support semantic caching?<a class="headerlink" href="#does-promptise-foundry-support-semantic-caching" title="Link to this section">&para;</a></h3>
+<p>Yes. <code>SemanticCache</code> with in-memory or Redis backends. Per-user, per-session, or shared scope isolation. Serves cached responses for <strong>semantically similar queries</strong> — typically 30–50% cost reduction. Output guardrails re-scan cached responses. GDPR <code>purge_user()</code> supported. Encrypted-at-rest option available for Redis.</p>
+<h2 id="prompt-engineering">Prompt Engineering<a class="headerlink" href="#prompt-engineering" title="Link to this section">&para;</a></h2>
+<h3 id="does-promptise-foundry-have-prompt-engineering-features">Does Promptise Foundry have prompt engineering features?<a class="headerlink" href="#does-promptise-foundry-have-prompt-engineering-features" title="Link to this section">&para;</a></h3>
+<p>Yes — prompts as software components:</p>
+<ul>
+<li><code>@prompt</code> decorator</li>
+<li><strong>8 PromptBlock types</strong> (<code>Identity</code>, <code>Rules</code>, <code>OutputFormat</code>, <code>ContextSlot</code>, <code>Section</code>, <code>Examples</code>, <code>Conditional</code>, <code>Composite</code>) with priority-based token budgeting</li>
+<li><code>ConversationFlow</code> — system prompts that transform across phases</li>
+<li><strong>5 composable strategies</strong>: <code>ChainOfThought</code>, <code>StructuredReasoning</code>, <code>SelfCritique</code>, <code>PlanAndExecute</code>, <code>Decompose</code></li>
+<li><strong>4 built-in perspectives</strong>: <code>Analyst</code>, <code>Critic</code>, <code>Advisor</code>, <code>Creative</code></li>
+<li>Guards: <code>ContentFilterGuard</code>, <code>LengthGuard</code>, <code>SchemaStrictGuard</code>, custom validators</li>
+<li><strong>14 context providers</strong> — Tool, Memory, Task, Blackboard, User, Environment, Conversation, Team, Error, Output, Static, Callable, Conditional, World</li>
+<li><code>PromptInspector</code> for tracing assembly step-by-step</li>
+</ul>
+<h2 id="multi-agent-systems">Multi-Agent Systems<a class="headerlink" href="#multi-agent-systems" title="Link to this section">&para;</a></h2>
+<h3 id="does-promptise-foundry-support-multi-agent-systems">Does Promptise Foundry support multi-agent systems?<a class="headerlink" href="#does-promptise-foundry-support-multi-agent-systems" title="Link to this section">&para;</a></h3>
+<p>Yes. <strong>Cross-agent delegation</strong>:</p>
+<ul>
+<li><code>ask_peer()</code> — send a question to another agent over HTTP+JWT and await the answer</li>
+<li><code>broadcast()</code> — send to multiple peers in parallel with timeout</li>
+</ul>
+<p>Graceful degradation if a peer fails. SuperAgent YAML files declare cross-agent references with cycle detection.</p>
+<h2 id="configuration-files">Configuration Files<a class="headerlink" href="#configuration-files" title="Link to this section">&para;</a></h2>
+<h3 id="what-is-a-superagent-file">What is a SuperAgent file?<a class="headerlink" href="#what-is-a-superagent-file" title="Link to this section">&para;</a></h3>
+<p>A <code>.superagent</code> YAML file that defines an entire agent declaratively — model, instructions, MCP servers, memory, sandbox, observability, cache, guardrails, cross-agents. Environment variable resolution via <code>${VAR}</code> and <code>${VAR:-default}</code>. Loadable via the CLI:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>promptise<span class="w"> </span>agent<span class="w"> </span>file.superagent
+</span></code></pre></div>
+<h3 id="what-is-an-agent-manifest">What is an .agent manifest?<a class="headerlink" href="#what-is-an-agent-manifest" title="Link to this section">&para;</a></h3>
+<p>A YAML manifest for the <strong>Agent Runtime</strong> — declares model, instructions, MCP servers, <strong>triggers</strong>, world state, memory, journal, open mode, budget, health, mission, and secrets. Validated, savable, deployable from the CLI. Distinct from <code>.superagent</code> (one-shot agents); <code>.agent</code> is for runtime processes with triggers and lifecycle.</p>
+<h3 id="what-is-open-mode">What is Open Mode?<a class="headerlink" href="#what-is-open-mode" title="Link to this section">&para;</a></h3>
+<p>Self-modifying agents with <strong>14 meta-tools</strong> — <code>modify_instructions</code>, <code>create_tool</code>, <code>connect_mcp_server</code>, <code>add_trigger</code>, <code>remove_trigger</code>, <code>spawn_process</code>, <code>list_processes</code>, <code>store_memory</code>, <code>search_memory</code>, <code>forget_memory</code>, <code>list_capabilities</code>, <code>get_secret</code>, <code>check_budget</code>, <code>check_mission</code>. Guardrails: max instruction length, max custom tools, MCP URL whitelist, mandatory sandbox for agent-written code. Hot-reload without losing conversation state. Rollback to original config.</p>
+<h2 id="operations">Operations<a class="headerlink" href="#operations" title="Link to this section">&para;</a></h2>
+<h3 id="how-does-observability-work">How does observability work?<a class="headerlink" href="#how-does-observability-work" title="Link to this section">&para;</a></h3>
+<p>Four levels — <code>OFF</code>, <code>BASIC</code>, <code>STANDARD</code>, <code>FULL</code>. Every LLM turn, tool call, token count, latency, retry, cache hit/miss is recorded. <strong>8 transporters</strong>: HTML report, JSON file, structured log, console, Prometheus, OpenTelemetry, webhook, callback. Ring buffer with configurable max entries. Thread-safe.</p>
+<h3 id="is-there-a-dashboard-for-monitoring-agents">Is there a dashboard for monitoring agents?<a class="headerlink" href="#is-there-a-dashboard-for-monitoring-agents" title="Link to this section">&para;</a></h3>
+<p>Yes. Two dashboards — one for the MCP server (six tabs: server overview, tool stats, agents, request log, performance, raw logs) and one for the Agent Runtime (process state, invocation counts, trigger status, context inspection, memory usage, journal history). Both are live terminal UIs.</p>
+<h3 id="can-i-track-costs-with-promptise-foundry">Can I track costs with Promptise Foundry?<a class="headerlink" href="#can-i-track-costs-with-promptise-foundry" title="Link to this section">&para;</a></h3>
+<p>Promptise Foundry <strong>does not estimate or track LLM provider prices</strong> — those change weekly and would require constant maintenance. The <strong>Budget governance system</strong> tracks tool calls, LLM turns, and abstract cost units that you can map to your own pricing model. <code>ToolCostAnnotations</code> on tools let you assign per-call cost weights.</p>
+<h3 id="what-about-job-queues">What about job queues?<a class="headerlink" href="#what-about-job-queues" title="Link to this section">&para;</a></h3>
+<p>The MCP server SDK includes <code>MCPQueue</code> with priority scheduling, retry with exponential backoff, progress reporting, and cancellation. Auto-registered tools — <code>queue_submit</code>, <code>queue_status</code>, <code>queue_result</code>, <code>queue_cancel</code>, <code>queue_list</code>. Background tasks supported for fire-and-forget work after a handler returns.</p>
+<h3 id="how-is-testing-done">How is testing done?<a class="headerlink" href="#how-is-testing-done" title="Link to this section">&para;</a></h3>
+<p>For <strong>MCP servers</strong>: <code>TestClient</code> runs the full pipeline in-process — validation, dependency injection, guards, middleware, handler — with no network. For <strong>prompts</strong>: <code>mock_llm()</code>, <code>mock_context()</code>, <code>assert_schema()</code>, <code>assert_contains()</code>, <code>assert_latency()</code>, <code>assert_guard_passed()</code> helpers work with pytest.</p>
+<h3 id="does-promptise-foundry-have-a-cli">Does Promptise Foundry have a CLI?<a class="headerlink" href="#does-promptise-foundry-have-a-cli" title="Link to this section">&para;</a></h3>
+<p>Yes:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>promptise agent &lt;file&gt;</code></td>
+<td>Run a <code>.superagent</code></td>
+</tr>
+<tr>
+<td><code>promptise validate</code></td>
+<td>Validate a config file</td>
+</tr>
+<tr>
+<td><code>promptise list-tools</code></td>
+<td>Discover tools from MCP servers</td>
+</tr>
+<tr>
+<td><code>promptise run</code></td>
+<td>Run a one-shot prompt</td>
+</tr>
+<tr>
+<td><code>promptise serve</code></td>
+<td>Serve an MCP server</td>
+</tr>
+</tbody>
+</table>
+<p>The runtime has its own CLI for managing processes, triggers, and manifests.</p>
+<h2 id="examples-and-community">Examples and Community<a class="headerlink" href="#examples-and-community" title="Link to this section">&para;</a></h2>
+<h3 id="where-can-i-find-examples">Where can I find examples?<a class="headerlink" href="#where-can-i-find-examples" title="Link to this section">&para;</a></h3>
+<p>Runnable examples at <a href="https://github.com/promptise-com/foundry/tree/main/examples">github.com/promptise-com/foundry/tree/main/examples</a> — covering agents, MCP servers (<code>examples/mcp/</code>), prompt engineering (<code>examples/prompts/</code>), and runtime use cases (<code>examples/runtime/</code>). <strong>Every example uses real LLM calls</strong> — no mocks, no stubs.</p>
+<h3 id="how-can-i-contribute">How can I contribute?<a class="headerlink" href="#how-can-i-contribute" title="Link to this section">&para;</a></h3>
+<p>Issues and pull requests welcome at <a href="https://github.com/promptise-com/foundry">github.com/promptise-com/foundry</a>. Conventional commits required (<code>feat:</code>, <code>fix:</code>, <code>docs:</code>, <code>refactor:</code>, <code>test:</code>, <code>chore:</code>). Type hints on all public APIs (Python 3.10+ syntax), Google-style docstrings, and tests for all new functionality. See <a href="../resources/contributing/">Contributing</a>.</p>
 <hr />
 <h2 id="still-have-questions">Still have questions?<a class="headerlink" href="#still-have-questions" title="Link to this section">&para;</a></h2>
 <ul>
 <li><a href="https://github.com/promptise-com/foundry/issues">Open an issue on GitHub</a></li>
 <li><a href="../">Read the full documentation</a></li>
 <li><a href="../resources/examples/">See examples</a></li>
+<li><a href="../getting-started/quickstart/">Get started in 5 minutes</a></li>
 </ul>
 
 
@@ -7705,7 +8874,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="May 3, 2026 19:20:35 UTC">2026-05-03</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="May 3, 2026 19:51:02 UTC">2026-05-03</span>
   </span>
 
     

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Connect to MCP servers as a client -- authenticate, discover tools, and invoke them programmatically.">
+        <meta name="description" content="Promptise Foundry's native MCP client connects to one or many MCP servers, auto-discovers tools, and invokes them with full schema typing. Single-server, multi-server, and LangChain BaseTool adapter variants. HTTP, SSE, and stdio transports. Bearer token and API key authentication. No third-party MCP dependencies.">
       
       
         <meta name="author" content="Manser Ventures">
@@ -29,7 +29,7 @@
     
     
       
-        <title>Client Guide - Promptise Foundry</title>
+        <title>MCP Client — Native Python client for the Model Context Protocol - Promptise Foundry</title>
       
     
     
@@ -88,12 +88,14 @@
 
   
   
+    <meta name="keywords" content="MCP client Python, Model Context Protocol client, MCP client SDK, MCPMultiClient, MCPClient, MCP tool adapter, LangChain MCP">
+  
 
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
-  <meta property="og:title" content="Client Guide">
-  <meta property="og:description" content="Connect to MCP servers as a client -- authenticate, discover tools, and invoke them programmatically.">
+  <meta property="og:title" content="MCP Client — Native Python client for the Model Context Protocol">
+  <meta property="og:description" content="Promptise Foundry's native MCP client connects to one or many MCP servers, auto-discovers tools, and invokes them with full schema typing. Single-server, multi-server, and LangChain BaseTool adapter variants. HTTP, SSE, and stdio transports. Bearer token and API key authentication. No third-party MCP dependencies.">
   <meta property="og:url" content="https://docs.promptise.com/mcp/client/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -102,8 +104,8 @@
 
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Client Guide">
-  <meta name="twitter:description" content="Connect to MCP servers as a client -- authenticate, discover tools, and invoke them programmatically.">
+  <meta name="twitter:title" content="MCP Client — Native Python client for the Model Context Protocol">
+  <meta name="twitter:description" content="Promptise Foundry's native MCP client connects to one or many MCP servers, auto-discovers tools, and invokes them with full schema typing. Single-server, multi-server, and LangChain BaseTool adapter variants. HTTP, SSE, and stdio transports. Bearer token and API key authentication. No third-party MCP dependencies.">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -177,9 +179,9 @@
     {
       "@context": "https://schema.org",
       "@type": "TechArticle",
-      "headline": "Client Guide",
-      "name": "Client Guide",
-      "description": "Connect to MCP servers as a client -- authenticate, discover tools, and invoke them programmatically.",
+      "headline": "MCP Client \u2014 Native Python client for the Model Context Protocol",
+      "name": "MCP Client \u2014 Native Python client for the Model Context Protocol",
+      "description": "Promptise Foundry\u0027s native MCP client connects to one or many MCP servers, auto-discovers tools, and invokes them with full schema typing. Single-server, multi-server, and LangChain BaseTool adapter variants. HTTP, SSE, and stdio transports. Bearer token and API key authentication. No third-party MCP dependencies.",
       "url": "https://docs.promptise.com/mcp/client/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -245,7 +247,7 @@
       ,{
         "@type": "ListItem",
         "position": 4,
-        "name": "Client Guide",
+        "name": "MCP Client \u2014 Native Python client for the Model Context Protocol",
         "item": "https://docs.promptise.com/mcp/client/"
       }
     ]
@@ -307,7 +309,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Client Guide
+              MCP Client — Native Python client for the Model Context Protocol
             
           </span>
         </div>
@@ -701,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -818,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -882,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -7841,7 +7933,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="May 3, 2026 19:51:02 UTC">2026-05-03</span>
   </span>
 
     
