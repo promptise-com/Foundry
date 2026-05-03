@@ -703,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -820,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -884,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -16823,8 +16913,7 @@ and <code>"claims"</code> (dict of extra JWT claims).</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>jwt_auth = JWTAuth(secret=&quot;my-secret&quot;)
+        <div class="language-text highlight"><pre><span></span><code>jwt_auth = JWTAuth(secret=&quot;my-secret&quot;)
 server.add_middleware(AuthMiddleware(jwt_auth))
 
 server.enable_token_endpoint(
@@ -16922,8 +17011,7 @@ constraints applied.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>from promptise.prompts.registry import registry
+        <div class="language-text highlight"><pre><span></span><code>from promptise.prompts.registry import registry
 server.include_prompts(registry)
 </code></pre></div>
 
@@ -17793,8 +17881,7 @@ When reached, additional calls receive a retryable error.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>@server.tool()
+        <div class="language-text highlight"><pre><span></span><code>@server.tool()
 async def search(query: str, limit: int = 10) -&gt; list[dict]:
     &quot;&quot;&quot;Search records.&quot;&quot;&quot;
     return await db.search(query, limit)
@@ -18555,8 +18642,7 @@ re-running the current script.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>if __name__ == &quot;__main__&quot;:
+        <div class="language-text highlight"><pre><span></span><code>if __name__ == &quot;__main__&quot;:
     hot_reload(transport=&quot;http&quot;, port=8080)
 </code></pre></div>
 
@@ -18739,8 +18825,7 @@ plan tier, etc.) goes here.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True)
+        <div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True)
 async def my_tool(ctx: RequestContext) -&gt; str:
     print(ctx.client.client_id)   # &quot;agent-007&quot;
     print(ctx.client.roles)       # {&quot;admin&quot;, &quot;analyst&quot;}
@@ -19099,8 +19184,7 @@ Common keys: <code>"cache"</code> (<code>"hit"</code>/<code>"miss"</code>),
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>@server.tool()
+        <div class="language-text highlight"><pre><span></span><code>@server.tool()
 async def search(query: str, ctx: RequestContext) -&gt; ToolResponse:
     results = await db.search(query)
     return ToolResponse(
@@ -19540,8 +19624,7 @@ file.  Used for signature verification.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>auth = AsymmetricJWTAuth(
+        <div class="language-text highlight"><pre><span></span><code>auth = AsymmetricJWTAuth(
     public_key=open(&quot;public.pem&quot;).read(),
     algorithm=&quot;RS256&quot;,
 )
@@ -20003,8 +20086,7 @@ enrichment (e.g. loading org, tenant, or plan info from a database).</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>async def enrich_client(client: ClientContext, ctx: RequestContext):
+        <div class="language-text highlight"><pre><span></span><code>async def enrich_client(client: ClientContext, ctx: RequestContext):
     org = await db.get_org_for_client(client.client_id)
     client.extra[&quot;org_id&quot;] = org.id
     client.extra[&quot;plan&quot;] = org.plan
@@ -20631,8 +20713,7 @@ has <strong>at least one</strong> of these scopes.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True, guards=[HasScope(&quot;read&quot;, &quot;admin&quot;)])
+        <div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True, guards=[HasScope(&quot;read&quot;, &quot;admin&quot;)])
 async def get_data() -&gt; str:
     return &quot;data&quot;
 </code></pre></div>
@@ -24079,8 +24160,7 @@ Defaults to hashing the function name + JSON-serialised kwargs.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>@server.tool()
+        <div class="language-text highlight"><pre><span></span><code>@server.tool()
 @cached(ttl=300)
 async def expensive_query(query: str) -&gt; dict:
     return await db.search(query)
@@ -24247,8 +24327,7 @@ auto-cleanup (seconds).</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>server = MCPServer(name=&quot;analytics&quot;)
+        <div class="language-text highlight"><pre><span></span><code>server = MCPServer(name=&quot;analytics&quot;)
 queue = MCPQueue(server, max_workers=4)
 
 @queue.job(name=&quot;generate_report&quot;, timeout=60)
@@ -24619,8 +24698,7 @@ and may optionally accept <code>_JobProgressReporter</code> or
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>@queue.job(name=&quot;generate_report&quot;, timeout=60)
+        <div class="language-text highlight"><pre><span></span><code>@queue.job(name=&quot;generate_report&quot;, timeout=60)
 async def generate_report(department: str) -&gt; dict:
     return {&quot;department&quot;: department, &quot;rows&quot;: 500}
 </code></pre></div>
@@ -28316,8 +28394,7 @@ beyond the server's control.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>@server.tool()
+        <div class="language-text highlight"><pre><span></span><code>@server.tool()
 async def chart(values: list[float]) -&gt; ImageContent:
     png = render_chart(values)
     return ImageContent(data=png, mime_type=&quot;image/png&quot;)
@@ -28535,8 +28612,7 @@ async def chart(values: list[float]) -&gt; ImageContent:
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>server.run(
+        <div class="language-text highlight"><pre><span></span><code>server.run(
     transport=&quot;http&quot;,
     port=8080,
     cors=CORSConfig(
@@ -28681,8 +28757,7 @@ guard checks, middleware chain, handler invocation, and error serialisation
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>client = TestClient(server, meta={&quot;authorization&quot;: &quot;Bearer tok&quot;})
+        <div class="language-text highlight"><pre><span></span><code>client = TestClient(server, meta={&quot;authorization&quot;: &quot;Bearer tok&quot;})
 result = await client.call_tool(&quot;search&quot;, {&quot;query&quot;: &quot;revenue&quot;})
 </code></pre></div>
 

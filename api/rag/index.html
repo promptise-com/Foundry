@@ -703,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -820,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -884,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -9178,7 +9268,7 @@ result. Override for sources that are too large to fit in memory.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>Document</code> instances.</p>
+                
               </div>
             </td>
           </tr>
@@ -9243,7 +9333,7 @@ result. Override for sources that are too large to fit in memory.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>meth:<code>iter_load</code> instead and leave this method returning</p>
+                
               </div>
             </td>
           </tr>
@@ -10432,8 +10522,7 @@ provider's rate limits.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>pipeline = RAGPipeline(
+        <div class="language-text highlight"><pre><span></span><code>pipeline = RAGPipeline(
     loader=MarkdownFolderLoader(&quot;./docs&quot;),
     embedder=OpenAIEmbedder(),
     store=PineconeStore(&quot;my-index&quot;),
@@ -10640,7 +10729,7 @@ the configured :class:<code>DocumentLoader</code> is called.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>IndexReport</code> with counts and any errors encountered.</p>
+                
               </div>
             </td>
           </tr>
@@ -10949,8 +11038,7 @@ and LLM friendly), <code>"json"</code> (structured), or <code>"text"</code>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>from promptise import build_agent
+        <div class="language-text highlight"><pre><span></span><code>from promptise import build_agent
 from promptise.rag import rag_to_tool
 
 docs_tool = rag_to_tool(

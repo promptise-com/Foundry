@@ -6,19 +6,19 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="See exactly how your prompts are assembled, which blocks made it in, token estimates, what was dropped, guard results, and the exact text sent to the LLM. No">
+        <meta name="description" content="Honest, factual comparison of Promptise Foundry against other Python agent frameworks. What ships in the box, what design choices we made, and when each framework is the right fit.">
       
       
         <meta name="author" content="Manser Ventures">
       
       
-        <link rel="canonical" href="https://docs.promptise.com/prompting/inspector/">
+        <link rel="canonical" href="https://docs.promptise.com/getting-started/why-promptise/">
       
       
-        <link rel="prev" href="../guards/">
+        <link rel="prev" href="../quickstart/">
       
       
-        <link rel="next" href="../testing/">
+        <link rel="next" href="../what-is-mcp/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>Inspector & Observability - Promptise Foundry</title>
+        <title>Why Promptise Foundry — Production agent framework for Python - Promptise Foundry</title>
       
     
     
@@ -75,7 +75,7 @@
   
 
   
-  <link rel="canonical" href="https://docs.promptise.com/prompting/inspector/">
+  <link rel="canonical" href="https://docs.promptise.com/getting-started/why-promptise/">
 
   
   
@@ -88,13 +88,15 @@
 
   
   
+    <meta name="keywords" content="Promptise Foundry vs LangChain, LangGraph alternative, CrewAI alternative, Python agent framework comparison, production agent framework, MCP framework, agentic AI framework">
+  
 
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
-  <meta property="og:title" content="Inspector & Observability">
-  <meta property="og:description" content="See exactly how your prompts are assembled, which blocks made it in, token estimates, what was dropped, guard results, and the exact text sent to the LLM. No">
-  <meta property="og:url" content="https://docs.promptise.com/prompting/inspector/">
+  <meta property="og:title" content="Why Promptise Foundry — Production agent framework for Python">
+  <meta property="og:description" content="Honest, factual comparison of Promptise Foundry against other Python agent frameworks. What ships in the box, what design choices we made, and when each framework is the right fit.">
+  <meta property="og:url" content="https://docs.promptise.com/getting-started/why-promptise/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
@@ -102,8 +104,8 @@
 
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Inspector & Observability">
-  <meta name="twitter:description" content="See exactly how your prompts are assembled, which blocks made it in, token estimates, what was dropped, guard results, and the exact text sent to the LLM. No">
+  <meta name="twitter:title" content="Why Promptise Foundry — Production agent framework for Python">
+  <meta name="twitter:description" content="Honest, factual comparison of Promptise Foundry against other Python agent frameworks. What ships in the box, what design choices we made, and when each framework is the right fit.">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -177,10 +179,10 @@
     {
       "@context": "https://schema.org",
       "@type": "TechArticle",
-      "headline": "Inspector \u0026 Observability",
-      "name": "Inspector \u0026 Observability",
-      "description": "See exactly how your prompts are assembled, which blocks made it in, token estimates, what was dropped, guard results, and the exact text sent to the LLM. No",
-      "url": "https://docs.promptise.com/prompting/inspector/",
+      "headline": "Why Promptise Foundry \u2014 Production agent framework for Python",
+      "name": "Why Promptise Foundry \u2014 Production agent framework for Python",
+      "description": "Honest, factual comparison of Promptise Foundry against other Python agent frameworks. What ships in the box, what design choices we made, and when each framework is the right fit.",
+      "url": "https://docs.promptise.com/getting-started/why-promptise/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
         "@type": "WebSite",
@@ -233,20 +235,14 @@
       ,{
         "@type": "ListItem",
         "position": 2,
-        "name": "Prompting \u0026 Context"
+        "name": "Getting Started"
       }
       
       ,{
         "@type": "ListItem",
         "position": 3,
-        "name": "Quality \u0026 Testing"
-      }
-      
-      ,{
-        "@type": "ListItem",
-        "position": 4,
-        "name": "Inspector \u0026 Observability",
-        "item": "https://docs.promptise.com/prompting/inspector/"
+        "name": "Why Promptise Foundry \u2014 Production agent framework for Python",
+        "item": "https://docs.promptise.com/getting-started/why-promptise/"
       }
     ]
   }
@@ -272,7 +268,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#inspector-observability" class="md-skip">
+        <a href="#why-promptise-foundry" class="md-skip">
           Skip to content
         </a>
       
@@ -307,7 +303,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Inspector & Observability
+              Why Promptise Foundry — Production agent framework for Python
             
           </span>
         </div>
@@ -412,10 +408,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../.." class="md-tabs__link">
           
   
@@ -544,13 +542,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../prompting/" class="md-tabs__link">
           
   
   
@@ -682,6 +678,8 @@
       
   
   
+    
+  
   
   
     
@@ -711,16 +709,19 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -742,13 +743,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_1" id="__nav_1_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_1" id="__nav_1_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -768,7 +769,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/installation-extras/" class="md-nav__link">
+      <a href="../installation-extras/" class="md-nav__link">
         
   
   
@@ -796,7 +797,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/quickstart/" class="md-nav__link">
+      <a href="../quickstart/" class="md-nav__link">
         
   
   
@@ -821,10 +822,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -840,6 +868,175 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-ships-in-promptise-foundry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What ships in Promptise Foundry
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-choices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design choices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design choices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-mcp-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. MCP-first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-no-silent-fallbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. No silent fallbacks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-async-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Async-first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-capability-based-security-not-rbac" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Capability-based security, not RBAC
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-production-primitives-included-not-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Production primitives included, not optional
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-no-cost-pricing-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. No cost / pricing tracking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-local-first-when-possible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Local-first when possible
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-other-frameworks-are-a-better-fit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When other frameworks are a better fit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-promptise-foundry-is-the-right-fit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When Promptise Foundry is the right fit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-30-second-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A 30-second example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#read-more" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read more
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -852,7 +1049,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+      <a href="../what-is-mcp/" class="md-nav__link">
         
   
   
@@ -880,7 +1077,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/model-setup/" class="md-nav__link">
+      <a href="../model-setup/" class="md-nav__link">
         
   
   
@@ -908,7 +1105,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/best-llms-for-agents/" class="md-nav__link">
+      <a href="../best-llms-for-agents/" class="md-nav__link">
         
   
   
@@ -936,7 +1133,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/concepts/" class="md-nav__link">
+      <a href="../concepts/" class="md-nav__link">
         
   
   
@@ -964,7 +1161,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/glossary/" class="md-nav__link">
+      <a href="../glossary/" class="md-nav__link">
         
   
   
@@ -5308,8 +5505,6 @@
       
   
   
-    
-  
   
   
     
@@ -5331,23 +5526,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../prompting/" class="md-nav__link ">
               
   
   
@@ -5365,13 +5557,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -5409,20 +5601,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
         
           
-          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
             
   
   
@@ -5458,7 +5647,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../blocks/" class="md-nav__link">
+      <a href="../../prompting/blocks/" class="md-nav__link">
         
   
   
@@ -5486,7 +5675,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../flows/" class="md-nav__link">
+      <a href="../../prompting/flows/" class="md-nav__link">
         
   
   
@@ -5514,7 +5703,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../builder/" class="md-nav__link">
+      <a href="../../prompting/builder/" class="md-nav__link">
         
   
   
@@ -5542,7 +5731,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../loader-templates/" class="md-nav__link">
+      <a href="../../prompting/loader-templates/" class="md-nav__link">
         
   
   
@@ -5570,7 +5759,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../shell-interpolation/" class="md-nav__link">
+      <a href="../../prompting/shell-interpolation/" class="md-nav__link">
         
   
   
@@ -5620,20 +5809,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
         
           
-          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
             
   
   
@@ -5669,7 +5855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../strategies/" class="md-nav__link">
+      <a href="../../prompting/strategies/" class="md-nav__link">
         
   
   
@@ -5697,7 +5883,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../chaining/" class="md-nav__link">
+      <a href="../../prompting/chaining/" class="md-nav__link">
         
   
   
@@ -5725,7 +5911,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../context/" class="md-nav__link">
+      <a href="../../prompting/context/" class="md-nav__link">
         
   
   
@@ -5758,10 +5944,8 @@
                 
   
   
-    
   
   
-  
     
     
       
@@ -5776,21 +5960,18 @@
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
         
           
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="0">
             
   
   
@@ -5808,7 +5989,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_7_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -5826,7 +6007,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guards/" class="md-nav__link">
+      <a href="../../prompting/guards/" class="md-nav__link">
         
   
   
@@ -5851,37 +6032,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Inspector & Observability
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../prompting/inspector/" class="md-nav__link">
         
   
   
@@ -5897,192 +6051,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#quick-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick Example
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#concepts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Concepts
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#promptinspector" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PromptInspector
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="PromptInspector">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#recording-traces" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recording Traces
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#reading-traces" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reading Traces
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#prompttrace-fields" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PromptTrace Fields
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#contexttrace-fields" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ContextTrace Fields
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#summary-report" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Summary Report
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#inspector-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Inspector API
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#promptobserver" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PromptObserver
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="PromptObserver">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setup
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#events-recorded" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Events Recorded
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#observer-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observer API
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#whats-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What's Next
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -6095,7 +6063,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../testing/" class="md-nav__link">
+      <a href="../../prompting/testing/" class="md-nav__link">
         
   
   
@@ -6131,7 +6099,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../suite-registry/" class="md-nav__link">
+      <a href="../../prompting/suite-registry/" class="md-nav__link">
         
   
   
@@ -7356,10 +7324,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-example" class="md-nav__link">
+  <a href="#what-ships-in-promptise-foundry" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick Example
+        What ships in Promptise Foundry
       
     </span>
   </a>
@@ -7367,33 +7335,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#concepts" class="md-nav__link">
+  <a href="#design-choices" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Concepts
+        Design choices
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#promptinspector" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        PromptInspector
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="PromptInspector">
+    <nav class="md-nav" aria-label="Design choices">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#recording-traces" class="md-nav__link">
+  <a href="#1-mcp-first" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Recording Traces
+        1. MCP-first
       
     </span>
   </a>
@@ -7401,10 +7358,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#reading-traces" class="md-nav__link">
+  <a href="#2-no-silent-fallbacks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reading Traces
+        2. No silent fallbacks
       
     </span>
   </a>
@@ -7412,10 +7369,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#prompttrace-fields" class="md-nav__link">
+  <a href="#3-async-first" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PromptTrace Fields
+        3. Async-first
       
     </span>
   </a>
@@ -7423,10 +7380,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#contexttrace-fields" class="md-nav__link">
+  <a href="#4-capability-based-security-not-rbac" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ContextTrace Fields
+        4. Capability-based security, not RBAC
       
     </span>
   </a>
@@ -7434,10 +7391,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#summary-report" class="md-nav__link">
+  <a href="#5-production-primitives-included-not-optional" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Summary Report
+        5. Production primitives included, not optional
       
     </span>
   </a>
@@ -7445,10 +7402,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#inspector-api" class="md-nav__link">
+  <a href="#6-no-cost-pricing-tracking" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Inspector API
+        6. No cost / pricing tracking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-local-first-when-possible" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Local-first when possible
       
     </span>
   </a>
@@ -7461,60 +7429,43 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#promptobserver" class="md-nav__link">
+  <a href="#when-other-frameworks-are-a-better-fit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        PromptObserver
+        When other frameworks are a better fit
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="PromptObserver">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setup
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#events-recorded" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Events Recorded
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#observer-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observer API
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#whats-next" class="md-nav__link">
+  <a href="#when-promptise-foundry-is-the-right-fit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What's Next
+        When Promptise Foundry is the right fit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-30-second-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A 30-second example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#read-more" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read more
       
     </span>
   </a>
@@ -7537,49 +7488,6 @@
 
 
 
-  <nav class="md-path" aria-label="Navigation" >
-    <ol class="md-path__list">
-      
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="../" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Prompting & Context
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="../guards/" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Quality & Testing
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-    </ol>
-  </nav>
-
               
               <article class="md-content__inner md-typeset">
                 
@@ -7590,332 +7498,168 @@
   
 
 
-<h1 id="inspector-observability">Inspector &amp; Observability<a class="headerlink" href="#inspector-observability" title="Link to this section">&para;</a></h1>
-<p>See exactly how your prompts are assembled, which blocks made it in, token estimates, what was dropped, guard results, and the exact text sent to the LLM. No other framework gives you this level of visibility.</p>
-<h2 id="quick-example">Quick Example<a class="headerlink" href="#quick-example" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.inspector</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptInspector</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">prompt</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.blocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">Identity</span><span class="p">,</span> <span class="n">Rules</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">inspector</span> <span class="o">=</span> <span class="n">PromptInspector</span><span class="p">()</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nd">@prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-5-mini&quot;</span><span class="p">,</span> <span class="n">inspect</span><span class="o">=</span><span class="n">inspector</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nd">@blocks</span><span class="p">(</span><span class="n">Identity</span><span class="p">(</span><span class="s2">&quot;Analyst&quot;</span><span class="p">),</span> <span class="n">Rules</span><span class="p">([</span><span class="s2">&quot;Be precise&quot;</span><span class="p">]))</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Analyze: {text}&quot;&quot;&quot;</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">analyze</span><span class="p">(</span><span class="s2">&quot;quarterly data&quot;</span><span class="p">)</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">trace</span> <span class="o">=</span> <span class="n">inspector</span><span class="o">.</span><span class="n">last</span><span class="p">()</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">prompt_name</span><span class="p">)</span>            <span class="c1"># &quot;analyze&quot;</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="nb">print</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">blocks_included</span><span class="p">)</span>        <span class="c1"># [&quot;identity&quot;, &quot;rules&quot;]</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="nb">print</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">total_tokens_estimated</span><span class="p">)</span> <span class="c1"># 45</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="nb">print</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">input_text</span><span class="p">)</span>             <span class="c1"># Full prompt sent to LLM</span>
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">latency_ms</span><span class="p">)</span>             <span class="c1"># Execution time in ms</span>
-</span></code></pre></div>
-<h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
-<p>The prompt framework has two observability tools:</p>
+<h1 id="why-promptise-foundry">Why Promptise Foundry?<a class="headerlink" href="#why-promptise-foundry" title="Link to this section">&para;</a></h1>
+<p>There are now dozens of Python frameworks for building LLM agents. Promptise Foundry is not the right answer for every team. This page is the honest version — what ships in the box, what design choices we made, and when other frameworks are a better fit.</p>
+<h2 id="what-ships-in-promptise-foundry">What ships in Promptise Foundry<a class="headerlink" href="#what-ships-in-promptise-foundry" title="Link to this section">&para;</a></h2>
+<p>One Python install (<code>pip install promptise</code>) gives you:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What's included</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Core agent</strong></td>
+<td><code>build_agent()</code> factory, model-agnostic, MCP tool discovery, four levels of tool optimization with local embeddings</td>
+</tr>
+<tr>
+<td><strong>Memory</strong></td>
+<td>Three providers — in-memory, Chroma (local persistent), Mem0 (graph) — auto-retrieved and injected before every call</td>
+</tr>
+<tr>
+<td><strong>Conversation persistence</strong></td>
+<td>Four backends — in-memory, SQLite, Postgres, Redis</td>
+</tr>
+<tr>
+<td><strong>Semantic cache</strong></td>
+<td>In-memory or Redis with per-user / per-session / shared scope isolation</td>
+</tr>
+<tr>
+<td><strong>Guardrails</strong></td>
+<td><code>PromptiseSecurityScanner</code> with 6 local detection heads (DeBERTa, GLiNER, Llama Guard, regex × 165 patterns, custom)</td>
+</tr>
+<tr>
+<td><strong>Sandbox</strong></td>
+<td>Docker with seccomp + capability dropping + read-only rootfs + resource limits + network isolation; optional gVisor</td>
+</tr>
+<tr>
+<td><strong>Observability</strong></td>
+<td>4 levels, 8 transporters (HTML, JSON, log, console, Prometheus, OpenTelemetry, webhook, callback)</td>
+</tr>
+<tr>
+<td><strong>MCP server SDK</strong></td>
+<td>Decorators, middleware (logging, timeout, rate limit, circuit breaker, audit), JWT auth, capability guards, caching, health probes, queue, DI, versioning, OpenAPI ingestion, in-process testing</td>
+</tr>
+<tr>
+<td><strong>MCP client</strong></td>
+<td>Native, no third-party deps. Single, multi-server, and LangChain adapter variants. Three transports (stdio, HTTP, SSE)</td>
+</tr>
+<tr>
+<td><strong>Prompt engineering</strong></td>
+<td>8 prompt blocks, conversation flows, 5 strategies, 4 perspectives, 14 context providers, schema-strict guards, registry with versioning, inspector for debugging</td>
+</tr>
+<tr>
+<td><strong>Agent runtime</strong></td>
+<td>Process lifecycle, journals, replay engine, 5 trigger types (cron, event, message, webhook, file watch), 4 governance subsystems (budget, health, mission, secrets), distributed coordinator, dashboard</td>
+</tr>
+<tr>
+<td><strong>Cross-agent</strong></td>
+<td><code>ask_peer</code> and <code>broadcast</code> over HTTP+JWT for multi-agent systems</td>
+</tr>
+<tr>
+<td><strong>Self-modifying</strong></td>
+<td>Open Mode with 14 meta-tools and guardrails for agent-written code</td>
+</tr>
+<tr>
+<td><strong>Config</strong></td>
+<td><code>.superagent</code> and <code>.agent</code> YAML manifests with <code>${VAR}</code> resolution and cycle detection</td>
+</tr>
+<tr>
+<td><strong>CLI</strong></td>
+<td><code>agent</code>, <code>validate</code>, <code>list-tools</code>, <code>run</code>, <code>serve</code></td>
+</tr>
+</tbody>
+</table>
+<p>Every backend listed as a parameter option works. No <code>NotImplementedError</code>. No "planned." If it's documented, it's shipped.</p>
+<h2 id="design-choices">Design choices<a class="headerlink" href="#design-choices" title="Link to this section">&para;</a></h2>
+<p>These are the principles we wrote down on day one and have stuck to:</p>
+<h3 id="1-mcp-first">1. MCP-first<a class="headerlink" href="#1-mcp-first" title="Link to this section">&para;</a></h3>
+<p>Tools are discovered, not wired. You give the agent an MCP server URL; the agent calls <code>tools/list</code> and uses what's there. This means the same tool you build for Promptise works with Claude Desktop, Cursor, ChatGPT, and any other MCP-compatible agent.</p>
+<h3 id="2-no-silent-fallbacks">2. No silent fallbacks<a class="headerlink" href="#2-no-silent-fallbacks" title="Link to this section">&para;</a></h3>
+<p>If the model isn't reachable, we raise. If a tool errors, we raise. If a memory backend isn't configured but is requested, we raise. <strong>Every silent fallback is a future production incident.</strong></p>
+<h3 id="3-async-first">3. Async-first<a class="headerlink" href="#3-async-first" title="Link to this section">&para;</a></h3>
+<p>Every public API is async. No sync wrappers that pretend to be async. No mixed sync/async surfaces. <code>asyncio.run()</code> at the top, await everywhere else.</p>
+<h3 id="4-capability-based-security-not-rbac">4. Capability-based security, not RBAC<a class="headerlink" href="#4-capability-based-security-not-rbac" title="Link to this section">&para;</a></h3>
+<p>Roles are blunt. Capabilities are sharp. A user with <code>tickets:read</code> can't accidentally get <code>tickets:delete</code> because of a role inheritance mistake. The MCP server SDK lets you express exactly what each token is allowed to do.</p>
+<h3 id="5-production-primitives-included-not-optional">5. Production primitives included, not optional<a class="headerlink" href="#5-production-primitives-included-not-optional" title="Link to this section">&para;</a></h3>
+<p>Audit logs, rate limits, circuit breakers, health probes, sandboxing, observability — these are built into the framework. You don't bolt them on; you turn them on.</p>
+<h3 id="6-no-cost-pricing-tracking">6. No cost / pricing tracking<a class="headerlink" href="#6-no-cost-pricing-tracking" title="Link to this section">&para;</a></h3>
+<p>LLM provider prices change weekly. We don't shadow-track them. The Budget governance subsystem counts tool calls, LLM turns, and abstract cost units that you map to your own pricing model. <code>ToolCostAnnotations</code> let you weight individual tools.</p>
+<h3 id="7-local-first-when-possible">7. Local-first when possible<a class="headerlink" href="#7-local-first-when-possible" title="Link to this section">&para;</a></h3>
+<p>The guardrail models (DeBERTa, GLiNER, Llama Guard) run locally. Embeddings can be local. The vector store can be local. <strong>You can run the full stack air-gapped.</strong></p>
+<h2 id="when-other-frameworks-are-a-better-fit">When other frameworks are a better fit<a class="headerlink" href="#when-other-frameworks-are-a-better-fit" title="Link to this section">&para;</a></h2>
+<p>We don't think Promptise Foundry is right for every team. Here's where you'd reasonably pick something else:</p>
+<table>
+<thead>
+<tr>
+<th>If you need…</th>
+<th>Consider…</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hundreds of pre-built integrations across model providers, document loaders, and vector stores</td>
+<td>LangChain</td>
+</tr>
+<tr>
+<td>A pure stateful-graph orchestration layer with checkpointing for conversational workflows</td>
+<td>LangGraph</td>
+</tr>
+<tr>
+<td>A multi-agent role-playing pattern with minimal code</td>
+<td>CrewAI</td>
+</tr>
+<tr>
+<td>A typed Python-only agent framework with structured output as the default</td>
+<td>Pydantic AI</td>
+</tr>
+<tr>
+<td>A hosted, fully-managed agent platform</td>
+<td>A SaaS product, not a framework</td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-promptise-foundry-is-the-right-fit">When Promptise Foundry is the right fit<a class="headerlink" href="#when-promptise-foundry-is-the-right-fit" title="Link to this section">&para;</a></h2>
+<p>Pick Promptise Foundry when:</p>
 <ul>
-<li><strong><code>PromptInspector</code></strong> -- local debugging and tracing. Records detailed traces of every prompt assembly and execution. Designed for development and testing.</li>
-<li><strong><code>PromptObserver</code></strong> -- production telemetry. Records structured events to a pluggable <code>ObservabilityCollector</code>. Designed for metrics, monitoring, and dashboards.</li>
+<li>You're shipping agents to <strong>production</strong>, not prototyping</li>
+<li>You need <strong>multi-user / multi-tenant</strong> access control out of the box</li>
+<li>You want <strong>MCP-native</strong> tool discovery instead of bespoke tool wiring</li>
+<li>You need <strong>autonomous, long-running</strong> agents that survive restarts</li>
+<li>You want <strong>governance</strong> (budget, health, mission, secrets) without building it yourself</li>
+<li>You need <strong>local / air-gapped</strong> deployment as a first-class option</li>
+<li>You want <strong>one coherent stack</strong> instead of five libraries glued together</li>
+<li>You value <strong>type hints, async-first, and explicit errors</strong> over magic and convenience</li>
 </ul>
-<p>Both can be used simultaneously. The inspector records everything locally; the observer emits events to your telemetry pipeline.</p>
-<h2 id="promptinspector">PromptInspector<a class="headerlink" href="#promptinspector" title="Link to this section">&para;</a></h2>
-<h3 id="recording-traces">Recording Traces<a class="headerlink" href="#recording-traces" title="Link to this section">&para;</a></h3>
-<p>Attach the inspector to a prompt via the <code>inspect</code> parameter:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.inspector</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptInspector</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">inspector</span> <span class="o">=</span> <span class="n">PromptInspector</span><span class="p">()</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nd">@prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-5-mini&quot;</span><span class="p">,</span> <span class="n">inspect</span><span class="o">=</span><span class="n">inspector</span><span class="p">)</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">summarize</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Summarize: {text}&quot;&quot;&quot;</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">summarize</span><span class="p">(</span><span class="s2">&quot;long article text...&quot;</span><span class="p">)</span>
+<h2 id="a-30-second-example">A 30-second example<a class="headerlink" href="#a-30-second-example" title="Link to this section">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-5-mini&quot;</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;https://your-mcp-server.example.com&quot;</span><span class="p">],</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">instructions</span><span class="o">=</span><span class="s2">&quot;You are a careful research assistant.&quot;</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">answer</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">&quot;What changed in the API last week?&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Every invocation records a <code>PromptTrace</code> with full assembly and execution details.</p>
-<h3 id="reading-traces">Reading Traces<a class="headerlink" href="#reading-traces" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Most recent trace</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">trace</span> <span class="o">=</span> <span class="n">inspector</span><span class="o">.</span><span class="n">last</span><span class="p">()</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># All recorded traces</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">all_traces</span> <span class="o">=</span> <span class="n">inspector</span><span class="o">.</span><span class="n">traces</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Human-readable summary</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
-</span></code></pre></div>
-<h3 id="prompttrace-fields">PromptTrace Fields<a class="headerlink" href="#prompttrace-fields" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>prompt_name</code></td>
-<td><code>str</code></td>
-<td>Name of the prompt</td>
-</tr>
-<tr>
-<td><code>model</code></td>
-<td><code>str</code></td>
-<td>Model used</td>
-</tr>
-<tr>
-<td><code>timestamp</code></td>
-<td><code>float</code></td>
-<td>Unix timestamp</td>
-</tr>
-<tr>
-<td><code>blocks</code></td>
-<td><code>list[BlockTrace]</code></td>
-<td>Per-block details</td>
-</tr>
-<tr>
-<td><code>total_tokens_estimated</code></td>
-<td><code>int</code></td>
-<td>Estimated token count</td>
-</tr>
-<tr>
-<td><code>blocks_included</code></td>
-<td><code>list[str]</code></td>
-<td>Blocks included in assembly</td>
-</tr>
-<tr>
-<td><code>blocks_excluded</code></td>
-<td><code>list[str]</code></td>
-<td>Blocks not included</td>
-</tr>
-<tr>
-<td><code>context_providers</code></td>
-<td><code>list[ContextTrace]</code></td>
-<td>Per-provider details</td>
-</tr>
-<tr>
-<td><code>input_text</code></td>
-<td><code>str</code></td>
-<td>Final text sent to LLM</td>
-</tr>
-<tr>
-<td><code>output_text</code></td>
-<td><code>str</code></td>
-<td>LLM response</td>
-</tr>
-<tr>
-<td><code>latency_ms</code></td>
-<td><code>float</code></td>
-<td>Execution time in milliseconds</td>
-</tr>
-<tr>
-<td><code>guards_passed</code></td>
-<td><code>list[str]</code></td>
-<td>Guard names that passed</td>
-</tr>
-<tr>
-<td><code>guards_failed</code></td>
-<td><code>list[str]</code></td>
-<td>Guard names that failed</td>
-</tr>
-<tr>
-<td><code>flow_phase</code></td>
-<td><code>str</code></td>
-<td>Conversation flow phase (if used)</td>
-</tr>
-<tr>
-<td><code>flow_turn</code></td>
-<td><code>int</code></td>
-<td>Conversation flow turn number</td>
-</tr>
-</tbody>
-</table>
-<h3 id="contexttrace-fields">ContextTrace Fields<a class="headerlink" href="#contexttrace-fields" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>provider_name</code></td>
-<td><code>str</code></td>
-<td>Name of the context provider</td>
-</tr>
-<tr>
-<td><code>chars_injected</code></td>
-<td><code>int</code></td>
-<td>Characters injected into the prompt</td>
-</tr>
-<tr>
-<td><code>render_time_ms</code></td>
-<td><code>float</code></td>
-<td>Time to render the context</td>
-</tr>
-</tbody>
-</table>
-<h3 id="summary-report">Summary Report<a class="headerlink" href="#summary-report" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
-</span></code></pre></div>
-<p>Produces a human-readable report covering all recorded prompt traces, including blocks, context providers, and guards.</p>
-<h3 id="inspector-api">Inspector API<a class="headerlink" href="#inspector-api" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method / Property</th>
-<th>Returns</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>last()</code></td>
-<td><code>PromptTrace \| None</code></td>
-<td>Most recent prompt trace</td>
-</tr>
-<tr>
-<td><code>traces</code></td>
-<td><code>list[PromptTrace]</code></td>
-<td>All recorded prompt traces</td>
-</tr>
-<tr>
-<td><code>summary()</code></td>
-<td><code>str</code></td>
-<td>Human-readable summary report</td>
-</tr>
-<tr>
-<td><code>clear()</code></td>
-<td><code>None</code></td>
-<td>Discard all recorded traces</td>
-</tr>
-</tbody>
-</table>
-<p>Recording methods (auto-called by <code>@prompt</code>; available for custom integrations):</p>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>record_assembly(assembled, prompt_name, model)</code></td>
-<td>Record how the prompt was assembled</td>
-</tr>
-<tr>
-<td><code>record_execution(trace, output, latency_ms)</code></td>
-<td>Record LLM output and latency</td>
-</tr>
-<tr>
-<td><code>record_context(trace, provider_name, chars, time)</code></td>
-<td>Record a context provider contribution</td>
-</tr>
-<tr>
-<td><code>record_guard(trace, guard_name, passed)</code></td>
-<td>Record guard pass/fail</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="promptobserver">PromptObserver<a class="headerlink" href="#promptobserver" title="Link to this section">&para;</a></h2>
-<p><code>PromptObserver</code> is the production telemetry bridge. It wraps the <code>ObservabilityCollector</code> and emits structured events for prompt lifecycle stages.</p>
-<h3 id="setup">Setup<a class="headerlink" href="#setup" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.observe</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptObserver</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.observability</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObservabilityCollector</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">collector</span> <span class="o">=</span> <span class="n">ObservabilityCollector</span><span class="p">()</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">observer</span> <span class="o">=</span> <span class="n">PromptObserver</span><span class="p">(</span><span class="n">collector</span><span class="p">)</span>
-</span></code></pre></div>
-<p>Attach to prompts via the <code>observer</code> parameter or <code>observe=True</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nd">@prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-5-mini&quot;</span><span class="p">,</span> <span class="n">observer</span><span class="o">=</span><span class="n">observer</span><span class="p">)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Analyze: {text}&quot;&quot;&quot;</span>
-</span></code></pre></div>
-<h3 id="events-recorded">Events Recorded<a class="headerlink" href="#events-recorded" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Event</th>
-<th>Data</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>record_start(prompt_name, model, input_text)</code></td>
-<td><code>PROMPT_START</code></td>
-<td>prompt name, model, input length</td>
-</tr>
-<tr>
-<td><code>record_end(prompt_name, model, latency_ms, output_length)</code></td>
-<td><code>PROMPT_END</code></td>
-<td>prompt name, model, latency, output length</td>
-</tr>
-<tr>
-<td><code>record_error(prompt_name, error)</code></td>
-<td><code>PROMPT_ERROR</code></td>
-<td>prompt name, error type, error message</td>
-</tr>
-<tr>
-<td><code>record_guard_block(prompt_name, guard_name, reason)</code></td>
-<td><code>PROMPT_GUARD_BLOCK</code></td>
-<td>prompt name, guard name, reason</td>
-</tr>
-<tr>
-<td><code>record_context(prompt_name, provider_name, chars_injected)</code></td>
-<td><code>PROMPT_CONTEXT</code></td>
-<td>prompt name, provider, chars injected</td>
-</tr>
-</tbody>
-</table>
-<h3 id="observer-api">Observer API<a class="headerlink" href="#observer-api" title="Link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>record_start(prompt_name, model, input_text)</code></td>
-<td>Record prompt execution start</td>
-</tr>
-<tr>
-<td><code>record_end(prompt_name, model, latency_ms, output_length)</code></td>
-<td>Record prompt execution end</td>
-</tr>
-<tr>
-<td><code>record_error(prompt_name, error)</code></td>
-<td>Record prompt execution error</td>
-</tr>
-<tr>
-<td><code>record_guard_block(prompt_name, guard_name, reason)</code></td>
-<td>Record a guard blocking execution</td>
-</tr>
-<tr>
-<td><code>record_context(prompt_name, provider_name, chars_injected)</code></td>
-<td>Record context provider execution</td>
-</tr>
-</tbody>
-</table>
-<div class="admonition tip">
-<p class="admonition-title">Inspector for debugging, Observer for production</p>
-<p>Use <code>PromptInspector</code> during development to understand exactly how your prompts are assembled. Use <code>PromptObserver</code> in production to feed metrics into your monitoring pipeline. They serve different purposes and can run simultaneously.</p>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Inspector stores traces in memory</p>
-<p>The inspector keeps all traces in memory. Call <code>inspector.clear()</code> periodically in long-running processes to avoid unbounded memory growth.</p>
-</div>
-<h2 id="whats-next">What's Next<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
+<p>That's the whole API for the simple case. From there:</p>
 <ul>
-<li><a href="../guards/">Guards</a> -- Input/output validation</li>
-<li><a href="../strategies/">Strategies</a> -- Control how the agent reasons</li>
+<li>Add <code>memory=ChromaProvider(...)</code> and the agent remembers across calls</li>
+<li>Add <code>cache=SemanticCache(...)</code> and similar queries hit cache</li>
+<li>Add <code>guardrails=PromptiseSecurityScanner(...)</code> and prompt injection is filtered</li>
+<li>Add <code>sandbox=Sandbox(...)</code> and code execution is isolated</li>
+<li>Wrap in an <code>AgentProcess</code> and the agent gets cron triggers, journals, and crash recovery</li>
+</ul>
+<h2 id="read-more">Read more<a class="headerlink" href="#read-more" title="Link to this section">&para;</a></h2>
+<ul>
+<li><a href="../quickstart/">Quick Start →</a></li>
+<li><a href="../concepts/">Key Concepts →</a></li>
+<li><a href="../what-is-mcp/">What is MCP? →</a></li>
+<li><a href="../../faq/">FAQ →</a></li>
+<li><a href="../../guides/production-mcp-servers/">Building Production MCP Servers →</a></li>
+<li><a href="../../runtime/">Agent Runtime →</a></li>
 </ul>
 
 
@@ -7939,7 +7683,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="May 3, 2026 19:51:02 UTC">2026-05-03</span>
   </span>
 
     
@@ -7949,7 +7693,7 @@
     <span class="md-icon" title="Created">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="May 3, 2026 19:51:02 UTC">2026-05-03</span>
   </span>
 
     

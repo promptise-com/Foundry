@@ -703,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -820,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -884,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -8616,8 +8706,7 @@ Sentence Transformers).</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>provider = ChromaProvider(
+        <div class="language-text highlight"><pre><span></span><code>provider = ChromaProvider(
     collection_name=&quot;agent_memory&quot;,
     persist_directory=&quot;.promptise/chroma&quot;,
 )
@@ -8814,8 +8903,7 @@ defaults.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>provider = Mem0Provider(user_id=&quot;user-42&quot;)
+        <div class="language-text highlight"><pre><span></span><code>provider = Mem0Provider(user_id=&quot;user-42&quot;)
 await provider.add(&quot;User prefers dark mode&quot;)
 results = await provider.search(&quot;theme preferences&quot;)
 </code></pre></div>

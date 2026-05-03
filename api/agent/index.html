@@ -703,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -820,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -884,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -15103,7 +15193,7 @@ Oldest messages are dropped when the limit is reached.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>PromptiseAgent</code> instance.</p>
+                
               </div>
             </td>
           </tr>
@@ -15523,7 +15613,7 @@ LLM tokens, and the final response.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ToolStartEvent</code>, :class:<code>ToolEndEvent</code>,</p>
+                
               </div>
             </td>
           </tr>
@@ -15533,7 +15623,7 @@ LLM tokens, and the final response.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>TokenEvent</code>, :class:<code>DoneEvent</code>, or</p>
+                
               </div>
             </td>
           </tr>
@@ -15543,14 +15633,13 @@ LLM tokens, and the final response.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ErrorEvent</code>.</p>
+                
               </div>
             </td>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>async for event in agent.astream_with_tools(input, caller=caller):
+        <div class="language-text highlight"><pre><span></span><code>async for event in agent.astream_with_tools(input, caller=caller):
     if event.type == &quot;tool_start&quot;:
         print(f&quot;🔧 {event.tool_display_name}...&quot;)
     elif event.type == &quot;token&quot;:
@@ -15779,8 +15868,7 @@ session belongs to a different user.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>from promptise.conversations import generate_session_id
+        <div class="language-text highlight"><pre><span></span><code>from promptise.conversations import generate_session_id
 
 agent = await build_agent(..., conversation_store=store)
 sid = generate_session_id()
@@ -15873,7 +15961,7 @@ reply = await agent.chat(&quot;What did I say?&quot;, session_id=sid, user_id=&q
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>~promptise.conversations.SessionInfo</code> or <code>None</code>.</p>
+                
               </div>
             </td>
           </tr>
@@ -16520,8 +16608,7 @@ Available for custom guardrail rules and logging.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>caller = CallerContext(
+        <div class="language-text highlight"><pre><span></span><code>caller = CallerContext(
     user_id=&quot;user-42&quot;,
     bearer_token=&quot;eyJhbGciOiJIUzI1NiIs...&quot;,
     roles={&quot;analyst&quot;},
@@ -20863,8 +20950,7 @@ messages are appended to the parent.</p>
 
 
 
-        <p>Meta-node: the LLM receives a pool of configured nodes and
-dynamically composes its own reasoning path at runtime.</p>
+        <p>dynamically composes its own reasoning path at runtime.</p>
 <p>Instead of following a pre-defined graph, the agent:</p>
 <ol>
 <li>Sees all available nodes as a menu of capabilities</li>

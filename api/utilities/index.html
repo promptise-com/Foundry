@@ -703,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -820,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -884,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -14592,8 +14682,7 @@ or <code>None</code> for the default local model.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code># One-liner
+        <div class="language-text highlight"><pre><span></span><code># One-liner
 cache = SemanticCache()
 
 # Full config
@@ -15551,8 +15640,7 @@ selection), the instance is shared — no duplicate memory.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>provider = LocalEmbeddingProvider()  # all-MiniLM-L6-v2
+        <div class="language-text highlight"><pre><span></span><code>provider = LocalEmbeddingProvider()  # all-MiniLM-L6-v2
 provider = LocalEmbeddingProvider(model=&quot;BAAI/bge-small-en-v1.5&quot;)
 provider = LocalEmbeddingProvider(model=&quot;/models/local/embeddings&quot;)
 </code></pre></div>
@@ -15738,8 +15826,7 @@ provider = LocalEmbeddingProvider(model=&quot;/models/local/embeddings&quot;)
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code># OpenAI
+        <div class="language-text highlight"><pre><span></span><code># OpenAI
 provider = OpenAIEmbeddingProvider(
     model=&quot;text-embedding-3-small&quot;,
     api_key=&quot;${OPENAI_API_KEY}&quot;,
@@ -16564,8 +16651,7 @@ When full, new events are dropped with a warning.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>notifier = EventNotifier(sinks=[
+        <div class="language-text highlight"><pre><span></span><code>notifier = EventNotifier(sinks=[
     WebhookSink(&quot;https://hooks.slack.com/...&quot;, events=[&quot;invocation.error&quot;]),
     CallbackSink(my_handler),
 ])
@@ -18082,7 +18168,7 @@ scanner = PromptiseSecurityScanner(
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ScanReport</code> with all findings.</p>
+                
               </div>
             </td>
           </tr>

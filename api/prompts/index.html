@@ -703,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -820,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -884,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -17546,7 +17636,7 @@ means unlimited.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>AssembledPrompt</code> with the final text, included/</p>
+                
               </div>
             </td>
           </tr>
@@ -17828,7 +17918,7 @@ it in a Prompt with all configured components.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>Prompt</code> instance.</p>
+                
               </div>
             </td>
           </tr>
@@ -21959,7 +22049,7 @@ name and version.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>~promptise.prompts.core.Prompt</code> instance, or a</p>
+                
               </div>
             </td>
           </tr>
@@ -21969,7 +22059,7 @@ name and version.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>~promptise.prompts.suite.PromptSuite</code> when the file</p>
+                
               </div>
             </td>
           </tr>
@@ -22018,8 +22108,7 @@ name and version.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>prompt = load_prompt(&quot;prompts/analyze.prompt&quot;)
+        <div class="language-text highlight"><pre><span></span><code>prompt = load_prompt(&quot;prompts/analyze.prompt&quot;)
 result = await prompt(text=&quot;quarterly figures...&quot;)
 </code></pre></div>
 
@@ -22105,7 +22194,7 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>~promptise.prompts.registry.PromptRegistry</code> containing</p>
+                
               </div>
             </td>
           </tr>
@@ -22121,8 +22210,7 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>registry = load_directory(&quot;prompts/&quot;)
+        <div class="language-text highlight"><pre><span></span><code>registry = load_directory(&quot;prompts/&quot;)
 </code></pre></div>
 
 
@@ -22211,7 +22299,7 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>~promptise.prompts.core.Prompt</code> or</p>
+                
               </div>
             </td>
           </tr>
@@ -22221,7 +22309,7 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>~promptise.prompts.suite.PromptSuite</code>.</p>
+                
               </div>
             </td>
           </tr>
@@ -22250,8 +22338,7 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>prompt = await load_url(
+        <div class="language-text highlight"><pre><span></span><code>prompt = await load_url(
     &quot;https://raw.githubusercontent.com/org/prompts/main/analyze.prompt&quot;
 )
 </code></pre></div>
@@ -22385,8 +22472,7 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>save_prompt(my_prompt, &quot;prompts/analyze.prompt&quot;,
+        <div class="language-text highlight"><pre><span></span><code>save_prompt(my_prompt, &quot;prompts/analyze.prompt&quot;,
             version=&quot;2.0.0&quot;, author=&quot;data-team&quot;)
 </code></pre></div>
 
@@ -22799,12 +22885,7 @@ inherit suite-level configuration.</p>
 
 <details class="class-attributes" open>
   <summary>Class Attributes</summary>
-  <p>context_providers: Shared context providers.
-default_strategy: Default reasoning strategy.
-default_perspective: Default cognitive perspective.
-default_constraints: Default constraints.
-default_guards: Default guards.
-default_world: Default world contexts (dict of BaseContext).</p>
+  
 </details>
 
 

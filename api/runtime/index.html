@@ -703,6 +703,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -820,6 +826,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../getting-started/why-promptise/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Promptise Foundry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/what-is-mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is MCP?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../getting-started/model-setup/" class="md-nav__link">
         
   
@@ -884,6 +946,34 @@
     
   
     Key Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
   
 
     
@@ -17696,7 +17786,7 @@ expires.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>InboxResponse</code> with the agent's answer.</p>
+                
               </div>
             </td>
           </tr>
@@ -18671,7 +18761,7 @@ processes pre-registered.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>AgentProcess</code>.</p>
+                
               </div>
             </td>
           </tr>
@@ -19899,7 +19989,7 @@ included.  The prefix is <strong>not</strong> stripped from the key.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>AgentContext</code> instance.</p>
+                
               </div>
             </td>
           </tr>
@@ -20935,7 +21025,7 @@ threaded or test use.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ConversationBuffer</code> instance.</p>
+                
               </div>
             </td>
           </tr>
@@ -22219,8 +22309,7 @@ transitions.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>lc = ProcessLifecycle()
+        <div class="language-text highlight"><pre><span></span><code>lc = ProcessLifecycle()
 assert lc.state == ProcessState.CREATED
 
 await lc.transition(ProcessState.STARTING, reason=&quot;user requested&quot;)
@@ -23379,7 +23468,7 @@ immediately instead of sleeping for the full delay.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>TriggerEvent</code> with the scheduled time in the payload.</p>
+                
               </div>
             </td>
           </tr>
@@ -23642,7 +23731,7 @@ recommended</strong> when <code>host</code> is <code>"0.0.0.0"</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>TriggerEvent</code> with the request body as payload.</p>
+                
               </div>
             </td>
           </tr>
@@ -23920,7 +24009,7 @@ is not available).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>TriggerEvent</code> with file change details.</p>
+                
               </div>
             </td>
           </tr>
@@ -24393,8 +24482,7 @@ source will fire the trigger.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Factory: create a trigger from a :class:<code>TriggerConfig</code>.</p>
-<p>Looks up the trigger type in the registry (built-in and custom
+        <p>Looks up the trigger type in the registry (built-in and custom
 types registered via :func:<code>register_trigger_type</code>).</p>
 
 
@@ -24617,8 +24705,7 @@ registration.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>from promptise.runtime.triggers import register_trigger_type
+        <div class="language-text highlight"><pre><span></span><code>from promptise.runtime.triggers import register_trigger_type
 
 def sqs_factory(config, *, event_bus=None, broker=None):
     return SQSTrigger(config.custom_config[&quot;queue_url&quot;])
@@ -29411,8 +29498,7 @@ stored separately in a JSON file.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>journal = FileJournal(&quot;/tmp/journals&quot;)
+        <div class="language-text highlight"><pre><span></span><code>journal = FileJournal(&quot;/tmp/journals&quot;)
 await journal.append(JournalEntry(
     process_id=&quot;p-1&quot;,
     entry_type=&quot;trigger_event&quot;,
@@ -29772,8 +29858,7 @@ assert len(entries) == 1
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>engine = ReplayEngine(journal)
+        <div class="language-text highlight"><pre><span></span><code>engine = ReplayEngine(journal)
 recovered = await engine.recover(&quot;process-1&quot;)
 # recovered = {
 #     &quot;context_state&quot;: {...},
@@ -30149,7 +30234,7 @@ recovered = await engine.recover(&quot;process-1&quot;)
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>AgentManifestSchema</code>.</p>
+                
               </div>
             </td>
           </tr>
@@ -30427,7 +30512,7 @@ recovered = await engine.recover(&quot;process-1&quot;)
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>ProcessConfig</code> ready to pass to :class:<code>AgentProcess</code>.</p>
+                
               </div>
             </td>
           </tr>
@@ -30697,8 +30782,7 @@ the HTTP connection pool.</p>
           </tr>
       </tbody>
     </table>
-        <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>async with OrchestrationClient(&quot;http://localhost:9100&quot;, token=&quot;tok&quot;) as c:
+        <div class="language-text highlight"><pre><span></span><code>async with OrchestrationClient(&quot;http://localhost:9100&quot;, token=&quot;tok&quot;) as c:
     await c.start_process(&quot;monitor&quot;)
     status = await c.get_process(&quot;monitor&quot;)
 </code></pre></div>
@@ -32335,7 +32419,7 @@ the HTTP connection pool.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>class:<code>NodeInfo</code> for the node.</p>
+                
               </div>
             </td>
           </tr>
