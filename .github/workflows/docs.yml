@@ -18,7 +18,7 @@ jobs:
     env:
       DISABLE_MKDOCS_2_WARNING: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # full history for git-revision-date plugin
       - uses: actions/setup-python@v5
