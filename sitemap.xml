@@ -2,554 +2,1486 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://docs.promptise.com/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/faq/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/agent/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/config/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/cross-agent/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/api/identity/</loc>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/mcp-client/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/mcp-server/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/memory/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/observability/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/prompts/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/rag/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/runtime/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/sandbox/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/superagent/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/api/utilities/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/add-approval-queue-to-mcp-server/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/agent-framework-tool-approval-comparison/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/agent-identity-without-an-identity-provider/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/agent-reasoning-patterns/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/agent-stuck-in-tool-loop/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/agent-token-usage-observability/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-action-attribution/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-audit-logging/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-behavioral-anomaly-detection/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-compliance-audit-trail/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-crash-recovery/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-duplicate-actions-after-restart/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-failover-to-another-node/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-framework-with-built-in-governance/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-identity/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-memory/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-no-data-egress/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-observability-vs-audit-trail/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-agent-stuck-repeating-tool-call/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/ai-code-review-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/air-gapped-agent-deployment-checklist/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/air-gapped-agent-framework/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/air-gapped-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/api-keys-vs-jwt-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/auto-stop-runaway-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/autogen-docker-code-executor-isolation/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/autogen-vs-promptise/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/autonomous-agent-goal-completion/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/autonomous-agent-governance/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/autonomous-ai-agent-runtime/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/behavioral-anomaly-detection-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/best-ai-agent-framework-2026/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/best-llm-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/build-ai-agent-with-promptise/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/build-time-enforced-approval-gate-mcp/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/cache-mcp-tool-results/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/cap-ai-agent-tool-calls-per-run/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/choosing-an-agent-framework/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/circuit-breakers-for-tools/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/code-action-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/code-interpreter-agent-with-approval-gates/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/compose-multiple-mcp-servers/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/confidence-threshold-to-stop-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/configure-ai-agent-budget-and-health/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/connect-ai-agent-to-mcp-tools/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/context-window-management/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/conversation-persistence/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/crewai-alternative/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/customer-support-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/cut-token-cost-multi-tenant-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/daily-budget-for-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/data-analysis-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/delete-one-tenant-s-data-gdpr/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/deploying-ai-agents-to-kubernetes/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/detect-a-tampered-agent-audit-trail/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/devops-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/document-processing-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/does-langchain-support-multi-tenancy/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/durable-execution-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/encrypt-llm-cache-at-rest/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/enterprise-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/enterprise-ready-agent-framework-checklist/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/entra-agent-identity/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/escalate-ai-agent-to-human/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/eu-ai-act-agent-logging/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/event-driven-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/fail-closed-approval-timeout-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/fastmcp-alternative-for-production/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/gate-irreversible-ai-tool-calls/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/gdpr-delete-cached-llm-responses/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/gdpr-delete-user-data-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/give-each-ai-agent-its-own-identity/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/guardrails-ai-vs-nemo-guardrails/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/hide-mcp-tools-per-client/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/hipaa-ai-agent-audit/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/hot-reload-agent-instructions-without-losing-state/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/how-does-an-ai-agent-authenticate-to-an-api/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/how-to-build-an-ai-agent-in-python/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/human-in-the-loop-approval/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/human-in-the-loop-llm-approval/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/is-autogen-production-secure/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/jwt-authentication-for-mcp-servers/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/know-when-ai-agent-achieved-its-goal/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/langchain-alternative/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/langgraph-checkpoint-vs-audit-log/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/langgraph-checkpointing-vs-journaling/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/langgraph-vs-crewai-vs-autogen-human-in-the-loop/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/langgraph-vs-promptise-2/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/langgraph-vs-promptise/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/let-an-agent-write-its-own-tools-safely/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/limit-irreversible-actions-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/llm-content-moderation/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/llm-guardrails-python/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/llm-long-term-memory/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/llm-tool-rate-limiting/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/long-running-agent-context-bloat/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/long-running-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/long-running-mcp-tool-job-queue/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/mcp-authentication/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/mcp-client/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/mcp-elicitation-approval-vs-four-eyes-review/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/mcp-server-python/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/mcp-tool-connection-pool-exhaustion/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/mcp-vs-function-calling/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/memory-prompt-injection/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/migrate-single-tenant-agent-to-multi-tenant/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/migrating-off-langchain/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/model-agnostic-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/multi-agent-audit-accountability/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/multi-agent-debate-llm/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/multi-agent-systems-python/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/multi-tenant-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/multi-tenant-rag/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/multi-user-agent-identity/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/oauth-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/offline-embeddings-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/offline-guardrail-models/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/one-mcp-tool-every-ai-client/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/openapi-to-mcp/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/per-customer-conversation-isolation/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/per-resource-credentials-for-one-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/per-tenant-data-isolation/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/per-tenant-mcp-rate-limiting/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/per-tenant-rate-limiting-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/pii-redaction-for-ai/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/plan-and-execute-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/production-ai-agent-checklist/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/production-mcp-server/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/prompt-injection-detection/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/propagate-tenant-across-agent-delegation/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/propagate-user-identity-across-agent-delegation-2/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/propagate-user-identity-across-agent-delegation/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/pydantic-ai-vs-promptise/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/python-ai-agent-framework-comparison/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/python-ai-agent-framework/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/rag-for-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/react-agent-pattern/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/react-vs-plan-and-execute/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/reduce-llm-token-cost/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/reduce-mcp-tool-schema-tokens/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/require-tenant-mcp-server/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/revoke-an-ai-agent-s-access/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/risks-of-running-ai-generated-code/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/roll-out-breaking-mcp-tool-change/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/rotate-ai-agent-secret-without-restart/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/route-ai-agent-approvals-to-slack/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/run-ai-generated-code-safely/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/same-user-id-across-two-tenants/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/sandbox-agent-code-with-no-network/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/sandboxed-code-execution-for-ai/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/scheduled-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/secret-detection-for-llm/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/secure-agent-to-agent-communication/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/secure-mcp-server-on-public-internet/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/self-critique-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/self-modifying-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/semantic-cache-cross-tenant-leak/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/semantic-cache-for-llms/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/separation-of-duties-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/server-side-vs-agent-side-ai-approval/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/single-agent-vs-multi-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/smolagents-codeagent-vs-promptise-code-action/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/soc-2-audit-trail-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/sovereign-ai-agent-eu-data-residency/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/spiffe-svid-identity-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/spiffe-vs-entra-vs-aws-iam-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/stop-a-runaway-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/tenant-id-from-jwt-claim/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/tenant-scoped-audit-log-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/testing-mcp-servers/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/time-travel-debug-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/tool-calling-in-python/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/trim-messages-vs-facts-ledger/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/verify-the-calling-agent-server-side/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/verify-webhook-signature-ai-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/version-mcp-tools-without-breaking-clients/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/watched-folder-ingestion-agent/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/what-is-mcp/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/who-approved-this-ai-agent-action/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/workload-identity-for-ai-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/adaptive-strategy/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/approval-classifier/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/approval/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/cache/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/callback-handler/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/cli/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/config/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/context-engine/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/conversations/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/default-prompt/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-edges/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-flags/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-hooks/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-internals/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-nodes/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-prebuilts/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-processors/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-serialization/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-skills/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine-tools/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/engine/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/env-resolver/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/events/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/exceptions/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/fallback/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/guardrails/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/memory/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/observability/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/rag/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/sandbox/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/skill-registry/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/streaming/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/tool-optimization/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/tools/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/types/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/agents/building-agents/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/agents/cross-agent/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/agents/network-server/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/agents/reasoning-patterns/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/agents/server-specs/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/core/agents/superagent-files/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/getting-started/best-llms-for-agents/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/getting-started/concepts/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/getting-started/cookbook/</loc>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/getting-started/glossary/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/getting-started/installation-extras/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/getting-started/model-setup/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/getting-started/quickstart/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/getting-started/what-is-mcp/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/getting-started/why-promptise/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/agentic-runtime/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/building-agents/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/guides/code-action/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/guides/context-lifecycle/</loc>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/custom-reasoning/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/lab-code-review/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/lab-customer-support/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/lab-data-analysis/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/lab-pipeline-observer/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/multi-agent-teams/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/multi-user-identity/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/multi-user-systems/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/production-mcp-servers/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/guides/prompt-engineering/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/guides/secure-multi-tenant-platform/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/architecture/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/guide/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/migration/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/overview/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/quickstart/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/security/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/providers/aws/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/providers/entra/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/providers/gcp/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/providers/oidc/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/identity/providers/spiffe/</loc>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/client/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/client/tool-adapter/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/advanced-patterns/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/mcp/server/approval-gates/</loc>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/auth-security/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/building-servers/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/caching-performance/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/deployment/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/mcp/server/multi-tenancy/</loc>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/observability/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/production-features/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/queue/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/resilience-patterns/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/routers-middleware/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/mcp/server/testing/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/blocks/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/builder/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/chaining/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/context/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/flows/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/guards/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/inspector/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/loader-templates/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/shell-interpolation/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/strategies/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/suite-registry/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/prompting/testing/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/resources/changelog/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/resources/contributing/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/resources/examples/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/resources/migration/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/resources/showcase/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/resources/submit-project/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/api/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/cli/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/configuration/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/context/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/conversation/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/dashboard/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/hooks/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/lifecycle/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/manifests/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/meta-tools/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/processes/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/runtime-manager/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/distributed/coordinator/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/distributed/discovery-transport/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/governance/budget/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/governance/health/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/governance/mission/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/governance/secrets/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/journal/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/journal/backends/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/journal/replay/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/journal/rewind/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/triggers/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/triggers/cron/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/triggers/event-webhook/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
     </url>
     <url>
          <loc>https://docs.promptise.com/runtime/triggers/file-watch/</loc>
-         <lastmod>2026-05-03</lastmod>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/approvals--hitl/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/comparisons/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/identity/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/reasoning/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/cost--efficiency/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/production/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/runtime/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/compliance--audit/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/memory--rag/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/air-gapped--sovereign/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/governance/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/use-cases/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/sandboxing/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/building-agents/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/mcp/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/multi-tenancy/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/category/guardrails/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/page/2/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/page/3/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/page/4/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/page/5/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/page/6/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/page/7/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/page/8/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/page/9/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/page/2/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/page/3/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/page/4/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/page/5/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/page/6/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/page/7/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/page/8/</loc>
+         <lastmod>2026-07-17</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.promptise.com/blog/archive/2026/page/9/</loc>
+         <lastmod>2026-07-17</lastmod>
     </url>
 </urlset>
