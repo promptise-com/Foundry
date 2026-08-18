@@ -14572,12 +14572,12 @@ allow_missing is False.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;API_KEY&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;secret123&quot;</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_var</span><span class="p">(</span><span class="s2">&quot;Bearer $</span><span class="si">{API_KEY}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">&#39;Bearer secret123&#39;</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_var</span><span class="p">(</span><span class="s2">&quot;${MISSING:-default}&quot;</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">&#39;default&#39;</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_var</span><span class="p">(</span><span class="s2">&quot;$</span><span class="si">{MISSING}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># Raises EnvVarNotFoundError</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"API_KEY"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"secret123"</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_var</span><span class="p">(</span><span class="s2">"Bearer $</span><span class="si">{API_KEY}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">'Bearer secret123'</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_var</span><span class="p">(</span><span class="s2">"${MISSING:-default}"</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">'default'</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_var</span><span class="p">(</span><span class="s2">"$</span><span class="si">{MISSING}</span><span class="s2">"</span><span class="p">)</span>  <span class="c1"># Raises EnvVarNotFoundError</span>
 </span></code></pre></div>
 
 
@@ -14590,7 +14590,7 @@ allow_missing is False.</p>
 
 
 <h4 id="promptise.env_resolver.resolve_env_in_dict" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">env_resolver</span><span class="o">.</span><span class="n">resolve_env_in_dict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">context_prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">env_resolver</span><span class="o">.</span><span class="n">resolve_env_in_dict</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">context_prefix</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#promptise.env_resolver.resolve_env_in_dict" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -14696,11 +14696,11 @@ dictionary structure, including in lists and nested dicts.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TOKEN&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;abc123&quot;</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_in_dict</span><span class="p">({</span><span class="s2">&quot;auth&quot;</span><span class="p">:</span> <span class="s2">&quot;$</span><span class="si">{TOKEN}</span><span class="s2">&quot;</span><span class="p">})</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">{&#39;auth&#39;: &#39;abc123&#39;}</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_in_dict</span><span class="p">({</span><span class="s2">&quot;server&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;$</span><span class="si">{API_URL}</span><span class="s2">&quot;</span><span class="p">}})</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">{&#39;server&#39;: {&#39;url&#39;: &#39;http://...&#39;}}</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"TOKEN"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"abc123"</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_in_dict</span><span class="p">({</span><span class="s2">"auth"</span><span class="p">:</span> <span class="s2">"$</span><span class="si">{TOKEN}</span><span class="s2">"</span><span class="p">})</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">{'auth': 'abc123'}</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">resolve_env_in_dict</span><span class="p">({</span><span class="s2">"server"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"url"</span><span class="p">:</span> <span class="s2">"$</span><span class="si">{API_URL}</span><span class="s2">"</span><span class="p">}})</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">{'server': {'url': 'http://...'}}</span>
 </span></code></pre></div>
 
 
@@ -14791,10 +14791,10 @@ each variable is set in the environment.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;api_key&quot;</span><span class="p">:</span> <span class="s2">&quot;$</span><span class="si">{OPENAI_API_KEY}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="s2">&quot;${API_URL:-http://default}&quot;</span><span class="p">}</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"api_key"</span><span class="p">:</span> <span class="s2">"$</span><span class="si">{OPENAI_API_KEY}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"url"</span><span class="p">:</span> <span class="s2">"${API_URL:-http://default}"</span><span class="p">}</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">missing</span> <span class="o">=</span> <span class="n">validate_all_env_vars_available</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing env vars: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Missing env vars: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -16241,11 +16241,11 @@ cache = SemanticCache()
 
 # Full config
 cache = SemanticCache(
-    backend=&quot;redis&quot;,
-    redis_url=&quot;redis://localhost:6379&quot;,
+    backend="redis",
+    redis_url="redis://localhost:6379",
     similarity_threshold=0.92,
-    scope=&quot;per_user&quot;,
-    ttl_patterns={r&quot;current|now|today&quot;: 60},
+    scope="per_user",
+    ttl_patterns={r"current|now|today": 60},
 )
 
 agent = await build_agent(..., cache=cache)
@@ -16276,7 +16276,7 @@ agent = await build_agent(..., cache=cache)
 
 
 <h5 id="promptise.cache.SemanticCache.check" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">check</span><span class="p">(</span><span class="n">query_text</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">context_fingerprint</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">model_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instruction_hash</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">check</span><span class="p">(</span><span class="n">query_text</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">context_fingerprint</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">model_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instruction_hash</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -16569,7 +16569,7 @@ session scope instead.</p>
 
 
 <h5 id="promptise.cache.SemanticCache.store" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">store</span><span class="p">(</span><span class="n">query_text</span><span class="p">,</span> <span class="n">response_text</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">context_fingerprint</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">model_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instruction_hash</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">tools_used</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">store</span><span class="p">(</span><span class="n">query_text</span><span class="p">,</span> <span class="n">response_text</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">context_fingerprint</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">model_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">instruction_hash</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">tools_used</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -17222,8 +17222,8 @@ selection), the instance is shared — no duplicate memory.</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>provider = LocalEmbeddingProvider()  # all-MiniLM-L6-v2
-provider = LocalEmbeddingProvider(model=&quot;BAAI/bge-small-en-v1.5&quot;)
-provider = LocalEmbeddingProvider(model=&quot;/models/local/embeddings&quot;)
+provider = LocalEmbeddingProvider(model="BAAI/bge-small-en-v1.5")
+provider = LocalEmbeddingProvider(model="/models/local/embeddings")
 </code></pre></div>
 
 
@@ -17409,16 +17409,16 @@ provider = LocalEmbeddingProvider(model=&quot;/models/local/embeddings&quot;)
     </table>
         <div class="language-text highlight"><pre><span></span><code># OpenAI
 provider = OpenAIEmbeddingProvider(
-    model=&quot;text-embedding-3-small&quot;,
-    api_key=&quot;${OPENAI_API_KEY}&quot;,
+    model="text-embedding-3-small",
+    api_key="${OPENAI_API_KEY}",
 )
 
 # Azure OpenAI
 provider = OpenAIEmbeddingProvider(
-    model=&quot;text-embedding-3-small&quot;,
-    azure_endpoint=&quot;https://xxx.openai.azure.com&quot;,
-    azure_deployment=&quot;my-embedding&quot;,
-    api_key=&quot;${AZURE_OPENAI_KEY}&quot;,
+    model="text-embedding-3-small",
+    azure_endpoint="https://xxx.openai.azure.com",
+    azure_deployment="my-embedding",
+    api_key="${AZURE_OPENAI_KEY}",
 )
 </code></pre></div>
 
@@ -18233,11 +18233,11 @@ When full, new events are dropped with a warning.</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>notifier = EventNotifier(sinks=[
-    WebhookSink(&quot;https://hooks.slack.com/...&quot;, events=[&quot;invocation.error&quot;]),
+    WebhookSink("https://hooks.slack.com/...", events=["invocation.error"]),
     CallbackSink(my_handler),
 ])
 await notifier.start()
-notifier.emit_sync(AgentEvent(event_type=&quot;invocation.start&quot;, severity=&quot;info&quot;))
+notifier.emit_sync(AgentEvent(event_type="invocation.start", severity="info"))
 await notifier.stop()
 </code></pre></div>
 
@@ -19398,7 +19398,7 @@ scanner = PromptiseSecurityScanner(
         CredentialDetector(categories={CredentialCategory.AWS}),
     ],
     custom_rules=[
-        CustomRule(name=&quot;internal_id&quot;, pattern=r&quot;INT-\d{8}&quot;),
+        CustomRule(name="internal_id", pattern=r"INT-\d{8}"),
     ],
 )
 </code></pre></div>
@@ -19668,7 +19668,7 @@ scanner = PromptiseSecurityScanner(
 
 
 <h5 id="promptise.guardrails.PromptiseSecurityScanner.scan_text" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">scan_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;input&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">scan_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">'input'</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -21338,7 +21338,7 @@ fallback tool when semantic selection is active.</p>
 <code>"all-MiniLM-L6-v2"</code> (downloaded once, then cached in
 <code>~/.cache/huggingface/</code>).  Point to a local directory
 for fully-offline / air-gapped deployments::</p>
-<div class="language-text highlight"><pre><span></span><code>embedding_model=&quot;/models/all-MiniLM-L6-v2&quot;
+<div class="language-text highlight"><pre><span></span><code>embedding_model="/models/all-MiniLM-L6-v2"
 </code></pre></div>
               </div>
             </td>
@@ -22705,7 +22705,7 @@ all SuperAgent-specific errors.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">raise</span> <span class="n">SuperAgentError</span><span class="p">(</span><span class="s2">&quot;Failed to load configuration&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">raise</span> <span class="n">SuperAgentError</span><span class="p">(</span><span class="s2">"Failed to load configuration"</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -22780,9 +22780,9 @@ the configuration.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">raise</span> <span class="n">SuperAgentValidationError</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="s2">&quot;Schema validation failed&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">errors</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;loc&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;agent&quot;</span><span class="p">,</span> <span class="s2">&quot;model&quot;</span><span class="p">],</span> <span class="s2">&quot;msg&quot;</span><span class="p">:</span> <span class="s2">&quot;field required&quot;</span><span class="p">}],</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;/path/to/agent.superagent&quot;</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="s2">"Schema validation failed"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">errors</span><span class="o">=</span><span class="p">[{</span><span class="s2">"loc"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"agent"</span><span class="p">,</span> <span class="s2">"model"</span><span class="p">],</span> <span class="s2">"msg"</span><span class="p">:</span> <span class="s2">"field required"</span><span class="p">}],</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">file_path</span><span class="o">=</span><span class="s2">"/path/to/agent.superagent"</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
 
@@ -22997,7 +22997,7 @@ environment.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">raise</span> <span class="n">EnvVarNotFoundError</span><span class="p">(</span><span class="s2">&quot;OPENAI_API_KEY&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">&quot;agent.model.api_key&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">raise</span> <span class="n">EnvVarNotFoundError</span><span class="p">(</span><span class="s2">"OPENAI_API_KEY"</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="s2">"agent.model.api_key"</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -23126,7 +23126,7 @@ environment.</p>
 
 
 <h4 id="promptise.prompt.DEFAULT_SYSTEM_PROMPT" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">prompt</span><span class="o">.</span><span class="n">DEFAULT_SYSTEM_PROMPT</span> <span class="o">=</span> <span class="s1">&#39;You are a capable deep agent. Use available tools from connected MCP servers to plan and execute tasks. Always inspect tool descriptions and input schemas before calling them. Be precise and avoid hallucinating tool arguments. Prefer calling tools rather than guessing, and cite results from tools clearly.&#39;</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">prompt</span><span class="o">.</span><span class="n">DEFAULT_SYSTEM_PROMPT</span> <span class="o">=</span> <span class="s1">'You are a capable deep agent. Use available tools from connected MCP servers to plan and execute tasks. Always inspect tool descriptions and input schemas before calling them. Be precise and avoid hallucinating tool arguments. Prefer calling tools rather than guessing, and cite results from tools clearly.'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>

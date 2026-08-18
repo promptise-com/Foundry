@@ -9622,31 +9622,31 @@ the subprocess inherits the parent process's working directory.</p>
       </tbody>
     </table>
         <p>Example — unauthenticated::</p>
-<div class="language-text highlight"><pre><span></span><code>async with MCPClient(url=&quot;http://localhost:8080/mcp&quot;) as client:
+<div class="language-text highlight"><pre><span></span><code>async with MCPClient(url="http://localhost:8080/mcp") as client:
     tools = await client.list_tools()
 </code></pre></div>
 <p>Example — with Bearer token::</p>
 <div class="language-text highlight"><pre><span></span><code>async with MCPClient(
-    url=&quot;http://localhost:8080/mcp&quot;,
-    bearer_token=&quot;eyJhbGciOiJIUzI1NiIs...&quot;,
+    url="http://localhost:8080/mcp",
+    bearer_token="eyJhbGciOiJIUzI1NiIs...",
 ) as client:
-    result = await client.call_tool(&quot;search&quot;, {&quot;query&quot;: &quot;python&quot;})
+    result = await client.call_tool("search", {"query": "python"})
 </code></pre></div>
 <p>Example — with API key::</p>
 <div class="language-text highlight"><pre><span></span><code>async with MCPClient(
-    url=&quot;http://localhost:8080/mcp&quot;,
-    api_key=&quot;my-secret-key&quot;,
+    url="http://localhost:8080/mcp",
+    api_key="my-secret-key",
 ) as client:
     tools = await client.list_tools()
 </code></pre></div>
 <p>Example — fetch token from server endpoint::</p>
 <div class="language-text highlight"><pre><span></span><code>token = await MCPClient.fetch_token(
-    &quot;http://localhost:8080/auth/token&quot;,
-    client_id=&quot;my-agent&quot;,
-    client_secret=&quot;agent-secret&quot;,
+    "http://localhost:8080/auth/token",
+    client_id="my-agent",
+    client_secret="agent-secret",
 )
 async with MCPClient(
-    url=&quot;http://localhost:8080/mcp&quot;,
+    url="http://localhost:8080/mcp",
     bearer_token=token,
 ) as client:
     tools = await client.list_tools()
@@ -10150,12 +10150,12 @@ collisions.</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>multi = MCPMultiClient({
-    &quot;hr&quot;: MCPClient(url=&quot;http://localhost:8080/mcp&quot;, bearer_token=&quot;...&quot;),
-    &quot;docs&quot;: MCPClient(url=&quot;http://localhost:9090/mcp&quot;, api_key=&quot;secret&quot;),
+    "hr": MCPClient(url="http://localhost:8080/mcp", bearer_token="..."),
+    "docs": MCPClient(url="http://localhost:9090/mcp", api_key="secret"),
 })
 async with multi:
     tools = await multi.list_tools()
-    result = await multi.call_tool(&quot;search_employees&quot;, {&quot;query&quot;: &quot;python&quot;})
+    result = await multi.call_tool("search_employees", {"query": "python"})
 </code></pre></div>
 
 
@@ -10552,7 +10552,7 @@ async with multi:
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>multi = MCPMultiClient({&quot;hr&quot;: MCPClient(...)})
+        <div class="language-text highlight"><pre><span></span><code>multi = MCPMultiClient({"hr": MCPClient(...)})
 async with multi:
     adapter = MCPToolAdapter(multi)
     tools = await adapter.as_langchain_tools()

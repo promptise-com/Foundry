@@ -16339,7 +16339,7 @@
 
 
 <h4 id="promptise.prompts.core.prompt" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">prompts</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s1">&#39;openai:gpt-5-mini&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">observe</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">inspect</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">prompts</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s1">'openai:gpt-5-mini'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">observe</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">inspect</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.prompts.core.prompt" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -16351,11 +16351,11 @@
 become template variables (<code>{param_name}</code>).  The return type
 annotation determines output parsing.</p>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@prompt(model=&quot;openai:gpt-5-mini&quot;)
+<div class="language-text highlight"><pre><span></span><code>@prompt(model="openai:gpt-5-mini")
 async def summarize(text: str, max_words: int = 100) -&gt; str:
-    &quot;&quot;&quot;Summarize in {max_words} words: {text}&quot;&quot;&quot;
+    """Summarize in {max_words} words: {text}"""
 
-result = await summarize(&quot;long article...&quot;)
+result = await summarize("long article...")
 </code></pre></div>
 
 
@@ -16470,7 +16470,7 @@ result = await summarize(&quot;long article...&quot;)
 <p>Wraps a function whose docstring is the prompt template.  Decorated
 with <code>@prompt(model=...)</code> to create a Prompt instance.</p>
 <p><strong>Standalone mode</strong> — <code>await prompt("text")</code>::</p>
-<div class="language-text highlight"><pre><span></span><code>result = await analyze(&quot;quarterly report&quot;)
+<div class="language-text highlight"><pre><span></span><code>result = await analyze("quarterly report")
 </code></pre></div>
 <p><strong>Agent-integrated mode</strong> — render without LLM call::</p>
 <div class="language-text highlight"><pre><span></span><code>text = await prompt.render_async(ctx)  # full prompt text
@@ -17211,11 +17211,11 @@ system prompt use.</p>
 <p>Constraints are hard requirements appended to the prompt text as
 numbered instructions before the LLM call.</p>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@prompt(model=&quot;openai:gpt-5-mini&quot;)
-@constraint(&quot;Must cite at least 2 sources&quot;)
-@constraint(&quot;Under 300 words&quot;)
+<div class="language-text highlight"><pre><span></span><code>@prompt(model="openai:gpt-5-mini")
+@constraint("Must cite at least 2 sources")
+@constraint("Under 300 words")
 async def write_argument(topic: str) -&gt; str:
-    &quot;&quot;&quot;Write a persuasive argument about: {topic}&quot;&quot;&quot;
+    """Write a persuasive argument about: {topic}"""
 </code></pre></div>
 
 
@@ -18338,8 +18338,8 @@ def my_block(ctx=None) -&gt; str:
 
         <p>A block created from a string or callable.</p>
 <p>The simplest way to create a custom block::</p>
-<div class="language-text highlight"><pre><span></span><code>disclaimer = SimpleBlock(&quot;disclaimer&quot;, &quot;This is not financial advice.&quot;, priority=9)
-dynamic = SimpleBlock(&quot;stats&quot;, lambda ctx: f&quot;Users: {ctx.metadata[&#39;users&#39;]}&quot;, priority=5)
+<div class="language-text highlight"><pre><span></span><code>disclaimer = SimpleBlock("disclaimer", "This is not financial advice.", priority=9)
+dynamic = SimpleBlock("stats", lambda ctx: f"Users: {ctx.metadata['users']}", priority=5)
 </code></pre></div>
 
 
@@ -19326,12 +19326,12 @@ means unlimited.</p>
 
         <p>Decorator that turns a function into a Block.</p>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@block(&quot;safety_rules&quot;, priority=9)
+<div class="language-text highlight"><pre><span></span><code>@block("safety_rules", priority=9)
 def safety_rules(ctx=None) -&gt; str:
-    return &quot;1. Never share personal data\n2. Always cite sources&quot;
+    return "1. Never share personal data\n2. Always cite sources"
 
 # Use in PromptAssembler or PromptNode:
-assembler = PromptAssembler(Identity(&quot;Analyst&quot;), safety_rules)
+assembler = PromptAssembler(Identity("Analyst"), safety_rules)
 </code></pre></div>
 
 
@@ -19355,10 +19355,10 @@ assembler = PromptAssembler(Identity(&quot;Analyst&quot;), safety_rules)
 <p>Blocks are assembled and prepended to the system prompt at
 execution time.</p>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@prompt(model=&quot;openai:gpt-5-mini&quot;)
-@blocks(Identity(&quot;Expert analyst&quot;), Rules([&quot;Cite sources&quot;]))
+<div class="language-text highlight"><pre><span></span><code>@prompt(model="openai:gpt-5-mini")
+@blocks(Identity("Expert analyst"), Rules(["Cite sources"]))
 async def analyze(text: str) -&gt; str:
-    &quot;&quot;&quot;Analyze: {text}&quot;&quot;&quot;
+    """Analyze: {text}"""
 </code></pre></div>
 
 
@@ -19870,7 +19870,7 @@ handlers.  Set <code>base_blocks</code> for blocks that are always active.</p>
 
 
 <h5 id="promptise.prompts.flows.ConversationFlow.next_turn" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">next_turn</span><span class="p">(</span><span class="n">user_message</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">assistant_message</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">transition_to</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">next_turn</span><span class="p">(</span><span class="n">user_message</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">assistant_message</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">transition_to</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -20372,11 +20372,11 @@ context slots, and trigger phase transitions.</p>
         <p>Decorator that marks a method as a phase handler.</p>
 <p>Usage::</p>
 <div class="language-text highlight"><pre><span></span><code>class MyFlow(ConversationFlow):
-    @phase(&quot;greeting&quot;, initial=True)
+    @phase("greeting", initial=True)
     async def greet(self, ctx: TurnContext):
-        ctx.activate(Section(&quot;greet&quot;, &quot;Say hello.&quot;))
+        ctx.activate(Section("greet", "Say hello."))
 
-    @phase(&quot;working&quot;, blocks=[OutputFormat(format=&quot;json&quot;)])
+    @phase("working", blocks=[OutputFormat(format="json")])
     async def work(self, ctx: TurnContext):
         ...
 </code></pre></div>
@@ -20837,7 +20837,7 @@ the LLM's raw output.</p>
 
 
 <h4 id="promptise.prompts.strategies.perspective" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">prompts</span><span class="o">.</span><span class="n">strategies</span><span class="o">.</span><span class="n">perspective</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">prompts</span><span class="o">.</span><span class="n">strategies</span><span class="o">.</span><span class="n">perspective</span><span class="p">(</span><span class="n">role</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#promptise.prompts.strategies.perspective" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -20868,10 +20868,10 @@ the LLM's raw output.</p>
 
         <p>Decorator that attaches context providers to a :class:<code>Prompt</code>.</p>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@prompt(model=&quot;openai:gpt-5-mini&quot;)
+<div class="language-text highlight"><pre><span></span><code>@prompt(model="openai:gpt-5-mini")
 @context(tool_context(), memory_context())
 async def analyze(text: str) -&gt; str:
-    &quot;&quot;&quot;Analyze: {text}&quot;&quot;&quot;
+    """Analyze: {text}"""
 </code></pre></div>
 
 
@@ -20901,21 +20901,21 @@ typed convenience fields but NEVER restrict what developers can
 store.</p>
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code># Predefined fields
-user = UserContext(user_id=&quot;123&quot;, name=&quot;Alice&quot;)
+user = UserContext(user_id="123", name="Alice")
 
 # Custom fields — no subclassing needed
-user = UserContext(user_id=&quot;123&quot;, department=&quot;eng&quot;, clearance=&quot;high&quot;)
+user = UserContext(user_id="123", department="eng", clearance="high")
 
 # Entirely custom context
-project = BaseContext(sprint=&quot;2026-Q1&quot;, budget=50000)
+project = BaseContext(sprint="2026-Q1", budget=50000)
 
 # Access
-project.sprint            # &quot;2026-Q1&quot;
-project[&quot;budget&quot;]         # 50000
-project.get(&quot;missing&quot;)    # None
+project.sprint            # "2026-Q1"
+project["budget"]         # 50000
+project.get("missing")    # None
 
 # Extend after creation
-project.deadline = &quot;March 2026&quot;
+project.deadline = "March 2026"
 
 # Merge
 combined = project.merge(BaseContext(team_size=5))
@@ -22261,10 +22261,10 @@ raise :class:<code>GuardError</code> to reject.</p>
 
         <p>Decorator that attaches guards to a :class:<code>Prompt</code>.</p>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@prompt(model=&quot;openai:gpt-5-mini&quot;)
-@guard(content_filter(blocked=[&quot;secret&quot;]), length(max_length=2000))
+<div class="language-text highlight"><pre><span></span><code>@prompt(model="openai:gpt-5-mini")
+@guard(content_filter(blocked=["secret"]), length(max_length=2000))
 async def analyze(text: str) -&gt; str:
-    &quot;&quot;&quot;Analyze: {text}&quot;&quot;&quot;
+    """Analyze: {text}"""
 </code></pre></div>
 
 
@@ -23456,10 +23456,10 @@ for each name.  Supports rollback to previous versions.</p>
 
         <p>Decorator that registers a :class:<code>Prompt</code> in the global registry.</p>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@version(&quot;1.0.0&quot;)
-@prompt(model=&quot;openai:gpt-5-mini&quot;)
+<div class="language-text highlight"><pre><span></span><code>@version("1.0.0")
+@prompt(model="openai:gpt-5-mini")
 async def summarize(text: str) -&gt; str:
-    &quot;&quot;&quot;Summarize: {text}&quot;&quot;&quot;
+    """Summarize: {text}"""
 </code></pre></div>
 
 
@@ -23662,8 +23662,8 @@ name and version.</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>prompt = load_prompt(&quot;prompts/analyze.prompt&quot;)
-result = await prompt(text=&quot;quarterly figures...&quot;)
+        <div class="language-text highlight"><pre><span></span><code>prompt = load_prompt("prompts/analyze.prompt")
+result = await prompt(text="quarterly figures...")
 </code></pre></div>
 
 
@@ -23764,7 +23764,7 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>registry = load_directory(&quot;prompts/&quot;)
+        <div class="language-text highlight"><pre><span></span><code>registry = load_directory("prompts/")
 </code></pre></div>
 
 
@@ -23893,7 +23893,7 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>prompt = await load_url(
-    &quot;https://raw.githubusercontent.com/org/prompts/main/analyze.prompt&quot;
+    "https://raw.githubusercontent.com/org/prompts/main/analyze.prompt"
 )
 </code></pre></div>
 
@@ -24026,8 +24026,8 @@ result = await prompt(text=&quot;quarterly figures...&quot;)
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>save_prompt(my_prompt, &quot;prompts/analyze.prompt&quot;,
-            version=&quot;2.0.0&quot;, author=&quot;data-team&quot;)
+        <div class="language-text highlight"><pre><span></span><code>save_prompt(my_prompt, "prompts/analyze.prompt",
+            version="2.0.0", author="data-team")
 </code></pre></div>
 
 

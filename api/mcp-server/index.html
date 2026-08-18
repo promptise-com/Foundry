@@ -19189,7 +19189,7 @@ async def log_calls(ctx, call_next):
 
 
 <h5 id="promptise.mcp.server.MCPServer.enable_token_endpoint" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">enable_token_endpoint</span><span class="p">(</span><span class="n">jwt_auth</span><span class="p">,</span> <span class="n">clients</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;/auth/token&#39;</span><span class="p">,</span> <span class="n">default_expires_in</span><span class="o">=</span><span class="mi">86400</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">enable_token_endpoint</span><span class="p">(</span><span class="n">jwt_auth</span><span class="p">,</span> <span class="n">clients</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s1">'/auth/token'</span><span class="p">,</span> <span class="n">default_expires_in</span><span class="o">=</span><span class="mi">86400</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.MCPServer.enable_token_endpoint" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -19286,14 +19286,14 @@ and <code>"claims"</code> (dict of extra JWT claims).</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>jwt_auth = JWTAuth(secret=&quot;my-secret&quot;)
+        <div class="language-text highlight"><pre><span></span><code>jwt_auth = JWTAuth(secret="my-secret")
 server.add_middleware(AuthMiddleware(jwt_auth))
 
 server.enable_token_endpoint(
     jwt_auth=jwt_auth,
     clients={
-        &quot;agent-admin&quot;:  {&quot;secret&quot;: &quot;s3cret&quot;,  &quot;roles&quot;: [&quot;admin&quot;]},
-        &quot;agent-viewer&quot;: {&quot;secret&quot;: &quot;v1ewer&quot;,  &quot;roles&quot;: [&quot;viewer&quot;]},
+        "agent-admin":  {"secret": "s3cret",  "roles": ["admin"]},
+        "agent-viewer": {"secret": "v1ewer",  "roles": ["viewer"]},
     },
 )
 </code></pre></div>
@@ -19320,7 +19320,7 @@ server.enable_token_endpoint(
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>@server.exception_handler(DatabaseError)
 async def handle_db_error(ctx, exc):
-    return ToolError(&quot;DB unavailable&quot;, code=&quot;DB_ERROR&quot;, retryable=True)
+    return ToolError("DB unavailable", code="DB_ERROR", retryable=True)
 </code></pre></div>
 
 
@@ -19397,7 +19397,7 @@ server.include_prompts(registry)
 
 
 <h5 id="promptise.mcp.server.MCPServer.include_router" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">include_router</span><span class="p">(</span><span class="n">router</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">include_router</span><span class="p">(</span><span class="n">router</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.MCPServer.include_router" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -19579,7 +19579,7 @@ server.include_prompts(registry)
 
 
 <h5 id="promptise.mcp.server.MCPServer.resource" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">resource</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mime_type</span><span class="o">=</span><span class="s1">&#39;text/plain&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">resource</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mime_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.MCPServer.resource" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -19676,7 +19676,7 @@ server.include_prompts(registry)
 
 
 <h5 id="promptise.mcp.server.MCPServer.resource_template" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">resource_template</span><span class="p">(</span><span class="n">uri_template</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mime_type</span><span class="o">=</span><span class="s1">&#39;text/plain&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">resource_template</span><span class="p">(</span><span class="n">uri_template</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mime_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.MCPServer.resource_template" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -19773,7 +19773,7 @@ server.include_prompts(registry)
 
 
 <h5 id="promptise.mcp.server.MCPServer.run" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">run</span><span class="p">(</span><span class="n">transport</span><span class="o">=</span><span class="s1">&#39;stdio&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s1">&#39;0.0.0.0&#39;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span> <span class="n">dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">run</span><span class="p">(</span><span class="n">transport</span><span class="o">=</span><span class="s1">'stdio'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s1">'0.0.0.0'</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span> <span class="n">dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.MCPServer.run" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -19886,7 +19886,7 @@ server.include_prompts(registry)
 
 
 <h5 id="promptise.mcp.server.MCPServer.run_async" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">run_async</span><span class="p">(</span><span class="n">transport</span><span class="o">=</span><span class="s1">&#39;stdio&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s1">&#39;0.0.0.0&#39;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span> <span class="n">dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">run_async</span><span class="p">(</span><span class="n">transport</span><span class="o">=</span><span class="s1">'stdio'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s1">'0.0.0.0'</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span> <span class="n">dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -20277,7 +20277,7 @@ rather than silently not enforcing it.</p>
     </table>
         <div class="language-text highlight"><pre><span></span><code>@server.tool()
 async def search(query: str, limit: int = 10) -&gt; list[dict]:
-    &quot;&quot;&quot;Search records.&quot;&quot;&quot;
+    """Search records."""
     return await db.search(query, limit)
 </code></pre></div>
 
@@ -20484,7 +20484,7 @@ async def search(query: str, limit: int = 10) -&gt; list[dict]:
 
 
 <h5 id="promptise.mcp.server.MCPRouter.include_router" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">include_router</span><span class="p">(</span><span class="n">router</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">include_router</span><span class="p">(</span><span class="n">router</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.MCPRouter.include_router" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -20520,7 +20520,7 @@ async def search(query: str, limit: int = 10) -&gt; list[dict]:
 
 
 <h5 id="promptise.mcp.server.MCPRouter.resource" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">resource</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mime_type</span><span class="o">=</span><span class="s1">&#39;text/plain&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">resource</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mime_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.MCPRouter.resource" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -20538,7 +20538,7 @@ async def search(query: str, limit: int = 10) -&gt; list[dict]:
 
 
 <h5 id="promptise.mcp.server.MCPRouter.resource_template" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">resource_template</span><span class="p">(</span><span class="n">uri_template</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mime_type</span><span class="o">=</span><span class="s1">&#39;text/plain&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">resource_template</span><span class="p">(</span><span class="n">uri_template</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mime_type</span><span class="o">=</span><span class="s1">'text/plain'</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.MCPRouter.resource_template" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -20772,7 +20772,7 @@ the same dependency is only created once.</p>
 
 
 <h4 id="promptise.mcp.server.mount" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">mcp</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">mount</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="n">child</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">mcp</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">mount</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="n">child</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">tags</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.mount" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -20895,7 +20895,7 @@ Tags from the parent are merged with child tags.</p>
 
 
 <h4 id="promptise.mcp.server.hot_reload" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">mcp</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">hot_reload</span><span class="p">(</span><span class="n">server</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="s1">&#39;http&#39;</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s1">&#39;127.0.0.1&#39;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span> <span class="n">watch_dirs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">poll_interval</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">mcp</span><span class="o">.</span><span class="n">server</span><span class="o">.</span><span class="n">hot_reload</span><span class="p">(</span><span class="n">server</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="s1">'http'</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s1">'127.0.0.1'</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span> <span class="n">watch_dirs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">poll_interval</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">dashboard</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.hot_reload" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -21036,8 +21036,8 @@ re-running the current script.</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>if __name__ == &quot;__main__&quot;:
-    hot_reload(transport=&quot;http&quot;, port=8080)
+        <div class="language-text highlight"><pre><span></span><code>if __name__ == "__main__":
+    hot_reload(transport="http", port=8080)
 </code></pre></div>
 
 
@@ -21236,13 +21236,13 @@ etc.) goes here.</p>
     </table>
         <div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True)
 async def my_tool(ctx: RequestContext) -&gt; str:
-    print(ctx.client.client_id)   # &quot;agent-007&quot;
-    print(ctx.client.roles)       # {&quot;admin&quot;, &quot;analyst&quot;}
-    print(ctx.client.scopes)      # {&quot;read&quot;, &quot;write&quot;}
-    print(ctx.client.issuer)      # &quot;https://auth.example.com&quot;
-    print(ctx.client.ip_address)  # &quot;192.168.1.42&quot;
-    print(ctx.client.extra)       # {&quot;org_id&quot;: &quot;acme&quot;, &quot;plan&quot;: &quot;enterprise&quot;}
-    return &quot;ok&quot;
+    print(ctx.client.client_id)   # "agent-007"
+    print(ctx.client.roles)       # {"admin", "analyst"}
+    print(ctx.client.scopes)      # {"read", "write"}
+    print(ctx.client.issuer)      # "https://auth.example.com"
+    print(ctx.client.ip_address)  # "192.168.1.42"
+    print(ctx.client.extra)       # {"org_id": "acme", "plan": "enterprise"}
+    return "ok"
 </code></pre></div>
 
 
@@ -21598,7 +21598,7 @@ async def search(query: str, ctx: RequestContext) -&gt; ToolResponse:
     results = await db.search(query)
     return ToolResponse(
         content=results,
-        metadata={&quot;source&quot;: &quot;primary_db&quot;, &quot;result_count&quot;: len(results)},
+        metadata={"source": "primary_db", "result_count": len(results)},
     )
 </code></pre></div>
 
@@ -22034,8 +22034,8 @@ file.  Used for signature verification.</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>auth = AsymmetricJWTAuth(
-    public_key=open(&quot;public.pem&quot;).read(),
-    algorithm=&quot;RS256&quot;,
+    public_key=open("public.pem").read(),
+    algorithm="RS256",
 )
 server.add_middleware(AuthMiddleware(auth))
 </code></pre></div>
@@ -22241,17 +22241,17 @@ token claiming <code>HS256</code> (algorithm-confusion) is rejected.</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>auth = JwksAuth(
-    jwks_url=&quot;https://idp.example.com/.well-known/jwks.json&quot;,
-    audience=&quot;api://my-mcp-server&quot;,
-    issuer=&quot;https://idp.example.com&quot;,
+    jwks_url="https://idp.example.com/.well-known/jwks.json",
+    audience="api://my-mcp-server",
+    issuer="https://idp.example.com",
 )
 server.add_middleware(AuthMiddleware(auth))
 </code></pre></div>
 <p>Or let the JWKS endpoint be discovered from the issuer's OIDC
 <code>.well-known/openid-configuration</code> (see :meth:<code>from_discovery</code>)::</p>
 <div class="language-text highlight"><pre><span></span><code>auth = JwksAuth.from_discovery(
-    issuer=&quot;https://login.microsoftonline.com/&lt;tenant&gt;/v2.0&quot;,
-    audience=&quot;api://my-mcp-server&quot;,
+    issuer="https://login.microsoftonline.com/&lt;tenant&gt;/v2.0",
+    audience="api://my-mcp-server",
 )
 </code></pre></div>
 
@@ -22302,7 +22302,7 @@ server.add_middleware(AuthMiddleware(auth))
 
 
 <h5 id="promptise.mcp.server.JwksAuth.from_discovery" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">from_discovery</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">issuer</span><span class="p">,</span> <span class="n">audience</span><span class="p">,</span> <span class="n">algorithms</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;RS256&#39;</span><span class="p">,</span> <span class="s1">&#39;ES256&#39;</span><span class="p">),</span> <span class="n">meta_key</span><span class="o">=</span><span class="s1">&#39;authorization&#39;</span><span class="p">,</span> <span class="n">request_timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">from_discovery</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">issuer</span><span class="p">,</span> <span class="n">audience</span><span class="p">,</span> <span class="n">algorithms</span><span class="o">=</span><span class="p">(</span><span class="s1">'RS256'</span><span class="p">,</span> <span class="s1">'ES256'</span><span class="p">),</span> <span class="n">meta_key</span><span class="o">=</span><span class="s1">'authorization'</span><span class="p">,</span> <span class="n">request_timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
@@ -22467,12 +22467,12 @@ then verified with their <code>iss</code> pinned to <code>issuer</code> (and <co
         <p>API key-based authentication provider.</p>
 <p>Supports two key formats:</p>
 <p><strong>Simple</strong> — <code>{api_key: client_id}</code>::</p>
-<div class="language-text highlight"><pre><span></span><code>APIKeyAuth(keys={&quot;sk-abc&quot;: &quot;agent-1&quot;, &quot;sk-xyz&quot;: &quot;agent-2&quot;})
+<div class="language-text highlight"><pre><span></span><code>APIKeyAuth(keys={"sk-abc": "agent-1", "sk-xyz": "agent-2"})
 </code></pre></div>
 <p><strong>Rich</strong> — <code>{api_key: {"client_id": ..., "roles": [...]}}</code>::</p>
 <div class="language-text highlight"><pre><span></span><code>APIKeyAuth(keys={
-    &quot;sk-abc&quot;: {&quot;client_id&quot;: &quot;agent-1&quot;, &quot;roles&quot;: [&quot;admin&quot;, &quot;write&quot;]},
-    &quot;sk-xyz&quot;: {&quot;client_id&quot;: &quot;agent-2&quot;, &quot;roles&quot;: [&quot;read&quot;]},
+    "sk-abc": {"client_id": "agent-1", "roles": ["admin", "write"]},
+    "sk-xyz": {"client_id": "agent-2", "roles": ["read"]},
 })
 </code></pre></div>
 <p>Rich keys populate <code>ctx.state["roles"]</code> so that role-based
@@ -22856,8 +22856,8 @@ tenant comes from the key's config dict instead.</p>
     </table>
         <div class="language-text highlight"><pre><span></span><code>async def enrich_client(client: ClientContext, ctx: RequestContext):
     org = await db.get_org_for_client(client.client_id)
-    client.extra[&quot;org_id&quot;] = org.id
-    client.extra[&quot;plan&quot;] = org.plan
+    client.extra["org_id"] = org.id
+    client.extra["plan"] = org.plan
 
 server.add_middleware(AuthMiddleware(auth, on_authenticate=enrich_client))
 </code></pre></div>
@@ -23481,9 +23481,9 @@ has <strong>at least one</strong> of these scopes.</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True, guards=[HasScope(&quot;read&quot;, &quot;admin&quot;)])
+        <div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True, guards=[HasScope("read", "admin")])
 async def get_data() -&gt; str:
-    return &quot;data&quot;
+    return "data"
 </code></pre></div>
 
 
@@ -27095,15 +27095,15 @@ auto-cleanup (seconds).</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>server = MCPServer(name=&quot;analytics&quot;)
+        <div class="language-text highlight"><pre><span></span><code>server = MCPServer(name="analytics")
 queue = MCPQueue(server, max_workers=4)
 
-@queue.job(name=&quot;generate_report&quot;, timeout=60)
+@queue.job(name="generate_report", timeout=60)
 async def generate_report(department: str) -&gt; dict:
     await asyncio.sleep(10)
-    return {&quot;department&quot;: department, &quot;rows&quot;: 500}
+    return {"department": department, "rows": 500}
 
-server.run(transport=&quot;http&quot;, port=8080)
+server.run(transport="http", port=8080)
 </code></pre></div>
 
 
@@ -27466,9 +27466,9 @@ and may optionally accept <code>_JobProgressReporter</code> or
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>@queue.job(name=&quot;generate_report&quot;, timeout=60)
+        <div class="language-text highlight"><pre><span></span><code>@queue.job(name="generate_report", timeout=60)
 async def generate_report(department: str) -&gt; dict:
-    return {&quot;department&quot;: department, &quot;rows&quot;: 500}
+    return {"department": department, "rows": 500}
 </code></pre></div>
 
 
@@ -28416,8 +28416,8 @@ streaming result support.  This class provides the collection
 pattern for when that lands.</p>
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>result = StreamingResult()
-result.add({&quot;title&quot;: &quot;Result 1&quot;, &quot;score&quot;: 0.95})
-result.add({&quot;title&quot;: &quot;Result 2&quot;, &quot;score&quot;: 0.87})
+result.add({"title": "Result 1", "score": 0.95})
+result.add({"title": "Result 2", "score": 0.87})
 return result  # → TextContent with JSON array
 </code></pre></div>
 
@@ -28589,7 +28589,7 @@ session is available (e.g. in tests), calls are silently ignored.</p>
 <p>Use via dependency injection::</p>
 <div class="language-text highlight"><pre><span></span><code>@server.tool()
 async def etl(progress: ProgressReporter = Depends(ProgressReporter)) -&gt; str:
-    await progress.report(1, total=10, message=&quot;Step 1&quot;)
+    await progress.report(1, total=10, message="Step 1")
     ...
 </code></pre></div>
 
@@ -28897,8 +28897,8 @@ cleaned up when the session ends.</p>
 <p>Use via dependency injection::</p>
 <div class="language-text highlight"><pre><span></span><code>@server.tool()
 async def counter(session: SessionState = Depends(SessionState)) -&gt; int:
-    count = session.get(&quot;count&quot;, 0) + 1
-    session.set(&quot;count&quot;, count)
+    count = session.get("count", 0) + 1
+    session.set("count", count)
     return count
 </code></pre></div>
 
@@ -29171,8 +29171,8 @@ and looks up the current session by ID in the request context.</p>
 <code>list_tools</code> time to expose versioned aliases.</p>
 <p>Usage::</p>
 <div class="language-text highlight"><pre><span></span><code>vr = VersionedToolRegistry()
-vr.register(&quot;search&quot;, &quot;1.0&quot;, tool_def_v1)
-vr.register(&quot;search&quot;, &quot;2.0&quot;, tool_def_v2)
+vr.register("search", "1.0", tool_def_v1)
+vr.register("search", "2.0", tool_def_v2)
 
 # list_all() returns both pinned names and the latest alias
 </code></pre></div>
@@ -29348,8 +29348,8 @@ vr.register(&quot;search&quot;, &quot;2.0&quot;, tool_def_v2)
 
         <p>Prefix all tool names with a namespace.</p>
 <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>transform = NamespaceTransform(prefix=&quot;myapp&quot;)
-# &quot;search&quot; → &quot;myapp_search&quot;
+<div class="language-text highlight"><pre><span></span><code>transform = NamespaceTransform(prefix="myapp")
+# "search" → "myapp_search"
 </code></pre></div>
 
 
@@ -29402,7 +29402,7 @@ vr.register(&quot;search&quot;, &quot;2.0&quot;, tool_def_v2)
 callable (for backwards compatibility with cached tool lists).</p>
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>transform = VisibilityTransform(
-    hidden={&quot;admin_delete&quot;: lambda ctx: &quot;admin&quot; not in ctx.state.get(&quot;roles&quot;, set())}
+    hidden={"admin_delete": lambda ctx: "admin" not in ctx.state.get("roles", set())}
 )
 </code></pre></div>
 
@@ -29453,8 +29453,8 @@ callable (for backwards compatibility with cached tool lists).</p>
 
         <p>Only expose tools that have at least one of the required tags.</p>
 <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>transform = TagFilterTransform(required_tags={&quot;public&quot;})
-# Only tools tagged &quot;public&quot; are listed
+<div class="language-text highlight"><pre><span></span><code>transform = TagFilterTransform(required_tags={"public"})
+# Only tools tagged "public" are listed
 </code></pre></div>
 
 
@@ -31165,7 +31165,7 @@ beyond the server's control.</p>
         <div class="language-text highlight"><pre><span></span><code>@server.tool()
 async def chart(values: list[float]) -&gt; ImageContent:
     png = render_chart(values)
-    return ImageContent(data=png, mime_type=&quot;image/png&quot;)
+    return ImageContent(data=png, mime_type="image/png")
 </code></pre></div>
 
 
@@ -31381,11 +31381,11 @@ async def chart(values: list[float]) -&gt; ImageContent:
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>server.run(
-    transport=&quot;http&quot;,
+    transport="http",
     port=8080,
     cors=CORSConfig(
-        allow_origins=[&quot;https://app.example.com&quot;],
-        allow_headers=[&quot;Authorization&quot;, &quot;x-api-key&quot;],
+        allow_origins=["https://app.example.com"],
+        allow_headers=["Authorization", "x-api-key"],
     ),
 )
 </code></pre></div>
@@ -31525,8 +31525,8 @@ guard checks, middleware chain, handler invocation, and error serialisation
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>client = TestClient(server, meta={&quot;authorization&quot;: &quot;Bearer tok&quot;})
-result = await client.call_tool(&quot;search&quot;, {&quot;query&quot;: &quot;revenue&quot;})
+        <div class="language-text highlight"><pre><span></span><code>client = TestClient(server, meta={"authorization": "Bearer tok"})
+result = await client.call_tool("search", {"query": "revenue"})
 </code></pre></div>
 
     </div>
@@ -31916,7 +31916,7 @@ silently ignored.</p>
 <p>Use via dependency injection::</p>
 <div class="language-text highlight"><pre><span></span><code>@server.tool()
 async def run(log: ServerLogger = Depends(ServerLogger)) -&gt; str:
-    await log.info(&quot;starting&quot;)
+    await log.info("starting")
     ...
 </code></pre></div>
 
@@ -32236,7 +32236,7 @@ async def list_records() -&gt; list:
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True, guards=[HasTenant(&quot;acme&quot;, &quot;globex&quot;)])
+        <div class="language-text highlight"><pre><span></span><code>@server.tool(auth=True, guards=[HasTenant("acme", "globex")])
 async def partner_tool() -&gt; str:
     ...
 </code></pre></div>

@@ -9286,20 +9286,20 @@ secret-based auth when JWT is overkill.</p>
     </table>
         <p>Example — Bearer token::</p>
 <div class="language-text highlight"><pre><span></span><code>HTTPServerSpec(
-    url=&quot;http://localhost:8080/mcp&quot;,
-    bearer_token=&quot;eyJhbGciOiJIUzI1NiIs...&quot;,
+    url="http://localhost:8080/mcp",
+    bearer_token="eyJhbGciOiJIUzI1NiIs...",
 )
 </code></pre></div>
 <p>Example — API key::</p>
 <div class="language-text highlight"><pre><span></span><code>HTTPServerSpec(
-    url=&quot;http://localhost:8080/mcp&quot;,
-    api_key=&quot;my-secret-key&quot;,
+    url="http://localhost:8080/mcp",
+    api_key="my-secret-key",
 )
 </code></pre></div>
 <p>Example — manual header::</p>
 <div class="language-text highlight"><pre><span></span><code>HTTPServerSpec(
-    url=&quot;http://localhost:8080/mcp&quot;,
-    headers={&quot;authorization&quot;: &quot;Bearer &lt;token&gt;&quot;},
+    url="http://localhost:8080/mcp",
+    headers={"authorization": "Bearer &lt;token&gt;"},
 )
 </code></pre></div>
 
