@@ -112,7 +112,7 @@ dev = [
   "pytest-cov>=6.0",
   # Lint & types
   "mypy>=1.17",
-  "ruff>=0.15,<0.16",
+  "ruff>=0.15,<0.17",
   "types-PyYAML>=6.0",
   # Docs
   "mkdocs>=1.6",
