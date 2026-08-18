@@ -4,6 +4,14 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## v1.1.1 — 2026-07-17
+
+### Fixed
+
+- **Dependencies: cap `mcp<2.0`** -- mcp 2.0 changed the low-level `Server()` constructor signature and renamed `ResourceTemplate.uriTemplate` to `uri_template`, which breaks the MCP server SDK. With the previous uncapped `mcp>=1.9.0`, a fresh `pip install promptise` resolved to mcp 2.0 and the server SDK failed at runtime. Pinned to `mcp>=1.9.0,<2.0` (validated against mcp 1.29.0 with the full suite green alongside the latest cryptography, starlette, langchain-openai, and pydantic). Support for the mcp 2.0 API is tracked as a follow-up.
+
+---
+
 ## v1.1.0 — 2026-07-08
 
 ### Added
