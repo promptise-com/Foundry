@@ -10111,7 +10111,7 @@ loading cross-agent references, and converting to native types.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;agent.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span><span class="o">.</span><span class="n">resolve_env_vars</span><span class="p">()</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>
 </span></code></pre></div>
@@ -10342,9 +10342,9 @@ Supports .superagent, .superagent.yaml, and .superagent.yml extensions.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;my_agent.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"my_agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Or with explicit extension:</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;my_agent.superagent.yaml&quot;</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"my_agent.superagent.yaml"</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -10446,10 +10446,10 @@ with circular reference detection.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;main.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"main.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">cross_agents</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">resolve_cross_agents</span><span class="p">()</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">agent_loader</span> <span class="ow">in</span> <span class="n">cross_agents</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loaded cross-agent: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Loaded cross-agent: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -10530,7 +10530,7 @@ Re-validates the schema after resolution to ensure it's still valid.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;agent.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span><span class="o">.</span><span class="n">resolve_env_vars</span><span class="p">()</span>  <span class="c1"># Chainable</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Now loader.resolved_schema contains resolved values</span>
 </span></code></pre></div>
@@ -10580,7 +10580,7 @@ build_agent().</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;agent.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span><span class="o">.</span><span class="n">resolve_env_vars</span><span class="p">()</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Use with: await build_agent(**config.to_build_kwargs())</span>
@@ -10751,9 +10751,9 @@ expected by LangChain's init_chat_model() function.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;agent.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">model_str</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_model_string</span><span class="p">()</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># &quot;openai:gpt-4.1&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># "openai:gpt-4.1"</span>
 </span></code></pre></div>
 
 
@@ -10805,7 +10805,7 @@ ServerSpec types (HTTPServerSpec and StdioServerSpec).</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;agent.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span><span class="o">.</span><span class="n">resolve_env_vars</span><span class="p">()</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">servers</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_server_specs</span><span class="p">()</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Use with build_agent(servers=servers, ...)</span>
@@ -10857,10 +10857,10 @@ are not reported as missing.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;agent.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">missing</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">validate_env_vars</span><span class="p">()</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Missing: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -10973,8 +10973,8 @@ directly to build_agent().</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">SuperAgentConfig</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-4.1&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://test&quot;</span><span class="p">)},</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-4.1"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"test"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://test"</span><span class="p">)},</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">trace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">... </span><span class="p">)</span>
@@ -11387,7 +11387,7 @@ cross-agent references in a single call.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">main</span><span class="p">,</span> <span class="n">cross_agents</span> <span class="o">=</span> <span class="n">load_superagent_file</span><span class="p">(</span><span class="s2">&quot;agent.superagent&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">main</span><span class="p">,</span> <span class="n">cross_agents</span> <span class="o">=</span> <span class="n">load_superagent_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">main</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Build the agent</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="o">.</span><span class="n">to_build_kwargs</span><span class="p">())</span>
@@ -11527,12 +11527,12 @@ at least one of servers, cross_agents, or sandbox is configured.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">schema</span> <span class="o">=</span> <span class="n">SuperAgentSchema</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">agent</span><span class="o">=</span><span class="n">AgentSection</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-5-mini&quot;</span><span class="p">),</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;math&quot;</span><span class="p">:</span> <span class="n">HTTPServerConfig</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://...&quot;</span><span class="p">)},</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">version</span><span class="o">=</span><span class="s2">"1.0"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">agent</span><span class="o">=</span><span class="n">AgentSection</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">),</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"math"</span><span class="p">:</span> <span class="n">HTTPServerConfig</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://..."</span><span class="p">)},</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">... </span>    <span class="n">observability</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">... </span>    <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">&quot;semantic&quot;</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">... </span>    <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"semantic"</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
 
@@ -11655,8 +11655,8 @@ system prompt, and tool tracing settings.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">agent</span> <span class="o">=</span> <span class="n">AgentSection</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">model</span><span class="o">=</span><span class="s2">&quot;openai:gpt-4.1&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">instructions</span><span class="o">=</span><span class="s2">&quot;You are a helpful assistant.&quot;</span><span class="p">,</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-4.1"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">instructions</span><span class="o">=</span><span class="s2">"You are a helpful assistant."</span><span class="p">,</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">trace</span><span class="o">=</span><span class="kc">True</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
@@ -11934,9 +11934,9 @@ or Server-Sent Events (SSE) transports.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">server</span> <span class="o">=</span> <span class="n">HTTPServerConfig</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;http&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://127.0.0.1:8000/mcp&quot;</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Authorization&quot;</span><span class="p">:</span> <span class="s2">&quot;Bearer $</span><span class="si">{API_TOKEN}</span><span class="s2">&quot;</span><span class="p">}</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="nb">type</span><span class="o">=</span><span class="s2">"http"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">url</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8000/mcp"</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="s2">"Bearer $</span><span class="si">{API_TOKEN}</span><span class="s2">"</span><span class="p">}</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
 
@@ -12074,10 +12074,10 @@ input/output, typically a subprocess launched by the agent.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">server</span> <span class="o">=</span> <span class="n">StdioServerConfig</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;stdio&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">command</span><span class="o">=</span><span class="s2">&quot;python&quot;</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="s2">&quot;mypkg.server&quot;</span><span class="p">],</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span>    <span class="n">env</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;API_KEY&quot;</span><span class="p">:</span> <span class="s2">&quot;$</span><span class="si">{MY_API_KEY}</span><span class="s2">&quot;</span><span class="p">}</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="nb">type</span><span class="o">=</span><span class="s2">"stdio"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">command</span><span class="o">=</span><span class="s2">"python"</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">"-m"</span><span class="p">,</span> <span class="s2">"mypkg.server"</span><span class="p">],</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span>    <span class="n">env</span><span class="o">=</span><span class="p">{</span><span class="s2">"API_KEY"</span><span class="p">:</span> <span class="s2">"$</span><span class="si">{MY_API_KEY}</span><span class="s2">"</span><span class="p">}</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
 
@@ -12241,9 +12241,9 @@ provider-specific parameters.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">DetailedModelConfig</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">provider</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;gpt-4.1&quot;</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">api_key</span><span class="o">=</span><span class="s2">&quot;$</span><span class="si">{OPENAI_API_KEY}</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">provider</span><span class="o">=</span><span class="s2">"openai"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">name</span><span class="o">=</span><span class="s2">"gpt-4.1"</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">api_key</span><span class="o">=</span><span class="s2">"$</span><span class="si">{OPENAI_API_KEY}</span><span class="s2">"</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span>    <span class="n">temperature</span><span class="o">=</span><span class="mf">0.7</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
@@ -12390,8 +12390,8 @@ provider-specific parameters.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">MemorySection</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="s2">&quot;chroma&quot;</span><span class="p">,</span> <span class="n">persist_directory</span><span class="o">=</span><span class="s2">&quot;.promptise/chroma&quot;</span><span class="p">)</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">MemorySection</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="s2">&quot;mem0&quot;</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">&quot;user-123&quot;</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">MemorySection</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="s2">"chroma"</span><span class="p">,</span> <span class="n">persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">MemorySection</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="s2">"mem0"</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"user-123"</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -12592,9 +12592,9 @@ provider-specific parameters.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfigSection</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;gvisor&quot;</span><span class="p">,</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">backend</span><span class="o">=</span><span class="s2">"gvisor"</span><span class="p">,</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">cpu_limit</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">memory_limit</span><span class="o">=</span><span class="s2">&quot;4G&quot;</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">memory_limit</span><span class="o">=</span><span class="s2">"4G"</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
 
@@ -12688,8 +12688,8 @@ allowing multi-agent coordination and delegation.</p>
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">CrossAgentConfig</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">file</span><span class="o">=</span><span class="s2">&quot;./agents/math_specialist.superagent&quot;</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Specialized math and calculation agent&quot;</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="n">file</span><span class="o">=</span><span class="s2">"./agents/math_specialist.superagent"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">description</span><span class="o">=</span><span class="s2">"Specialized math and calculation agent"</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
 

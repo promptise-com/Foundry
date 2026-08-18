@@ -10261,11 +10261,11 @@ Sentence Transformers).</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>provider = ChromaProvider(
-    collection_name=&quot;agent_memory&quot;,
-    persist_directory=&quot;.promptise/chroma&quot;,
+    collection_name="agent_memory",
+    persist_directory=".promptise/chroma",
 )
-await provider.add(&quot;User prefers dark mode&quot;)
-results = await provider.search(&quot;theme preferences&quot;)
+await provider.add("User prefers dark mode")
+results = await provider.search("theme preferences")
 </code></pre></div>
 
 
@@ -10457,9 +10457,9 @@ defaults.</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>provider = Mem0Provider(user_id=&quot;user-42&quot;)
-await provider.add(&quot;User prefers dark mode&quot;)
-results = await provider.search(&quot;theme preferences&quot;)
+        <div class="language-text highlight"><pre><span></span><code>provider = Mem0Provider(user_id="user-42")
+await provider.add("User prefers dark mode")
+results = await provider.search("theme preferences")
 </code></pre></div>
 
 

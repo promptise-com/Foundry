@@ -8570,6 +8570,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v111-2026-07-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.1.1 — 2026-07-17
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1.1.1 — 2026-07-17">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v110-2026-07-08" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8604,7 +8632,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
+  <a href="#fixed_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixed
@@ -8632,7 +8660,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#fixed_1" class="md-nav__link">
+  <a href="#fixed_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixed
@@ -8899,6 +8927,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v111-2026-07-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.1.1 — 2026-07-17
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1.1.1 — 2026-07-17">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v110-2026-07-08" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8933,7 +8989,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
+  <a href="#fixed_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixed
@@ -8961,7 +9017,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#fixed_1" class="md-nav__link">
+  <a href="#fixed_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Fixed
@@ -9134,6 +9190,12 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Link to this section">&para;</a></h1>
 <p>All notable changes to Promptise Foundry are documented here.</p>
 <hr />
+<h2 id="v111-2026-07-17">v1.1.1 — 2026-07-17<a class="headerlink" href="#v111-2026-07-17" title="Link to this section">&para;</a></h2>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Link to this section">&para;</a></h3>
+<ul>
+<li><strong>Dependencies: cap <code>mcp&lt;2.0</code></strong> -- mcp 2.0 changed the low-level <code>Server()</code> constructor signature and renamed <code>ResourceTemplate.uriTemplate</code> to <code>uri_template</code>, which breaks the MCP server SDK. With the previous uncapped <code>mcp&gt;=1.9.0</code>, a fresh <code>pip install promptise</code> resolved to mcp 2.0 and the server SDK failed at runtime. Pinned to <code>mcp&gt;=1.9.0,&lt;2.0</code> (validated against mcp 1.29.0 with the full suite green alongside the latest cryptography, starlette, langchain-openai, and pydantic). Support for the mcp 2.0 API is tracked as a follow-up.</li>
+</ul>
+<hr />
 <h2 id="v110-2026-07-08">v1.1.0 — 2026-07-08<a class="headerlink" href="#v110-2026-07-08" title="Link to this section">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Link to this section">&para;</a></h3>
 <ul>
@@ -9156,7 +9218,7 @@
 <li><strong>CI: verified against the latest majors a clean install resolves</strong> -- langchain <strong>1.x</strong> (langchain-core 1.4.8), numpy 2.5, mypy 2.x, pytest 9.x -- the framework is runtime-compatible (full suite green) with no dependency caps. Compatibility fixes: dependency-resolution unblock (drop <code>pyspiffe</code> -&gt; <code>grpcio</code> from the <code>dev</code> extra), an import-cycle break (<code>cross_agent</code> &lt;-&gt; <code>observability</code>), a numpy-2.x stub <code>mypy</code> override, and a widened <code>on_llm_new_token</code> override for langchain-core 1.x.</li>
 <li><strong>CI: cross-platform green</strong> -- two POSIX-only identity tests made platform-agnostic for Windows; the real-model ML-guardrail tests are skipped on macOS hosted CI only (gated on <code>darwin &amp;&amp; $CI</code>), where the DeBERTa injection scores flap below the 0.85 threshold, and still run on Linux CI, Windows CI, and local macOS dev. The full 30-check matrix passes.</li>
 </ul>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Link to this section">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Link to this section">&para;</a></h3>
 <ul>
 <li><strong>Engine: routing-hint noise</strong> -- a linear node (a single <code>default_next</code> with no real branch) no longer receives a "choose the next step" instruction. The hint could be echoed as the answer by weaker models; it now appears only at genuine branch points (two or more distinct targets).</li>
 <li><strong>CLI: <code>promptise serve</code> now ships</strong> -- the documented deployment command was never registered in the CLI. It now resolves the <code>module:attribute</code> target, validates it is an <code>MCPServer</code>, and serves over stdio / HTTP / SSE with <code>--dashboard</code> and <code>--reload</code> support.</li>
@@ -9170,7 +9232,7 @@
 </ul>
 <hr />
 <h2 id="v061">v0.6.1<a class="headerlink" href="#v061" title="Link to this section">&para;</a></h2>
-<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Link to this section">&para;</a></h3>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Link to this section">&para;</a></h3>
 <ul>
 <li><strong>Runtime: cross-task MCP client issue</strong> -- <code>AgentProcess._build_agent()</code> now pre-discovers MCP tools before agent construction, resolving <code>CancelledError</code> when the MCP SDK's cancel scopes crossed asyncio task boundaries. Tools are pre-discovered and passed as <code>extra_tools</code> instead of relying on the session-bound MCP client.</li>
 <li><strong>Runtime: manifest server conversion</strong> -- <code>manifest_to_process_config()</code> now converts plain server dicts from <code>.agent</code> manifests into <code>HTTPServerSpec</code>/<code>StdioServerSpec</code> objects, fixing <code>AttributeError: 'dict' object has no attribute 'transport'</code> when starting processes from manifest files.</li>
@@ -9263,7 +9325,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 16, 2026 19:30:13 UTC">2026-07-16</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="August 18, 2026 17:31:49 UTC">2026-08-18</span>
   </span>
 
     

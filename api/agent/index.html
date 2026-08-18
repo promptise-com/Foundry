@@ -17086,20 +17086,20 @@ features no-op or return sensible defaults, so callers never need to
 check what type they got back.</p>
 <p>.. code-block:: python</p>
 <div class="language-text highlight"><pre><span></span><code># Simple — no observe, no memory
-agent = await build_agent(servers=..., model=&quot;openai:gpt-5-mini&quot;)
-result = await agent.ainvoke({&quot;messages&quot;: [...]})
+agent = await build_agent(servers=..., model="openai:gpt-5-mini")
+result = await agent.ainvoke({"messages": [...]})
 await agent.shutdown()
 
 # With observability
 agent = await build_agent(..., observe=True)
-result = await agent.ainvoke({&quot;messages&quot;: [...]})
+result = await agent.ainvoke({"messages": [...]})
 stats = agent.get_stats()
-agent.generate_report(&quot;report.html&quot;)
+agent.generate_report("report.html")
 await agent.shutdown()
 
 # With memory
 agent = await build_agent(..., memory=InMemoryProvider())
-result = await agent.ainvoke({&quot;messages&quot;: [...]})  # auto-injects context
+result = await agent.ainvoke({"messages": [...]})  # auto-injects context
 await agent.shutdown()
 </code></pre></div>
 
@@ -17483,10 +17483,10 @@ LLM tokens, and the final response.</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>async for event in agent.astream_with_tools(input, caller=caller):
-    if event.type == &quot;tool_start&quot;:
-        print(f&quot;🔧 {event.tool_display_name}...&quot;)
-    elif event.type == &quot;token&quot;:
-        print(event.text, end=&quot;&quot;, flush=True)
+    if event.type == "tool_start":
+        print(f"🔧 {event.tool_display_name}...")
+    elif event.type == "token":
+        print(event.text, end="", flush=True)
 </code></pre></div>
 
 
@@ -17715,8 +17715,8 @@ session belongs to a different user.</p>
 
 agent = await build_agent(..., conversation_store=store)
 sid = generate_session_id()
-reply = await agent.chat(&quot;Hello!&quot;, session_id=sid, user_id=&quot;user-42&quot;)
-reply = await agent.chat(&quot;What did I say?&quot;, session_id=sid, user_id=&quot;user-42&quot;)
+reply = await agent.chat("Hello!", session_id=sid, user_id="user-42")
+reply = await agent.chat("What did I say?", session_id=sid, user_id="user-42")
 </code></pre></div>
 
 
@@ -18309,7 +18309,7 @@ Call this when the agent is no longer needed.</p>
 
 
 <h4 id="promptise.agent.PromptiseAgent.generate_report" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">generate_report</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Agent Observability Report&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">generate_report</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">'Agent Observability Report'</span><span class="p">)</span></code>
 
 <a href="#promptise.agent.PromptiseAgent.generate_report" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -18467,13 +18467,13 @@ Available for custom guardrail rules and logging.</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>caller = CallerContext(
-    user_id=&quot;user-42&quot;,
-    tenant_id=&quot;acme&quot;,
-    bearer_token=&quot;eyJhbGciOiJIUzI1NiIs...&quot;,
-    roles={&quot;analyst&quot;},
+    user_id="user-42",
+    tenant_id="acme",
+    bearer_token="eyJhbGciOiJIUzI1NiIs...",
+    roles={"analyst"},
 )
 result = await agent.ainvoke(input, caller=caller)
-reply = await agent.chat(&quot;Hello&quot;, session_id=sid, caller=caller)
+reply = await agent.chat("Hello", session_id=sid, caller=caller)
 </code></pre></div>
 
 
@@ -18776,7 +18776,7 @@ via structured output <code>_graph_action</code> fields.</p>
 
 
 <h5 id="promptise.engine.execution.PromptGraphEngine.astream_events" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">astream_events</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s1">&#39;v2&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">astream_events</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s1">'v2'</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -18950,7 +18950,7 @@ and <code>copy()</code> for per-invocation isolation.</p>
 
 
 <h5 id="promptise.engine.graph.PromptGraph.add_edge" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_edge</span><span class="p">(</span><span class="n">from_node</span><span class="p">,</span> <span class="n">to_node</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">condition</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_edge</span><span class="p">(</span><span class="n">from_node</span><span class="p">,</span> <span class="n">to_node</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">condition</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.graph.PromptGraph.add_edge" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -19065,7 +19065,7 @@ at which point they are lazily copied via <code>_ensure_edges_owned()</code>.</p
 
 
 <h5 id="promptise.engine.graph.PromptGraph.from_pool" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">from_pool</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;autonomous&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">from_pool</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'autonomous'</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
@@ -19368,7 +19368,7 @@ build the execution path from the node pool.  Nodes with
 
 
 <h5 id="promptise.engine.graph.PromptGraph.when" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">when</span><span class="p">(</span><span class="n">from_node</span><span class="p">,</span> <span class="n">to_node</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">when</span><span class="p">(</span><span class="n">from_node</span><span class="p">,</span> <span class="n">to_node</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.graph.PromptGraph.when" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -19827,7 +19827,7 @@ the oldest entries are discarded.</p>
 
 
 <h5 id="promptise.engine.state.GraphState.add_reflection" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">add_reflection</span><span class="p">(</span><span class="n">iteration</span><span class="p">,</span> <span class="n">mistake</span><span class="p">,</span> <span class="n">correction</span><span class="p">,</span> <span class="n">confidence</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">stage</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">add_reflection</span><span class="p">(</span><span class="n">iteration</span><span class="p">,</span> <span class="n">mistake</span><span class="p">,</span> <span class="n">correction</span><span class="p">,</span> <span class="n">confidence</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">stage</span><span class="o">=</span><span class="s1">''</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.state.GraphState.add_reflection" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -20052,7 +20052,7 @@ traceability.</p>
 
         <p>Typed flags that declare a node's role and capabilities.</p>
 <p>Use these instead of bare strings for type safety and IDE support::</p>
-<div class="language-text highlight"><pre><span></span><code>PlanNode(&quot;plan&quot;, flags={NodeFlag.ENTRY, NodeFlag.INJECT_TOOLS})
+<div class="language-text highlight"><pre><span></span><code>PlanNode("plan", flags={NodeFlag.ENTRY, NodeFlag.INJECT_TOOLS})
 </code></pre></div>
 
 
@@ -20078,7 +20078,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.CACHEABLE" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">CACHEABLE</span> <span class="o">=</span> <span class="s1">&#39;cacheable&#39;</span></code>
+            <code class="highlight language-python"><span class="n">CACHEABLE</span> <span class="o">=</span> <span class="s1">'cacheable'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20101,7 +20101,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.CRITICAL" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">CRITICAL</span> <span class="o">=</span> <span class="s1">&#39;critical&#39;</span></code>
+            <code class="highlight language-python"><span class="n">CRITICAL</span> <span class="o">=</span> <span class="s1">'critical'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20124,7 +20124,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.ENTRY" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">ENTRY</span> <span class="o">=</span> <span class="s1">&#39;entry&#39;</span></code>
+            <code class="highlight language-python"><span class="n">ENTRY</span> <span class="o">=</span> <span class="s1">'entry'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20147,7 +20147,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.INJECT_TOOLS" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">INJECT_TOOLS</span> <span class="o">=</span> <span class="s1">&#39;inject_tools&#39;</span></code>
+            <code class="highlight language-python"><span class="n">INJECT_TOOLS</span> <span class="o">=</span> <span class="s1">'inject_tools'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20170,7 +20170,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.ISOLATED_CONTEXT" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">ISOLATED_CONTEXT</span> <span class="o">=</span> <span class="s1">&#39;isolated_context&#39;</span></code>
+            <code class="highlight language-python"><span class="n">ISOLATED_CONTEXT</span> <span class="o">=</span> <span class="s1">'isolated_context'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20193,7 +20193,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.LIGHTWEIGHT" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">LIGHTWEIGHT</span> <span class="o">=</span> <span class="s1">&#39;lightweight&#39;</span></code>
+            <code class="highlight language-python"><span class="n">LIGHTWEIGHT</span> <span class="o">=</span> <span class="s1">'lightweight'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20216,7 +20216,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.NO_HISTORY" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">NO_HISTORY</span> <span class="o">=</span> <span class="s1">&#39;no_history&#39;</span></code>
+            <code class="highlight language-python"><span class="n">NO_HISTORY</span> <span class="o">=</span> <span class="s1">'no_history'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20239,7 +20239,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.OBSERVABLE" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">OBSERVABLE</span> <span class="o">=</span> <span class="s1">&#39;observable&#39;</span></code>
+            <code class="highlight language-python"><span class="n">OBSERVABLE</span> <span class="o">=</span> <span class="s1">'observable'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20262,7 +20262,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.PARALLEL_SAFE" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">PARALLEL_SAFE</span> <span class="o">=</span> <span class="s1">&#39;parallel_safe&#39;</span></code>
+            <code class="highlight language-python"><span class="n">PARALLEL_SAFE</span> <span class="o">=</span> <span class="s1">'parallel_safe'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20285,7 +20285,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.READONLY" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">READONLY</span> <span class="o">=</span> <span class="s1">&#39;readonly&#39;</span></code>
+            <code class="highlight language-python"><span class="n">READONLY</span> <span class="o">=</span> <span class="s1">'readonly'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20308,7 +20308,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.REQUIRES_HUMAN" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">REQUIRES_HUMAN</span> <span class="o">=</span> <span class="s1">&#39;requires_human&#39;</span></code>
+            <code class="highlight language-python"><span class="n">REQUIRES_HUMAN</span> <span class="o">=</span> <span class="s1">'requires_human'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20331,7 +20331,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.RETRYABLE" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">RETRYABLE</span> <span class="o">=</span> <span class="s1">&#39;retryable&#39;</span></code>
+            <code class="highlight language-python"><span class="n">RETRYABLE</span> <span class="o">=</span> <span class="s1">'retryable'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20354,7 +20354,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.SKIP_ON_ERROR" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">SKIP_ON_ERROR</span> <span class="o">=</span> <span class="s1">&#39;skip_on_error&#39;</span></code>
+            <code class="highlight language-python"><span class="n">SKIP_ON_ERROR</span> <span class="o">=</span> <span class="s1">'skip_on_error'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20377,7 +20377,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.STATEFUL" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">STATEFUL</span> <span class="o">=</span> <span class="s1">&#39;stateful&#39;</span></code>
+            <code class="highlight language-python"><span class="n">STATEFUL</span> <span class="o">=</span> <span class="s1">'stateful'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20400,7 +20400,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.SUMMARIZE_OUTPUT" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">SUMMARIZE_OUTPUT</span> <span class="o">=</span> <span class="s1">&#39;summarize_output&#39;</span></code>
+            <code class="highlight language-python"><span class="n">SUMMARIZE_OUTPUT</span> <span class="o">=</span> <span class="s1">'summarize_output'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20423,7 +20423,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.TERMINAL" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">TERMINAL</span> <span class="o">=</span> <span class="s1">&#39;terminal&#39;</span></code>
+            <code class="highlight language-python"><span class="n">TERMINAL</span> <span class="o">=</span> <span class="s1">'terminal'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20446,7 +20446,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.VALIDATE_OUTPUT" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">VALIDATE_OUTPUT</span> <span class="o">=</span> <span class="s1">&#39;validate_output&#39;</span></code>
+            <code class="highlight language-python"><span class="n">VALIDATE_OUTPUT</span> <span class="o">=</span> <span class="s1">'validate_output'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -20469,7 +20469,7 @@ traceability.</p>
 
 
 <h5 id="promptise.engine.state.NodeFlag.VERBOSE" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">VERBOSE</span> <span class="o">=</span> <span class="s1">&#39;verbose&#39;</span></code>
+            <code class="highlight language-python"><span class="n">VERBOSE</span> <span class="o">=</span> <span class="s1">'verbose'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -21096,7 +21096,7 @@ observability.</p>
 
 
 <h4 id="promptise.engine.base.node" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">transitions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">default_next</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">is_entry</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">is_terminal</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">node</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">transitions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">default_next</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">is_entry</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">is_terminal</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.base.node" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -21105,11 +21105,11 @@ observability.</p>
 
         <p>Decorator that turns an async function into a graph node.</p>
 <p>Usage::</p>
-<div class="language-text highlight"><pre><span></span><code>@node(&quot;fetch_data&quot;, default_next=&quot;process&quot;)
+<div class="language-text highlight"><pre><span></span><code>@node("fetch_data", default_next="process")
 async def fetch_data(state: GraphState) -&gt; NodeResult:
-    data = await api.get(state.context[&quot;url&quot;])
-    state.context[&quot;data&quot;] = data
-    return NodeResult(node_name=&quot;fetch_data&quot;, output=data)
+    data = await api.get(state.context["url"])
+    state.context["data"] = data
+    return NodeResult(node_name="fetch_data", output=data)
 
 graph.add_node(fetch_data)
 </code></pre></div>
@@ -22849,21 +22849,21 @@ messages are appended to the parent.</p>
 The agent builds the model.</p>
 <p>Usage::</p>
 <div class="language-text highlight"><pre><span></span><code>autonomous = AutonomousNode(
-    &quot;agent&quot;,
+    "agent",
     node_pool=[
-        web_researcher(&quot;search&quot;, tools=search_tools),
-        data_analyst(&quot;analyze&quot;, tools=db_tools),
-        fact_checker(&quot;verify&quot;),
-        summarizer(&quot;conclude&quot;),
-        planner(&quot;plan&quot;),
+        web_researcher("search", tools=search_tools),
+        data_analyst("analyze", tools=db_tools),
+        fact_checker("verify"),
+        summarizer("conclude"),
+        planner("plan"),
     ],
-    planner_instructions=&quot;You are a research assistant. &quot;
-        &quot;Use the available steps to answer the user&#39;s question thoroughly.&quot;,
+    planner_instructions="You are a research assistant. "
+        "Use the available steps to answer the user's question thoroughly.",
 )
 
-graph = PromptGraph(&quot;autonomous&quot;)
+graph = PromptGraph("autonomous")
 graph.add_node(autonomous)
-graph.set_entry(&quot;agent&quot;)
+graph.set_entry("agent")
 </code></pre></div>
 
 
@@ -23950,7 +23950,7 @@ FanOutNode gives each child a focused sub-question via state overrides.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_react_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_react_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_node_iterations</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_react_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_node_iterations</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_react_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -24079,7 +24079,7 @@ on deep tasks without choosing a different pattern.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_verify_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_verify_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_node_iterations</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_verify_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_node_iterations</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_verify_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -24216,7 +24216,7 @@ you want a self-checking answer without a multi-stage pipeline.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_managed_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_managed_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_node_iterations</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_managed_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_node_iterations</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_managed_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -24348,7 +24348,7 @@ tasks make many calls).</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_code_action_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_code_action_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sandbox_factory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_repairs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">exec_timeout</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span> <span class="n">max_tool_calls</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_code_action_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sandbox_factory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_repairs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">exec_timeout</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span> <span class="n">max_tool_calls</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_code_action_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -24530,7 +24530,7 @@ hook-independent safety bound against a program looping a tool.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_peoatr_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_peoatr_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">planning_instructions</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">acting_instructions</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">thinking_instructions</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">reflecting_instructions</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_peoatr_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">planning_instructions</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">acting_instructions</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">thinking_instructions</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">reflecting_instructions</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_peoatr_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -24704,7 +24704,7 @@ hook-independent safety bound against a program looping a tool.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_research_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_research_graph</span><span class="p">(</span><span class="n">search_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">synthesis_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verify</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_research_graph</span><span class="p">(</span><span class="n">search_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">synthesis_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verify</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_research_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -24845,7 +24845,7 @@ hook-independent safety bound against a program looping a tool.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_autonomous_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_autonomous_graph</span><span class="p">(</span><span class="n">node_pool</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_autonomous_graph</span><span class="p">(</span><span class="n">node_pool</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_autonomous_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -24969,7 +24969,7 @@ a default set is created from the tools.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_deliberate_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_deliberate_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_deliberate_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_deliberate_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -24990,7 +24990,7 @@ results carefully, and reflects before continuing.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_debate_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_debate_graph</span><span class="p">(</span><span class="n">system_prompt</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_rounds</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_debate_graph</span><span class="p">(</span><span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_rounds</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_debate_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -25020,9 +25020,9 @@ results carefully, and reflects before continuing.</p>
         <p>Build a simple sequential pipeline from a list of nodes.</p>
 <p>Usage::</p>
 <div class="language-text highlight"><pre><span></span><code>graph = PromptGraph.pipeline(
-    planner(&quot;plan&quot;),
-    web_researcher(&quot;search&quot;, tools=my_tools),
-    summarizer(&quot;conclude&quot;),
+    planner("plan"),
+    web_researcher("search", tools=my_tools),
+    summarizer("conclude"),
 )
 </code></pre></div>
 

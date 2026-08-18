@@ -9429,10 +9429,10 @@
 <h2 id="promptise-list-tools-list-available-tools"><code>promptise list-tools</code> -- List Available Tools<a class="headerlink" href="#promptise-list-tools-list-available-tools" title="Link to this section">&para;</a></h2>
 <p>Discover tools exposed by MCP servers without writing code.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># List tools from an HTTP MCP server</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>promptise<span class="w"> </span>list-tools<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span>--http<span class="w"> </span><span class="s2">&quot;name=my_tools url=http://localhost:8000/mcp&quot;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>promptise<span class="w"> </span>list-tools<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span>--http<span class="w"> </span><span class="s2">"name=my_tools url=http://localhost:8000/mcp"</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># List tools from a stdio MCP server</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>promptise<span class="w"> </span>list-tools<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span>--stdio<span class="w"> </span><span class="s2">&quot;name=echo command=python args=&#39;-m mytools.server&#39;&quot;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>promptise<span class="w"> </span>list-tools<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span>--stdio<span class="w"> </span><span class="s2">"name=echo command=python args='-m mytools.server'"</span>
 </span></code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Link to this section">&para;</a></h3>
 <table>
@@ -9464,7 +9464,7 @@
 <h3 id="server-spec-syntax">Server Spec Syntax<a class="headerlink" href="#server-spec-syntax" title="Link to this section">&para;</a></h3>
 <p>Both <code>--stdio</code> and <code>--http</code> accept a quoted string of <code>key=value</code> pairs:</p>
 <p><strong>HTTP servers:</strong></p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>--http<span class="w"> </span><span class="s2">&quot;name=my_tools url=http://localhost:8000/mcp&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>--http<span class="w"> </span><span class="s2">"name=my_tools url=http://localhost:8000/mcp"</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9488,7 +9488,7 @@
 </tbody>
 </table>
 <p><strong>Stdio servers:</strong></p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>--stdio<span class="w"> </span><span class="s2">&quot;name=echo command=python args=&#39;-m mytools.server --port 3333&#39; env.API_KEY=xyz&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>--stdio<span class="w"> </span><span class="s2">"name=echo command=python args='-m mytools.server --port 3333' env.API_KEY=xyz"</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9531,7 +9531,7 @@
 <h2 id="promptise-run-interactive-repl-session"><code>promptise run</code> -- Interactive REPL Session<a class="headerlink" href="#promptise-run-interactive-repl-session" title="Link to this section">&para;</a></h2>
 <p>Start an interactive REPL session with inline MCP server specs (no <code>.superagent</code> file needed).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>promptise<span class="w"> </span>run<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">&quot;name=tools url=http://localhost:8000/mcp&quot;</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=tools url=http://localhost:8000/mcp"</span>
 </span></code></pre></div>
 <h3 id="options_1">Options<a class="headerlink" href="#options_1" title="Link to this section">&para;</a></h3>
 <table>
@@ -9578,7 +9578,7 @@
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># With additional servers from CLI</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent<span class="w"> </span>--http<span class="w"> </span><span class="s2">&quot;name=extra url=http://localhost:9000/mcp&quot;</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent<span class="w"> </span>--http<span class="w"> </span><span class="s2">"name=extra url=http://localhost:9000/mcp"</span>
 </span></code></pre></div>
 <h3 id="options_2">Options<a class="headerlink" href="#options_2" title="Link to this section">&para;</a></h3>
 <table>
@@ -9871,12 +9871,12 @@
 <h3 id="discover-available-tools">Discover Available Tools<a class="headerlink" href="#discover-available-tools" title="Link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Check what tools an MCP server exposes</span>
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>promptise<span class="w"> </span>list-tools<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">&quot;name=my_tools url=http://localhost:8000/mcp&quot;</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=my_tools url=http://localhost:8000/mcp"</span>
 </span></code></pre></div>
 <h3 id="run-a-quick-interactive-session">Run a Quick Interactive Session<a class="headerlink" href="#run-a-quick-interactive-session" title="Link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Inline servers (no .superagent file)</span>
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>promptise<span class="w"> </span>run<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">&quot;name=tools url=http://localhost:8000/mcp&quot;</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=tools url=http://localhost:8000/mcp"</span>
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>
 </span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="c1"># From a .superagent file</span>
 </span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent

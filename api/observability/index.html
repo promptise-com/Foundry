@@ -11396,14 +11396,14 @@ are evicted when the buffer is full. Defaults to 100,000.</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>collector = ObservabilityCollector(&quot;my-agent-session&quot;)
+        <div class="language-text highlight"><pre><span></span><code>collector = ObservabilityCollector("my-agent-session")
 collector.add_transporter(ConsoleTransporter())
 
 entry = collector.record(
     TimelineEventType.TOOL_CALL,
-    agent_id=&quot;my-agent&quot;,
-    details=&quot;Calling search_files&quot;,
-    metadata={&quot;tool_name&quot;: &quot;search_files&quot;},
+    agent_id="my-agent",
+    details="Calling search_files",
+    metadata={"tool_name": "search_files"},
 )
 </code></pre></div>
 
@@ -12338,7 +12338,7 @@ exception is raised).</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>with collector.span(TimelineEventType.PHASE_START, phase=&quot;pipeline&quot;) as e:
+        <div class="language-text highlight"><pre><span></span><code>with collector.span(TimelineEventType.PHASE_START, phase="pipeline") as e:
     await do_work()
 print(e.duration)  # seconds
 </code></pre></div>
@@ -12963,10 +12963,10 @@ ObservabilityConfig(
         TransporterType.CONSOLE,
         TransporterType.PROMETHEUS,
     ],
-    output_dir=&quot;./observability&quot;,
-    log_file=&quot;./logs/events.jsonl&quot;,
+    output_dir="./observability",
+    log_file="./logs/events.jsonl",
     console_live=True,
-    correlation_id=&quot;req-abc-123&quot;,
+    correlation_id="req-abc-123",
 )
 </code></pre></div>
 
@@ -13134,7 +13134,7 @@ request or trace.</p>
 
 
 <h4 id="promptise.observability_config.ObservabilityConfig.otlp_endpoint" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">otlp_endpoint</span> <span class="o">=</span> <span class="s1">&#39;http://localhost:4317&#39;</span></code>
+            <code class="highlight language-python"><span class="n">otlp_endpoint</span> <span class="o">=</span> <span class="s1">'http://localhost:4317'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13227,7 +13227,7 @@ Off by default for privacy.</p>
 
 
 <h4 id="promptise.observability_config.ObservabilityConfig.session_name" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">session_name</span> <span class="o">=</span> <span class="s1">&#39;promptise&#39;</span></code>
+            <code class="highlight language-python"><span class="n">session_name</span> <span class="o">=</span> <span class="s1">'promptise'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13250,7 +13250,7 @@ Off by default for privacy.</p>
 
 
 <h4 id="promptise.observability_config.ObservabilityConfig.transporters" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">transporters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="n">TransporterType</span><span class="o">.</span><span class="n">HTML</span><span class="p">]))</span></code>
+            <code class="highlight language-python"><span class="n">transporters</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="n">TransporterType</span><span class="o">.</span><span class="n">HTML</span><span class="p">])</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13368,7 +13368,7 @@ Off by default for privacy.</p>
 
 
 <h4 id="promptise.observability_config.ObserveLevel.BASIC" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">BASIC</span> <span class="o">=</span> <span class="s1">&#39;basic&#39;</span></code>
+            <code class="highlight language-python"><span class="n">BASIC</span> <span class="o">=</span> <span class="s1">'basic'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13391,7 +13391,7 @@ Off by default for privacy.</p>
 
 
 <h4 id="promptise.observability_config.ObserveLevel.FULL" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">FULL</span> <span class="o">=</span> <span class="s1">&#39;full&#39;</span></code>
+            <code class="highlight language-python"><span class="n">FULL</span> <span class="o">=</span> <span class="s1">'full'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13415,7 +13415,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.ObserveLevel.OFF" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">OFF</span> <span class="o">=</span> <span class="s1">&#39;off&#39;</span></code>
+            <code class="highlight language-python"><span class="n">OFF</span> <span class="o">=</span> <span class="s1">'off'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13438,7 +13438,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.ObserveLevel.STANDARD" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">STANDARD</span> <span class="o">=</span> <span class="s1">&#39;standard&#39;</span></code>
+            <code class="highlight language-python"><span class="n">STANDARD</span> <span class="o">=</span> <span class="s1">'standard'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13510,7 +13510,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.TransporterType.CALLBACK" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">CALLBACK</span> <span class="o">=</span> <span class="s1">&#39;callback&#39;</span></code>
+            <code class="highlight language-python"><span class="n">CALLBACK</span> <span class="o">=</span> <span class="s1">'callback'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13533,7 +13533,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.TransporterType.CONSOLE" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">CONSOLE</span> <span class="o">=</span> <span class="s1">&#39;console&#39;</span></code>
+            <code class="highlight language-python"><span class="n">CONSOLE</span> <span class="o">=</span> <span class="s1">'console'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13556,7 +13556,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.TransporterType.HTML" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">HTML</span> <span class="o">=</span> <span class="s1">&#39;html&#39;</span></code>
+            <code class="highlight language-python"><span class="n">HTML</span> <span class="o">=</span> <span class="s1">'html'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13579,7 +13579,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.TransporterType.JSON" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">JSON</span> <span class="o">=</span> <span class="s1">&#39;json&#39;</span></code>
+            <code class="highlight language-python"><span class="n">JSON</span> <span class="o">=</span> <span class="s1">'json'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13602,7 +13602,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.TransporterType.OTLP" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">OTLP</span> <span class="o">=</span> <span class="s1">&#39;otlp&#39;</span></code>
+            <code class="highlight language-python"><span class="n">OTLP</span> <span class="o">=</span> <span class="s1">'otlp'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13626,7 +13626,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.TransporterType.PROMETHEUS" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">PROMETHEUS</span> <span class="o">=</span> <span class="s1">&#39;prometheus&#39;</span></code>
+            <code class="highlight language-python"><span class="n">PROMETHEUS</span> <span class="o">=</span> <span class="s1">'prometheus'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13649,7 +13649,7 @@ tokens.</p>
 
 
 <h4 id="promptise.observability_config.TransporterType.STRUCTURED_LOG" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">STRUCTURED_LOG</span> <span class="o">=</span> <span class="s1">&#39;log&#39;</span></code>
+            <code class="highlight language-python"><span class="n">STRUCTURED_LOG</span> <span class="o">=</span> <span class="s1">'log'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -13673,7 +13673,7 @@ Splunk, CloudWatch, and other enterprise logging pipelines.</p>
 
 
 <h4 id="promptise.observability_config.TransporterType.WEBHOOK" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">WEBHOOK</span> <span class="o">=</span> <span class="s1">&#39;webhook&#39;</span></code>
+            <code class="highlight language-python"><span class="n">WEBHOOK</span> <span class="o">=</span> <span class="s1">'webhook'</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
@@ -14181,9 +14181,9 @@ at the end of a session), the full report is generated via the existing
 
         <p>Enterprise-grade structured logging — one JSON line per event.</p>
 <p>Each event becomes a log line like::</p>
-<div class="language-text highlight"><pre><span></span><code>{&quot;timestamp&quot;:&quot;2026-02-20T19:47:31Z&quot;, &quot;level&quot;:&quot;INFO&quot;, &quot;service&quot;:&quot;promptise&quot;,
- &quot;session&quot;:&quot;my-run&quot;, &quot;agent_id&quot;:&quot;code-reviewer&quot;, &quot;event_type&quot;:&quot;llm.end&quot;,
- &quot;duration_ms&quot;:1250, &quot;tokens&quot;:450, &quot;message&quot;:&quot;LLM call completed&quot;, ...}
+<div class="language-text highlight"><pre><span></span><code>{"timestamp":"2026-02-20T19:47:31Z", "level":"INFO", "service":"promptise",
+ "session":"my-run", "agent_id":"code-reviewer", "event_type":"llm.end",
+ "duration_ms":1250, "tokens":450, "message":"LLM call completed", ...}
 </code></pre></div>
 <p>Compatible with ELK stack, Datadog, Splunk, CloudWatch, and any JSON
 log ingestion pipeline.</p>
@@ -14553,7 +14553,7 @@ If set to 0, no HTTP server is started.  Default: 0 (no server).</p>
 <p>Each agent invocation is a parent span; each LLM call and tool call
 are child spans with proper parent-child relationships.</p>
 <p>Requires the <code>[all]</code> extra::</p>
-<div class="language-text highlight"><pre><span></span><code>pip install &quot;promptise[all]&quot;
+<div class="language-text highlight"><pre><span></span><code>pip install "promptise[all]"
 </code></pre></div>
 <p>Compatible with Jaeger, Datadog, Honeycomb, Grafana Tempo, and any
 OTLP-compatible backend.</p>

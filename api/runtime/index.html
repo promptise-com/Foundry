@@ -19539,7 +19539,7 @@ triggers) and rebuilds the agent from the original config.</p>
 
 
 <h5 id="promptise.runtime.process.AgentProcess.send_message" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">send_message</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">message_type</span><span class="o">=</span><span class="s1">&#39;context&#39;</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">,</span> <span class="n">sender_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ttl</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">send_message</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">message_type</span><span class="o">=</span><span class="s1">'context'</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="s1">'normal'</span><span class="p">,</span> <span class="n">sender_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ttl</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -21647,7 +21647,7 @@ included.  The prefix is <strong>not</strong> stripped from the key.</p>
 
 
 <h5 id="promptise.runtime.context.AgentContext.put" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;agent&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">'agent'</span><span class="p">)</span></code>
 
 <a href="#promptise.runtime.context.AgentContext.put" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -23866,7 +23866,7 @@ transitions.</p>
         <div class="language-text highlight"><pre><span></span><code>lc = ProcessLifecycle()
 assert lc.state == ProcessState.CREATED
 
-await lc.transition(ProcessState.STARTING, reason=&quot;user requested&quot;)
+await lc.transition(ProcessState.STARTING, reason="user requested")
 await lc.transition(ProcessState.RUNNING)
 
 assert len(lc.history) == 2
@@ -23999,7 +23999,7 @@ assert len(lc.history) == 2
 
 
 <h5 id="promptise.runtime.lifecycle.ProcessLifecycle.transition" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">transition</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">transition</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -26262,9 +26262,9 @@ registration.</p>
         <div class="language-text highlight"><pre><span></span><code>from promptise.runtime.triggers import register_trigger_type
 
 def sqs_factory(config, *, event_bus=None, broker=None):
-    return SQSTrigger(config.custom_config[&quot;queue_url&quot;])
+    return SQSTrigger(config.custom_config["queue_url"])
 
-register_trigger_type(&quot;sqs&quot;, sqs_factory)
+register_trigger_type("sqs", sqs_factory)
 </code></pre></div>
 
 
@@ -31052,13 +31052,13 @@ stored separately in a JSON file.</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>journal = FileJournal(&quot;/tmp/journals&quot;)
+        <div class="language-text highlight"><pre><span></span><code>journal = FileJournal("/tmp/journals")
 await journal.append(JournalEntry(
-    process_id=&quot;p-1&quot;,
-    entry_type=&quot;trigger_event&quot;,
-    data={&quot;trigger_type&quot;: &quot;cron&quot;},
+    process_id="p-1",
+    entry_type="trigger_event",
+    data={"trigger_type": "cron"},
 ))
-entries = await journal.read(&quot;p-1&quot;)
+entries = await journal.read("p-1")
 </code></pre></div>
 
 
@@ -31220,8 +31220,8 @@ entries = await journal.read(&quot;p-1&quot;)
 <p>All entries are stored in a Python list — nothing is persisted.</p>
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>journal = InMemoryJournal()
-await journal.append(JournalEntry(process_id=&quot;p-1&quot;, entry_type=&quot;test&quot;))
-entries = await journal.read(&quot;p-1&quot;)
+await journal.append(JournalEntry(process_id="p-1", entry_type="test"))
+entries = await journal.read("p-1")
 assert len(entries) == 1
 </code></pre></div>
 
@@ -31413,11 +31413,11 @@ assert len(entries) == 1
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>engine = ReplayEngine(journal)
-recovered = await engine.recover(&quot;process-1&quot;)
+recovered = await engine.recover("process-1")
 # recovered = {
-#     &quot;context_state&quot;: {...},
-#     &quot;lifecycle_state&quot;: &quot;running&quot;,
-#     &quot;last_entry_type&quot;: &quot;invocation_result&quot;,
+#     "context_state": {...},
+#     "lifecycle_state": "running",
+#     "last_entry_type": "invocation_result",
 # }
 </code></pre></div>
 
@@ -32336,9 +32336,9 @@ the HTTP connection pool.</p>
           </tr>
       </tbody>
     </table>
-        <div class="language-text highlight"><pre><span></span><code>async with OrchestrationClient(&quot;http://localhost:9100&quot;, token=&quot;tok&quot;) as c:
-    await c.start_process(&quot;monitor&quot;)
-    status = await c.get_process(&quot;monitor&quot;)
+        <div class="language-text highlight"><pre><span></span><code>async with OrchestrationClient("http://localhost:9100", token="tok") as c:
+    await c.start_process("monitor")
+    status = await c.get_process("monitor")
 </code></pre></div>
 
 
@@ -32379,9 +32379,9 @@ the HTTP connection pool.</p>
 
         <p>Add a trigger to a process.</p>
 <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>await client.add_trigger(&quot;monitor&quot;, {
-    &quot;type&quot;: &quot;cron&quot;,
-    &quot;cron_expression&quot;: &quot;0 9 * * 1-5&quot;,
+<div class="language-text highlight"><pre><span></span><code>await client.add_trigger("monitor", {
+    "type": "cron",
+    "cron_expression": "0 9 * * 1-5",
 })
 </code></pre></div>
 
@@ -32671,7 +32671,7 @@ the HTTP connection pool.</p>
 
 
 <h5 id="promptise.runtime.api_client.OrchestrationClient.fail_mission" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">fail_mission</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s1">&#39;Manually failed via client&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">fail_mission</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s1">'Manually failed via client'</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -33275,7 +33275,7 @@ the HTTP connection pool.</p>
 
 
 <h5 id="promptise.runtime.api_client.OrchestrationClient.send_message" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">send_message</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">message_type</span><span class="o">=</span><span class="s1">&#39;context&#39;</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="s1">&#39;normal&#39;</span><span class="p">,</span> <span class="n">sender_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ttl</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">send_message</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">message_type</span><span class="o">=</span><span class="s1">'context'</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="s1">'normal'</span><span class="p">,</span> <span class="n">sender_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ttl</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -33532,7 +33532,7 @@ the HTTP connection pool.</p>
 
         <p>Update budget limits (effective immediately).</p>
 <p>Example::</p>
-<div class="language-text highlight"><pre><span></span><code>await client.update_budget(&quot;monitor&quot;, max_cost_per_day=500.0)
+<div class="language-text highlight"><pre><span></span><code>await client.update_budget("monitor", max_cost_per_day=500.0)
 </code></pre></div>
 
 
@@ -34121,7 +34121,7 @@ the HTTP connection pool.</p>
 
 
 <h5 id="promptise.runtime.distributed.RuntimeCoordinator.inject_event_on_node" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">inject_event_on_node</span><span class="p">(</span><span class="n">node_id</span><span class="p">,</span> <span class="n">process_name</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">trigger_type</span><span class="o">=</span><span class="s1">&#39;remote&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">inject_event_on_node</span><span class="p">(</span><span class="n">node_id</span><span class="p">,</span> <span class="n">process_name</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span> <span class="n">trigger_type</span><span class="o">=</span><span class="s1">'remote'</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>

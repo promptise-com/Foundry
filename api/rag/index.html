@@ -10752,11 +10752,11 @@ instances with stable <code>id</code> fields so re-indexing is idempotent.</p>
     async def load(self) -&gt; list[Document]:
         from pathlib import Path
         docs = []
-        for p in Path(self.path).rglob(&quot;*.md&quot;):
+        for p in Path(self.path).rglob("*.md"):
             docs.append(Document(
                 id=str(p.relative_to(self.path)),
                 text=p.read_text(),
-                metadata={&quot;source&quot;: str(p), &quot;filename&quot;: p.name},
+                metadata={"source": str(p), "filename": p.name},
             ))
         return docs
 </code></pre></div>
@@ -11119,7 +11119,7 @@ Voyage, sentence-transformers, a local model, etc).</p>
 </ul>
 <p>Example::</p>
 <div class="language-text highlight"><pre><span></span><code>class SentenceTransformersEmbedder(Embedder):
-    def __init__(self, model_name: str = &quot;all-MiniLM-L6-v2&quot;):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         from sentence_transformers import SentenceTransformer
         self._model = SentenceTransformer(model_name)
 
@@ -11333,9 +11333,9 @@ Milvus, PGVector, Redis, Elasticsearch, or a custom backend.</p>
     async def add(self, chunks: list[Chunk]) -&gt; None:
         points = [
             {
-                &quot;id&quot;: c.id,
-                &quot;vector&quot;: c.embedding,
-                &quot;payload&quot;: {&quot;text&quot;: c.text, **c.metadata},
+                "id": c.id,
+                "vector": c.embedding,
+                "payload": {"text": c.text, **c.metadata},
             }
             for c in chunks
         ]
@@ -11350,9 +11350,9 @@ Milvus, PGVector, Redis, Elasticsearch, or a custom backend.</p>
             RetrievalResult(
                 chunk=Chunk(
                     id=hit.id,
-                    document_id=hit.payload.get(&quot;document_id&quot;, &quot;&quot;),
-                    text=hit.payload.get(&quot;text&quot;, &quot;&quot;),
-                    metadata={k: v for k, v in hit.payload.items() if k != &quot;text&quot;},
+                    document_id=hit.payload.get("document_id", ""),
+                    text=hit.payload.get("text", ""),
+                    metadata={k: v for k, v in hit.payload.items() if k != "text"},
                 ),
                 score=hit.score,
             )
@@ -12077,16 +12077,16 @@ provider's rate limits.</p>
       </tbody>
     </table>
         <div class="language-text highlight"><pre><span></span><code>pipeline = RAGPipeline(
-    loader=MarkdownFolderLoader(&quot;./docs&quot;),
+    loader=MarkdownFolderLoader("./docs"),
     embedder=OpenAIEmbedder(),
-    store=PineconeStore(&quot;my-index&quot;),
+    store=PineconeStore("my-index"),
 )
 report = await pipeline.index()
-print(f&quot;Indexed {report.chunks_stored} chunks in {report.duration_seconds:.1f}s&quot;)
+print(f"Indexed {report.chunks_stored} chunks in {report.duration_seconds:.1f}s")
 
-hits = await pipeline.retrieve(&quot;password reset&quot;)
+hits = await pipeline.retrieve("password reset")
 for hit in hits:
-    print(f&quot;[{hit.score:.2f}] {hit.text[:80]}&quot;)
+    print(f"[{hit.score:.2f}] {hit.text[:80]}")
 </code></pre></div>
 
 
@@ -12447,7 +12447,7 @@ configured.</p>
 
 
 <h4 id="promptise.rag.rag_to_tool" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">rag</span><span class="o">.</span><span class="n">rag_to_tool</span><span class="p">(</span><span class="n">pipeline</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;search_knowledge_base&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Search the knowledge base for information relevant to a query.&#39;</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;markdown&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">rag</span><span class="o">.</span><span class="n">rag_to_tool</span><span class="p">(</span><span class="n">pipeline</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'search_knowledge_base'</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">'Search the knowledge base for information relevant to a query.'</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">'markdown'</span><span class="p">)</span></code>
 
 <a href="#promptise.rag.rag_to_tool" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -12597,12 +12597,12 @@ from promptise.rag import rag_to_tool
 
 docs_tool = rag_to_tool(
     pipeline,
-    name=&quot;search_internal_docs&quot;,
-    description=&quot;Search Acme Corp&#39;s internal engineering wiki.&quot;,
+    name="search_internal_docs",
+    description="Search Acme Corp's internal engineering wiki.",
 )
 
 agent = await build_agent(
-    model=&quot;openai:gpt-5-mini&quot;,
+    model="openai:gpt-5-mini",
     servers={},
     extra_tools=[docs_tool],
 )
