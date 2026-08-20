@@ -25,7 +25,7 @@ dependencies = [
   # Capped below 2.0: mcp 2.0 changed the low-level Server() signature and
   # renamed ResourceTemplate.uriTemplate -> uri_template, which breaks the
   # server SDK. Lift the cap once the SDK is ported to the 2.0 API.
-  "mcp>=1.9.0,<2.0",
+  "mcp>=1.9.0,<3.0",
   "langchain>=0.3.27",
   "pydantic>=2.13.3",
   "typer>=0.15.2",
