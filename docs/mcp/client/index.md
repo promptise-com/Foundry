@@ -44,6 +44,33 @@ async with MCPClient(url="http://localhost:8080/mcp") as client:
     tools = await client.list_tools()
 ```
 
+### Optional: web search with Parallel
+
+The hosted Parallel MCP endpoint is an optional unauthenticated server, so no account or API key is needed. This runnable example uses the native async client to request a web search:
+
+```python
+import asyncio
+
+from promptise import MCPClient
+
+
+async def main():
+    async with MCPClient(url="https://search.parallel.ai/mcp") as client:
+        result = await client.call_tool(
+            "web_search",
+            {
+                "objective": "Find official Python asyncio documentation",
+                "search_queries": ["Python asyncio official documentation"],
+            },
+        )
+        print(result.content[0].text)
+
+
+asyncio.run(main())
+```
+
+When you choose to use this endpoint, your submitted search objectives, search queries, and any URLs you request are sent to Parallel.
+
 ### Bearer token authentication
 
 ```python
