@@ -410,9 +410,9 @@ class AdaptiveStrategyManager:
             return 0
 
         try:
-            from langchain.chat_models import init_chat_model
+            from .models import resolve_model
 
-            model = init_chat_model(model_id)
+            model = resolve_model(model_id) if isinstance(model_id, str) else model_id
             response = await model.ainvoke(prompt)
             _rc = response.content if hasattr(response, "content") else str(response)
             response_text: str = _rc if isinstance(_rc, str) else str(_rc or "")
@@ -571,9 +571,9 @@ class AdaptiveStrategyManager:
         if not model_id:
             return True  # No model → accept without verification
 
-        from langchain.chat_models import init_chat_model
+        from .models import resolve_model
 
-        model = init_chat_model(model_id)
+        model = resolve_model(model_id) if isinstance(model_id, str) else model_id
         response = await model.ainvoke(prompt)
         _rc = response.content if hasattr(response, "content") else str(response)
         text: str = _rc if isinstance(_rc, str) else str(_rc or "")

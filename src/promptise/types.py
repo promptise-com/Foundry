@@ -16,7 +16,9 @@ from .config import ServerSpec
 from .cross_agent import CrossAgent
 
 # Model type alias - can be a provider string, a chat model instance, or a Runnable
-ModelLike = str | BaseChatModel | Runnable[Any, Any]
+from .models import Model
+
+ModelLike = str | Model | BaseChatModel | Runnable[Any, Any]
 
 __all__ = [
     "ServerSpec",

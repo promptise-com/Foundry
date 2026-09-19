@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from langchain.chat_models import init_chat_model
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
@@ -21,6 +20,7 @@ from promptise.engine import PromptGraph, PromptGraphEngine
 from .config import HTTPServerSpec, ServerSpec
 from .cross_agent import CrossAgent, make_cross_agent_tools
 from .identity import AgentIdentity, IdentityError
+from .models import Model
 from .prompt import DEFAULT_SYSTEM_PROMPT
 
 
@@ -131,7 +131,7 @@ def get_current_caller() -> CallerContext | None:
 from .tools import MCPClientError
 
 # Model can be a provider string (handled by LangChain), a chat model instance, or a Runnable.
-ModelLike = str | BaseChatModel | Runnable[Any, Any]
+ModelLike = str | Model | BaseChatModel | Runnable[Any, Any]
 """Type alias for model parameter: string, BaseChatModel, Runnable, or FallbackChain."""
 
 logger = logging.getLogger("promptise.agent")
@@ -204,6 +204,7 @@ class PromptiseAgent:
         tool_index: Any | None = None,
         all_tools: list[Any] | None = None,
         graph_builder_fn: Any | None = None,
+        tools: list[BaseTool] | None = None,
         # Security guardrails
         guardrails: Any | None = None,
         # Semantic cache
@@ -249,6 +250,9 @@ class PromptiseAgent:
         self._tool_index = tool_index
         self._all_tools = all_tools or []
         self._graph_builder_fn = graph_builder_fn
+        # Every tool the agent can call: MCP-discovered, extra_tools, sandbox,
+        # cross-agent and meta tools alike.
+        self._tools: list[BaseTool] = list(tools or [])
 
         # Security guardrails (PromptiseSecurityScanner or Guard protocol)
         self._guardrails = guardrails
@@ -1704,6 +1708,20 @@ class PromptiseAgent:
     # Passthrough for inner graph attributes
     # -----------------------------------------------------------------
 
+    @property
+    def tools(self) -> list[BaseTool]:
+        """Every tool this agent can call, as LangChain tools.
+
+        MCP-discovered tools, ``extra_tools``, sandbox tools, cross-agent and
+        meta tools all appear here — the list the model was bound to.
+        """
+        return list(self._tools)
+
+    @property
+    def tool_names(self) -> list[str]:
+        """The names of :attr:`tools`, in binding order."""
+        return [t.name for t in self._tools]
+
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
 
@@ -1750,10 +1768,19 @@ def _extract_response_text(output: Any) -> str:
 
 
 def _normalize_model(model: ModelLike) -> Runnable[Any, Any]:
-    """Normalize the supplied model into a Runnable."""
+    """Normalize the supplied model into a Runnable.
+
+    A string goes through :func:`promptise.models.resolve_model`, which
+    accepts every provider prefix and alias (``azure:``, ``gemini:``,
+    ``bedrock:`` …) and turns a missing package or environment variable into
+    an actionable :class:`~promptise.models.ModelSetupError`.
+    """
     if isinstance(model, str):
-        # This supports many providers via lc init strings, not just OpenAI.
-        return cast(Runnable[Any, Any], init_chat_model(model))
+        from .models import resolve_model
+
+        return cast(Runnable[Any, Any], resolve_model(model))
+    if isinstance(model, Model):
+        return cast(Runnable[Any, Any], model.resolve())
     # Already BaseChatModel or Runnable
     return cast(Runnable[Any, Any], model)
 
@@ -1800,7 +1827,9 @@ async def build_agent(
     Args:
         servers: Mapping of server name to spec (HTTP/SSE recommended).
         model: REQUIRED. A LangChain chat model instance, a provider id
-            string accepted by ``init_chat_model``, or a Runnable.
+            string such as ``"openai:gpt-5-mini"`` or ``"azure:my-deployment"``
+            (see :mod:`promptise.models` for every provider and alias), or a
+            Runnable.
         instructions: Optional system prompt.  Defaults to the built-in
             ``DEFAULT_SYSTEM_PROMPT``.
         identity: Optional :class:`~promptise.identity.AgentIdentity`
@@ -2333,6 +2362,8 @@ async def build_agent(
     _model_name: str | None = None
     if isinstance(model, str):
         _model_name = model
+    elif isinstance(model, Model):
+        _model_name = model.spec
     else:
         # Try to extract from BaseChatModel
         _model_name = getattr(model, "model_name", None) or getattr(model, "model", None)
@@ -2355,6 +2386,7 @@ async def build_agent(
         tool_index=_tool_index,
         all_tools=_all_tools,
         graph_builder_fn=_graph_builder_fn,
+        tools=list(tools),
         guardrails=guardrails,
         cache=cache,
         approval=approval,

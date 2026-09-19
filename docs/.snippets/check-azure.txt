@@ -1,0 +1,15 @@
+```text
+$ promptise models check azure:chat-prod
+azure:chat-prod → azure_openai:chat-prod  (Azure OpenAI (OpenAI models deployed in Azure AI Foundry))
+  model part: chat-prod — in the string form, your DEPLOYMENT name (Foundry → Deployments → Name); with Model(...), the model name (gpt-4o) — the deployment goes in deployment=
+  route: native integration (core)
+  AZURE_OPENAI_ENDPOINT: MISSING — Azure AI Foundry portal → your resource → Overview → Endpoint (https://<resource>.openai.azure.com/, no path)
+  AZURE_OPENAI_API_KEY: MISSING — Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
+  OPENAI_API_VERSION: MISSING — the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle')
+  Azure routes requests by deployment name, not model name: Model('gpt-4o', provider='azure', deployment='chat-prod', ...).
+Not usable yet.
+  - AZURE_OPENAI_ENDPOINT is not set — Azure AI Foundry portal → your resource → Overview → Endpoint (https://<resource>.openai.azure.com/, no path) (e.g. https://my-resource.openai.azure.com/)
+  - AZURE_OPENAI_API_KEY is not set — Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
+  - OPENAI_API_VERSION is not set — the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle') (e.g. 2024-10-21)
+  - put AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION in a .env file next to your script (loaded automatically; a variable already exported with a non-empty value wins, an empty one is filled from the file), export it, or pass it in code: Model(..., endpoint=, api_key=, api_version=) — see promptise models env azure
+```

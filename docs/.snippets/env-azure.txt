@@ -1,0 +1,10 @@
+```text
+$ promptise models env azure
+# Azure OpenAI (OpenAI models deployed in Azure AI Foundry) — model string example: azure:chat-prod
+export AZURE_OPENAI_ENDPOINT=https://my-resource.openai.azure.com/
+#   ↳ Azure AI Foundry portal → your resource → Overview → Endpoint (https://<resource>.openai.azure.com/, no path)
+export AZURE_OPENAI_API_KEY=...
+#   ↳ Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
+export OPENAI_API_VERSION=2024-10-21
+#   ↳ the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle')
+```

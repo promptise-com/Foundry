@@ -100,6 +100,7 @@ from .memory import (
     MemoryResult,
     sanitize_memory_content,
 )
+from .models import PROVIDERS, Model, ModelSetupError, check_model, resolve_model
 from .observability_config import (
     ExportFormat,
     ObservabilityConfig,
@@ -185,6 +186,12 @@ __all__ = [
     "servers_to_mcp_config",
     "ToolInfo",
     "build_agent",
+    # Models (bring your own provider)
+    "Model",
+    "PROVIDERS",
+    "ModelSetupError",
+    "check_model",
+    "resolve_model",
     # Tool Optimization
     "OptimizationLevel",
     "ToolOptimizationConfig",

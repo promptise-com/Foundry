@@ -23,7 +23,7 @@ from enum import Enum
 from typing import Any, cast
 
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
 logger = logging.getLogger(__name__)
 
@@ -532,8 +532,7 @@ class _RequestMoreToolsTool(BaseTool):
 
     _tool_index: ToolIndex
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(self, tool_index: ToolIndex, **kwargs: Any) -> None:
         super().__init__(**kwargs)
