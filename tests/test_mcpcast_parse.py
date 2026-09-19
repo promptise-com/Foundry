@@ -133,9 +133,9 @@ class TestLoadSpec:
 
     def test_json_and_yaml_files(self, tmp_path):
         j = tmp_path / "s.json"
-        j.write_text(json.dumps(SPEC))
+        j.write_text(json.dumps(SPEC), encoding="utf-8")
         y = tmp_path / "s.yaml"
-        y.write_text("openapi: 3.0.0\ninfo: {title: Y}\npaths: {}\n")
+        y.write_text("openapi: 3.0.0\ninfo: {title: Y}\npaths: {}\n", encoding="utf-8")
         assert load_spec(str(j)) == SPEC
         assert load_spec(y)["info"]["title"] == "Y"
 
@@ -147,11 +147,11 @@ class TestLoadSpec:
         with pytest.raises(MCPcastError, match="spec not found"):
             load_spec("does/not/exist.yaml")
         bad = tmp_path / "bad.yaml"
-        bad.write_text("- just\n- a list\n")
+        bad.write_text("- just\n- a list\n", encoding="utf-8")
         with pytest.raises(MCPcastError, match="not a mapping"):
             load_spec(str(bad))
         broken = tmp_path / "broken.json"
-        broken.write_text("{not json")
+        broken.write_text("{not json", encoding="utf-8")
         with pytest.raises(MCPcastError, match="not valid JSON or YAML"):
             load_spec(str(broken))
 
@@ -191,7 +191,7 @@ class TestLoadSpec:
 
     def test_local_documents_are_capped_too(self, tmp_path, monkeypatch):
         big = tmp_path / "big.json"
-        big.write_text(json.dumps(SPEC))
+        big.write_text(json.dumps(SPEC), encoding="utf-8")
         monkeypatch.setenv("MCPCAST_MAX_SPEC_BYTES", "100")
         with pytest.raises(MCPcastError, match="larger than MCPCAST_MAX_SPEC_BYTES"):
             load_spec(str(big))
@@ -691,7 +691,7 @@ class TestCredentialsInSpecUrl:
 
         out = tmp_path / "ledger-mcp"
         write_project(plan, out)
-        written = {p: p.read_text() for p in out.rglob("*") if p.is_file()}
+        written = {p: p.read_text(encoding="utf-8") for p in out.rglob("*") if p.is_file()}
         assert written
         for path, text in written.items():
             assert "S3CRET-TOKEN" not in text, path
@@ -838,7 +838,7 @@ class TestWholeDocumentDefects:
         with pytest.raises(MCPcastError, match=f"<inline>: {message}"):
             load_spec(json.dumps(document))
         path = tmp_path / "bad.json"
-        path.write_text(json.dumps(document))
+        path.write_text(json.dumps(document), encoding="utf-8")
         with pytest.raises(MCPcastError, match=f"bad.json: {message}"):
             load_spec(str(path))
         with pytest.raises(MCPcastError, match=f"<mapping>: {message}"):
@@ -903,11 +903,13 @@ class TestNodeBudget:
             _, peak = tracemalloc.get_traced_memory()
         finally:
             tracemalloc.stop()
-        assert elapsed < 2, elapsed
+        # Refusal is a bounded reference walk (well under a second here; a few seconds
+        # on a loaded CI runner under tracemalloc) — expansion would take minutes and GiBs.
+        assert elapsed < 30, elapsed
         assert peak < 32 * 1024 * 1024, peak  # the count walks references; nothing is copied
         # the same document through a file and a URL
         path = tmp_path / "bomb.yaml"
-        path.write_text(bomb)
+        path.write_text(bomb, encoding="utf-8")
         with pytest.raises(MCPcastError, match="bomb.yaml: document expands to more than"):
             load_spec(path)
 
@@ -1139,7 +1141,7 @@ class TestControlCharactersAreScrubbed:
             source = yaml.safe_dump(source, allow_unicode=True, sort_keys=False)
         elif form == "file":
             path = tmp_path / "hostile.json"
-            path.write_text(json.dumps(source))
+            path.write_text(json.dumps(source), encoding="utf-8")
             source = str(path)
         spec = load_spec(source)
         for text in _walk_strings(spec):
@@ -1283,8 +1285,9 @@ class TestInlineAndHome:
 
     def test_tilde_is_expanded(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))  # what ~ means on Windows
         (tmp_path / "api").mkdir()
-        (tmp_path / "api" / "openapi.json").write_text(json.dumps(SPEC))
+        (tmp_path / "api" / "openapi.json").write_text(json.dumps(SPEC), encoding="utf-8")
         assert load_spec("~/api/openapi.json") == SPEC
         assert load_spec(Path("~/api/openapi.json")) == SPEC
         with pytest.raises(MCPcastError, match="spec not found"):

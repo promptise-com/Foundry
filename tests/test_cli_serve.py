@@ -15,7 +15,7 @@ from promptise.cli import app
 from promptise.mcp.server import MCPServer
 from promptise.mcp.server._serve_cli import resolve_server
 
-runner = CliRunner()
+runner = CliRunner(env={"COLUMNS": "200"})  # Rich wraps at COLUMNS; keep phrases on one line
 
 
 def _all_output(result) -> str:

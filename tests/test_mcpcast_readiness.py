@@ -594,8 +594,8 @@ class TestEvaluateEndToEnd:
         assert report.results[1].calls[0].ok  # destructive call auto-approved against the mock
         assert report.results[0].answer == "Pet 1 is example."
         tasks_path, report_path = write_eval(report, tasks, out)
-        assert tasks_path.read_text().count("expected_tool") == 3
-        assert report_path.read_text().startswith("# Agent Readiness: ")
+        assert tasks_path.read_text(encoding="utf-8").count("expected_tool") == 3
+        assert report_path.read_text(encoding="utf-8").startswith("# Agent Readiness: ")
 
     @pytest.mark.asyncio
     async def test_provider_failure_is_recorded_per_task(self, tmp_path):

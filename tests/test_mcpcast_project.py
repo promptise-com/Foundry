@@ -6,6 +6,7 @@ layout, run its own test suite — rather than grepping one big file.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -173,16 +174,16 @@ class TestLayout:
 class TestWriteProject:
     def test_scaffold_is_written_once_and_derived_files_are_rewritten(self, tmp_path: Path) -> None:
         out = tmp_path / "helpdesk-mcp"
-        first = {str(p.relative_to(out)) for p in write_project(_plan(), out)}
+        first = {p.relative_to(out).as_posix() for p in write_project(_plan(), out)}
         assert first >= SCAFFOLD_ONCE | PY_FILES | {"README.md", "mcpcast.plan.yaml"}
-        (out / "pyproject.toml").write_text("# my packaging\n")
-        (out / "Dockerfile").write_text("# my image\n")
-        (out / "helpdesk_mcp" / "config.py").write_text("garbage")
-        second = {str(p.relative_to(out)) for p in write_project(_plan(), out)}
+        (out / "pyproject.toml").write_text("# my packaging\n", encoding="utf-8")
+        (out / "Dockerfile").write_text("# my image\n", encoding="utf-8")
+        (out / "helpdesk_mcp" / "config.py").write_text("garbage", encoding="utf-8")
+        second = {p.relative_to(out).as_posix() for p in write_project(_plan(), out)}
         assert not (second & SCAFFOLD_ONCE)  # kept
-        assert (out / "pyproject.toml").read_text() == "# my packaging\n"
-        assert (out / "Dockerfile").read_text() == "# my image\n"
-        assert "garbage" not in (out / "helpdesk_mcp" / "config.py").read_text()
+        assert (out / "pyproject.toml").read_text(encoding="utf-8") == "# my packaging\n"
+        assert (out / "Dockerfile").read_text(encoding="utf-8") == "# my image\n"
+        assert "garbage" not in (out / "helpdesk_mcp" / "config.py").read_text(encoding="utf-8")
 
     def test_stale_tools_modules_are_removed(self, tmp_path: Path) -> None:
         out = tmp_path / "helpdesk-mcp"
@@ -190,7 +191,9 @@ class TestWriteProject:
         assert (out / "helpdesk_mcp" / "tools" / "admin.py").exists()
         write_project(_plan(profile=SafetyProfile.READ_ONLY), out)  # purge_all is gone
         assert not (out / "helpdesk_mcp" / "tools" / "admin.py").exists()
-        assert "admin" not in (out / "helpdesk_mcp" / "tools" / "__init__.py").read_text()
+        assert "admin" not in (out / "helpdesk_mcp" / "tools" / "__init__.py").read_text(
+            encoding="utf-8"
+        )
         module = load_generated_server(out / "server.py")
         assert {t.name for t in module.server._tool_registry.list_all()} == {
             "list_tickets",
@@ -306,8 +309,28 @@ def _run_generated_suite(out: Path, tmp_path: Path) -> subprocess.CompletedProce
         capture_output=True,
         text=True,
         timeout=180,
-        env={"PATH": "", "HOME": str(tmp_path), "PYTHONDONTWRITEBYTECODE": "1"},
+        env=_hermetic_env(tmp_path),
     )
+
+
+def _hermetic_env(tmp_path: Path) -> dict[str, str]:
+    """The parent's environment without any MCPcast/Promptise configuration.
+
+    The system variables stay: on Windows a child without ``SYSTEMROOT`` cannot
+    initialise Winsock (``import asyncio`` fails with WinError 10106), and
+    ``PATH``/``TEMP`` are needed everywhere. Only the variables a generated
+    server or ``promptise`` would read are dropped, so the generated suite runs
+    as it would for a developer with a clean shell.
+    """
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("MCPCAST_", "PROMPTISE_", "OPENAI_", "ANTHROPIC_"))
+    }
+    env["HOME"] = str(tmp_path)
+    env["USERPROFILE"] = str(tmp_path)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
 
 
 @pytest.fixture(scope="session")
@@ -352,7 +375,7 @@ def test_generated_tests_use_the_identifiers_the_tools_expose(
     plan = mcpcast(KEBAB_SPEC, name="graph", profile=SafetyProfile.STANDARD, auth=AuthMode.NONE)
     out = tmp_path / "graph-mcp"
     write_project(plan, out)
-    tests = (out / "tests" / "test_tools.py").read_text()
+    tests = (out / "tests" / "test_tools.py").read_text(encoding="utf-8")
     assert 'call_tool("get_user", {"user_id": "123"})' in tests
     assert 'call_tool("list_events", {"from_": "2026-01-15", "to": "string"})' in tests
     assert 'call_tool("add_member", {"enterprise_team": "string", "class_": "string"})' in tests
@@ -507,7 +530,7 @@ def test_hostile_names_stay_within_the_margin(
     out = tmp_path / "hostile-mcp"
     write_project(plan, out)
     module = out / "hostile_mcp" / "tools" / f"{tool_group(gated[0])}.py"
-    src = module.read_text()
+    src = module.read_text(encoding="utf-8")
     assert "        route: str | None = None," in src  # keeps its wire name: the local is _route
     assert "        str_: bool | None = None," in src and "        Any_: str | None = None," in src
     assert f"        {_LONGER_STRING[:56]}: str | None = None," in src
@@ -515,7 +538,7 @@ def test_hostile_names_stay_within_the_margin(
     assert f"        {_LONGER_ARRAY[:56]}: list[Any] | None = None," in src
     assert f'"{_LONGER_STRING}": (' in src  # the wire name travels in full
     for path in out.rglob("*.py"):
-        for number, line in enumerate(path.read_text().splitlines(), 1):
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             assert len(line) <= 100, f"{path.relative_to(out)}:{number} is {len(line)} columns"
     _assert_lints_clean(out, mypy_cache)
     result = _run_generated_suite(out, tmp_path)
@@ -583,7 +606,7 @@ def test_generated_tests_pass_for_percent_encoded_path_examples(
     plan = mcpcast(ENCODED_PATHS_SPEC, name="directory", auth=AuthMode.NONE)
     out = tmp_path / "directory-mcp"
     write_project(plan, out)
-    tests = (out / "tests" / "test_tools.py").read_text()
+    tests = (out / "tests" / "test_tools.py").read_text(encoding="utf-8")
     assert 'assert path_of(upstream.last) == "/v1/users/ada%40example.com"' in tests
     assert 'assert path_of(upstream.last) == "/v1/reports/2026-01-15T09%3A30%3A00Z"' in tests
     assert (
@@ -632,7 +655,7 @@ def test_plain_http_project_passes_its_own_tests(
     plan = mcpcast(PLAIN_HTTP_SPEC, name="intranet", auth=auth, approval=approval)
     out = tmp_path / "intranet-mcp"
     write_project(plan, out)
-    conftest = (out / "tests" / "conftest.py").read_text()
+    conftest = (out / "tests" / "conftest.py").read_text(encoding="utf-8")
     assert 'monkeypatch.setattr("intranet_mcp.upstream.ALLOW_INSECURE_HTTP", True)' in conftest
     result = _run_generated_suite(out, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr

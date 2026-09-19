@@ -89,7 +89,7 @@ def _plan(**kw) -> MCPcastPlan:
 def _snapshot(root: Path) -> dict[str, bytes]:
     """Every file under *root* with its content — to prove a refusal wrote nothing."""
     return {
-        str(p.relative_to(root)): p.read_bytes()
+        p.relative_to(root).as_posix(): p.read_bytes()
         for p in root.rglob("*")
         if p.is_file() and "__pycache__" not in p.parts
     }
@@ -124,7 +124,7 @@ class TestToolsOwnership:
         out = tmp_path / "helpdesk-mcp"
         write_project(_plan(profile=SafetyProfile.READ_ONLY), out)  # no admin group yet
         mine = out / "helpdesk_mcp" / "tools" / "admin.py"
-        mine.write_text("# my own admin tools, registered from server.py\n")
+        mine.write_text("# my own admin tools, registered from server.py\n", encoding="utf-8")
         before = _snapshot(out)
         with pytest.raises(MCPcastError) as info:
             write_project(_plan(profile=SafetyProfile.FULL), out)  # the plan gains admin
@@ -134,23 +134,25 @@ class TestToolsOwnership:
         assert "--force" in str(info.value)
         assert _snapshot(out) == before  # atomic: nothing else was written either
         write_project(_plan(profile=SafetyProfile.FULL), out, force=True)
-        assert mine.read_text().startswith('"""Tools for admin — generated from mcpcast.plan.yaml.')
+        assert mine.read_text(encoding="utf-8").startswith(
+            '"""Tools for admin — generated from mcpcast.plan.yaml.'
+        )
 
     def test_replaced_tools_init_is_refused_too(self, tmp_path):
         out = tmp_path / "helpdesk-mcp"
         write_project(_plan(), out)
         init = out / "helpdesk_mcp" / "tools" / "__init__.py"
-        init.write_text("MODULES = ()\n")
+        init.write_text("MODULES = ()\n", encoding="utf-8")
         with pytest.raises(MCPcastError, match="helpdesk_mcp/tools/__init__.py exists and was"):
             write_project(_plan(), out)
-        assert init.read_text() == "MODULES = ()\n"
+        assert init.read_text(encoding="utf-8") == "MODULES = ()\n"
 
     def test_several_foreign_modules_are_all_named(self, tmp_path):
         out = tmp_path / "helpdesk-mcp"
         write_project(_plan(profile=SafetyProfile.READ_ONLY), out)
         tools = out / "helpdesk_mcp" / "tools"
-        (tools / "admin.py").write_text("# mine\n")
-        (tools / "tickets.py").write_text("# also mine now\n")
+        (tools / "admin.py").write_text("# mine\n", encoding="utf-8")
+        (tools / "tickets.py").write_text("# also mine now\n", encoding="utf-8")
         with pytest.raises(MCPcastError) as info:
             write_project(_plan(profile=SafetyProfile.FULL), out)
         assert str(info.value).startswith(
@@ -163,18 +165,25 @@ class TestToolsOwnership:
         write_project(_plan(profile=SafetyProfile.FULL), out)
         tools = out / "helpdesk_mcp" / "tools"
         copy = tools / "my_tickets.py"
-        copy.write_text((tools / "tickets.py").read_text() + "\n# my additions\n")
-        assert _GENERATED_MARKER in copy.read_text()  # carries the header of tickets.py
+        copy.write_text(
+            (tools / "tickets.py").read_text(encoding="utf-8") + "\n# my additions\n",
+            encoding="utf-8",
+        )
+        assert _GENERATED_MARKER in copy.read_text(
+            encoding="utf-8"
+        )  # carries the header of tickets.py
         assert _is_generated(copy) and not _is_generated(copy, "my_tickets")
         write_project(_plan(profile=SafetyProfile.READ_ONLY), out)  # admin.py goes, the copy stays
         assert not (tools / "admin.py").exists()
-        assert copy.read_text().endswith("# my additions\n")
+        assert copy.read_text(encoding="utf-8").endswith("# my additions\n")
 
     def test_copy_at_a_path_the_plan_gains_is_refused(self, tmp_path):
         out = tmp_path / "helpdesk-mcp"
         write_project(_plan(profile=SafetyProfile.READ_ONLY), out)
         tools = out / "helpdesk_mcp" / "tools"
-        (tools / "admin.py").write_text((tools / "tickets.py").read_text())  # header says tickets
+        (tools / "admin.py").write_text(
+            (tools / "tickets.py").read_text(encoding="utf-8"), encoding="utf-8"
+        )  # header says tickets
         with pytest.raises(MCPcastError, match="helpdesk_mcp/tools/admin.py exists and was not"):
             write_project(_plan(profile=SafetyProfile.FULL), out)
 
@@ -183,9 +192,11 @@ class TestToolsOwnership:
         write_project(_plan(profile=SafetyProfile.FULL), out)
         tools = out / "helpdesk_mcp" / "tools"
         note = tools / "notes.py"
-        note.write_text(f'"""Mine."""\n\nWHY = "{_GENERATED_MARKER} was the template"\n')
+        note.write_text(
+            f'"""Mine."""\n\nWHY = "{_GENERATED_MARKER} was the template"\n', encoding="utf-8"
+        )
         no_docstring = tools / "helpers.py"
-        no_docstring.write_text(f"# {_GENERATED_MARKER}\nX = 1\n")
+        no_docstring.write_text(f"# {_GENERATED_MARKER}\nX = 1\n", encoding="utf-8")
         assert not _is_generated(note) and not _is_generated(no_docstring)
         write_project(_plan(profile=SafetyProfile.READ_ONLY), out)
         assert note.exists() and no_docstring.exists()
@@ -195,7 +206,7 @@ class TestToolsOwnership:
         out = tmp_path / "warehouse-mcp"
         write_project(mcpcast(_many_tools_spec("things", 80), name="warehouse"), out)
         things = out / "warehouse_mcp" / "tools" / "things.py"
-        text = things.read_text()
+        text = things.read_text(encoding="utf-8")
         assert text.index(_GENERATED_MARKER) < 400 < 4096 < text.index('"""', 3)
         assert _is_generated(things, "things")
         write_project(mcpcast(_many_tools_spec("items", 80), name="warehouse"), out)
@@ -207,7 +218,7 @@ class TestToolsOwnership:
     def test_renamed_api_name_is_refused_and_names_the_scaffold(self, tmp_path):
         out = tmp_path / "proj"
         write_project(mcpcast(SPEC, name="pet-api-key"), out)
-        assert 'name = "pet-api-key-mcp"' in (out / "pyproject.toml").read_text()
+        assert 'name = "pet-api-key-mcp"' in (out / "pyproject.toml").read_text(encoding="utf-8")
         before = _snapshot(out)
         with pytest.raises(MCPcastError) as info:
             write_project(mcpcast(SPEC, name="petshop"), out, write_plan=False)
@@ -235,7 +246,9 @@ class TestToolsOwnership:
         write_project(mcpcast(SPEC, name="petshop"), out, force=True)
         assert (out / "petshop_mcp" / "__init__.py").exists()
         assert (out / "pet_api_key_mcp" / "__init__.py").exists()  # left to the developer
-        assert 'name = "petshop-mcp"' in (out / "pyproject.toml").read_text()  # recreated
+        assert 'name = "petshop-mcp"' in (out / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )  # recreated
 
     def test_a_package_that_is_not_ours_is_not_a_stale_package(self, tmp_path):
         out = tmp_path / "proj"
@@ -243,7 +256,8 @@ class TestToolsOwnership:
         other = out / "legacy_mcp"
         other.mkdir()
         (other / "__init__.py").write_text(
-            '"""A hand-written package that happens to end in _mcp."""\n'
+            '"""A hand-written package that happens to end in _mcp."""\n',
+            encoding="utf-8",
         )
         write_project(mcpcast(SPEC, name="petshop"), out)  # not refused
         assert (other / "__init__.py").exists()
@@ -621,8 +635,9 @@ class TestDescribeWritten:
         assert describe_written(written, tmp_path / "rel-dir") == summary  # absolute root, same
 
     def test_paths_from_elsewhere_are_shown_as_they_are(self, tmp_path):
-        summary = describe_written([Path("/elsewhere/server.py")], tmp_path / "proj")
-        assert summary == "/elsewhere/server.py"
+        elsewhere = Path("/elsewhere/server.py")
+        summary = describe_written([elsewhere], tmp_path / "proj")
+        assert summary == str(elsewhere)  # shown as the platform spells it
 
 
 # ---------------------------------------------------------------------------
@@ -635,12 +650,16 @@ class TestRegenerationStillWorks:
         out = tmp_path / "helpdesk-mcp"
         write_project(_plan(profile=SafetyProfile.STANDARD, auth=AuthMode.ENV_TOKEN), out)
         (out / "helpdesk_mcp" / "tools" / "tickets.py").write_text(
-            (out / "helpdesk_mcp" / "tools" / "tickets.py").read_text() + "\n# edited\n"
+            (out / "helpdesk_mcp" / "tools" / "tickets.py").read_text(encoding="utf-8")
+            + "\n# edited\n",
+            encoding="utf-8",
         )  # still ours: the header is intact
         write_project(
             _plan(profile=SafetyProfile.FULL, auth=AuthMode.ENV_TOKEN), out, write_plan=False
         )
-        assert "# edited" not in (out / "helpdesk_mcp" / "tools" / "tickets.py").read_text()
+        assert "# edited" not in (out / "helpdesk_mcp" / "tools" / "tickets.py").read_text(
+            encoding="utf-8"
+        )
         names = {t.name for t in load_generated_server(out).server._tool_registry.list_all()}
         assert {"list_tickets", "create_ticket", "get_customer", "purge_all"} <= names
 

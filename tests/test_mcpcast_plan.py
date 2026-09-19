@@ -381,7 +381,7 @@ class TestRouteBaseUrlIsValidated:
         write_project(plan, out)
         for path in out.rglob("*"):
             if path.is_file():
-                assert "ROUTESECRET" not in path.read_text(), path
+                assert "ROUTESECRET" not in path.read_text(encoding="utf-8"), path
 
     def test_query_string_in_an_operation_server_url_is_dropped(self):
         ops = extract_operations(

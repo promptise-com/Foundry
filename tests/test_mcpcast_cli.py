@@ -19,7 +19,9 @@ from promptise.mcpcast import MCPcastPlan
 from promptise.mcpcast.readiness import EvalReport, TaskResult, ToolCall
 from promptise.mcpcast.readiness import EvalTask as _EvalTask
 
-runner = CliRunner()
+# A wide terminal: Rich wraps panels and error boxes at COLUMNS (80 when unset),
+# which would split the phrases the assertions look for across lines.
+runner = CliRunner(env={"COLUMNS": "200"})
 
 SPEC = {
     "openapi": "3.0.0",
@@ -44,16 +46,20 @@ SPEC = {
 
 def _tools_source(out: Path) -> str:
     """Every generated tools module of the project under *out*, concatenated."""
-    return "\n".join(p.read_text() for p in out.glob("*_mcp/tools/*.py"))
+    return "\n".join(p.read_text(encoding="utf-8") for p in out.glob("*_mcp/tools/*.py"))
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 
 
 def _out(result) -> str:
+    """stdout + stderr of a CliRunner result, escape sequences removed."""
     out = result.output
     try:
         out += result.stderr
     except (ValueError, AttributeError):
         pass
-    return out
+    return _ANSI.sub("", out)
 
 
 def _flat(result) -> str:
@@ -64,7 +70,7 @@ def _flat(result) -> str:
 @pytest.fixture()
 def spec_file(tmp_path: Path) -> Path:
     p = tmp_path / "openapi.json"
-    p.write_text(json.dumps(SPEC))
+    p.write_text(json.dumps(SPEC), encoding="utf-8")
     return p
 
 
@@ -153,13 +159,16 @@ class TestGenerate:
         )
         plan_path = out / "mcpcast.plan.yaml"
         plan_path.write_text(
-            plan_path.read_text().replace("name: list_widgets", "name: browse_widgets")
+            plan_path.read_text(encoding="utf-8").replace(
+                "name: list_widgets", "name: browse_widgets"
+            ),
+            encoding="utf-8",
         )
-        (out / "server.py").write_text("stale")
+        (out / "server.py").write_text("stale", encoding="utf-8")
         result = runner.invoke(app, ["mcpcast", str(plan_path), "--out", str(out)])
         assert result.exit_code == 0, _out(result)
         assert "Regenerating from plan" in _out(result)
-        assert "stale" not in (out / "server.py").read_text()
+        assert "stale" not in (out / "server.py").read_text(encoding="utf-8")
         assert "browse_widgets" in _tools_source(out)
         assert MCPcastPlan.load(plan_path).profile.value == "standard"
 
@@ -184,7 +193,7 @@ class TestGenerate:
         )
         plan_text = (
             (out / "mcpcast.plan.yaml")
-            .read_text()
+            .read_text(encoding="utf-8")
             .replace("name: list_widgets", "name: browse_widgets")
         )
         real_client = httpx.Client
@@ -206,7 +215,7 @@ class TestGenerate:
         assert "Regenerating from plan" in _out(result)
         assert "browse_widgets" in _tools_source(target)
         # The fetched plan is written next to the package: the project is self-contained.
-        assert "browse_widgets" in (target / "mcpcast.plan.yaml").read_text()
+        assert "browse_widgets" in (target / "mcpcast.plan.yaml").read_text(encoding="utf-8")
 
     def test_plan_file_rejects_spec_only_flags(self, spec_file, tmp_path):
         out = tmp_path / "p"
@@ -342,14 +351,18 @@ class TestActions:
         assert result.exit_code == 0, _out(result)
         assert callable(seen["build_server"]) and seen["tasks"] == 3
         assert seen["operations"] is not None
-        assert (out / "eval" / "report.md").read_text().startswith("# Agent Readiness: A")
-        assert "list_widgets" in (out / "eval" / "tasks.yaml").read_text()
+        assert (
+            (out / "eval" / "report.md")
+            .read_text(encoding="utf-8")
+            .startswith("# Agent Readiness: A")
+        )
+        assert "list_widgets" in (out / "eval" / "tasks.yaml").read_text(encoding="utf-8")
         assert "Agent Readiness: A" in _out(result)
 
     def test_eval_with_no_tools_exits_1(self, tmp_path):
         spec = {**SPEC, "paths": {"/w": {"post": {"operationId": "createW"}}}}
         p = tmp_path / "s.json"
-        p.write_text(json.dumps(spec))
+        p.write_text(json.dumps(spec), encoding="utf-8")
         result = runner.invoke(
             app, ["mcpcast", str(p), "--no-curate", "--out", str(tmp_path / "o"), "--eval"]
         )
@@ -481,14 +494,17 @@ class TestProjectSafety:
         plan_path = out / "mcpcast.plan.yaml"
         plan_path.write_text(
             "# keep me\n"
-            + plan_path.read_text().replace("name: list_widgets", "name: browse_widgets")
+            + plan_path.read_text(encoding="utf-8").replace(
+                "name: list_widgets", "name: browse_widgets"
+            ),
+            encoding="utf-8",
         )
-        (out / "server.py").write_text("stale")
+        (out / "server.py").write_text("stale", encoding="utf-8")
         result = runner.invoke(app, ["mcpcast", str(plan_path)])  # no --out
         assert result.exit_code == 0, _out(result)
-        assert "stale" not in (out / "server.py").read_text()
+        assert "stale" not in (out / "server.py").read_text(encoding="utf-8")
         assert "browse_widgets" in _tools_source(out)
-        assert plan_path.read_text().startswith("# keep me")
+        assert plan_path.read_text(encoding="utf-8").startswith("# keep me")
         assert not (out / "w-mcp").exists() and not (tmp_path / "widgets-mcp").exists()
 
     def test_review_escapes_markup(self, spec_file, tmp_path):
@@ -501,10 +517,11 @@ class TestProjectSafety:
         )
         plan_path = out / "mcpcast.plan.yaml"
         plan_path.write_text(
-            plan_path.read_text().replace(
+            plan_path.read_text(encoding="utf-8").replace(
                 "reason: write operation excluded by profile 'read-only'",
                 "reason: internal [admin] endpoint [/bold]",
-            )
+            ),
+            encoding="utf-8",
         )
         result = runner.invoke(app, ["mcpcast", str(plan_path), "--review", "--yes"])
         assert result.exit_code == 0, _out(result)
@@ -543,7 +560,7 @@ class TestProjectSafety:
             },
         }
         path = tmp_path / "hostile.json"
-        path.write_text(json.dumps(spec))
+        path.write_text(json.dumps(spec), encoding="utf-8")
         out = tmp_path / "h"
         result = runner.invoke(
             app,
@@ -717,13 +734,13 @@ class TestProjectSafety:
             ).exit_code
             == 0
         )
-        stamp = (out / "server.py").read_text()
+        stamp = (out / "server.py").read_text(encoding="utf-8")
         result = runner.invoke(
             app,
             ["mcpcast", str(out / "mcpcast.plan.yaml"), "--serve", "-t", "http", "--public"],
         )
         assert result.exit_code == 2 and "this project uses api-key" in _flat(result)
-        assert (out / "server.py").read_text() == stamp  # not regenerated
+        assert (out / "server.py").read_text(encoding="utf-8") == stamp  # not regenerated
 
     def test_public_is_forwarded_for_env_token(self, spec_file, tmp_path, monkeypatch):
         from promptise.mcp.server import MCPServer
@@ -782,7 +799,7 @@ class TestProjectSafety:
         monkeypatch.setattr("promptise.mcpcast.curate", fake_curate)
         monkeypatch.setattr(MCPServer, "run", lambda self, **kw: None)
         result = (
-            CliRunner(mix_stderr=False).invoke(
+            CliRunner(mix_stderr=False, env={"COLUMNS": "200"}).invoke(
                 app, ["mcpcast", str(spec_file), "--out", str(tmp_path / "s"), "--serve"]
             )
             if "mix_stderr" in CliRunner.__init__.__code__.co_varnames
@@ -824,7 +841,7 @@ class TestProjectSafety:
         assert "Filler text" not in _out(result) and "Traceback" not in _out(result)
         target = tmp_path / "widgets-mcp"
         assert (target / "mcpcast.plan.yaml").exists() and (target / "server.py").exists()
-        assert "Filler text" in (target / "mcpcast.plan.yaml").read_text()
+        assert "Filler text" in (target / "mcpcast.plan.yaml").read_text(encoding="utf-8")
 
     def test_is_file_never_raises_for_an_overlong_name(self):
         from promptise.cli import _is_file
@@ -852,7 +869,7 @@ class TestPlainHttpWarning:
     def test_warning_names_the_hosts_and_the_variable(self, tmp_path, server, auth, warned):
         spec = {**SPEC, "servers": [{"url": server}]}
         path = tmp_path / "s.json"
-        path.write_text(json.dumps(spec))
+        path.write_text(json.dumps(spec), encoding="utf-8")
         result = runner.invoke(
             app,
             ["mcpcast", str(path), "--no-curate", "--auth", auth, "--out", str(tmp_path / "o")],
@@ -1026,16 +1043,16 @@ class TestOccupiedOutputDirectory:
     def test_a_folder_with_files_needs_force(self, spec_file, tmp_path):
         mine = tmp_path / "my-existing-app"
         mine.mkdir()
-        (mine / "README.md").write_text("# mine\n")
+        (mine / "README.md").write_text("# mine\n", encoding="utf-8")
         result = runner.invoke(app, ["mcpcast", str(spec_file), "--no-curate", "--out", str(mine)])
         assert result.exit_code == 1
         assert "not an mcpcast project" in _flat(result) and "--force" in _flat(result)
-        assert (mine / "README.md").read_text() == "# mine\n"
+        assert (mine / "README.md").read_text(encoding="utf-8") == "# mine\n"
         result = runner.invoke(
             app, ["mcpcast", str(spec_file), "--no-curate", "--out", str(mine), "--force"]
         )
         assert result.exit_code == 0, _out(result)
-        assert (mine / "README.md").read_text() != "# mine\n"
+        assert (mine / "README.md").read_text(encoding="utf-8") != "# mine\n"
         assert (mine / "mcpcast.plan.yaml").exists()
 
     def test_an_empty_folder_is_fine(self, spec_file, tmp_path):
@@ -1110,7 +1127,7 @@ def spec_server():
 
 
 def _files(out: Path) -> dict[Path, str]:
-    return {p: p.read_text() for p in out.rglob("*") if p.is_file()}
+    return {p: p.read_text(encoding="utf-8") for p in out.rglob("*") if p.is_file()}
 
 
 class TestCredentialsInSpecUrl:
@@ -1146,7 +1163,7 @@ class TestCredentialsInSpecUrl:
         plan = MCPcastPlan.load(out / "mcpcast.plan.yaml")
         assert plan.api.base_url == origin and "@" not in plan.api.base_url
         assert plan.api.spec_source == f"{origin}/docs/openapi.json"
-        config = (out / "ledger_mcp" / "config.py").read_text()
+        config = (out / "ledger_mcp" / "config.py").read_text(encoding="utf-8")
         assert f'"{origin}"' in config and "S3CRET" not in config
 
     def test_fetch_failure_does_not_echo_the_credential(self, spec_server):
@@ -1278,7 +1295,7 @@ class TestMalformedDocuments:
     )
     def test_no_traceback(self, tmp_path, document, outcome, detail):
         spec = tmp_path / "spec.json"
-        spec.write_text(document)
+        spec.write_text(document, encoding="utf-8")
         out = tmp_path / "out"
         result = runner.invoke(
             app, ["mcpcast", str(spec), "--no-curate", "--profile", "full", "--out", str(out)]
@@ -1308,7 +1325,8 @@ class TestMalformedDocuments:
         spec.write_text(
             "openapi: 3.0.0\ninfo: {title: bomb}\npaths:\n  /x: {get: {}}\n"
             + "\n".join(lines)
-            + "\n"
+            + "\n",
+            encoding="utf-8",
         )
         assert spec.stat().st_size < 1024
         started = time.monotonic()

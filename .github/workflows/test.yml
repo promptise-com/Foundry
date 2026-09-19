@@ -110,6 +110,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # full history: the git-revision-date plugin warns on a shallow clone, and --strict fails on warnings
 
       - name: Set up Python
         uses: actions/setup-python@v6

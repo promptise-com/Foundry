@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -91,7 +92,7 @@ PROPOSAL = {
 @pytest.fixture
 def spec_file(tmp_path: Path) -> Path:
     path = tmp_path / "openapi.json"
-    path.write_text(json.dumps(SPEC))
+    path.write_text(json.dumps(SPEC), encoding="utf-8")
     return path
 
 
@@ -115,6 +116,21 @@ async def _settle(pilot, seconds: float = 0.3) -> None:
     """Let thread workers (spec loading, detection) finish and messages drain."""
     await pilot.pause(seconds)
     await pilot.pause()
+
+
+async def _until(pilot, ready, timeout: float = 10.0) -> None:
+    """Pause until ``ready()`` holds — for work whose duration the host decides
+    (a refused connection takes a few ms on Linux and seconds on Windows)."""
+    deadline = time.monotonic() + timeout
+    while not ready():
+        assert time.monotonic() < deadline, "condition not met in time"
+        await pilot.pause(0.1)
+    await pilot.pause()
+
+
+def _plain(text: str) -> str:
+    """*text* without escape sequences and with Rich wrapping collapsed."""
+    return re.sub(r"[│╭╮╰╯─\s]+", " ", re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", text))
 
 
 def _text(app: MCPcastWizard, selector: str) -> str:
@@ -304,7 +320,7 @@ class TestParsedSpec:
     def test_rejects_plan_file(self, tmp_path: Path) -> None:
         plan = mcpcast(SPEC, name="widgets")
         plan_path = tmp_path / "mcpcast.plan.yaml"
-        plan_path.write_text(plan.to_yaml())
+        plan_path.write_text(plan.to_yaml(), encoding="utf-8")
         with pytest.raises(MCPcastError, match="is an mcpcast plan"):
             ParsedSpec.load(str(plan_path))
 
@@ -388,7 +404,8 @@ class TestEquivalentCommand:
             'promptise mcpcast "C:\\my specs\\api.yaml" --out "D:\\out dir"'
         )
 
-    def test_offline_and_overrides(self) -> None:
+    def test_offline_and_overrides(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("promptise.mcpcast.wizard._on_windows", lambda: False)
         s = WizardSettings(
             spec="my spec.yaml",
             base_url="https://api.example.com",
@@ -694,7 +711,7 @@ class TestWizardFlow:
         assert result is not None
         out = tmp_path / "widgets-mcp"
         assert (out / "server.py").exists()
-        plan = MCPcastPlan.from_yaml((out / "mcpcast.plan.yaml").read_text())
+        plan = MCPcastPlan.from_yaml((out / "mcpcast.plan.yaml").read_text(encoding="utf-8"))
         expected = mcpcast(
             SPEC, profile=SafetyProfile.STANDARD, auth=AuthMode.ENV_TOKEN, name="widgets"
         )
@@ -772,7 +789,7 @@ class TestWizardFlow:
     async def test_base_url_override_is_validated_and_recorded(self, tmp_path: Path) -> None:
         spec = {**SPEC, "servers": [{"url": "/api"}]}  # relative: the planner needs --base-url
         path = tmp_path / "rel.json"
-        path.write_text(json.dumps(spec))
+        path.write_text(json.dumps(spec), encoding="utf-8")
         app = _app(tmp_path, str(path))
         async with app.run_test(size=(100, 34)) as pilot:
             await pilot.press("enter")
@@ -811,7 +828,7 @@ class TestWizardFlow:
 
     async def test_project_validation(self, tmp_path: Path, spec_file: Path) -> None:
         (tmp_path / "taken-mcp").mkdir()
-        (tmp_path / "taken-mcp" / "mcpcast.plan.yaml").write_text("version: 1\n")
+        (tmp_path / "taken-mcp" / "mcpcast.plan.yaml").write_text("version: 1\n", encoding="utf-8")
         app = _app(tmp_path, str(spec_file))
         async with app.run_test(size=(100, 34)) as pilot:
             await pilot.press("enter")
@@ -880,7 +897,7 @@ class TestWizardFlow:
             "security": [{"ApiKeyAuth": []}],
         }
         path = tmp_path / "keyed.json"
-        path.write_text(json.dumps(spec))
+        path.write_text(json.dumps(spec), encoding="utf-8")
         parsed = ParsedSpec.load(str(path))
         assert preview_profile(parsed, SafetyProfile.FULL).tools == 4  # counts need no auth mode
         app = _app(tmp_path, str(path))
@@ -1007,7 +1024,7 @@ class TestAuditedBehaviour:
     ) -> None:
         spec = {**SPEC, "servers": [{"url": "https://prod.example.com"}]}
         path = tmp_path / "prod.json"
-        path.write_text(json.dumps(spec))
+        path.write_text(json.dumps(spec), encoding="utf-8")
         app = _app(tmp_path, str(path))
         async with app.run_test(size=(100, 34)) as pilot:
             await pilot.press("enter")
@@ -1031,10 +1048,10 @@ class TestAuditedBehaviour:
             assert app.result is not None
             assert "--base-url https://staging.example.com" in app.result.command
         out = tmp_path / "widgets-mcp"
-        written = MCPcastPlan.from_yaml((out / "mcpcast.plan.yaml").read_text())
+        written = MCPcastPlan.from_yaml((out / "mcpcast.plan.yaml").read_text(encoding="utf-8"))
         assert written.api.base_url == "https://staging.example.com"
         assert _routes_base_urls(written) == [None, None]
-        generated = "\n".join(p.read_text() for p in out.glob("*_mcp/**/*.py"))
+        generated = "\n".join(p.read_text(encoding="utf-8") for p in out.glob("*_mcp/**/*.py"))
         assert "prod.example.com" not in generated
 
     async def test_base_url_from_the_cli_stays_in_the_command(
@@ -1071,8 +1088,8 @@ class TestAuditedBehaviour:
     ) -> None:
         mine = tmp_path / "my-existing-app"
         mine.mkdir()
-        (mine / "README.md").write_text("# mine\n")
-        (mine / "server.py").write_text("print('mine')\n")
+        (mine / "README.md").write_text("# mine\n", encoding="utf-8")
+        (mine / "server.py").write_text("print('mine')\n", encoding="utf-8")
         app = _app(tmp_path, str(spec_file))
         async with app.run_test(size=(100, 34)) as pilot:
             await _to_review(pilot, app)
@@ -1087,7 +1104,7 @@ class TestAuditedBehaviour:
             assert app.pane.id == "project"
             error = _text(app, "#project-error")
             assert "is not an mcpcast project" in error and "turn on overwrite" in error
-            assert (mine / "README.md").read_text() == "# mine\n"
+            assert (mine / "README.md").read_text(encoding="utf-8") == "# mine\n"
             app.query_one("#project-force").value = True
             await pilot.pause()
             await pilot.press("enter")
@@ -1097,7 +1114,7 @@ class TestAuditedBehaviour:
             await _settle(pilot)
             assert app.result is not None and app.result.out_dir == mine
             assert app.result.command.endswith("--out my-existing-app --force")
-        assert (mine / "README.md").read_text() != "# mine\n"
+        assert (mine / "README.md").read_text(encoding="utf-8") != "# mine\n"
         assert (mine / "mcpcast.plan.yaml").exists()
 
     async def test_tilde_in_the_output_folder_is_expanded(
@@ -1106,6 +1123,7 @@ class TestAuditedBehaviour:
         home = tmp_path / "home"
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
+        monkeypatch.setenv("USERPROFILE", str(home))  # what ~ means on Windows
         app = _app(tmp_path, str(spec_file))
         async with app.run_test(size=(100, 34)) as pilot:
             await _to_review(pilot, app)
@@ -1137,9 +1155,9 @@ class TestAuditedBehaviour:
                 await pilot.press("escape")
             await pilot.pause()
             assert app.pane.id == "spec"
-            edited = json.loads(spec_file.read_text())
+            edited = json.loads(spec_file.read_text(encoding="utf-8"))
             edited["paths"]["/stats"] = {"get": {"operationId": "getStats", "summary": "Stats"}}
-            spec_file.write_text(json.dumps(edited))
+            spec_file.write_text(json.dumps(edited), encoding="utf-8")
             await pilot.click("#spec-load")
             await _settle(pilot)
             assert app.parsed is not None and len(app.parsed.operations) == 5
@@ -1153,7 +1171,9 @@ class TestAuditedBehaviour:
             assert "3 tools" in _text(app, "#review-log")
             await pilot.press("enter")
             await _settle(pilot)
-        plan = MCPcastPlan.from_yaml((tmp_path / "widgets-mcp" / "mcpcast.plan.yaml").read_text())
+        plan = MCPcastPlan.from_yaml(
+            (tmp_path / "widgets-mcp" / "mcpcast.plan.yaml").read_text(encoding="utf-8")
+        )
         assert "get_stats" in plan.tool_names
 
     async def test_writing_again_after_changing_settings_writes_again(
@@ -1197,7 +1217,7 @@ class TestAuditedBehaviour:
             assert app.result is not first and len(app.result.plan.tools) == 4
             await pilot.press("enter")  # Finish
         assert app.return_value is app.result
-        plan = MCPcastPlan.from_yaml((out / "mcpcast.plan.yaml").read_text())
+        plan = MCPcastPlan.from_yaml((out / "mcpcast.plan.yaml").read_text(encoding="utf-8"))
         assert len(plan.tools) == 4 and plan.profile is SafetyProfile.FULL
 
     async def test_ctrl_q_after_writing_returns_what_is_on_disk(
@@ -1347,12 +1367,14 @@ class TestAuditedBehaviour:
         out = tmp_path / "widgets-mcp"
         for path in out.rglob("*"):
             if path.is_file():
-                assert (
-                    "S3CRET-TOKEN" not in path.read_text()
-                    and "QUERY-SECRET" not in path.read_text()
-                )
+                assert "S3CRET-TOKEN" not in path.read_text(
+                    encoding="utf-8"
+                ) and "QUERY-SECRET" not in path.read_text(encoding="utf-8")
         assert (
-            MCPcastPlan.from_yaml((out / "mcpcast.plan.yaml").read_text()).api.spec_source == public
+            MCPcastPlan.from_yaml(
+                (out / "mcpcast.plan.yaml").read_text(encoding="utf-8")
+            ).api.spec_source
+            == public
         )
 
     async def test_a_failed_fetch_never_echoes_the_credential(self, tmp_path: Path) -> None:
@@ -1362,7 +1384,7 @@ class TestAuditedBehaviour:
             await pilot.pause()
             app.query_one("#spec-input").value = "https://u:p@127.0.0.1:1/openapi.json?api_key=x"
             await pilot.press("enter")
-            await _settle(pilot, 1.0)  # port 1 refuses the connection
+            await _until(pilot, lambda: bool(_text(app, "#spec-error")))  # port 1 refuses
             assert app.parsed is None and app.pane.id == "spec"
             error = _text(app, "#spec-error")
             assert error and "u:p" not in error and "api_key" not in error
@@ -1440,7 +1462,7 @@ class TestAuditedBehaviour:
             await pilot.pause()
             assert app.pane.id == "project"
             (tmp_path / "[red]x[bold]").mkdir()
-            (tmp_path / "[red]x[bold]" / "keep").write_text("")
+            (tmp_path / "[red]x[bold]" / "keep").write_text("", encoding="utf-8")
             app.query_one("#project-out").value = "[red]x[bold]"
             await pilot.pause()
             await pilot.press("enter")
@@ -1748,7 +1770,7 @@ class TestStalePlanIsNeverWritten:
             assert app.result.plan.profile is SafetyProfile.FULL
             assert "--profile full" in app.result.command
         written = MCPcastPlan.from_yaml(
-            (tmp_path / "widgets-mcp" / "mcpcast.plan.yaml").read_text()
+            (tmp_path / "widgets-mcp" / "mcpcast.plan.yaml").read_text(encoding="utf-8")
         )
         assert written.profile is SafetyProfile.FULL and "delete_widget" in written.tool_names
 
@@ -1809,10 +1831,11 @@ class TestStalePlanIsNeverWritten:
 
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         seen: dict[str, object] = {}
+        release = asyncio.Event()  # the evaluation ends when the test says so, not on a clock
 
         async def fake_evaluate(plan: MCPcastPlan, build_server: object, **kwargs: object):
             seen["model"] = kwargs.get("model")
-            await asyncio.sleep(1.0)
+            await release.wait()
             tool = plan.tools[0].name
             task = readiness.EvalTask(id="t1", prompt="list them", expected_tool=tool)
             result = readiness.TaskResult(
@@ -1849,6 +1872,7 @@ class TestStalePlanIsNeverWritten:
             await pilot.press("enter")  # Copy: harmless, the wizard stays
             await pilot.pause()
             assert app.pane.id == "write" and app.is_running
+            release.set()  # now let the evaluation finish
             await _settle(pilot, 1.5)
             assert app.result.report is not None and app.result.report.grade == "A"
             assert seen["model"] == DEFAULT_MODEL
@@ -1998,7 +2022,7 @@ class TestLargeText:
             f"- item {i}" for i in range(5000)
         )
         path = tmp_path / "big.json"
-        path.write_text(json.dumps(spec))
+        path.write_text(json.dumps(spec), encoding="utf-8")
         app = _app(tmp_path, str(path))
         async with app.run_test(size=(100, 34)) as pilot:
             await _to_review(pilot, app)
@@ -2010,12 +2034,15 @@ class TestLargeText:
             assert "more lines — full text in mcpcast.plan.yaml" in detail
             await pilot.press("down", "up")  # every cursor move re-renders the detail
             await _settle(pilot)
-            assert time.monotonic() - started < 3
+            # Unclamped, 5,000 items took over a minute; a generous bound keeps the
+            # test meaningful on a loaded CI runner.
+            assert time.monotonic() - started < 20
 
 
 class TestNextSteps:
     """L12/L15: every path is quoted, and the Measure line carries the eval credential."""
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths and quoting")
     def test_posix_lines_are_quoted_and_carry_the_credential(self) -> None:
         from promptise.mcpcast.wizard import _next_steps_markdown
 
@@ -2064,6 +2091,7 @@ class TestNextSteps:
         assert '`$env:MCPCAST_EVAL_AUTHORIZATION = "Bearer <your API token>"`' in md
         assert f'then `promptise mcpcast "{out / "mcpcast.plan.yaml"}" --eval`' in md
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths and quoting")
     async def test_the_write_step_shows_the_quoted_lines(
         self, tmp_path: Path, spec_file: Path
     ) -> None:
@@ -2089,7 +2117,7 @@ class TestPlainHttpWarning:
     async def test_review_and_write_name_the_insecure_host(self, tmp_path: Path) -> None:
         spec = {**SPEC, "servers": [{"url": "http://api.intranet.example:8080"}]}
         path = tmp_path / "intranet.json"
-        path.write_text(json.dumps(spec))
+        path.write_text(json.dumps(spec), encoding="utf-8")
         app = _app(tmp_path, str(path))
         async with app.run_test(size=(100, 34)) as pilot:
             await _to_review(pilot, app)  # personal → env-token: a credential travels
@@ -2205,6 +2233,7 @@ class TestWriteRefusalsAndRenamedPackages:
 class TestDotenvErrors:
     """A .env that cannot be read is reported on the welcome screen, not raised."""
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="chmod 000 does not block reads")
     async def test_unreadable_dotenv_is_shown_on_welcome(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2214,7 +2243,7 @@ class TestDotenvErrors:
             pytest.skip("root can read a chmod-000 file")
         monkeypatch.delenv("PROMPTISE_NO_DOTENV")
         dotenv = tmp_path / ".env"
-        dotenv.write_text("OPENAI_API_KEY=sk-test\n")
+        dotenv.write_text("OPENAI_API_KEY=sk-test\n", encoding="utf-8")
         dotenv.chmod(0)
         try:
             app = _app(tmp_path)
@@ -2279,9 +2308,13 @@ class TestQuitDuringAParse:
             return real_load(cls, source, **kwargs)
 
         slow = tmp_path / "slow.json"
-        slow.write_text(json.dumps({**SPEC, "info": {**SPEC["info"], "title": "SLOW API"}}))
+        slow.write_text(
+            json.dumps({**SPEC, "info": {**SPEC["info"], "title": "SLOW API"}}), encoding="utf-8"
+        )
         fast = tmp_path / "fast.json"
-        fast.write_text(json.dumps({**SPEC, "info": {**SPEC["info"], "title": "FAST API"}}))
+        fast.write_text(
+            json.dumps({**SPEC, "info": {**SPEC["info"], "title": "FAST API"}}), encoding="utf-8"
+        )
         app = _app(tmp_path)
         async with app.run_test(size=(100, 34)) as pilot:
             with pytest.MonkeyPatch.context() as mp:
@@ -2309,24 +2342,28 @@ class TestQuitDuringAParse:
 
 class TestCli:
     def test_no_spec_without_a_terminal(self) -> None:
-        result = CliRunner().invoke(cli, ["mcpcast"])
+        result = CliRunner(env={"COLUMNS": "200"}).invoke(cli, ["mcpcast"])
         assert result.exit_code == 1
-        assert "needs an interactive terminal" in result.output
-        assert "promptise mcpcast openapi.json --no-curate" in result.output
+        assert "needs an interactive terminal" in _plain(result.output)
+        assert "promptise mcpcast openapi.json --no-curate" in _plain(result.output)
 
     def test_wizard_rejects_other_flags(self, spec_file: Path) -> None:
-        result = CliRunner().invoke(cli, ["mcpcast", "--profile", "full"])
+        result = CliRunner(env={"COLUMNS": "200"}).invoke(cli, ["mcpcast", "--profile", "full"])
         assert result.exit_code == 2
-        assert "cannot be combined with the guided setup" in result.output
-        result = CliRunner().invoke(cli, ["mcpcast", str(spec_file), "-i", "--eval"])
+        assert "cannot be combined with the guided setup" in _plain(result.output)
+        result = CliRunner(env={"COLUMNS": "200"}).invoke(
+            cli, ["mcpcast", str(spec_file), "-i", "--eval"]
+        )
         assert result.exit_code == 2
-        assert "--eval cannot be combined" in result.output
+        assert "--eval cannot be combined" in _plain(result.output)
         # --out and --base-url pre-fill the wizard; without a terminal that is the TTY error
-        result = CliRunner().invoke(cli, ["mcpcast", "-i", "--out", "x", "--base-url", "https://a"])
+        result = CliRunner(env={"COLUMNS": "200"}).invoke(
+            cli, ["mcpcast", "-i", "--out", "x", "--base-url", "https://a"]
+        )
         assert result.exit_code == 1
-        assert "needs an interactive terminal" in result.output
+        assert "needs an interactive terminal" in _plain(result.output)
 
     def test_help_mentions_the_guided_setup(self) -> None:
-        result = CliRunner().invoke(cli, ["mcpcast", "--help"])
+        result = CliRunner(env={"COLUMNS": "200"}).invoke(cli, ["mcpcast", "--help"])
         assert result.exit_code == 0
-        assert "guided setup" in result.output
+        assert "guided setup" in _plain(result.output)

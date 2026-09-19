@@ -29,7 +29,7 @@ from promptise.models import (
     resolve_model,
 )
 
-runner = CliRunner()
+runner = CliRunner(env={"COLUMNS": "200"})  # Rich wraps at COLUMNS; keep phrases on one line
 
 _AZURE = {
     "AZURE_OPENAI_ENDPOINT": "https://demo.openai.azure.com/",
@@ -80,13 +80,15 @@ class TestRegistry:
             if p.base_url is None:  # native route must be core
                 assert p.native_package is None, p.key
                 assert p.native_installed, p.key
-        extras = tomllib.loads(Path("pyproject.toml").read_text())["project"][
+        extras = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"][
             "optional-dependencies"
         ]
         assert not any(
             k in extras for k in ("google", "bedrock", "ollama", "models-all", "anthropic")
         )
-        core = tomllib.loads(Path("pyproject.toml").read_text())["project"]["dependencies"]
+        core = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"][
+            "dependencies"
+        ]
         assert any(d.startswith("langchain-openai") for d in core)
         assert any(d.startswith("langchain-anthropic") for d in core)
 
@@ -718,7 +720,8 @@ class TestModelForms:
             "servers:\n"
             "  tools:\n"
             "    type: http\n"
-            "    url: http://127.0.0.1:9/mcp\n"
+            "    url: http://127.0.0.1:9/mcp\n",
+            encoding="utf-8",
         )
         loader, _ = load_superagent_file(path)
         assert loader.to_model_string() == "azure:gpt-4o"
@@ -775,7 +778,7 @@ class TestDotenv:
         monkeypatch.setattr(m, "_dotenv_loaded", None)
         monkeypatch.setattr(m, "_dotenv_filled", {})
         monkeypatch.setattr(m, "_dotenv_skipped", set())
-        (tmp_path / ".env").write_text("OPENAI_API_KEY=sk-from-dotenv\n")
+        (tmp_path / ".env").write_text("OPENAI_API_KEY=sk-from-dotenv\n", encoding="utf-8")
         sub = tmp_path / "app" / "src"
         sub.mkdir(parents=True)
         monkeypatch.chdir(sub)  # a script run from a subdirectory still finds it
@@ -796,7 +799,7 @@ class TestDotenv:
         assert os.environ["OPENAI_API_KEY"] == "sk-changed-later"
 
     def test_empty_value_in_the_file_sets_nothing(self, project):
-        (project / ".env").write_text("OPENAI_API_KEY=\nGROQ_API_KEY=gsk-x\n")
+        (project / ".env").write_text("OPENAI_API_KEY=\nGROQ_API_KEY=gsk-x\n", encoding="utf-8")
         m.load_dotenv_if_present()
         assert "OPENAI_API_KEY" not in os.environ and os.environ["GROQ_API_KEY"] == "gsk-x"
         assert m.dotenv_origin("OPENAI_API_KEY") is None
@@ -804,16 +807,22 @@ class TestDotenv:
     def test_search_stops_at_the_project_root(self, project):
         """A .env above the directory holding pyproject.toml (or .git) belongs
         to somebody else — /tmp/.env on a shared host, another checkout."""
-        (project / "app" / "pyproject.toml").write_text("[project]\nname = 'app'\n")
+        (project / "app" / "pyproject.toml").write_text(
+            "[project]\nname = 'app'\n", encoding="utf-8"
+        )
         assert m.load_dotenv_if_present() is None
         assert not check_model("openai:gpt-5-mini").ok
         (project / "app" / "pyproject.toml").unlink()
-        (project / "app" / ".git").write_text("gitdir: /elsewhere\n")  # a worktree marker
+        (project / "app" / ".git").write_text(
+            "gitdir: /elsewhere\n", encoding="utf-8"
+        )  # a worktree marker
         assert m.load_dotenv_if_present() is None
 
     def test_dotenv_in_the_project_root_itself_is_loaded(self, project):
-        (project / "app" / "pyproject.toml").write_text("[project]\nname = 'app'\n")
-        (project / "app" / ".env").write_text("OPENAI_API_KEY=sk-from-root\n")
+        (project / "app" / "pyproject.toml").write_text(
+            "[project]\nname = 'app'\n", encoding="utf-8"
+        )
+        (project / "app" / ".env").write_text("OPENAI_API_KEY=sk-from-root\n", encoding="utf-8")
         assert m.load_dotenv_if_present() == str(project / "app" / ".env")
         assert check_model("openai:gpt-5-mini").ok
 
@@ -831,7 +840,7 @@ class TestDotenv:
 
     @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions")
     def test_world_writable_dotenv_is_skipped_but_a_safe_one_above_it_still_loads(self, project):
-        (project / "app" / ".env").write_text("OPENAI_API_KEY=sk-from-app\n")
+        (project / "app" / ".env").write_text("OPENAI_API_KEY=sk-from-app\n", encoding="utf-8")
         (project / "app" / ".env").chmod(0o666)
         with pytest.warns(UserWarning, match="world-writable"):
             assert m.load_dotenv_if_present() == str(project / ".env")
@@ -915,7 +924,8 @@ class TestDotenv:
             "servers:\n"
             "  tools:\n"
             "    type: http\n"
-            "    url: http://127.0.0.1:9/mcp\n"
+            "    url: http://127.0.0.1:9/mcp\n",
+            encoding="utf-8",
         )
         loader, _ = load_superagent_file(path)
         kwargs = loader.to_model_kwargs()
@@ -960,7 +970,9 @@ class TestDotenv:
     ):
         import os
 
-        (project / ".env").write_text("GROQ_API_KEY=gsk-x\n")  # nothing for OpenAI
+        (project / ".env").write_text(
+            "GROQ_API_KEY=gsk-x\n", encoding="utf-8"
+        )  # nothing for OpenAI
         monkeypatch.setenv("OPENAI_API_KEY", "")
         problems = check_model("openai:gpt-5-mini").problems
         assert os.environ["OPENAI_API_KEY"] == ""
@@ -1050,7 +1062,7 @@ def test_docs_provider_table_matches_the_registry():
     spec = importlib.util.spec_from_file_location("gen_providers_table", gen)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    committed = Path("docs/.snippets/providers-table.md").read_text()
+    committed = Path("docs/.snippets/providers-table.md").read_text(encoding="utf-8")
     assert committed == module.render(), (
         "provider table is stale — run: .venv/bin/python docs/.snippets/gen_providers_table.py"
     )
