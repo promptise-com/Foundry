@@ -30,7 +30,7 @@ The base install. Everything you need to build, run, and deploy agents that call
 - Prompt engineering (blocks, flows, strategies, guards, ContextEngine)
 - CLI (`promptise ...`)
 - Orchestration REST API
-- OpenAI provider (any LangChain chat model works)
+- Every model provider: OpenAI, Azure OpenAI and Anthropic natively; Groq, Gemini, Vertex AI, Bedrock, Mistral, Ollama, the Azure AI Foundry catalog and more through their OpenAI-compatible endpoints — no per-provider packages (see [Model Setup](model-setup.md))
 
 ### `pip install "promptise[all]"`
 

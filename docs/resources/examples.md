@@ -38,6 +38,10 @@ Build production MCP servers with authentication, middleware, and Pydantic valid
 | `examples/mcp/server.py` | Production MCP server with JWT auth, middleware stack, Pydantic models, caching, routers, background tasks, and live dashboard | Intermediate |
 | `examples/mcp/agent.py` | LLM agent connecting to an MCP server with JWT authentication and natural-language tool invocation | Beginner |
 | `examples/mcp/client.py` | Raw MCP client with multi-server routing, token acquisition, LangChain tool adapters, and tracing callbacks | Intermediate |
+| `examples/mcp/mcpcast_petstore/run.py` | Generate an MCP server from an OpenAPI spec with `promptise mcpcast`, drive it with a real agent over stdio against the live Petstore API, and show a destructive tool blocked by the server-side approval gate | Intermediate |
+| `examples/mcp/mcpcast_storefront_lab/run.py` | A SaaS storefront API MCPcast end to end: generated tools with risk classes, a real agent completing a business task, a refund held by the server-side approval gate until a second human approves, and an Agent Readiness Score before and after fixing the plan | Advanced |
+| `examples/mcp/mcpcast_wizard_lab/run.py` | The guided setup as a lab: start a real Helpdesk API, drive `promptise mcpcast` in the terminal (detection, model, profile counts, auth, review), then let the lab prove the result — computed review warnings on what the model wrote, a real agent over MCP stdio against the live app, a write denied by the approval gate, a refund tool that the `standard` profile never generated, and an Agent Readiness Score | Intermediate |
+| `examples/mcp/mcpcast_fastapi_app/run.py` | Make your own FastAPI app MCP-ready: start the app, generate an MCP server from its live `/openapi.json` with `promptise mcpcast` (reads open, writes gated, admin/deprecated/health dropped with reasons), drive it with a real agent over MCP stdio, and show a write denied fail-closed then executed once a human approves | Intermediate |
 
 **Quick start:**
 

@@ -72,6 +72,9 @@ agent = build_agent(
 answer = await agent.run("What's in the customer database?")
 ```
 
+!!! info "You need an API key first"
+    Every model provider needs a credential. Put it in a `.env` file in your project — Promptise loads it automatically, in scripts and in the CLI — or pass it in code with `Model(...)` — explained in [**Models & Providers → In code: Model**](../core/agents/models.md#in-code-model): `Model("gpt-4o-mini", provider="openai", api_key="...")`. The **exact variable name for every provider** (Azure AI Foundry, Bedrock, Gemini, Ollama, …) is in [**Configuration & Secrets → Every provider's variables**](../getting-started/configuration.md#every-providers-variables); self-hosted and inference endpoints are in [**Models & Providers → Custom, self-hosted and inference endpoints**](../core/agents/models.md#custom-self-hosted-and-inference-endpoints). `promptise models env <provider>` prints the lines a provider needs and `promptise models check <model>` tells you what is still missing.
+
 The agent connects to both servers, calls `tools/list`, and starts using the tools. No manual schema translation, no per-tool registration, no boilerplate.
 
 ## Promptise Foundry's MCP capabilities
@@ -101,6 +104,8 @@ async def search_database(query: str) -> list[dict]:
 ```
 
 Type hints become the JSON schema. Docstrings become the description. Decorators handle the protocol plumbing.
+
+And when the API already exists, you don't hand-write the server at all. `promptise mcpcast` reads its OpenAPI 3.x or Swagger 2 spec, classifies every operation's risk, curates a tool surface an agent can pick from correctly, and emits an editable MCP server — read-only unless you opt in, with writes, deletes and money-moving calls gated by human approval the server enforces. See [MCPcast an Existing API](../guides/mcpcast-existing-api.md).
 
 Production features built in:
 
@@ -140,6 +145,7 @@ For everything else: MCP gives you a separation of concerns the LLM ecosystem ha
 ## Learn more
 
 - [Build your first MCP server](../guides/production-mcp-servers.md)
+- [MCPcast an API you already have](../guides/mcpcast-existing-api.md)
 - [MCP client deep dive](../mcp/client/index.md)
 - [MCP server reference](../mcp/index.md)
 - [Official MCP spec](https://modelcontextprotocol.io)

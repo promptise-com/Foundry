@@ -23,6 +23,7 @@ One Python install (`pip install promptise`) gives you:
 | **Sandbox** | Docker with seccomp + capability dropping + read-only rootfs + resource limits + network isolation; optional gVisor |
 | **Observability** | 4 levels, 8 transporters (HTML, JSON, log, console, Prometheus, OpenTelemetry, webhook, callback) |
 | **MCP server SDK** | Decorators, middleware (logging, timeout, rate limit, circuit breaker, audit), JWT auth, capability guards, caching, health probes, queue, DI, versioning, OpenAPI ingestion, in-process testing |
+| **MCPcast** | `promptise mcpcast` turns an API you already have (OpenAPI 3.x / Swagger 2) into a curated, risk-classified, approval-gated MCP server emitted as editable code — see [MCPcast an Existing API](../guides/mcpcast-existing-api.md) |
 | **Enterprise MCP** | First-class multi-tenancy (`tenant_id` isolation invariant across cache/memory/limits/audit), server-side human-in-the-loop approval gates (`requires_approval` + four-eyes), tenant-qualified rate limits |
 | **MCP client** | Native, no third-party deps. Single, multi-server, and LangChain adapter variants. Three transports (stdio, HTTP, SSE) |
 | **Prompt engineering** | 8 prompt blocks, conversation flows, 5 strategies, 4 perspectives, 14 context providers, schema-strict guards, registry with versioning, inspector for debugging |
@@ -30,7 +31,7 @@ One Python install (`pip install promptise`) gives you:
 | **Cross-agent** | `ask_peer` and `broadcast` over HTTP+JWT for multi-agent systems |
 | **Self-modifying** | Open Mode with 14 meta-tools and guardrails for agent-written code |
 | **Config** | `.superagent` and `.agent` YAML manifests with `${VAR}` resolution and cycle detection |
-| **CLI** | `agent`, `validate`, `list-tools`, `run`, `serve` |
+| **CLI** | `agent`, `validate`, `list-tools`, `run`, `serve`, `mcpcast` |
 
 Every backend listed as a parameter option works. No `NotImplementedError`. No "planned." If it's documented, it's shipped.
 
@@ -104,6 +105,9 @@ agent = build_agent(
 
 answer = await agent.run("What changed in the API last week?")
 ```
+
+!!! info "You need an API key first"
+    Every model provider needs a credential. Put it in a `.env` file in your project — Promptise loads it automatically, in scripts and in the CLI — or pass it in code with `Model(...)` — explained in [**Models & Providers → In code: Model**](../core/agents/models.md#in-code-model): `Model("gpt-4o-mini", provider="openai", api_key="...")`. The **exact variable name for every provider** (Azure AI Foundry, Bedrock, Gemini, Ollama, …) is in [**Configuration & Secrets → Every provider's variables**](../getting-started/configuration.md#every-providers-variables); self-hosted and inference endpoints are in [**Models & Providers → Custom, self-hosted and inference endpoints**](../core/agents/models.md#custom-self-hosted-and-inference-endpoints). `promptise models env <provider>` prints the lines a provider needs and `promptise models check <model>` tells you what is still missing.
 
 That's the whole API for the simple case. From there:
 

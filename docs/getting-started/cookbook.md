@@ -23,6 +23,9 @@ from promptise.memory import ChromaProvider
 agent = await build_agent(model="openai:gpt-5-mini", servers=srv,
     memory=ChromaProvider(persist_directory="./memory"))
 ```
+
+!!! info "You need an API key first"
+    Every model provider needs a credential. Put it in a `.env` file in your project — Promptise loads it automatically, in scripts and in the CLI — or pass it in code with `Model(...)` — explained in [**Models & Providers → In code: Model**](../core/agents/models.md#in-code-model): `Model("gpt-4o-mini", provider="openai", api_key="...")`. The **exact variable name for every provider** (Azure AI Foundry, Bedrock, Gemini, Ollama, …) is in [**Configuration & Secrets → Every provider's variables**](../getting-started/configuration.md#every-providers-variables); self-hosted and inference endpoints are in [**Models & Providers → Custom, self-hosted and inference endpoints**](../core/agents/models.md#custom-self-hosted-and-inference-endpoints). `promptise models env <provider>` prints the lines a provider needs and `promptise models check <model>` tells you what is still missing.
 → [Memory](../core/memory.md)
 
 ### Persist conversations (with ownership)
@@ -89,6 +92,29 @@ agent = await build_agent(model="openai:gpt-5-mini", servers=srv, observe=True)
 ---
 
 ## MCP server recipes
+
+### Turn my OpenAPI spec into an MCP server
+One command, no model. You get an editable `server.py`, a reviewable tool plan, and a README.
+```bash
+promptise mcpcast openapi.yaml --name myapi --no-curate   # → myapi-mcp/, read-only by default
+```
+→ [MCPcast an Existing API](../mcp/server/mcpcast.md)
+
+### Let Claude Desktop use my internal API safely
+`env-token` sends one upstream credential; `standard` adds writes, each approval-gated server-side.
+```bash
+promptise mcpcast openapi.yaml --name myapi --no-curate --profile standard --auth env-token
+export MCPCAST_UPSTREAM_TOKEN="Bearer <your API token>"
+claude mcp add myapi -- python myapi-mcp/server.py
+```
+→ [MCPcast guide](../guides/mcpcast-existing-api.md)
+
+### Find out whether an agent can actually drive my tools
+A real agent runs generated tasks against the server in-process. Reads may hit the live API; everything else hits spec-derived mocks, so no real data changes.
+```bash
+promptise mcpcast openapi.yaml --no-curate --eval --eval-tasks 20   # → eval/report.md, graded A–F
+```
+→ [Agent Readiness Score](../mcp/server/mcpcast.md#agent-readiness-score)
 
 ### Define a tool
 Schema is generated from type hints.

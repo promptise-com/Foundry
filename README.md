@@ -122,6 +122,10 @@ and the ones you don't pass cost you nothing. Works with OpenAI, Anthropic, Gemi
 
 <br/>
 
+**Any model, one string.** `azure:chat-prod` · `foundry:Llama-3.3-70B-Instruct` · `bedrock:anthropic.claude-sonnet-4-20250514-v1:0` · `gemini:gemini-2.5-pro` · `ollama:llama3.1` — the same string works in `build_agent()`, `.superagent` files, and every CLI command. Not sure what a provider needs? `promptise models check <string>` tells you exactly what is missing — each env var and where to find it — and nothing needs installing for any provider. → [Model setup](https://docs.promptise.com/getting-started/model-setup/)
+
+<br/>
+
 ## &nbsp;
 
 <br/>
@@ -185,6 +189,20 @@ Most tasks run fine on the default tool loop. When you need more control, lay ou
 **Build a tool once; every agent can use it.**
 
 Write a Python function, add `@server.tool()`, and it becomes an MCP tool with a schema taken straight from your type hints. The same tool works with Promptise agents and with Claude Desktop, Cursor, and any other MCP client. It comes with authentication, per-tool permissions, rate limits, circuit breakers, tamper-evident audit logs, a background job queue, and a test client that runs the whole request path without a network.
+
+**Already have an API? MCPcast it.**
+
+```bash
+promptise mcpcast openapi.yaml --profile standard --auth env-token
+export MCPCAST_UPSTREAM_TOKEN="Bearer <your API token>"
+claude mcp add myapi -- python myapi-mcp/server.py
+```
+
+What comes out is a real project, not a script: an installable `myapi_mcp/` package (config, HTTP client, approval gate, one tools module per resource), a `server.py` launcher, a generated `tests/` suite, `pyproject.toml`, a `Dockerfile` and a README — regenerated from `mcpcast.plan.yaml`, the only file you edit.
+
+Or just `promptise mcpcast` — a full-screen terminal wizard that detects the API running on your machine, explains every choice, shows the plan for review, and prints the command it ran. [Guided setup →](https://docs.promptise.com/mcpcast/guided-setup/)
+
+The safety profile decides what is generated — `read-only` (default), `standard` adds writes, `full` adds destructive and financial operations — and every non-read tool is approval-gated on the server, so a human signs off before it runs. [MCPcast, end to end →](https://docs.promptise.com/mcpcast/)
 
 [MCP docs →](https://docs.promptise.com/mcp/)
 
@@ -321,7 +339,7 @@ Assemble a system prompt from typed blocks with a token budget, let it change ac
 </td>
 <td valign="top">
 
-`Server` &nbsp; [Guide](https://docs.promptise.com/guides/production-mcp-servers/) · [Fundamentals](https://docs.promptise.com/mcp/server/building-servers/) · [Routers & middleware](https://docs.promptise.com/mcp/server/routers-middleware/) · [Auth & security](https://docs.promptise.com/mcp/server/auth-security/) · [Multi-tenancy](https://docs.promptise.com/mcp/server/multi-tenancy/) · [Approval gates](https://docs.promptise.com/mcp/server/approval-gates/) · [Production](https://docs.promptise.com/mcp/server/production-features/) · [Caching](https://docs.promptise.com/mcp/server/caching-performance/) · [Observability](https://docs.promptise.com/mcp/server/observability/) · [Resilience](https://docs.promptise.com/mcp/server/resilience-patterns/) · [Queue](https://docs.promptise.com/mcp/server/queue/) · [Advanced](https://docs.promptise.com/mcp/server/advanced-patterns/) · [Deployment](https://docs.promptise.com/mcp/server/deployment/) · [Testing](https://docs.promptise.com/mcp/server/testing/)
+`Server` &nbsp; [Guide](https://docs.promptise.com/guides/production-mcp-servers/) · [MCPcast an existing API](https://docs.promptise.com/mcp/server/mcpcast/) · [Fundamentals](https://docs.promptise.com/mcp/server/building-servers/) · [Routers & middleware](https://docs.promptise.com/mcp/server/routers-middleware/) · [Auth & security](https://docs.promptise.com/mcp/server/auth-security/) · [Multi-tenancy](https://docs.promptise.com/mcp/server/multi-tenancy/) · [Approval gates](https://docs.promptise.com/mcp/server/approval-gates/) · [Production](https://docs.promptise.com/mcp/server/production-features/) · [Caching](https://docs.promptise.com/mcp/server/caching-performance/) · [Observability](https://docs.promptise.com/mcp/server/observability/) · [Resilience](https://docs.promptise.com/mcp/server/resilience-patterns/) · [Queue](https://docs.promptise.com/mcp/server/queue/) · [Advanced](https://docs.promptise.com/mcp/server/advanced-patterns/) · [Deployment](https://docs.promptise.com/mcp/server/deployment/) · [Testing](https://docs.promptise.com/mcp/server/testing/)
 
 `Client` &nbsp; [Guide](https://docs.promptise.com/mcp/client/) · [Tool adapter](https://docs.promptise.com/mcp/client/tool-adapter/)
 
