@@ -36,6 +36,35 @@ from .state import GraphState, NodeEvent, NodeResult
 
 logger = logging.getLogger("promptise.engine")
 
+# A node records a failure as ``NodeResult.error`` (a string — what hooks,
+# history and reports carry) and keeps the exception behind it on the result
+# under this attribute, so the engine can raise with the provider error as
+# ``__cause__`` when the run ends on that failure.  It is deliberately not a
+# dataclass field: it never serializes, never compares, never prints.
+_FAILURE_CAUSE_ATTR = "_failure_cause"
+
+
+def record_failure(result: NodeResult, exc: BaseException, error: str | None = None) -> None:
+    """Record *exc* as the failure of *result*.
+
+    Sets ``result.error`` (to *error*, or ``"ExcType: message"``) and keeps
+    the exception object for :func:`failure_cause`.
+
+    Args:
+        result: The node result to mark as failed.
+        exc: The exception that caused the failure.
+        error: Error text to record; defaults to ``"ExcType: message"``.
+    """
+    result.error = error if error is not None else f"{type(exc).__name__}: {exc}"
+    setattr(result, _FAILURE_CAUSE_ATTR, exc)
+
+
+def failure_cause(result: NodeResult) -> BaseException | None:
+    """The exception behind ``result.error``, or ``None`` when the failure was
+    recorded without one (a node that set ``error`` itself)."""
+    cause = getattr(result, _FAILURE_CAUSE_ATTR, None)
+    return cause if isinstance(cause, BaseException) else None
+
 
 # ---------------------------------------------------------------------------
 # PromptNode — LLM reasoning step (the core node type)
@@ -224,14 +253,18 @@ class PromptNode(BaseNode):
         # Resolve model — per-node override takes priority
         if self.model_override is not None:
             model = self.model_override
-            # If it's a string like "openai:gpt-5-mini", init it
-            if isinstance(model, str):
+            # A string ("azure:chat-prod") or a Model resolves like build_agent(model=...)
+            if isinstance(model, str) or type(model).__name__ == "Model":
                 try:
-                    from langchain.chat_models import init_chat_model
+                    from promptise.models import Model, resolve_model
 
-                    model = init_chat_model(model)
+                    model = model.resolve() if isinstance(model, Model) else resolve_model(model)
                 except Exception as exc:
-                    result.error = f"Failed to initialize model {self.model_override!r}: {exc}"
+                    # Name the model by its spec, never by the object: a Model
+                    # carries credentials and this string lands in logs, the
+                    # graph history and the on_node_error event payload.
+                    label = model.spec if isinstance(model, Model) else repr(model)
+                    record_failure(result, exc, f"Failed to initialize model {label}: {exc}")
                     return result
         else:
             model = config.get("_engine_model")
@@ -549,7 +582,10 @@ class PromptNode(BaseNode):
             response = await model_to_use.ainvoke(messages, config=config)
             result.llm_duration_ms = (time.monotonic() - llm_start) * 1000
         except Exception as exc:
-            result.error = f"{type(exc).__name__}: {exc}"
+            # Recorded on the result for hooks/history; the engine raises
+            # GraphExecutionError (chained to this exception) if the run
+            # ends here, so a provider failure never becomes a silent "answer".
+            record_failure(result, exc)
             result.duration_ms = (time.monotonic() - start) * 1000
             return result
 
@@ -1122,7 +1158,7 @@ class RouterNode(BaseNode):
                     )
 
         except Exception as exc:
-            result.error = f"{type(exc).__name__}: {exc}"
+            record_failure(result, exc)
 
         result.duration_ms = (time.monotonic() - start) * 1000
         return result
@@ -1347,6 +1383,9 @@ class LoopNode(BaseNode):
 
             if child_result.error:
                 result.error = f"Loop iteration {i}: {child_result.error}"
+                child_cause = failure_cause(child_result)
+                if child_cause is not None:
+                    setattr(result, _FAILURE_CAUSE_ATTR, child_cause)
                 break
         else:
             result.transition_reason = f"Max loop iterations ({self.max_loop_iterations}) reached"
@@ -1422,7 +1461,7 @@ class HumanNode(BaseNode):
             result.transition_reason = f"Timeout after {self.timeout}s"
 
         except Exception as exc:
-            result.error = f"{type(exc).__name__}: {exc}"
+            record_failure(result, exc)
 
         result.duration_ms = (time.monotonic() - start) * 1000
         return result
@@ -1474,7 +1513,7 @@ class TransformNode(BaseNode):
             state.context[self.output_key] = output
             result.output = output
         except Exception as exc:
-            result.error = f"{type(exc).__name__}: {exc}"
+            record_failure(result, exc)
 
         result.duration_ms = (time.monotonic() - start) * 1000
         return result
@@ -1554,7 +1593,7 @@ class SubgraphNode(BaseNode):
             result.total_tokens = _last_report.total_tokens if _last_report is not None else 0
 
         except Exception as exc:
-            result.error = f"Subgraph error: {type(exc).__name__}: {exc}"
+            record_failure(result, exc, f"Subgraph error: {type(exc).__name__}: {exc}")
 
         result.duration_ms = (time.monotonic() - start) * 1000
         return result
@@ -1709,7 +1748,7 @@ class AutonomousNode(BaseNode):
                     choice = {"next_node": "__done__", "reason": "unparseable"}
 
             except Exception as exc:
-                result.error = f"Routing failed at step {step_idx}: {exc}"
+                record_failure(result, exc, f"Routing failed at step {step_idx}: {exc}")
                 break
 
             chosen_name = choice.get("next_node", "__done__")

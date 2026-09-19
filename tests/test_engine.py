@@ -613,12 +613,18 @@ class TestCriticalFlag:
         graph.add_edge("step1", "step2")
 
         engine = PromptGraphEngine(graph=graph, model=_make_mock_model())
-        await engine.ainvoke({"messages": []})
+        # The abort reaches the caller — it is never a silent return
+        from promptise.engine.execution import GraphExecutionError
+
+        with pytest.raises(GraphExecutionError, match="step1.*boom") as info:
+            await engine.ainvoke({"messages": []})
+        assert isinstance(info.value.__cause__, RuntimeError)
 
         assert call_count == 1  # step2 never ran
         assert engine.last_report is not None
         assert engine.last_report.error is not None
         assert "boom" in engine.last_report.error
+        assert info.value.report is engine.last_report
 
     @pytest.mark.asyncio
     async def test_critical_passes_on_success(self):
@@ -745,10 +751,15 @@ class TestRetryableFlag:
         graph.set_entry("always_fail")
 
         engine = PromptGraphEngine(graph=graph, model=_make_mock_model())
-        await engine.ainvoke({"messages": []})
+        from promptise.engine.execution import GraphExecutionError
 
-        # Should have run and recorded the error
+        # Out of attempts with nothing to recover → the run failed, loudly
+        with pytest.raises(GraphExecutionError, match="always_fail.*nope"):
+            await engine.ainvoke({"messages": []})
+
+        # ... and recorded the error
         assert engine.last_report is not None
+        assert engine.last_report.error == "nope"
 
 
 class TestNoHistoryFlag:

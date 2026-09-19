@@ -284,6 +284,29 @@ Reasoning Graph Engine
    └── register_node_type()           Custom types for YAML
 ```
 
+## Failures reach the caller
+
+A run that ends on a node whose own execution failed — a rejected API key, a
+provider outage, a `CRITICAL` node error, a `RETRYABLE` node out of retries —
+raises `GraphExecutionError` from `ainvoke()` (and from `astream_events()`
+after its events). The exception names the graph and node, carries the
+`ExecutionReport`, and chains the provider exception as `__cause__`;
+`PromptiseAgent.ainvoke()` lets it propagate. A failure the graph *recovers*
+from does not raise: an edge routes it to a handler node that succeeds, or a
+hook sets `error_recovered` / clears the node's `error`. Hooks that annotate a
+successful node's `error` (timing, budget) do not count as failures. What
+never happens: an "answer" that silently echoes the question because the
+model call failed.
+
+```python
+from promptise.engine import GraphExecutionError
+
+try:
+    result = await agent.ainvoke({"messages": [HumanMessage(content="Hi")]})
+except GraphExecutionError as exc:
+    print(exc.node_name, exc.__cause__)   # 'reason' AuthenticationError(...)
+```
+
 ## Performance
 
 The engine adds **<0.02ms overhead** per invocation (excluding LLM latency). Key optimizations:

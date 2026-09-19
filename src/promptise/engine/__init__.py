@@ -17,7 +17,7 @@ Quick start::
 from . import prebuilts as _prebuilts  # noqa: F401
 from .base import BaseNode, NodeProtocol, node
 from .code_action import CodeActionNode
-from .execution import PromptGraphEngine
+from .execution import GraphExecutionError, PromptGraphEngine
 from .graph import Edge, PromptGraph
 from .hooks import BudgetHook, CycleDetectionHook, Hook, LoggingHook, MetricsHook, TimingHook
 from .nodes import (
@@ -91,6 +91,7 @@ __all__ = [
     "NodeEvent",
     "GraphMutation",
     "ExecutionReport",
+    "GraphExecutionError",
     "NodeFlag",
     # Hooks
     "Hook",

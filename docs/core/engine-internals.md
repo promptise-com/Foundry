@@ -74,6 +74,7 @@ graph TD
     ABORT --> END[Build ExecutionReport]
     END_ERR --> END
     LOOP --> |no| END
+    END --> |run ended on an unrecovered node failure| RAISE[raise GraphExecutionError]
 
     style START fill:#1e3a5f,stroke:#60a5fa,color:#fff
     style EXEC_NODE fill:#0e4429,stroke:#4ade80,color:#fff
