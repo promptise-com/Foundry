@@ -59,11 +59,13 @@ import shlex
 from dataclasses import dataclass
 from typing import Any
 
+from .._spawn import resolve_executable, spawn_options
 from .hooks import HookBlocked, HookContext
 
 # Transient fork/spawn failures (EAGAIN, etc.) under heavy load are worth a
 # brief retry instead of failing the hook outright.
 _TRANSIENT_SPAWN_ERRNOS = {errno.EAGAIN, errno.EWOULDBLOCK, errno.ENOMEM}
+
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +164,8 @@ class ShellHook:
             args = shlex.split(self.command)
             if not args:
                 raise ValueError("ShellHook.command is empty")
+            args = resolve_executable(args)
+        options = spawn_options(self.cwd)
 
         # Spawn the subprocess, retrying a transient fork/spawn failure (e.g.
         # EAGAIN, "Resource temporarily unavailable") that can occur under heavy
@@ -177,6 +181,7 @@ class ShellHook:
                         stderr=asyncio.subprocess.PIPE,
                         cwd=self.cwd,
                         env=self._merged_env(),
+                        **options,
                     )
                 else:
                     proc = await asyncio.create_subprocess_exec(
@@ -186,6 +191,7 @@ class ShellHook:
                         stderr=asyncio.subprocess.PIPE,
                         cwd=self.cwd,
                         env=self._merged_env(),
+                        **options,
                     )
                 break
             except OSError as exc:

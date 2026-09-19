@@ -156,6 +156,13 @@ hooks.register(HookEvent.USER_PROMPT_SUBMIT, hook.callback)
 
 This lets you write hooks in Bash, Node, Go, or any language — and hot-reload them by editing the script.
 
+The command is tokenized like a terminal would (`shlex.split`) and its
+executable resolved on `PATH`; unless `cwd` is set, the process starts without
+`fork()` (CPython's `posix_spawn` path). That matters on macOS: a forked child
+of a multithreaded process that has used system frameworks — any `httpx`
+client does — can die with SIGSEGV before `exec` (`exited -11`). Prefer an
+absolute script path over `cwd` when you can.
+
 ---
 
 ## Related

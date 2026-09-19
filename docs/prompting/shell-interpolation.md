@@ -47,6 +47,14 @@ executor = SubprocessShellExecutor(
 )
 ```
 
+With `shell=False` the command line is tokenized like a terminal would
+(`shlex.split`) and its executable resolved on `PATH`. Unless `cwd` is set,
+the process is started without `fork()` (CPython's `posix_spawn` path): a
+forked child of a multithreaded process that has used macOS system frameworks
+— any `httpx` client does — can die with SIGSEGV before `exec`, which surfaces
+as `exited -11`. Setting `cwd` forces the fork path, so prefer running the
+command with an absolute path over changing directory.
+
 ### Allowlist
 
 When `allowlist` is set, only commands whose first token matches are permitted:
