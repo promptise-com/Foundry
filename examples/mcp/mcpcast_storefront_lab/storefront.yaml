@@ -1,0 +1,569 @@
+openapi: 3.0.3
+info:
+  title: Storefront Commerce API
+  version: "1.4.0"
+  description: >
+    Customers, orders, refunds and subscriptions for a small commerce SaaS.
+    The API the company already ships — `promptise mcpcast` turns it into an MCP
+    server so its customers can drive it from Claude, Cursor or any AI client.
+servers:
+  - url: https://api.storefront.example/v1
+    description: Production
+security:
+  - bearerAuth: []
+tags:
+  - name: customers
+  - name: orders
+  - name: billing
+  - name: reports
+  - name: ops
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [ops]
+      summary: Service health
+      description: Liveness probe used by the load balancer.
+      security: []
+      responses:
+        "200":
+          description: The service is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  region:
+                    type: string
+                    example: eu-central-1
+
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List customers
+      description: >
+        Browse the customer directory. Supports a free-text query and a plan
+        filter; results are paginated newest first.
+      parameters:
+        - name: q
+          in: query
+          description: Free-text match against name and email.
+          schema:
+            type: string
+        - name: plan
+          in: query
+          description: Only customers on this plan.
+          schema:
+            type: string
+            enum: [starter, pro, enterprise]
+        - name: limit
+          in: query
+          description: Maximum number of customers to return (1-100).
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: A page of customers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Customer"
+                  has_more:
+                    type: boolean
+                    example: false
+
+  /customers/search:
+    post:
+      operationId: searchCustomers
+      tags: [customers]
+      summary: Search customers by email
+      description: >
+        Exact-match lookup by email address. A POST because the address is sent
+        in the body rather than in the query string — it reads, it never writes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: The customer's email address, matched exactly.
+                  example: ada@northwind.example
+      responses:
+        "200":
+          description: Matching customers (zero or one).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Customer"
+
+  /customers/{customer_id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get a customer
+      description: Retrieve one customer record by its identifier.
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: The customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List orders
+      description: Orders, newest first, optionally filtered by customer and status.
+      parameters:
+        - name: customer_id
+          in: query
+          description: Only orders belonging to this customer.
+          schema:
+            type: string
+            example: CUS-1001
+        - name: status
+          in: query
+          description: Only orders in this state.
+          schema:
+            type: string
+            enum: [open, paid, shipped, refunded, cancelled]
+        - name: limit
+          in: query
+          description: Maximum number of orders to return (1-100).
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: A page of orders.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Order"
+                  has_more:
+                    type: boolean
+                    example: false
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a draft order
+      description: Create an order in the `open` state. It is not fulfilled until it is paid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, items]
+              properties:
+                customer_id:
+                  type: string
+                  description: The customer the order belongs to.
+                  example: CUS-1001
+                items:
+                  type: array
+                  description: The lines to put on the order.
+                  items:
+                    $ref: "#/components/schemas/OrderLine"
+                currency:
+                  type: string
+                  description: ISO 4217 currency code.
+                  default: eur
+                  enum: [eur, usd, gbp]
+                notify_customer:
+                  type: boolean
+                  description: Send the customer an order confirmation email.
+                  default: true
+      responses:
+        "201":
+          description: The created order.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Order"
+                example:
+                  order_id: ORD-1005
+                  customer_id: CUS-1003
+                  status: open
+                  total: 89
+                  currency: eur
+                  placed_at: "2026-02-24"
+                  items:
+                    - sku: MAT-DESK-90
+                      quantity: 1
+                      unit_price: 89
+
+  /orders/{order_id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get an order
+      description: Retrieve one order, including its lines and current status.
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: The order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orders/{order_id}/refund:
+    post:
+      operationId: refundOrder
+      tags: [billing]
+      summary: Refund an order
+      description: >
+        Move money back to the customer's original payment method. Partial
+        refunds are allowed; the sum of refunds may not exceed the order total.
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount:
+                  type: number
+                  format: float
+                  description: Amount to refund, in the order's currency.
+                  example: 24
+                reason:
+                  type: string
+                  description: Why the refund was issued (kept for the audit trail).
+                  example: damaged on arrival
+      responses:
+        "200":
+          description: The refund receipt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Refund"
+
+  /orders/{order_id}/attachments:
+    post:
+      operationId: uploadOrderAttachment
+      tags: [orders]
+      summary: Attach a file to an order
+      description: Upload a delivery photo or a signed proof of receipt.
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                caption:
+                  type: string
+      responses:
+        "201":
+          description: The stored attachment.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attachment_id:
+                    type: string
+                    example: ATT-9001
+
+  /subscriptions/{subscription_id}:
+    delete:
+      operationId: cancelSubscription
+      tags: [billing]
+      summary: Cancel a subscription
+      description: >
+        End a subscription. With `at_period_end=false` the customer loses access
+        immediately and no further invoices are issued.
+      parameters:
+        - name: subscription_id
+          in: path
+          required: true
+          description: The subscription to cancel.
+          schema:
+            type: string
+            example: SUB-2001
+        - name: at_period_end
+          in: query
+          description: Keep access until the current period ends.
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: The cancelled subscription.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription_id:
+                    type: string
+                    example: SUB-2001
+                  status:
+                    type: string
+                    example: cancelled
+                  ends_at:
+                    type: string
+                    format: date
+
+  /reports/revenue:
+    get:
+      operationId: getRevenueReport
+      tags: [reports]
+      summary: Monthly revenue report
+      description: Gross and net revenue for one month, across all customers.
+      security:
+        - oauth2: [admin:read]
+      parameters:
+        - name: month
+          in: query
+          required: true
+          description: The month to report on, as `YYYY-MM`.
+          schema:
+            type: string
+            example: 2026-02
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  month:
+                    type: string
+                    example: 2026-02
+                  gross:
+                    type: number
+                    example: 18420.5
+                  net:
+                    type: number
+                    example: 17103.9
+                  currency:
+                    type: string
+                    example: eur
+
+  /admin/customers/{customer_id}/pii:
+    get:
+      operationId: getCustomerPii
+      tags: [customers]
+      summary: Read a customer's personal data
+      description: >
+        The full personal record behind a customer — postal address, phone
+        number and tax id. Back-office use only.
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: The personal record.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customer_id:
+                    type: string
+                    example: CUS-1001
+                  address:
+                    type: string
+                    example: 12 Analytical Engine Way, London
+                  phone:
+                    type: string
+                    example: "+44 20 7946 0000"
+                  tax_id:
+                    type: string
+                    example: GB123456789
+
+  /legacy/orders.csv:
+    get:
+      operationId: exportLegacyOrders
+      tags: [orders]
+      deprecated: true
+      summary: Export all orders as CSV
+      description: Superseded by `listOrders`. Kept until the 2026-06 sunset date.
+      responses:
+        "200":
+          description: A CSV dump of every order.
+          content:
+            text/csv:
+              schema:
+                type: string
+
+components:
+  parameters:
+    CustomerId:
+      name: customer_id
+      in: path
+      required: true
+      description: The customer identifier, e.g. `CUS-1001`.
+      schema:
+        type: string
+        example: CUS-1001
+    OrderId:
+      name: order_id
+      in: path
+      required: true
+      description: The order identifier, e.g. `ORD-1002`.
+      schema:
+        type: string
+        example: ORD-1002
+
+  responses:
+    NotFound:
+      description: No such record.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Customer:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          example: CUS-1001
+        name:
+          type: string
+          example: Ada Lovelace
+        email:
+          type: string
+          format: email
+          example: ada@northwind.example
+        plan:
+          type: string
+          enum: [starter, pro, enterprise]
+          example: pro
+        created_at:
+          type: string
+          format: date
+          example: "2025-03-04"
+
+    OrderLine:
+      type: object
+      required: [sku, quantity]
+      properties:
+        sku:
+          type: string
+          example: KB-PRO-87
+        quantity:
+          type: integer
+          example: 1
+        unit_price:
+          type: number
+          example: 129
+
+    Order:
+      type: object
+      properties:
+        order_id:
+          type: string
+          example: ORD-1002
+        customer_id:
+          type: string
+          example: CUS-1001
+        status:
+          type: string
+          enum: [open, paid, shipped, refunded, cancelled]
+          example: shipped
+        total:
+          type: number
+          example: 49.9
+        currency:
+          type: string
+          example: eur
+        placed_at:
+          type: string
+          format: date
+          example: "2026-02-11"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderLine"
+
+    Refund:
+      type: object
+      properties:
+        refund_id:
+          type: string
+          example: REF-3001
+        order_id:
+          type: string
+          example: ORD-1003
+        amount:
+          type: number
+          example: 24
+        status:
+          type: string
+          example: succeeded
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          example: not_found
+        message:
+          type: string
+          example: No such order.
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://api.storefront.example/oauth/token
+          scopes:
+            admin:read: Read back-office reports
