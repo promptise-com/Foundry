@@ -25,6 +25,7 @@ Example::
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -34,15 +35,24 @@ logger = logging.getLogger("promptise.server")
 class Elicitor:
     """Request structured input from the user mid-execution.
 
-    Bound to the MCP session by the framework's DI wiring.
-    If the client does not support elicitation, ``ask()`` returns
-    ``None`` silently.
+    Bound to the MCP session by the framework's DI wiring.  Sends an
+    ``elicitation/create`` request through ``ServerSession.elicit`` and
+    resolves the client's :class:`mcp.types.ElicitResult`.
+
+    ``ask()`` returns ``None`` — never raises — when the answer is not a
+    usable acceptance: the client declined or cancelled, did not declare
+    the elicitation capability (the request is rejected by the client),
+    the request timed out, or the transport failed.  Every one of these
+    is logged at WARNING/INFO level so an operator can tell *why* a gated
+    call was denied instead of guessing.
 
     Args:
         timeout: Default timeout in seconds for elicitation requests.
     """
 
     def __init__(self, timeout: float = 60.0) -> None:
+        if timeout <= 0:
+            raise ValueError(f"timeout must be positive, got {timeout}")
         self._session: Any = None
         self._request_id: str | int | None = None
         self._timeout = timeout
@@ -63,29 +73,60 @@ class Elicitor:
 
         Args:
             message: Human-readable prompt.
-            schema: JSON Schema for the expected response.
-            timeout: Override default timeout.
+            schema: JSON Schema for the expected response.  Defaults to an
+                empty object schema (a bare confirmation).
+            timeout: Override the default timeout, in seconds.
 
         Returns:
-            Parsed response dict, or ``None`` if unavailable/declined.
+            The submitted form values when the user accepted, or ``None``
+            when the elicitor is unbound, the client declined or cancelled,
+            the client does not support elicitation, the request timed
+            out, or the transport failed.
         """
         if self._session is None:
             return None
 
+        effective_timeout = self._timeout if timeout is None else timeout
+        requested_schema = schema or {"type": "object", "properties": {}}
         try:
-            result = await self._session.send_elicitation_request(
-                message=message,
-                requested_schema=schema or {"type": "object", "properties": {}},
+            # ``ServerSession.elicit`` is the SDK entry point for form-mode
+            # elicitation across the pinned mcp range; the contract test in
+            # tests/test_approval_gate.py fails loudly if the SDK renames it.
+            result = await asyncio.wait_for(
+                self._session.elicit(
+                    message=message,
+                    requestedSchema=requested_schema,
+                    related_request_id=self._request_id,
+                ),
+                timeout=effective_timeout,
             )
-            if result is None:
-                return None
-            if hasattr(result, "content"):
-                return result.content if isinstance(result.content, dict) else None
-            return result if isinstance(result, dict) else None
-        except AttributeError:
-            # Client/session doesn't support elicitation
-            logger.debug("Elicitation not supported by client session")
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Elicitation timed out after %.0fs (request_id=%s) — treated as declined",
+                effective_timeout,
+                self._request_id,
+            )
             return None
         except Exception as exc:
-            logger.debug("Elicitation failed: %s", exc)
+            # McpError when the client rejects the request (no elicitation
+            # capability), or a transport failure. Either way there is no
+            # answer — callers treat None as a decline.
+            logger.warning(
+                "Elicitation request failed (%s: %s) — treated as declined",
+                type(exc).__name__,
+                exc,
+            )
             return None
+
+        action = getattr(result, "action", None)
+        if action != "accept":
+            logger.info("Elicitation not accepted by client (action=%r)", action)
+            return None
+        content = getattr(result, "content", None)
+        if not isinstance(content, dict):
+            logger.warning(
+                "Elicitation accepted without form content (%s) — treated as declined",
+                type(content).__name__,
+            )
+            return None
+        return dict(content)

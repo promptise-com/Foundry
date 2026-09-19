@@ -229,6 +229,16 @@ When a tool has `auth=True`:
 
 Tools without `auth=True` pass through the middleware without authentication checks.
 
+### Identity is resolved per request
+
+On the HTTP and SSE transports an MCP session spans many HTTP requests. The credential the provider verifies, and everything `ctx.client` reports (client id, tenant, roles, IP address, user-agent), come from the HTTP request that carries **this** `tools/call` — never from the request that opened the session:
+
+- A call that presents a different valid credential than the one that opened the session runs as *that* credential's principal, with its own tenant and roles.
+- A call with no credential is unauthenticated, even inside a session opened with a valid one — `auth=True` tools answer `AuthenticationError`.
+- With `MCPServer(require_auth=True)` the transport gate goes one step further and binds the session to the credential that created it: a different credential on a known `mcp-session-id` is answered `404 Session not found`. See [Transport-level auth gate](deployment.md#transport-level-auth-gate).
+
+`TestClient` behaves the same way: headers passed to one `call_tool` apply to that call only.
+
 ### Client enrichment hook
 
 Use `on_authenticate` to load additional client metadata (org, tenant, plan tier) from your database after authentication:
@@ -410,7 +420,7 @@ class IPAllowlist(Guard):
 
 ## Request Tracing
 
-Every request gets a unique `request_id`. If the client sends an `X-Request-ID` header, that value is used; otherwise one is generated automatically. This ID is available to all middleware, handlers, and audit logging:
+Every request gets a unique `request_id`. If the client sends an `X-Request-ID` header, that value is used; otherwise one is generated automatically. The header is read from the HTTP request carrying each call, so every `tools/call` in a session carries its own id. This ID is available to all middleware, handlers, and audit logging:
 
 ```python
 @server.tool()

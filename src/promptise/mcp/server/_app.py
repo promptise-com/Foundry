@@ -547,6 +547,8 @@ class MCPServer:
         port: int = 8080,
         dashboard: bool = False,
         cors: Any = None,
+        allowed_hosts: list[str] | None = None,
+        allowed_origins: list[str] | None = None,
     ) -> None:
         """Start the server (blocking).
 
@@ -556,6 +558,17 @@ class MCPServer:
             port: Bind port for HTTP/SSE transports.
             dashboard: Enable live terminal monitoring dashboard.
             cors: Optional ``CORSConfig`` for HTTP/SSE transports.
+            allowed_hosts: ``Host`` header values the HTTP/SSE transports
+                accept (``"api.example.com"`` or ``"api.example.com:*"``).
+                A loopback bind validates ``Host`` and ``Origin`` against
+                the loopback names by default (DNS rebinding protection)
+                and this list adds to them — name the public host a
+                reverse proxy forwards.  A non-loopback bind validates
+                only when this is given, and then exactly these values.
+            allowed_origins: ``Origin`` header values to accept, for
+                browser clients served from another origin.  Requests
+                without an ``Origin`` header always pass this check.
+                Requires ``allowed_hosts`` on a non-loopback bind.
         """
         asyncio.run(
             self.run_async(
@@ -564,6 +577,8 @@ class MCPServer:
                 port=port,
                 dashboard=dashboard,
                 cors=cors,
+                allowed_hosts=allowed_hosts,
+                allowed_origins=allowed_origins,
             )
         )
 
@@ -575,6 +590,8 @@ class MCPServer:
         port: int = 8080,
         dashboard: bool = False,
         cors: Any = None,
+        allowed_hosts: list[str] | None = None,
+        allowed_origins: list[str] | None = None,
     ) -> None:
         """Start the server (async).
 
@@ -584,8 +601,25 @@ class MCPServer:
             port: Bind port for HTTP/SSE transports.
             dashboard: Enable live terminal monitoring dashboard.
             cors: Optional ``CORSConfig`` for HTTP/SSE transports.
+            allowed_hosts: ``Host`` header values the HTTP/SSE transports
+                accept; see :meth:`run`.
+            allowed_origins: ``Origin`` header values to accept; see
+                :meth:`run`.
+
+        Raises:
+            ValueError: ``allowed_origins`` without ``allowed_hosts`` on a
+                non-loopback bind, or an empty ``allowed_hosts`` list.
         """
         transport_type = TransportType(transport)
+
+        # ---- Host/Origin validation policy (decided before anything binds) ----
+        security_settings = None
+        if transport_type != TransportType.STDIO:
+            from ._transport import build_transport_security
+
+            security_settings = build_transport_security(
+                host, allowed_hosts=allowed_hosts, allowed_origins=allowed_origins
+            )
 
         # ---- Dashboard setup (before build to include in compiled chains) ----
         dashboard_state = None
@@ -654,6 +688,7 @@ class MCPServer:
                 auth_gate=auth_gate,
                 token_endpoint=self._token_endpoint,
                 cors=cors,
+                security_settings=security_settings,
             )
         finally:
             if _dashboard_obj:
@@ -837,15 +872,19 @@ class MCPServer:
             arguments = arguments or {}
 
             # Set up request context with tool_def for middleware access.
-            # Populate meta from HTTP request headers (bridged by the
-            # transport layer via contextvar).  This is what makes auth
-            # work: the Authorization header sent by the MCP client is
-            # captured at the ASGI level and threaded through here.
-            from ._context import (
-                get_request_headers,
-            )
+            # Populate meta from the HTTP request that carries THIS message
+            # (the SDK attaches it to every Streamable HTTP / SSE POST), so
+            # that credentials, tenant, roles and X-Request-ID are resolved
+            # per request — never from the request that opened the session.
+            # The transport contextvars remain the fallback for stdio and
+            # for direct handler invocation.
+            from ._context import bind_transport_request
 
-            http_headers = get_request_headers()
+            try:
+                mcp_request = getattr(ll.request_context, "request", None)
+            except LookupError:
+                mcp_request = None
+            http_headers, _ = bind_transport_request(mcp_request)
 
             # Request tracing: honour incoming X-Request-ID header,
             # otherwise generate a random one.

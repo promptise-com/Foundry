@@ -334,6 +334,26 @@ class PendingApprover:
         max_pending: Deny immediately beyond this many waiting requests
             (default 100) — a full queue must not become an unbounded pile
             of blocked calls.
+        max_pending_per_client: Deny immediately once a single caller has
+            this many requests waiting (default ``None`` — no per-client
+            cap, only the global one).  Without it the store is one shared
+            queue: a single client or tenant that fills ``max_pending``
+            makes every other caller's gated call fail closed.  A caller is
+            identified by the request's ``caller_user_id`` (the verified
+            ``client_id`` on the server-side gate), falling back to the
+            ``client_id`` / ``tenant_id`` metadata and then ``agent_id``;
+            requests carrying no identity at all share one anonymous bucket
+            — an unauthenticated flood cannot escape the cap by being
+            anonymous.  Must not exceed ``max_pending`` (nor
+            ``max_pending_per_tenant`` when that is set).
+        max_pending_per_tenant: Deny immediately once one tenant has this
+            many requests waiting, across all of its clients (default
+            ``None`` — no per-tenant cap).  The per-client cap counts by
+            client id, so a tenant holding several API keys could still take
+            the whole store; this cap counts by the ``tenant_id`` metadata
+            the server-side gate records (requests without one share one
+            bucket).  Must not exceed ``max_pending``.  The caps nest:
+            client ≤ tenant ≤ store.
     """
 
     def __init__(
@@ -342,15 +362,72 @@ class PendingApprover:
         *,
         approver_role: str = "approver",
         max_pending: int = 100,
+        max_pending_per_client: int | None = None,
+        max_pending_per_tenant: int | None = None,
     ) -> None:
         if max_pending <= 0:
             raise ValueError(f"max_pending must be positive, got {max_pending}")
+        if max_pending_per_tenant is not None and not (0 < max_pending_per_tenant <= max_pending):
+            raise ValueError(
+                "max_pending_per_tenant must be between 1 and max_pending "
+                f"({max_pending}), got {max_pending_per_tenant}"
+            )
+        ceiling_name, ceiling = "max_pending", max_pending
+        if max_pending_per_tenant is not None:
+            ceiling_name, ceiling = "max_pending_per_tenant", max_pending_per_tenant
+        if max_pending_per_client is not None and not (0 < max_pending_per_client <= ceiling):
+            raise ValueError(
+                f"max_pending_per_client must be between 1 and {ceiling_name} "
+                f"({ceiling}), got {max_pending_per_client}"
+            )
         self._approver_role = approver_role
         self._max_pending = max_pending
+        self._max_pending_per_client = max_pending_per_client
+        self._max_pending_per_tenant = max_pending_per_tenant
         self._pending: dict[str, tuple[ApprovalRequest, asyncio.Future[ApprovalDecision]]] = {}
         self._lock = asyncio.Lock()
         if server is not None:
             self.register_tools(server)
+
+    @staticmethod
+    def client_key(request: ApprovalRequest) -> str:
+        """The identity a request is counted under for ``max_pending_per_client``.
+
+        Prefers the verified caller (``caller_user_id``), then the
+        ``client_id`` and ``tenant_id`` metadata the server-side gate
+        records, then the agent that raised the request.  Returns ``""``
+        for a request carrying no identity — all such requests share one
+        bucket.
+        """
+        metadata = request.metadata or {}
+        for candidate in (
+            request.caller_user_id,
+            metadata.get("client_id"),
+            metadata.get("tenant_id"),
+            request.agent_id,
+        ):
+            if candidate:
+                return str(candidate)
+        return ""
+
+    def pending_for(self, client_key: str) -> int:
+        """Number of waiting requests counted under *client_key*."""
+        return sum(1 for req, _ in self._pending.values() if self.client_key(req) == client_key)
+
+    @staticmethod
+    def tenant_key(request: ApprovalRequest) -> str:
+        """The tenant a request is counted under for ``max_pending_per_tenant``.
+
+        The ``tenant_id`` the server-side gate records in the request
+        metadata; ``""`` for a request without one — all such requests
+        share one bucket.
+        """
+        tenant = (request.metadata or {}).get("tenant_id")
+        return str(tenant) if tenant else ""
+
+    def pending_for_tenant(self, tenant_key: str) -> int:
+        """Number of waiting requests counted under *tenant_key*."""
+        return sum(1 for req, _ in self._pending.values() if self.tenant_key(req) == tenant_key)
 
     # -- ApprovalHandler protocol ---------------------------------------
 
@@ -362,6 +439,30 @@ class PendingApprover:
                     reviewer_id="pending-approver",
                     reason=f"pending approval queue is full ({self._max_pending})",
                 )
+            if self._max_pending_per_tenant is not None:
+                tenant = self.tenant_key(request)
+                if self.pending_for_tenant(tenant) >= self._max_pending_per_tenant:
+                    whose = f"tenant {tenant!r}" if tenant else "callers without a tenant"
+                    return ApprovalDecision(
+                        approved=False,
+                        reviewer_id="pending-approver",
+                        reason=(
+                            f"per-tenant pending approval cap reached for {whose} "
+                            f"({self._max_pending_per_tenant} per tenant)"
+                        ),
+                    )
+            if self._max_pending_per_client is not None:
+                key = self.client_key(request)
+                if self.pending_for(key) >= self._max_pending_per_client:
+                    who = repr(key) if key else "anonymous callers"
+                    return ApprovalDecision(
+                        approved=False,
+                        reviewer_id="pending-approver",
+                        reason=(
+                            f"per-client pending approval cap reached for {who} "
+                            f"({self._max_pending_per_client} per client)"
+                        ),
+                    )
             future: asyncio.Future[ApprovalDecision] = asyncio.get_running_loop().create_future()
             self._pending[request.request_id] = (request, future)
         try:

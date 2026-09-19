@@ -541,7 +541,7 @@ async def deploy_to_production(
 
 ### Graceful degradation
 
-If the client doesn't support elicitation (not all MCP clients do), `ask()` returns `None`. Design your tools to handle this:
+`ask()` sends the request through the SDK's `ServerSession.elicit`, waits up to its `timeout` (default from the `Elicitor`), and returns the response `content` only when the user **accepts**. If the client does not support elicitation (not all MCP clients do), declines, cancels, or the request times out, `ask()` returns `None` and logs the reason at `WARNING`. Design your tools to handle this:
 
 ```python
 answer = await elicit.ask("Confirm deletion?", schema={...})

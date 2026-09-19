@@ -3,8 +3,12 @@
 Covers: pass-through for ungated tools, approve/deny via callback, timeout
 denied-by-default (and the explicit allow opt-out), modified-arguments
 fail-closed, the build-time no-gate configuration error, the PendingApprover
-block → list → decide flow with role-guarded admin tools, and the
-ElicitationApprover's fail-closed behavior without a live MCP session.
+block → list → decide flow with role-guarded admin tools, the per-client and
+per-tenant pending caps (one caller, or one tenant with many keys, cannot deny
+everyone else by filling the store), and the ElicitationApprover: fail-closed without a live MCP session, mocked at
+the real SDK boundary (``ServerSession.elicit`` → ``ElicitResult``), a
+contract test pinning that SDK method, and real in-process round trips over
+the SDK's in-memory transport (accept, decline, no elicitation support).
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ import asyncio
 
 import pytest
 
-from promptise.approval import ApprovalDecision
+from promptise.approval import ApprovalDecision, ApprovalRequest
 from promptise.mcp.server import (
     ApprovalGateMiddleware,
     AuthMiddleware,
@@ -287,6 +291,294 @@ class TestPendingApprover:
         assert (await asyncio.wait_for(waiting, timeout=5)).approved is True
 
 
+class TestPendingApproverPerClientCap:
+    """One client or tenant must not be able to fill the shared pending store
+    and deny every other caller's gated call (a fail-closed DoS)."""
+
+    @staticmethod
+    def _request(rid: str, client: str | None, **metadata) -> ApprovalRequest:
+        return ApprovalRequest(
+            request_id=rid,
+            tool_name="refund",
+            arguments={},
+            caller_user_id=client,
+            metadata=metadata,
+        )
+
+    @staticmethod
+    async def _park(approver: PendingApprover, request) -> asyncio.Task:
+        task = asyncio.create_task(approver.request_approval(request))
+        for _ in range(200):
+            if request.request_id in approver._pending:
+                break
+            await asyncio.sleep(0.005)
+        assert request.request_id in approver._pending
+        return task
+
+    def test_validation(self):
+        with pytest.raises(ValueError, match="max_pending_per_client"):
+            PendingApprover(max_pending=10, max_pending_per_client=0)
+        with pytest.raises(ValueError, match="max_pending_per_client"):
+            PendingApprover(max_pending=10, max_pending_per_client=11)
+        # unlimited per client is the default
+        assert PendingApprover()._max_pending_per_client is None
+
+    @pytest.mark.asyncio
+    async def test_one_client_at_cap_does_not_block_another(self):
+        approver = PendingApprover(max_pending=100, max_pending_per_client=2)
+
+        parked = [
+            await self._park(approver, self._request("a1", "alice")),
+            await self._park(approver, self._request("a2", "alice")),
+        ]
+        # alice is at her cap → denied immediately, naming the per-client cap
+        denied = await approver.request_approval(self._request("a3", "alice"))
+        assert denied.approved is False
+        assert "per-client" in (denied.reason or "")
+        assert "'alice'" in (denied.reason or "")
+        assert "2 per client" in (denied.reason or "")
+        assert len(approver.pending()) == 2
+
+        # bob is unaffected and his request is parked in the store
+        bob = await self._park(approver, self._request("b1", "bob"))
+        assert approver.pending_for("bob") == 1
+        assert approver.decide("b1", True, reviewer_id="human")
+        assert (await asyncio.wait_for(bob, timeout=5)).approved is True
+
+        # once one of alice's requests is decided her slot frees up
+        assert approver.decide("a1", False, reviewer_id="human")
+        await asyncio.wait_for(parked[0], timeout=5)
+        again = await self._park(approver, self._request("a4", "alice"))
+        assert approver.pending_for("alice") == 2
+        for rid in ("a2", "a4"):
+            approver.decide(rid, True, reviewer_id="human")
+        await asyncio.gather(parked[1], again)
+
+    @pytest.mark.asyncio
+    async def test_global_cap_still_applies(self):
+        approver = PendingApprover(max_pending=2, max_pending_per_client=2)
+        parked = [
+            await self._park(approver, self._request("a1", "alice")),
+            await self._park(approver, self._request("b1", "bob")),
+        ]
+        denied = await approver.request_approval(self._request("c1", "carol"))
+        assert denied.approved is False
+        assert "full" in (denied.reason or "")
+        for rid in ("a1", "b1"):
+            approver.decide(rid, True)
+        await asyncio.gather(*parked)
+
+    @pytest.mark.asyncio
+    async def test_anonymous_callers_share_one_bucket(self):
+        approver = PendingApprover(max_pending=100, max_pending_per_client=1)
+        parked = await self._park(approver, self._request("x1", None))
+        denied = await approver.request_approval(self._request("x2", None))
+        assert denied.approved is False
+        assert "anonymous" in (denied.reason or "")
+        # an identified caller is still served
+        named = await self._park(approver, self._request("y1", "yuki"))
+        approver.decide("x1", True)
+        approver.decide("y1", True)
+        await asyncio.gather(parked, named)
+
+    def test_client_key_fallbacks(self):
+        from promptise.approval import ApprovalRequest
+
+        key = PendingApprover.client_key
+        assert key(self._request("r", "alice", tenant_id="acme")) == "alice"
+        assert key(self._request("r", None, client_id="svc", tenant_id="acme")) == "svc"
+        assert key(self._request("r", None, tenant_id="acme")) == "acme"
+        assert (
+            key(ApprovalRequest(request_id="r", tool_name="t", arguments={}, agent_id="ag")) == "ag"
+        )
+        assert key(ApprovalRequest(request_id="r", tool_name="t", arguments={})) == ""
+
+    @pytest.mark.asyncio
+    async def test_cap_enforced_on_live_server_per_authenticated_client(self):
+        server = MCPServer(name="pending-cap")
+        server.add_middleware(
+            AuthMiddleware(
+                APIKeyAuth(
+                    keys={
+                        "sk-alice": {"client_id": "alice"},
+                        "sk-bob": {"client_id": "bob"},
+                    }
+                )
+            )
+        )
+        approver = PendingApprover(server, max_pending=100, max_pending_per_client=1)
+        server.add_middleware(ApprovalGateMiddleware(approver, timeout=5.0))
+
+        @server.tool(auth=True, requires_approval=True)
+        async def refund(order_id: str) -> str:
+            """Refund."""
+            return f"refunded {order_id}"
+
+        client = TestClient(server)
+        first = asyncio.create_task(
+            client.call_tool("refund", {"order_id": "o1"}, headers={"x-api-key": "sk-alice"})
+        )
+        for _ in range(200):
+            if approver.pending():
+                break
+            await asyncio.sleep(0.005)
+
+        # alice's second call is denied at once; bob's is parked normally
+        second = await client.call_tool(
+            "refund", {"order_id": "o2"}, headers={"x-api-key": "sk-alice"}
+        )
+        assert "APPROVAL_DENIED" in second[0].text
+        assert "per-client" in second[0].text
+        bob = asyncio.create_task(
+            client.call_tool("refund", {"order_id": "o3"}, headers={"x-api-key": "sk-bob"})
+        )
+        for _ in range(200):
+            if approver.pending_for("bob"):
+                break
+            await asyncio.sleep(0.005)
+        assert approver.pending_for("bob") == 1
+
+        for entry in approver.pending():
+            approver.decide(entry["request_id"], True, reviewer_id="human")
+        assert (await asyncio.wait_for(first, 5))[0].text == "refunded o1"
+        assert (await asyncio.wait_for(bob, 5))[0].text == "refunded o3"
+
+
+class TestPendingApproverPerTenantCap:
+    """The per-client cap counts client ids; a tenant holding several API keys
+    could still take the whole store. The per-tenant cap counts the tenant."""
+
+    _request = staticmethod(TestPendingApproverPerClientCap._request)
+    _park = staticmethod(TestPendingApproverPerClientCap._park)
+
+    def test_validation(self):
+        with pytest.raises(ValueError, match="max_pending_per_tenant"):
+            PendingApprover(max_pending=10, max_pending_per_tenant=0)
+        with pytest.raises(ValueError, match="max_pending_per_tenant"):
+            PendingApprover(max_pending=10, max_pending_per_tenant=11)
+        # the caps nest: client <= tenant <= store
+        with pytest.raises(ValueError, match=r"max_pending_per_tenant \(5\), got 6"):
+            PendingApprover(max_pending=10, max_pending_per_tenant=5, max_pending_per_client=6)
+        approver = PendingApprover(
+            max_pending=10, max_pending_per_tenant=5, max_pending_per_client=5
+        )
+        assert approver._max_pending_per_tenant == 5
+        assert PendingApprover()._max_pending_per_tenant is None  # unlimited by default
+
+    def test_tenant_key(self):
+        key = PendingApprover.tenant_key
+        assert key(self._request("r", "alice", tenant_id="acme")) == "acme"
+        assert key(self._request("r", "alice", client_id="svc")) == ""  # no tenant: one bucket
+        assert key(ApprovalRequest(request_id="r", tool_name="t", arguments={})) == ""
+
+    @pytest.mark.asyncio
+    async def test_one_tenant_at_cap_across_several_clients_does_not_block_another(self):
+        approver = PendingApprover(max_pending=100, max_pending_per_tenant=2)
+
+        parked = [
+            await self._park(approver, self._request("a1", "alice", tenant_id="acme")),
+            await self._park(approver, self._request("a2", "amir", tenant_id="acme")),
+        ]
+        # a third client id of the same tenant is denied at once, naming the tenant cap
+        denied = await approver.request_approval(self._request("a3", "anna", tenant_id="acme"))
+        assert denied.approved is False
+        assert "per-tenant" in (denied.reason or "")
+        assert "'acme'" in (denied.reason or "") and "2 per tenant" in (denied.reason or "")
+        assert approver.pending_for_tenant("acme") == 2 and len(approver.pending()) == 2
+
+        # another tenant is unaffected and parked normally
+        bob = await self._park(approver, self._request("b1", "bob", tenant_id="globex"))
+        assert approver.pending_for_tenant("globex") == 1
+        assert approver.decide("b1", True, reviewer_id="human")
+        assert (await asyncio.wait_for(bob, timeout=5)).approved is True
+
+        # a decided request frees the tenant's slot
+        assert approver.decide("a1", False, reviewer_id="human")
+        await asyncio.wait_for(parked[0], timeout=5)
+        again = await self._park(approver, self._request("a4", "anna", tenant_id="acme"))
+        assert approver.pending_for_tenant("acme") == 2
+        for rid in ("a2", "a4"):
+            approver.decide(rid, True, reviewer_id="human")
+        await asyncio.gather(parked[1], again)
+
+    @pytest.mark.asyncio
+    async def test_global_cap_still_applies(self):
+        approver = PendingApprover(max_pending=2, max_pending_per_tenant=2)
+        parked = [
+            await self._park(approver, self._request("a1", "alice", tenant_id="acme")),
+            await self._park(approver, self._request("b1", "bob", tenant_id="globex")),
+        ]
+        denied = await approver.request_approval(self._request("c1", "carol", tenant_id="initech"))
+        assert denied.approved is False
+        assert "full" in (denied.reason or "")
+        for rid in ("a1", "b1"):
+            approver.decide(rid, True)
+        await asyncio.gather(*parked)
+
+    @pytest.mark.asyncio
+    async def test_requests_without_a_tenant_share_one_bucket(self):
+        approver = PendingApprover(max_pending=100, max_pending_per_tenant=1)
+        parked = await self._park(approver, self._request("x1", "xena"))
+        denied = await approver.request_approval(self._request("x2", "yuki"))
+        assert denied.approved is False
+        assert "without a tenant" in (denied.reason or "")
+        named = await self._park(approver, self._request("z1", "zoe", tenant_id="acme"))
+        approver.decide("x1", True)
+        approver.decide("z1", True)
+        await asyncio.gather(parked, named)
+
+    @pytest.mark.asyncio
+    async def test_cap_enforced_on_live_server_per_tenant(self):
+        """The gate stamps ``tenant_id`` from the authenticated client; the cap counts it."""
+        server = MCPServer(name="pending-tenant-cap")
+        server.add_middleware(
+            AuthMiddleware(
+                APIKeyAuth(
+                    keys={
+                        "sk-a1": {"client_id": "acme-1", "tenant_id": "acme"},
+                        "sk-a2": {"client_id": "acme-2", "tenant_id": "acme"},
+                        "sk-b": {"client_id": "globex-1", "tenant_id": "globex"},
+                    }
+                )
+            )
+        )
+        approver = PendingApprover(server, max_pending=100, max_pending_per_tenant=1)
+        server.add_middleware(ApprovalGateMiddleware(approver, timeout=5.0))
+
+        @server.tool(auth=True, requires_approval=True)
+        async def refund(order_id: str) -> str:
+            """Refund."""
+            return f"refunded {order_id}"
+
+        client = TestClient(server)
+        first = asyncio.create_task(
+            client.call_tool("refund", {"order_id": "o1"}, headers={"x-api-key": "sk-a1"})
+        )
+        for _ in range(200):
+            if approver.pending():
+                break
+            await asyncio.sleep(0.005)
+
+        # acme's second key is denied at once; globex is parked normally
+        second = await client.call_tool(
+            "refund", {"order_id": "o2"}, headers={"x-api-key": "sk-a2"}
+        )
+        assert "APPROVAL_DENIED" in second[0].text and "per-tenant" in second[0].text
+        other = asyncio.create_task(
+            client.call_tool("refund", {"order_id": "o3"}, headers={"x-api-key": "sk-b"})
+        )
+        for _ in range(200):
+            if approver.pending_for_tenant("globex"):
+                break
+            await asyncio.sleep(0.005)
+        assert approver.pending_for_tenant("globex") == 1
+
+        for entry in approver.pending():
+            approver.decide(entry["request_id"], True, reviewer_id="human")
+        assert (await asyncio.wait_for(first, 5))[0].text == "refunded o1"
+        assert (await asyncio.wait_for(other, 5))[0].text == "refunded o3"
+
+
 class TestElicitationApprover:
     @pytest.mark.asyncio
     async def test_no_session_fails_closed(self):
@@ -296,45 +588,159 @@ class TestElicitationApprover:
         assert "APPROVAL_DENIED" in result[0].text
         assert "refunded" not in result[0].text
 
-    @pytest.mark.asyncio
-    async def test_live_session_approve_and_deny(self):
-        class FakeSession:
-            def __init__(self, approve: bool):
-                self._approve = approve
-
-            async def send_elicitation_request(self, message, requested_schema):
-                return {"approve": self._approve, "reason": "checked"}
-
-        approver = ElicitationApprover()
-        from promptise.approval import ApprovalRequest
-
-        req = ApprovalRequest(request_id="r1", tool_name="refund", arguments={"o": 1})
-
+    @staticmethod
+    def _ctx_with_session(session) -> RequestContext:
         ctx = RequestContext(server_name="s", tool_name="refund")
         ctx.client = ClientContext(client_id="c1")
-
-        ctx.state["_mcp_session"] = FakeSession(approve=True)
-        decision = await approver.request_approval_ctx(req, ctx)
-        assert decision.approved is True
-
-        ctx.state["_mcp_session"] = FakeSession(approve=False)
-        decision = await approver.request_approval_ctx(req, ctx)
-        assert decision.approved is False
+        ctx.state["_mcp_session"] = session
+        return ctx
 
     @pytest.mark.asyncio
-    async def test_invalid_client_response_denies(self):
-        class BadSession:
-            async def send_elicitation_request(self, message, requested_schema):
-                return {"unexpected": "shape"}
+    async def test_live_session_approve_and_deny(self):
+        from unittest.mock import AsyncMock
 
-        approver = ElicitationApprover()
+        from mcp.types import ElicitResult
+
         from promptise.approval import ApprovalRequest
 
-        req = ApprovalRequest(request_id="r1", tool_name="refund", arguments={})
-        ctx = RequestContext(server_name="s", tool_name="refund")
-        ctx.state["_mcp_session"] = BadSession()
-        decision = await approver.request_approval_ctx(req, ctx)
+        approver = ElicitationApprover()
+        req = ApprovalRequest(request_id="r1", tool_name="refund", arguments={"o": 1})
+
+        session = AsyncMock()
+        session.elicit = AsyncMock(
+            return_value=ElicitResult(action="accept", content={"approve": True, "reason": "ok"})
+        )
+        decision = await approver.request_approval_ctx(req, self._ctx_with_session(session))
+        assert decision.approved is True
+        assert decision.reviewer_id == "elicitation:client-user"
+        assert decision.reason == "ok"
+        # The SDK's form-mode API was called with its real keyword names
+        session.elicit.assert_awaited_once()
+        kwargs = session.elicit.await_args.kwargs
+        assert "refund" in kwargs["message"]
+        assert kwargs["requestedSchema"]["required"] == ["approve"]
+
+        session.elicit = AsyncMock(
+            return_value=ElicitResult(action="accept", content={"approve": False, "reason": "no"})
+        )
+        decision = await approver.request_approval_ctx(req, self._ctx_with_session(session))
         assert decision.approved is False
+        assert decision.reason == "no"
+
+    @pytest.mark.asyncio
+    async def test_decline_cancel_and_failure_deny(self):
+        from unittest.mock import AsyncMock
+
+        from mcp.shared.exceptions import McpError
+        from mcp.types import INVALID_REQUEST, ElicitResult, ErrorData
+
+        from promptise.approval import ApprovalRequest
+
+        approver = ElicitationApprover()
+        req = ApprovalRequest(request_id="r1", tool_name="refund", arguments={})
+
+        outcomes = [
+            ElicitResult(action="decline"),
+            ElicitResult(action="cancel"),
+            # a client that accepts but sends the approval flag as a string
+            ElicitResult(action="accept", content={"approve": "yes"}),
+        ]
+        for outcome in outcomes:
+            session = AsyncMock()
+            session.elicit = AsyncMock(return_value=outcome)
+            decision = await approver.request_approval_ctx(req, self._ctx_with_session(session))
+            assert decision.approved is False, outcome
+            assert decision.reviewer_id == "elicitation"
+
+        # the client rejected the request (no elicitation capability)
+        session = AsyncMock()
+        session.elicit = AsyncMock(
+            side_effect=McpError(
+                ErrorData(code=INVALID_REQUEST, message="Elicitation not supported")
+            )
+        )
+        decision = await approver.request_approval_ctx(req, self._ctx_with_session(session))
+        assert decision.approved is False
+
+    def test_sdk_contract_elicit_method_exists(self):
+        """A renamed SDK method must fail this test, not silently deny every
+        gated call (the bug: the approver called a method that never existed
+        on ServerSession and swallowed the AttributeError)."""
+        import inspect
+
+        from mcp.server.session import ServerSession
+
+        assert hasattr(ServerSession, "elicit")
+        signature = inspect.signature(ServerSession.elicit)
+        # Elicitor.ask() passes exactly these keyword arguments
+        signature.bind(
+            None,
+            message="Approve?",
+            requestedSchema={"type": "object", "properties": {}},
+            related_request_id="req-1",
+        )
+
+
+class TestElicitationRoundTrip:
+    """Drive the real MCP SDK client ↔ server in-process over its in-memory
+    transport: the gated tool must only run when the human behind the
+    client accepts the elicitation."""
+
+    @staticmethod
+    def _server(timeout: float = 5.0) -> MCPServer:
+        server = MCPServer(name="gated-elicit")
+        server.add_middleware(ApprovalGateMiddleware(ElicitationApprover(), timeout=timeout))
+
+        @server.tool(requires_approval=True)
+        async def refund(order_id: str) -> str:
+            """Refund an order."""
+            return f"refunded {order_id}"
+
+        return server
+
+    @staticmethod
+    async def _call(server: MCPServer, elicitation_callback=None) -> str:
+        from mcp.shared.memory import create_connected_server_and_client_session
+
+        lowlevel = server._build_lowlevel_server()
+        async with create_connected_server_and_client_session(
+            lowlevel, elicitation_callback=elicitation_callback
+        ) as client:
+            result = await client.call_tool("refund", {"order_id": "o1"})
+            return result.content[0].text
+
+    @pytest.mark.asyncio
+    async def test_client_accepts_then_tool_runs(self):
+        from mcp.types import ElicitResult
+
+        prompts = []
+
+        async def accept(context, params):
+            prompts.append(params)
+            return ElicitResult(action="accept", content={"approve": True, "reason": "sure"})
+
+        assert await self._call(self._server(), accept) == "refunded o1"
+        assert len(prompts) == 1
+        assert "refund" in prompts[0].message
+        assert prompts[0].requestedSchema["required"] == ["approve"]
+
+    @pytest.mark.asyncio
+    async def test_client_declines_then_denied(self):
+        from mcp.types import ElicitResult
+
+        async def decline(context, params):
+            return ElicitResult(action="decline")
+
+        text = await self._call(self._server(), decline)
+        assert "APPROVAL_DENIED" in text
+        assert "refunded" not in text
+
+    @pytest.mark.asyncio
+    async def test_client_without_elicitation_support_is_denied(self):
+        # No callback → the SDK client answers "Elicitation not supported"
+        text = await self._call(self._server(), None)
+        assert "APPROVAL_DENIED" in text
+        assert "refunded" not in text
 
 
 class TestApprovalRunsAfterGuards:

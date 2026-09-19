@@ -81,16 +81,35 @@ approvals_decide(request_id, approve,     → release or deny; the reviewer's
 you cannot approve your own call, even if you also hold `approver_role`
 (denying your own is always allowed). The store is process-local (like the
 in-memory job queue); calls that outlive the gate timeout are denied by
-default. `max_pending` (default 100) denies immediately beyond that many
-waiting calls.
+default. Three caps bound the store, and beyond any of them a call is denied
+immediately rather than parked:
+
+| Cap | Counts | Default |
+|---|---|---|
+| `max_pending` | every waiting call | `100` |
+| `max_pending_per_tenant` | calls whose `tenant_id` metadata (stamped by the gate from the authenticated client) is the same; requests without a tenant share one bucket | none |
+| `max_pending_per_client` | calls from one caller — `caller_user_id`, else the request's `client_id` / `tenant_id` metadata, else `agent_id`; anonymous callers share one bucket | none |
+
+`max_pending_per_client` stops a single client from filling the queue for
+everyone else; `max_pending_per_tenant` is the cap that matters on a
+multi-tenant server, because the per-client cap counts client ids and a
+tenant holding several API keys could otherwise still take the whole store.
+The caps nest — `max_pending_per_client` ≤ `max_pending_per_tenant` ≤
+`max_pending`, else the constructor raises `ValueError` — and the denial
+reason names the cap that was hit (`per-tenant pending approval cap reached
+for tenant 'acme' (40 per tenant)`, `per-client pending approval cap reached
+for 'alice' (20 per client)`).
 
 ### `ElicitationApprover` — confirm with the human behind the client
 
-Uses MCP elicitation to ask the *calling* client's user to confirm
-(`{"approve": bool, "reason": str}`). Right for destructive-but-personal
-operations ("really delete this?"). **Fail-closed:** if the transport has
-no live MCP session (e.g. `TestClient`, clients without elicitation
-support), the call is denied with a clear reason — never silently allowed.
+Uses MCP elicitation (`ServerSession.elicit`) to ask the *calling* client's
+user to confirm (`{"approve": bool, "reason": str}`). Right for
+destructive-but-personal operations ("really delete this?"). **Fail-closed:**
+if the transport has no live MCP session (e.g. `TestClient`), the client does
+not support elicitation, the user declines or cancels, or the request times
+out, the call is denied with a clear reason — never silently allowed. The
+denial is logged at `WARNING` with the cause, so an unexpected "client
+declined" is diagnosable.
 
 ### Callbacks and existing handlers — bring your own channel
 

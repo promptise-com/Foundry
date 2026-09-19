@@ -88,13 +88,19 @@ class Sampler:
                     )
                 )
 
+            # The SDK's ServerSession.create_message signature (mcp>=1.9): the model
+            # hint travels as ModelPreferences and the system prompt as system_prompt.
+            from mcp.types import ModelHint, ModelPreferences
+
             result = await self._session.create_message(
-                messages=mcp_messages,
+                mcp_messages,
                 max_tokens=max_tokens,
-                model=model,
-                system=system,
+                system_prompt=system,
                 temperature=temperature,
                 stop_sequences=stop_sequences,
+                model_preferences=(
+                    ModelPreferences(hints=[ModelHint(name=model)]) if model else None
+                ),
             )
 
             if result is None:
@@ -107,9 +113,9 @@ class Sampler:
                     return content.text
                 return str(content)
             return str(result)
-        except (ImportError, AttributeError):
-            logger.debug("Sampling not supported by client session")
+        except (ImportError, AttributeError) as exc:
+            logger.warning("Sampling not supported by client session: %s", exc)
             return None
         except Exception as exc:
-            logger.debug("Sampling failed: %s", exc)
+            logger.warning("Sampling failed: %s: %s", type(exc).__name__, exc)
             return None

@@ -137,6 +137,58 @@ class TestServeCommand:
         assert recorded["server"] is server
         assert recorded["transport"] == "http"
 
+    def test_allow_lists_reach_run_serve(self, monkeypatch):
+        """--allowed-host / --allowed-origin are repeatable and land on the
+        namespace under the names build_serve_parser() uses."""
+        server = MCPServer(name="serve-test")
+        recorded: dict = {}
+        monkeypatch.setattr("promptise.mcp.server._serve_cli.resolve_server", lambda target: server)
+        monkeypatch.setattr(
+            "promptise.mcp.server._serve_cli.run_serve",
+            lambda args, server=None: recorded.update(args=args, server=server),
+        )
+
+        result = runner.invoke(
+            app,
+            [
+                "serve",
+                "myapp:server",
+                "-t",
+                "http",
+                "--host",
+                "0.0.0.0",
+                "--allowed-host",
+                "api.example.com",
+                "--allowed-host",
+                "api.example.com:*",
+                "--allowed-origin",
+                "https://app.example.com",
+            ],
+        )
+        assert result.exit_code == 0, _all_output(result)
+        assert recorded["server"] is server
+        args = recorded["args"]
+        assert args.allowed_hosts == ["api.example.com", "api.example.com:*"]
+        assert args.allowed_origins == ["https://app.example.com"]
+        assert (args.transport, args.host, args.port) == ("http", "0.0.0.0", 8080)
+
+    def test_allow_lists_are_forwarded_to_server_run_only_when_given(self, monkeypatch):
+        server = MCPServer(name="serve-test")
+        recorded: dict = {}
+        monkeypatch.setattr(server, "run", lambda **kw: recorded.update(kw))
+        monkeypatch.setattr("promptise.mcp.server._serve_cli.resolve_server", lambda target: server)
+
+        result = runner.invoke(
+            app, ["serve", "myapp:server", "-t", "http", "--allowed-host", "api.example.com"]
+        )
+        assert result.exit_code == 0, _all_output(result)
+        assert recorded["allowed_hosts"] == ["api.example.com"]
+        assert "allowed_origins" not in recorded  # not given: the bind-derived default policy
+
+        recorded.clear()
+        assert runner.invoke(app, ["serve", "myapp:server", "-t", "http"]).exit_code == 0
+        assert "allowed_hosts" not in recorded and "allowed_origins" not in recorded
+
     def test_stdio_dashboard_warns_on_stderr(self, monkeypatch):
         server = MCPServer(name="serve-test")
         monkeypatch.setattr(server, "run", lambda **kw: None)

@@ -56,7 +56,7 @@ Choose the right page for what you need:
 | Add metrics, tracing, Prometheus, structured logging, audit trails | [Observability & Monitoring](observability.md) |
 | Protect against failures, add health checks, webhooks, background tasks | [Resilience Patterns](resilience-patterns.md) |
 | Version tools, transform tool lists, compose servers, bridge OpenAPI | [Advanced Patterns](advanced-patterns.md) |
-| Deploy with HTTP/CORS, Docker, reverse proxy, CLI serve | [Deployment](deployment.md) |
+| Deploy with HTTP/CORS, Host/Origin validation, Docker, reverse proxy, CLI serve | [Deployment](deployment.md) |
 | Add JWT auth, API keys, guards, roles | [Authentication & Security](auth-security.md) |
 | Test with TestClient, pytest fixtures, CI | [Testing](testing.md) |
 
@@ -109,7 +109,7 @@ server.add_middleware(ConcurrencyLimiter(max_concurrent=50))
 
 ### [Deployment](deployment.md)
 
-Transport selection (stdio/HTTP/SSE), `CORSConfig`, reverse proxy, Docker, Kubernetes health probes, `TokenEndpointConfig`, `hot_reload()`, CLI `serve` command.
+Transport selection (stdio/HTTP/SSE), Host/Origin validation (`allowed_hosts` / `allowed_origins`, on by default for loopback binds), per-request caller identity, `CORSConfig`, reverse proxy, Docker, Kubernetes health probes, `TokenEndpointConfig`, `hot_reload()`, CLI `serve` command.
 
 ## What's Next
 

@@ -74,6 +74,29 @@ def build_serve_parser(subparsers: Any = None) -> argparse.ArgumentParser:
         action="store_true",
         help="Enable hot reload (development only)",
     )
+    parser.add_argument(
+        "--allowed-host",
+        dest="allowed_hosts",
+        action="append",
+        metavar="HOST",
+        help=(
+            "Host header value to accept on HTTP/SSE, e.g. api.example.com or "
+            "api.example.com:* (repeatable). A loopback bind validates Host and Origin "
+            "against the loopback names by default; a non-loopback bind validates only "
+            "when this is given."
+        ),
+    )
+    parser.add_argument(
+        "--allowed-origin",
+        dest="allowed_origins",
+        action="append",
+        metavar="ORIGIN",
+        help=(
+            "Origin header value to accept for browser clients, e.g. "
+            "https://app.example.com (repeatable). Requires --allowed-host on a "
+            "non-loopback bind."
+        ),
+    )
     return parser
 
 
@@ -126,20 +149,22 @@ def run_serve(args: argparse.Namespace, server: Any | None = None) -> None:
     if server is None:
         server = resolve_server(args.target)
 
+    options: dict[str, Any] = {
+        "transport": args.transport,
+        "host": args.host,
+        "port": args.port,
+        "dashboard": args.dashboard,
+    }
+    # Host/Origin allow-lists are optional on the namespace (front-ends that
+    # do not expose them keep the bind-derived default policy).
+    for name in ("allowed_hosts", "allowed_origins"):
+        values = getattr(args, name, None)
+        if values:
+            options[name] = list(values)
+
     if args.reload:
         from ._hot_reload import hot_reload
 
-        hot_reload(
-            server,
-            transport=args.transport,
-            host=args.host,
-            port=args.port,
-            dashboard=args.dashboard,
-        )
+        hot_reload(server, **options)
     else:
-        server.run(
-            transport=args.transport,
-            host=args.host,
-            port=args.port,
-            dashboard=args.dashboard,
-        )
+        server.run(**options)
