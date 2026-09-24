@@ -15,6 +15,9 @@ All notable changes to Promptise Foundry are documented here.
 
 ### Changed
 
+- **MCPcast generated projects pin their lint rules** -- the generated `pyproject.toml` now declares `[tool.ruff.lint] select` (and `target-version`) instead of relying on ruff's defaults, which changed in 0.16 and made previously clean projects report `TRY004`/`RUF100`. A generated project lints the same whichever ruff its owner has, and the rule set is theirs to widen.
+- **Maintenance for this release** -- Python 3.13 joins the test matrix (and the package classifiers name 3.10-3.13); `ruff` is allowed up to 0.17; `actions/setup-python` and `actions/github-script` are current. The security job's dependency check used to be `pip freeze | safety check --stdin || true`, which could never fail: it now runs `pip-audit` over everything `promptise[all]` resolves to and fails the build, with `.github/pip-audit-ignore.txt` holding the advisories we knowingly tolerate (today: four ChromaDB server advisories with no fixed release — `ChromaProvider` embeds Chroma rather than exposing its HTTP server, which `docs/core/memory.md` now states).
+
 - **Dependencies: `httpx` is now an explicit core dependency** -- generated `mcpcast` servers (and the OpenAPI provider) import it directly, so it is declared as `httpx>=0.27` instead of being relied on implicitly. It was already pulled in transitively by `mcp` and `langchain-core`, so a fresh install brings in nothing new.
 
 ### Fixed

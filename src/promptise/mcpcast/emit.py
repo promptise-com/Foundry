@@ -2258,6 +2258,13 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Pinned, so `ruff check` keeps its meaning when ruff's defaults change (0.16
+# added rules to the default set that this generated code does not follow).
+# This is your project: add the rules you want.
+select = ["E4", "E7", "E9", "F"]
 '''
 
 

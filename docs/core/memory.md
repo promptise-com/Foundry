@@ -197,6 +197,18 @@ results = await provider.search("deployment issues")
 | Dependencies | `pip install "promptise[all]"` |
 | Best for | Production agents needing semantic recall |
 
+!!! warning "Use Chroma embedded, not as a shared server"
+    `ChromaProvider` talks to an **embedded** Chroma: your process, your
+    directory. Chroma's own HTTP server carries advisories that have no fixed
+    release at the time of writing — code injection through the collection
+    endpoints and an authorization provider that does not check which tenant a
+    permission applies to ([GHSA-36p7-vc44-83pf](https://github.com/advisories/GHSA-36p7-vc44-83pf),
+    [GHSA-f4j7-r4q5-qw2c](https://github.com/advisories/GHSA-f4j7-r4q5-qw2c),
+    [GHSA-2wm9-hf6c-p5cr](https://github.com/advisories/GHSA-2wm9-hf6c-p5cr),
+    [GHSA-xph7-9rjv-w5fr](https://github.com/advisories/GHSA-xph7-9rjv-w5fr)).
+    Embedded use does not reach them. If several processes need one store, put
+    it behind your own authenticated service, or use `Mem0Provider`.
+
 Constructor parameters:
 
 | Parameter | Type | Default | Description |

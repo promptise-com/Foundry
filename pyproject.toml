@@ -14,6 +14,10 @@ keywords = ["mcp", "langchain", "langgraph", "agents", "tools", "openapi", "mcpc
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "License :: OSI Approved :: Apache Software License",
   "Development Status :: 4 - Beta",
   "Typing :: Typed",
@@ -122,7 +126,7 @@ dev = [
   "fastapi>=0.115",
   # Lint & types
   "mypy>=1.17",
-  "ruff>=0.15,<0.16",
+  "ruff>=0.15,<0.17",
   "types-PyYAML>=6.0",
   # Docs
   "mkdocs>=1.6",

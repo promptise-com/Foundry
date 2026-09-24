@@ -32,12 +32,7 @@ Configuration schema with validation:
 ```python
 from promptise.sandbox import SandboxConfig
 
-config = SandboxConfig(
-    backend="gvisor",
-    cpu_limit=4,
-    memory_limit="8G",
-    network="restricted"
-)
+config = SandboxConfig(backend="gvisor", cpu_limit=4, memory_limit="8G", network="restricted")
 ```
 
 ### `SandboxBackend`
@@ -118,7 +113,7 @@ agent = await build_agent(
     model="anthropic:claude-sonnet-4.5",
     instructions="You are a coding assistant.",
     servers={},
-    sandbox=True  # ✨ Zero-config
+    sandbox=True,  # ✨ Zero-config
 )
 ```
 
@@ -134,8 +129,8 @@ agent = await build_agent(
         "cpu_limit": 4,
         "memory_limit": "8G",
         "network": "restricted",
-        "tools": ["python", "node", "rust"]
-    }
+        "tools": ["python", "node", "rust"],
+    },
 )
 ```
 
@@ -193,7 +188,7 @@ async with SandboxManager(config) as manager:
 
 **Configuration:**
 ```python
-sandbox={"backend": "docker"}
+sandbox = {"backend": "docker"}
 ```
 
 ### gVisor (Recommended for Production)
@@ -204,7 +199,7 @@ sandbox={"backend": "docker"}
 
 **Configuration:**
 ```python
-sandbox={"backend": "gvisor"}
+sandbox = {"backend": "gvisor"}
 ```
 
 **Installation:**
