@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel", "setuptools-scm[toml]>=6.2"]
+requires = ["setuptools>=77", "wheel", "setuptools-scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,8 @@ dynamic = ["version"]
 description = "Promptise Foundry - Production-ready agentic framework for building advanced AI agent systems and multi-agent orchestration"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Promptise" }]
 keywords = ["mcp", "langchain", "langgraph", "agents", "tools", "openapi", "mcpcast"]
 classifiers = [
@@ -18,7 +19,6 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "License :: OSI Approved :: Apache Software License",
   "Development Status :: 4 - Beta",
   "Typing :: Typed",
   "Topic :: Software Development :: Libraries",

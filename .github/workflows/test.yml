@@ -142,7 +142,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          # setuptools too: the runner's preinstalled copy carries advisories of its
+          # own (PYSEC-2026-3447 in 79.x), and pip-audit audits the whole environment
+          python -m pip install --upgrade pip "setuptools>=83"
           pip install bandit pip-audit
           pip install -e ".[all]"
 
