@@ -1239,7 +1239,10 @@ class TestAuditedBehaviour:
         fast = json.dumps({**SPEC, "info": {**SPEC["info"], "title": "FAST API"}}).encode()
         slow = json.dumps({**SPEC, "info": {**SPEC["info"], "title": "SLOW API"}}).encode()
 
+        requested: list[str] = []
+
         def respond(h: BaseHTTPRequestHandler) -> None:
+            requested.append(h.path)
             if h.path == "/slow.json":
                 time.sleep(0.8)
                 _send(h, slow)
@@ -1250,13 +1253,20 @@ class TestAuditedBehaviour:
             app = _app(tmp_path)
             async with app.run_test(size=(100, 34)) as pilot:
                 await pilot.press("enter")
-                await pilot.pause()
-                app.query_one("#spec-input").value = f"http://127.0.0.1:{port}/slow.json"
+                spec_input = app.query_one("#spec-input")
+                # Focus moves asynchronously in Textual; on a slow runner an
+                # Enter pressed before it lands goes to the app, not the field,
+                # and the second load never starts. Wait for each step instead
+                # of guessing how long it takes.
+                await _until(pilot, lambda: app.focused is spec_input)
+                spec_input.value = f"http://127.0.0.1:{port}/slow.json"
                 await pilot.press("enter")
-                await pilot.pause()
-                app.query_one("#spec-input").value = f"http://127.0.0.1:{port}/fast.json"
+                await _until(pilot, lambda: "/slow.json" in requested)
+                await _until(pilot, lambda: app.focused is spec_input)
+                spec_input.value = f"http://127.0.0.1:{port}/fast.json"
                 await pilot.press("enter")
-                await _settle(pilot)
+                await _until(pilot, lambda: app.parsed is not None)
+                # the first spec to land must be the newer one, never the superseded slow one
                 assert app.parsed is not None and app.parsed.title == "FAST API"
                 generation = app.spec_generation
                 await _settle(pilot, 1.2)  # the slow answer arrives now — and is dropped
@@ -1922,11 +1932,14 @@ class TestMarkdownLinks:
             detail = app.query_one("#review-tool", Markdown)
             assert "ssh://evil.example/x" in detail.source
             detail.post_message(Markdown.LinkClicked(detail, "ssh://evil.example/x"))
-            await pilot.pause()
-            assert opened == []
-            assert any(
-                "Link not opened: ssh://evil.example/x" in n.message for n in app._notifications
+            # the notice is posted asynchronously; wait for it rather than one frame
+            await _until(
+                pilot,
+                lambda: any(
+                    "Link not opened: ssh://evil.example/x" in n.message for n in app._notifications
+                ),
             )
+            assert opened == []
             for href in (
                 "x-apple.systempreferences:com.apple.preference.security",
                 "//evil/share/p.exe",
