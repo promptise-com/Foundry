@@ -4,6 +4,28 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## Unreleased
+
+### Security
+
+- **Conversation flows: one conversation's state leaked into every other** -- `build_agent(flow=...)` kept the single flow instance it was given and advanced it on every call, from every session and every user. One customer's phase, `ctx.state`, history and filled slots (an order number, an account) went into the next customer's system prompt, and the model answered from them. The agent now keeps one flow per conversation: per `session_id` (scoped to the caller or `user_id`) when `chat()` or the new `ainvoke(..., session_id=...)` names one, otherwise per `CallerContext` (tenant and user). A call with neither gets a throwaway flow built from the messages it carries, so nothing is shared. The flow you pass is a template and is deep-copied per conversation; you can also pass the class or a zero-argument factory (`flow=lambda: SupportFlow(business=True)`). A template that can't be deep-copied fails at `build_agent()` with a `TypeError` that says to pass a factory. Turns of one conversation are serialized; flows are kept for up to 10,000 conversations (least recently used dropped first), and a dropped or new flow is rebuilt from the conversation's user messages, so it survives a restart when a conversation store holds the history. `delete_session()` drops the session's flow, and `agent.get_flow(session_id, caller=..., user_id=...)` returns a conversation's flow. **Behaviour change:** the instance you pass to `build_agent()` is no longer advanced; read a conversation's flow with `get_flow()`. Documented under [Integration with build_agent](../prompting/flows.md#integration-with-build_agent).
+
+### Fixed
+
+- **Conversation flows: the first message never reached the flow** -- the agent called `flow.start()` on the first turn without the user's message and passed only later messages to `next_turn()`, so a flow that decides its phase from the conversation stayed in its initial phase for the whole first turn (and for good, if the deciding detail was in the first message). `ConversationFlow.start()` takes an optional `user_message`, recorded in the history before the initial handler runs (turn 0), and the agent feeds every user message to the flow.
+- **Conversation flows: the model got two system messages and the generic default prompt** -- the flow's prompt and the agent's own system message (instructions plus the tool list) went in as two system messages, and with no `instructions` (or `""`) the second one was the generic "You are a capable deep agent…" prompt. The model now gets one system message: the flow's prompt, then `instructions`, then the tool list. With a flow and no `instructions`, the default prompt is no longer added. This holds across tool-loop iterations and for context-scoped nodes, which previously dropped the flow's prompt.
+- **Conversation flows with a semantic cache** -- a cache hit returned before the flow ran, so the conversation's flow missed that message, and the cache key ignored the flow's prompt, so a reply cached in one phase could be served in another. The flow now advances before the cache lookup, and its prompt is part of the cache's instruction hash.
+- **Prompt used as agent `instructions`: guards never ran** -- `build_agent(instructions=my_prompt)` rendered the prompt with `render_async()`, which skips guards, so `@guard(...)` and `with_guards(...)` had no effect on an agent. Input guards now check each user message (a guard may rewrite it or raise `GuardError`), and output guards check each reply, on `ainvoke()`, `invoke()`, `chat()` and `astream_with_tools()` (which yields an `ErrorEvent` when a guard rejects). For a `PromptSuite`, every prompt's guards apply.
+- **Prompt Inspector: flows and agents recorded nothing; `@prompt` traces were incomplete** -- `ConversationFlow` takes an `inspector` (constructor argument or class attribute) and records a trace, with `flow_phase` and `flow_turn`, on every `start()`, `next_turn()` and `transition()`; per-conversation copies share it. `Prompt.render_async()` records a trace, so a prompt used as agent instructions is traced on every turn. A `@prompt` call now records a trace even without blocks, with `input_text` set to the full text sent to the model (not only the blocks), the output, the latency and guard results, as the Inspector page documents.
+
+### Added
+
+- **`ConversationFlow(token_budget=...)`** -- flows ignored token budgets. A flow now takes `token_budget` (constructor argument or class attribute) and drops blocks lowest-priority first when over budget, like `PromptAssembler`. Also new: the `ConversationFlow.current_phase` property and `promptise.prompts.flows.FlowSessions`, the per-conversation registry the agent uses.
+
+### Documentation
+
+- **Prompting docs corrected** -- the flows and overview pages showed `build_agent(...)` without `await`, `model` or `servers`; the examples are now complete. The Blocks page said the assembler orders blocks by priority: blocks keep the order you list them in, and priority only decides what is dropped under a token budget (new *Token Budgeting* section). It also said `fill_slot()` "returns a new assembler (immutable)": it updates the assembler in place and returns it, like `add()` and `remove()`.
+
 ## v1.2.1 — 2026-10-10
 
 ### Fixed
