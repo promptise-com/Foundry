@@ -10,21 +10,28 @@ Uses the Promptise MCP Client for tool discovery and invocation.
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable
+import inspect
+import json
+import logging
+from collections.abc import Callable, Collection
 from typing import Any
 
-from langchain_core.tools import BaseTool
-from mcp.types import CallToolResult
+from langchain_core.tools import BaseTool, ToolException
+from mcp.types import CallToolResult, ToolAnnotations
 from pydantic import BaseModel, PrivateAttr
 
 from ...tools import ToolInfo, _jsonschema_to_pydantic
 from ._client import MCPClientError
 from ._multi import MCPMultiClient
 
+logger = logging.getLogger("promptise.mcp.client")
+
 # Callback types
 OnBefore = Callable[[str, dict[str, Any]], None]
 OnAfter = Callable[[str, Any], None]
 OnError = Callable[[str, Exception], None]
+# (tool_name, progress, total, message); may return an awaitable
+OnProgress = Callable[[str, float, "float | None", "str | None"], Any]
 
 
 def _extract_text(result: CallToolResult) -> str:
@@ -35,8 +42,8 @@ def _extract_text(result: CallToolResult) -> str:
     LangChain's ``BaseTool`` expects a plain string return value.
 
     Concatenates all text parts with newlines, returning a single string.
-    If the result contains an error (``isError=True``), the text is still
-    returned so the LLM can see the error message.
+    For an error result this is the error text, which
+    :class:`_PromptiseMCPTool` raises as an :class:`MCPToolError`.
     """
     if not hasattr(result, "content") or not result.content:
         return ""
@@ -47,11 +54,102 @@ def _extract_text(result: CallToolResult) -> str:
     return "\n".join(parts)
 
 
+class MCPToolError(ToolException):
+    """An MCP tool ran and reported a failure.
+
+    Raised by MCP tools built by :class:`MCPToolAdapter` when the server
+    answers a call with an error result: ``isError=True``, or the
+    ``{"error": {"code": ..., "message": ...}}`` envelope Promptise MCP
+    servers return for a ``ToolError``, ``ValidationError`` or other
+    ``MCPError`` raised by a handler.  The agent loop shows the message to
+    the model (so it can correct the call), and callbacks receive
+    ``on_tool_error``, so the call counts as failed in observability, events
+    and adaptive strategy.  A failure to reach the server at all raises
+    :class:`MCPClientError` instead.
+
+    Attributes:
+        tool_name: The tool that failed.
+        code: Machine-readable error code from the envelope (e.g.
+            ``"TOOL_ERROR"``, ``"VALIDATION_ERROR"``), or ``None``.
+        message: The error message.
+        retryable: The envelope's ``retryable`` flag, or ``None``.
+        text: The raw text content of the result.
+    """
+
+    def __init__(
+        self,
+        tool_name: str,
+        message: str,
+        *,
+        code: str | None = None,
+        retryable: bool | None = None,
+        text: str | None = None,
+    ) -> None:
+        self.tool_name = tool_name
+        self.code = code
+        self.message = message
+        self.retryable = retryable
+        self.text = message if text is None else text
+        super().__init__(f"{code}: {message}" if code else message)
+
+
+def _error_envelope(text: str) -> tuple[str, str, bool | None] | None:
+    """Parse a Promptise MCP error envelope into ``(code, message, retryable)``.
+
+    The envelope is a JSON object whose only key is ``"error"``, holding
+    string ``code`` and ``message`` fields.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("{"):
+        return None
+    try:
+        payload = json.loads(stripped)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict) or set(payload) != {"error"}:
+        return None
+    error = payload["error"]
+    if not isinstance(error, dict):
+        return None
+    code, message = error.get("code"), error.get("message")
+    if not isinstance(code, str) or not isinstance(message, str):
+        return None
+    retryable = error.get("retryable")
+    return code, message, retryable if isinstance(retryable, bool) else None
+
+
+def _tool_error(tool_name: str, result: CallToolResult) -> MCPToolError | None:
+    """The :class:`MCPToolError` for an error result, or ``None`` on success."""
+    text = _extract_text(result)
+    envelope = _error_envelope(text)
+    if envelope is not None:
+        code, message, retryable = envelope
+        return MCPToolError(tool_name, message, code=code, retryable=retryable, text=text)
+    if getattr(result, "isError", False):
+        return MCPToolError(tool_name, text or f"Tool '{tool_name}' failed", text=text)
+    return None
+
+
+def _annotation_metadata(tool: Any) -> dict[str, Any] | None:
+    """The tool's MCP annotations as flat ``metadata`` keys.
+
+    Same shape as ``langchain-mcp-adapters`` (``{"readOnlyHint": True,
+    ...}``), so the approval classifier reads them from either.
+    """
+    annotations = getattr(tool, "annotations", None)
+    if not isinstance(annotations, ToolAnnotations):
+        return None
+    data = annotations.model_dump(exclude_none=True)
+    return data or None
+
+
 class _PromptiseMCPTool(BaseTool):
     """LangChain ``BaseTool`` that invokes an MCP tool via the Promptise client.
 
     Uses a persistent ``MCPMultiClient`` that stays connected for the
-    agent's lifetime.
+    agent's lifetime.  When ``forward_caller_token`` is set and the current
+    invocation carries a ``CallerContext`` with a ``bearer_token``, the call
+    is made with that token (see :meth:`MCPMultiClient.call_tool`).
     """
 
     name: str
@@ -63,6 +161,8 @@ class _PromptiseMCPTool(BaseTool):
     _on_before: OnBefore | None = PrivateAttr(default=None)
     _on_after: OnAfter | None = PrivateAttr(default=None)
     _on_error: OnError | None = PrivateAttr(default=None)
+    _forward_caller_token: bool = PrivateAttr(default=False)
+    _on_progress: OnProgress | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -75,6 +175,8 @@ class _PromptiseMCPTool(BaseTool):
         on_before: OnBefore | None = None,
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
+        forward_caller_token: bool = False,
+        on_progress: OnProgress | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
@@ -85,6 +187,30 @@ class _PromptiseMCPTool(BaseTool):
         self._on_before = on_before
         self._on_after = on_after
         self._on_error = on_error
+        self._forward_caller_token = forward_caller_token
+        self._on_progress = on_progress
+
+    def _caller_token(self) -> str | None:
+        """The current caller's bearer token, when this tool forwards it."""
+        if not self._forward_caller_token:
+            return None
+        from ...agent import get_current_caller
+
+        caller = get_current_caller()
+        return caller.bearer_token if caller is not None and caller.bearer_token else None
+
+    async def _report_progress(
+        self, progress: float, total: float | None, message: str | None
+    ) -> None:
+        """Forward one progress notification to ``on_progress`` (errors logged)."""
+        if self._on_progress is None:
+            return
+        try:
+            result = self._on_progress(self.name, progress, total, message)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.warning("on_progress callback failed for tool '%s'", self.name, exc_info=True)
 
     async def _arun(self, **kwargs: Any) -> Any:
         """Execute the MCP tool via the persistent multi-client."""
@@ -93,12 +219,29 @@ class _PromptiseMCPTool(BaseTool):
                 self._on_before(self.name, kwargs)
 
         try:
-            result = await self._multi.call_tool(self._tool_name, kwargs)
+            result = await self._multi.call_tool(
+                self._tool_name,
+                kwargs,
+                bearer_token=self._caller_token(),
+                progress_callback=(
+                    self._report_progress if self._on_progress is not None else None
+                ),
+            )
         except Exception as exc:
             if self._on_error:
                 with contextlib.suppress(Exception):
                     self._on_error(self.name, exc)
             raise MCPClientError(f"Failed to call MCP tool '{self._tool_name}': {exc}") from exc
+
+        # The server ran the tool and reported a failure: raise it so the call
+        # is a failed call downstream (callbacks get on_tool_error).  The
+        # agent loop still shows the model the server's message.
+        error = _tool_error(self._tool_name, result)
+        if error is not None:
+            if self._on_error:
+                with contextlib.suppress(Exception):
+                    self._on_error(self.name, error)
+            raise error
 
         if self._on_after:
             with contextlib.suppress(Exception):
@@ -126,6 +269,16 @@ class MCPToolAdapter:
         on_before: Callback fired before each tool invocation.
         on_after: Callback fired after each tool invocation.
         on_error: Callback fired on tool errors.
+        optimize: Tool optimization config (schema minification etc.).
+        forward_caller_token: Which servers' tools send the invoking
+            ``CallerContext.bearer_token`` instead of the client's own
+            credentials: ``True`` for every server, ``False`` for none
+            (default), or a collection of server names.  stdio servers
+            cannot receive it (see :meth:`MCPMultiClient.call_tool`).
+        on_progress: Callback fired for each progress notification a
+            server sends during a tool call, as ``(tool_name, progress,
+            total, message)``.  May be sync or async.  When ``None``, no
+            progress is requested from servers.
 
     Example::
 
@@ -144,11 +297,15 @@ class MCPToolAdapter:
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
         optimize: Any | None = None,
+        forward_caller_token: bool | Collection[str] = False,
+        on_progress: OnProgress | None = None,
     ) -> None:
         self._multi = multi
+        self._forward_caller_token = forward_caller_token
         self._on_before = on_before
         self._on_after = on_after
         self._on_error = on_error
+        self._on_progress = on_progress
         self._optimize = optimize
 
     async def as_langchain_tools(self) -> list[BaseTool]:
@@ -168,28 +325,40 @@ class MCPToolAdapter:
         # Resolve optimization config if provided
         resolved = None
         strip_desc = False
+        preserve: frozenset[str] = frozenset()
         if self._optimize is not None:
             from ...tool_optimization import _resolve_config
 
             resolved = _resolve_config(self._optimize)
             strip_desc = resolved.minify_schema
+            preserve = resolved.preserve_tools
 
         mcp_tools = await self._multi.list_tools()
+        tool_to_server = self._multi.tool_to_server
+        forward_to = self._forward_caller_token
+        forward_servers: set[str] | None
+        if isinstance(forward_to, bool):
+            forward_servers = None
+        elif isinstance(forward_to, str):  # one server name, not its characters
+            forward_servers = {forward_to}
+        else:
+            forward_servers = set(forward_to)
 
         out: list[BaseTool] = []
         for t in mcp_tools:
             name = t.name
+            if forward_servers is None:
+                forward = bool(forward_to)
+            else:
+                forward = tool_to_server.get(name) in forward_servers
             desc = t.description or ""
             schema = t.inputSchema or {}
             model = _jsonschema_to_pydantic(
                 schema,
                 model_name=f"Args_{name}",
-                strip_descriptions=strip_desc,
+                # preserve_tools keep their parameter descriptions.
+                strip_descriptions=strip_desc and name not in preserve,
             )
-            # Keep the server's hints (readOnlyHint, destructiveHint, ...):
-            # the semantic cache uses them to tell reads from writes.
-            annotations = getattr(t, "annotations", None)
-            hints = annotations.model_dump(exclude_none=True) if annotations is not None else None
             out.append(
                 _PromptiseMCPTool(
                     name=name,
@@ -200,7 +369,9 @@ class MCPToolAdapter:
                     on_before=self._on_before,
                     on_after=self._on_after,
                     on_error=self._on_error,
-                    metadata={"mcp_annotations": hints} if hints else None,
+                    forward_caller_token=forward,
+                    on_progress=self._on_progress,
+                    metadata=_annotation_metadata(t),
                 )
             )
 

@@ -19,16 +19,29 @@ await api.start()
 
 ## Authentication
 
-Every request (except `/api/v1/health`) requires a Bearer token:
+When `auth_token` is set, every request except `GET /api/v1/health` needs a Bearer token, including requests to unknown paths:
 
 ```
 Authorization: Bearer <your-token>
 ```
 
-- **Localhost** (`127.0.0.1`): auth token is optional
-- **Non-localhost**: auth token is **required** — the API refuses to start without one
+- **Loopback** (`127.0.0.1`, `localhost`, `::1`): auth token is optional
+- **Anything else**: auth token is **required** — the API refuses to start without one (an empty token is refused too)
 - Comparison is timing-safe (`hmac.compare_digest`)
 - Token supports env var resolution: `${ORCHESTRATION_API_TOKEN}`
+
+### Browsers can't drive a local API
+
+A loopback bind is reachable by any web page open in a browser on the same machine. On a loopback bind the API therefore refuses:
+
+| Request | Status | Why |
+|---|---|---|
+| `Host` header that isn't a loopback name | `421` `MISDIRECTED_REQUEST` | DNS rebinding: a page whose own host name resolves to `127.0.0.1` |
+| `Origin` header from a non-loopback site | `403` `CROSS_ORIGIN_REFUSED` | A cross-site `fetch` or form post from a page you visit |
+
+`curl`, scripts and the Promptise clients send a loopback `Host` and no `Origin`, so they are unaffected. A local web UI served from `http://localhost:<port>` is allowed. Set an `auth_token` even on loopback if other users share the machine.
+
+Request bodies must be JSON objects. Anything else (a list, a string, invalid JSON) gets `400` `INVALID_JSON`; routes that take no body accept an empty one.
 
 ---
 

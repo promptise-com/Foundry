@@ -49,7 +49,9 @@ health:
 
 ### Stuck detection
 
-Tracks `(tool_name, hash(arguments))` tuples. When the agent calls the same tool with the same arguments `stuck_threshold` times consecutively, it's stuck.
+Tracks `(tool_name, hash(arguments))` tuples. When the agent calls the same tool with the same arguments `stuck_threshold` times consecutively **within one invocation**, it's stuck.
+
+Tool history starts fresh at every invocation (stuck and loop detection look for repetition inside a run). A scheduled agent that checks the same queue once per cron tick is behaving normally and is not reported as stuck.
 
 ### Loop detection
 
@@ -57,7 +59,11 @@ Examines the last `loop_window` tool calls for repeating patterns of any length.
 
 ### Empty response detection
 
-Counts consecutive tool responses shorter than `empty_max_chars`. After `empty_threshold` consecutive trivial responses, the agent likely isn't making progress.
+Counts consecutive **final replies** (the agent's answer at the end of an invocation) shorter than `empty_max_chars`. After `empty_threshold` consecutive trivial replies, the agent likely isn't making progress. Tool results are not replies: a tool that returns `[]` because a queue is empty does not count. Reply lengths carry over between invocations.
+
+### Recovery
+
+After an anomaly, the next successful invocation emits a single `health.recovered` event. Further successes do not emit it again until another anomaly fires.
 
 ### Error rate detection
 
@@ -94,7 +100,9 @@ Sliding window error rate. When the fraction of failed tool calls exceeds `error
 | Method | Description |
 |--------|-------------|
 | `.record_tool_call(tool_name, args)` | Record a call, return anomaly if detected |
-| `.record_response(text)` | Record a response for empty detection |
+| `.record_response(text)` | Record the agent's final reply for empty detection (not tool results) |
+| `.record_success()` | Record a successful invocation; returns `True` once, on the first success after an anomaly |
+| `.begin_invocation()` | Start a new invocation: clears the tool history used by stuck/loop detection (the runtime calls it) |
 | `.anomalies` | List of all detected anomalies |
 | `.latest_anomaly` | Most recent anomaly (or None) |
 | `.clear()` | Reset all history and anomalies |

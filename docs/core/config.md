@@ -59,9 +59,9 @@ spec = StdioServerSpec(
 
 ### HTTPServerSpec
 
-Use `HTTPServerSpec` when the MCP server is reachable over the network.  Three
-transport variants are supported: `"http"` (Streamable HTTP, the default),
-`"streamable-http"`, and `"sse"` (Server-Sent Events).
+Use `HTTPServerSpec` when the MCP server is reachable over the network.  Two
+transports are supported: `"http"` (MCP Streamable HTTP, the default — `"streamable-http"`
+is an alias for the same transport) and `"sse"` (the legacy HTTP+SSE transport).
 
 ```python
 from promptise import HTTPServerSpec
@@ -189,7 +189,7 @@ config = servers_to_mcp_config(servers)
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `url` | `str` | *required* | Full endpoint URL (e.g. `"http://localhost:8080/mcp"`) |
-| `transport` | `Literal["http", "streamable-http", "sse"]` | `"http"` | HTTP transport variant |
+| `transport` | `Literal["http", "streamable-http", "sse"]` | `"http"` | `"http"` and its alias `"streamable-http"`: Streamable HTTP; `"sse"`: legacy HTTP+SSE |
 | `headers` | `dict[str, str]` | `{}` | Extra HTTP headers sent on every request |
 | `auth` | `str \| None` | `None` | Legacy auth hint (kept for backward compatibility) |
 | `bearer_token` | `str \| None` | `None` | Pre-issued Bearer token -- injected as `Authorization: Bearer <token>` |

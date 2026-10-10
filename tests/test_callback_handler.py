@@ -597,20 +597,20 @@ class TestOnChainError:
         except RuntimeError as exc:
             handler.on_chain_error(exc, run_id=child_id, parent_run_id=top_id)
 
-        # Sub-chain error should increment error_count but NOT record an event
-        assert handler.error_count == 1
-        # The sub-chain error returns early, so no TOOL_ERROR is recorded for it
-        errors_before_top = collector.query(event_types=[TimelineEventType.TOOL_ERROR])
-        assert len(errors_before_top) == 0
+        # A sub-chain error propagates to its parent chain, so it is neither
+        # recorded nor counted here — otherwise one failure counts twice.
+        assert handler.error_count == 0
+        assert collector.query(event_types=[TimelineEventType.AGENT_ERROR]) == []
 
         try:
             raise RuntimeError("top-level failure")
         except RuntimeError as exc:
             handler.on_chain_error(exc, run_id=top_id, parent_run_id=None)
 
-        assert handler.error_count == 2
-        errors_after_top = collector.query(event_types=[TimelineEventType.TOOL_ERROR])
+        assert handler.error_count == 1
+        errors_after_top = collector.query(event_types=[TimelineEventType.AGENT_ERROR])
         assert len(errors_after_top) == 1
+        assert collector.query(event_types=[TimelineEventType.TOOL_ERROR]) == []
         meta = errors_after_top[0].metadata
         assert meta["error_type"] == "RuntimeError"
         assert "top-level failure" in meta["error"]

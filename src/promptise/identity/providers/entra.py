@@ -82,6 +82,7 @@ class EntraManagedIdentityProvider(CallableTokenProvider):
         super().__init__(
             token_fn=self._fetch_imds_id_token,
             provider_label="entra-imds",
+            default_audience=resource,
         )
 
     def _fetch_imds_id_token(self, audience: str | None = None) -> str:
@@ -135,8 +136,13 @@ class EntraManagedIdentityProvider(CallableTokenProvider):
         try:
             body = response.json()
         except ValueError as exc:
+            # Never echo the body: a misbehaving endpoint (or a proxy in front
+            # of it) may answer with a bare token, which must not end up in an
+            # exception message or a log line.
             raise CredentialAcquisitionError(
-                f"[entra-imds] IMDS returned a non-JSON body. Body preview: {response.text[:200]!r}"
+                f"[entra-imds] IMDS returned a non-JSON body "
+                f"({len(response.content)} bytes, content-type "
+                f"{response.headers.get('content-type', 'unknown')!r})."
             ) from exc
 
         id_token = body.get("id_token")

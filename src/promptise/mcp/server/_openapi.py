@@ -24,8 +24,16 @@ from urllib.parse import urlparse
 logger = logging.getLogger("promptise.server")
 
 
-def _validate_url_not_private(url: str) -> None:
-    """Reject URLs that resolve to private/internal IP ranges (SSRF protection)."""
+def _validate_url_not_private(
+    url: str, *, hint: str = "Use base_url override for internal APIs."
+) -> None:
+    """Reject URLs that resolve to private/internal IP ranges (SSRF protection).
+
+    Args:
+        url: The URL to check.
+        hint: Appended to the error: how the caller can reach an internal
+            host on purpose.
+    """
     parsed = urlparse(url)
     hostname = parsed.hostname
     if not hostname:
@@ -33,10 +41,7 @@ def _validate_url_not_private(url: str) -> None:
 
     # Block well-known internal hostnames
     if hostname in ("localhost", "metadata.google.internal"):
-        raise ValueError(
-            f"URL targets a private/internal host: {hostname!r}. "
-            "Use base_url override for internal APIs."
-        )
+        raise ValueError(f"URL targets a private/internal host: {hostname!r}. {hint}")
 
     # Resolve hostname and check IP ranges
     import socket
@@ -49,10 +54,7 @@ def _validate_url_not_private(url: str) -> None:
     for _family, _type, _proto, _canonname, sockaddr in infos:
         ip = ipaddress.ip_address(sockaddr[0])
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-            raise ValueError(
-                f"URL {url!r} resolves to private/internal IP {ip}. "
-                "Use base_url override for internal APIs."
-            )
+            raise ValueError(f"URL {url!r} resolves to private/internal IP {ip}. {hint}")
 
 
 class OpenAPIProvider:

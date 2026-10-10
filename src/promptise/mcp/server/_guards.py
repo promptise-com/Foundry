@@ -136,10 +136,9 @@ class RequireClientId(Guard):
         return ctx.client_id in self._allowed
 
     def describe_denial(self, ctx: RequestContext) -> str:
-        return (
-            f"Client '{ctx.client_id}' is not in the allowed list "
-            f"[{', '.join(sorted(self._allowed))}]"
-        )
+        # Never list the allowed clients: that would tell every refused
+        # caller who else may call the tool.
+        return f"Client '{ctx.client_id}' is not allowed to call this tool"
 
 
 class RequireTenant(Guard):
@@ -194,11 +193,10 @@ class HasTenant(Guard):
     def describe_denial(self, ctx: RequestContext) -> str:
         client = getattr(ctx, "client", None)
         tenant = getattr(client, "tenant_id", None) if client is not None else None
-        actual = tenant if tenant else "(none)"
-        return (
-            f"Requires tenant in [{', '.join(sorted(self._allowed))}], "
-            f"but client belongs to [{actual}]"
-        )
+        # Never list the allowed tenants: they are other customers.
+        if not tenant:
+            return "This tool requires a tenant identity, but the client presented none"
+        return f"This tool is not available to tenant '{tenant}'"
 
 
 class HasScope(Guard):

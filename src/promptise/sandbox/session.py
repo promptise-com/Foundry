@@ -103,14 +103,17 @@ class SandboxSession:
         # Reject null bytes — can truncate strings in C-level code
         if "\x00" in path:
             raise ValueError("Null bytes are not allowed in file paths")
-        # Normalise (resolve .. and . without accessing filesystem)
+        # Relative paths are relative to the workspace. Normalise AFTER
+        # joining so "../etc/passwd" cannot climb out of it.
+        if not path.startswith("/"):
+            path = posixpath.join("/workspace", path)
         normalised = posixpath.normpath(path)
-        # Must be absolute
-        if not normalised.startswith("/"):
-            normalised = posixpath.join("/workspace", normalised)
-        # Block traversal outside allowed roots
+        # Block traversal outside allowed roots ("/workspace2" is not inside
+        # "/workspace").
         allowed_roots = ("/workspace", "/tmp", "/home")  # nosec B108 - container path whitelist, not host
-        if not any(normalised.startswith(root) for root in allowed_roots):
+        if not any(
+            normalised == root or normalised.startswith(root + "/") for root in allowed_roots
+        ):
             raise ValueError(
                 f"Path {path!r} resolves to {normalised!r} which is outside "
                 f"allowed directories: {allowed_roots}"
@@ -148,7 +151,7 @@ class SandboxSession:
 
         Raises:
             ValueError: If path is outside allowed directories.
-            RuntimeError: If session is not running.
+            RuntimeError: If session is not running, or the write fails.
         """
         if not self._running:
             raise RuntimeError("Sandbox session is not running")
@@ -181,6 +184,14 @@ class SandboxSession:
     async def install_package(self, package: str, tool: str = "python") -> CommandResult:
         """Install a package in the sandbox.
 
+        Packages are installed into the writable workspace, so this works on
+        the default read-only root filesystem: ``pip`` falls back to a user
+        install under ``$HOME`` (the workspace), ``npm`` installs into
+        ``<workdir>/node_modules``, ``cargo`` into ``<workdir>/.cargo`` and
+        ``go`` into ``<workdir>/go``. Downloading a package needs network
+        access, which the default ``network="none"`` does not provide; bake
+        packages into a custom ``image`` instead, or enable the network.
+
         Args:
             package: Package name to install (shell-escaped internally).
             tool: Tool ecosystem (``"python"``, ``"node"``, ``"rust"``,
@@ -197,11 +208,12 @@ class SandboxSession:
             raise RuntimeError("Sandbox session is not running")
 
         safe_pkg = shlex.quote(package)
+        workdir = shlex.quote(self.config.workdir)
         install_commands = {
-            "python": f"pip install {safe_pkg}",
-            "node": f"npm install -g {safe_pkg}",
-            "rust": f"cargo install {safe_pkg}",
-            "go": f"go install {safe_pkg}",
+            "python": f"python3 -m pip install --no-input {safe_pkg}",
+            "node": f"npm install --no-fund --no-audit {safe_pkg}",
+            "rust": f"cargo install --root {workdir}/.cargo {safe_pkg}",
+            "go": f"GOPATH={workdir}/go go install {safe_pkg}",
         }
 
         if tool not in install_commands:
@@ -209,7 +221,15 @@ class SandboxSession:
                 f"Unsupported tool: {tool}. Use one of: {list(install_commands.keys())}"
             )
 
-        return await self.execute(install_commands[tool])
+        result = await self.execute(install_commands[tool])
+        network = getattr(self.config.network, "value", self.config.network)
+        if not result.success and network == "none":
+            result.stderr = (
+                f"{result.stderr}\nNote: this sandbox has no network access "
+                "(network='none'), so packages cannot be downloaded. Use an image "
+                "that already contains the package, or configure network access."
+            ).lstrip("\n")
+        return result
 
     async def cleanup(self) -> None:
         """Clean up the sandbox session.

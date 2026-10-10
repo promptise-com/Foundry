@@ -14,6 +14,7 @@ from promptise.approval import (
     CallbackApprovalHandler,
     QueueApprovalHandler,
     _ApprovalToolWrapper,
+    _GateState,
     wrap_tools_with_approval,
 )
 
@@ -264,11 +265,8 @@ class TestApprovalToolWrapper:
         wrapper = _ApprovalToolWrapper(
             inner=tool,
             policy=policy,
-            pending_count=[0],
-            deny_counts={},
-            used_request_ids=set(),
         )
-        result = await wrapper._arun(to="alice@example.com")
+        result = await wrapper._arun(config={}, to="alice@example.com")
         assert "Result from send_email" in result
         assert tool._call_count == 1
 
@@ -285,11 +283,8 @@ class TestApprovalToolWrapper:
         wrapper = _ApprovalToolWrapper(
             inner=tool,
             policy=policy,
-            pending_count=[0],
-            deny_counts={},
-            used_request_ids=set(),
         )
-        result = await wrapper._arun(to="alice@example.com")
+        result = await wrapper._arun(config={}, to="alice@example.com")
         assert "DENIED" in result
         assert "Not authorized" in result
         assert tool._call_count == 0
@@ -310,11 +305,8 @@ class TestApprovalToolWrapper:
         wrapper = _ApprovalToolWrapper(
             inner=tool,
             policy=policy,
-            pending_count=[0],
-            deny_counts={},
-            used_request_ids=set(),
         )
-        result = await wrapper._arun()
+        result = await wrapper._arun(config={})
         assert "DENIED" in result
         assert tool._call_count == 0
 
@@ -334,11 +326,8 @@ class TestApprovalToolWrapper:
         wrapper = _ApprovalToolWrapper(
             inner=tool,
             policy=policy,
-            pending_count=[0],
-            deny_counts={},
-            used_request_ids=set(),
         )
-        result = await wrapper._arun()
+        result = await wrapper._arun(config={})
         assert "Result from send_email" in result
         assert tool._call_count == 1
 
@@ -358,11 +347,8 @@ class TestApprovalToolWrapper:
         wrapper = _ApprovalToolWrapper(
             inner=tool,
             policy=policy,
-            pending_count=[0],
-            deny_counts={},
-            used_request_ids=set(),
         )
-        result = await wrapper._arun(to="alice@example.com")
+        result = await wrapper._arun(config={}, to="alice@example.com")
         assert "bob@example.com" in result  # Modified args used
 
     @pytest.mark.asyncio
@@ -376,42 +362,34 @@ class TestApprovalToolWrapper:
             handler=CallbackApprovalHandler(deny),
             max_retries_after_deny=2,
         )
-        deny_counts: dict[str, int] = {}
         wrapper = _ApprovalToolWrapper(
             inner=tool,
             policy=policy,
-            pending_count=[0],
-            deny_counts=deny_counts,
-            used_request_ids=set(),
         )
 
         # First denial — count becomes 1
-        r1 = await wrapper._arun()
+        r1 = await wrapper._arun(config={})
         assert "DENIED" in r1
         assert "permanently" not in r1
 
         # Second denial — count becomes 2 (hits limit)
-        r2 = await wrapper._arun()
+        r2 = await wrapper._arun(config={})
         assert "DENIED" in r2
 
-        # Third attempt — count >= limit, permanent deny without calling handler
-        r3 = await wrapper._arun()
-        assert "permanently denied" in r3
+        # Third attempt — count >= limit, denied without calling handler
+        r3 = await wrapper._arun(config={})
+        assert "already denied 2 times" in r3
 
     @pytest.mark.asyncio
     async def test_max_pending(self):
         tool = FakeTool("send_email")
         policy = make_policy(tools=["send_*"], max_pending=1)
-        pending = [1]  # Already at max
-
         wrapper = _ApprovalToolWrapper(
             inner=tool,
             policy=policy,
-            pending_count=pending,
-            deny_counts={},
-            used_request_ids=set(),
+            state=_GateState(policy, pending=1),  # Already at max
         )
-        result = await wrapper._arun()
+        result = await wrapper._arun(config={})
         assert "Too many pending" in result
 
     @pytest.mark.asyncio
@@ -427,11 +405,8 @@ class TestApprovalToolWrapper:
         wrapper = _ApprovalToolWrapper(
             inner=tool,
             policy=policy,
-            pending_count=[0],
-            deny_counts={},
-            used_request_ids=set(),
         )
-        result = await wrapper._arun()
+        result = await wrapper._arun(config={})
         assert "DENIED" in result
         assert tool._call_count == 0
 
@@ -465,14 +440,13 @@ class TestWrapToolsWithApproval:
         assert wrapped[0] is tools[0]  # Not wrapped
 
     def test_shared_state(self):
-        """All wrappers share pending_count and deny_counts."""
+        """All wrappers share the pending count and denial counts."""
         tools = [FakeTool("send_a"), FakeTool("send_b")]
         policy = make_policy(tools=["send_*"])
         wrapped = wrap_tools_with_approval(tools, policy)
 
         w1, w2 = wrapped
-        assert w1._pending_count is w2._pending_count
-        assert w1._deny_counts is w2._deny_counts
+        assert w1._state is w2._state
 
 
 # ---------------------------------------------------------------------------

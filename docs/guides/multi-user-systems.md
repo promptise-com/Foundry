@@ -19,15 +19,15 @@ A production-ready multi-user AI application where authenticated users each get 
 A **multi-user agentic system** has three layers of identity:
 
 1. **User identity** — who the human is (JWT claims, user_id, roles, scopes). Carried by `CallerContext` on every agent invocation.
-2. **Agent-to-server identity** — the agent authenticating to MCP servers. Carried by `HTTPServerSpec.bearer_token` on every tool call.
+2. **Agent-to-server identity** — who the MCP server sees. The agent's own credential (`HTTPServerSpec.bearer_token`) opens the connection and discovers tools; when an invocation's `CallerContext` carries the user's `bearer_token`, every tool call during it is made with that token instead.
 3. **Session identity** — which conversation this message belongs to. Carried by `session_id` and `user_id` on every `chat()` call.
 
 These three layers work together. The user's JWT flows from your backend through the agent to the MCP server. The MCP server validates the token, extracts roles/scopes, and applies per-tool guards. The conversation store enforces ownership. The cache isolates per-user. Guardrails scan every input and output. Observability records every decision with the authenticated identity attached.
 
 ```
-User (JWT) → Your Backend → build_agent(bearer_token=jwt)
+User (JWT) → Your Backend → agent.ainvoke(..., caller=CallerContext(...))
                                     ↓
-                            CallerContext(user_id, roles, scopes)
+                            CallerContext(user_id, bearer_token=jwt, roles, scopes)
                                     ↓
                     ┌───────────────┼───────────────┐
                     ↓               ↓               ↓
@@ -264,11 +264,13 @@ That's 30 tools across 5 domains. Each domain has its own router with appropriat
 For asymmetric tokens from identity providers (Auth0, Keycloak, Okta):
 
 ```python
+import os
+
 from promptise.mcp.server import AsymmetricJWTAuth
 
 auth = AsymmetricJWTAuth(
-    public_key_pem="${IDP_PUBLIC_KEY}",
-    algorithms=["RS256"],
+    public_key=os.environ["IDP_PUBLIC_KEY"],
+    algorithm="RS256",
     issuer="https://auth.example.com",
     audience="my-api",
 )
@@ -436,6 +438,18 @@ agent = await build_agent(
 ```
 
 Every tool call the agent makes includes this JWT in the `Authorization` header. The MCP server validates it, extracts roles/scopes, and applies guards. If the user has the `analyst` role, they can call `get_customer_data`. If they don't have `admin`, `delete_customer` is blocked.
+
+!!! tip "One agent for every user"
+    Building an agent per request, as here, works but repeats tool discovery
+    each time. You can instead build one agent with a service credential and
+    pass each user's JWT on the invocation:
+    `agent.ainvoke(..., caller=CallerContext(user_id=..., bearer_token=user_jwt))`.
+    Every tool call during that invocation is then made with the user's
+    token, over an MCP session opened for it, so concurrent users never
+    share credentials. See
+    [The user's token reaches the MCP server](../mcp/server/multi-tenancy.md#the-users-token-reaches-the-mcp-server).
+    Never build a shared agent with one *user's* token: every user would
+    then act as that user.
 
 ### Semantic tool optimization — 30 tools without the token cost
 

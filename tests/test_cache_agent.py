@@ -102,9 +102,7 @@ def _ticket_tools(tickets: list[str]) -> list[StructuredTool]:
 
     return [
         # What MCPToolAdapter records for a server tool with read_only_hint=True
-        StructuredTool.from_function(
-            count_open_tickets, metadata={"mcp_annotations": {"readOnlyHint": True}}
-        ),
+        StructuredTool.from_function(count_open_tickets, metadata={"readOnlyHint": True}),
         # No annotations: the MCP default, readOnlyHint=false
         StructuredTool.from_function(open_ticket),
     ]
@@ -297,7 +295,8 @@ class TestObservedCache:
         hit = next(e for e in timeline if e.event_type == TimelineEventType.CACHE_HIT)
         assert hit.metadata["similarity"] == pytest.approx(1.0, abs=1e-3)
         assert 0 <= hit.metadata["age_seconds"] < 5
-        assert "similarity" in (hit.details or "")
+        # The event text does not repeat the user's query
+        assert "password" not in (hit.details or "")
 
 
 class TestFallbackModelKey:
@@ -385,7 +384,7 @@ class _CountTool(BaseTool):
 async def _gated_agent(cache: SemanticCache, tickets: list[str], reviewer: Any) -> Any:
     from promptise.approval import ApprovalPolicy
 
-    count = _CountTool(tickets=tickets, metadata={"mcp_annotations": {"readOnlyHint": True}})
+    count = _CountTool(tickets=tickets, metadata={"readOnlyHint": True})
     return await build_agent(
         servers={},
         model=SupportModel(),
@@ -480,3 +479,28 @@ class TestReplayedOutput:
             await agent.shutdown()
         (entry,) = [e for es in cache._backend._entries.values() for e in es]
         assert [m.type for m in entry.output["messages"]] == ["ai"]
+
+
+class TestCustomCache:
+    @pytest.mark.asyncio
+    async def test_custom_cache_never_gets_a_tool_turn(self):
+        """A cache implementing only check()/store() still never replays a tool call."""
+
+        class Recording:
+            def __init__(self) -> None:
+                self.stored: list[str] = []
+
+            async def check(self, query: str, **kwargs: Any) -> None:
+                return None
+
+            async def store(self, query: str, response: str, output: Any, **kwargs: Any) -> None:
+                self.stored.append(query)
+
+        cache = Recording()
+        agent = await _agent(cache, ["a"])  # type: ignore[arg-type]
+        try:
+            await _ask(agent, "How many open tickets do I have?")
+            await _ask(agent, "What are your opening hours?")
+        finally:
+            await agent.shutdown()
+        assert cache.stored == ["What are your opening hours?"]

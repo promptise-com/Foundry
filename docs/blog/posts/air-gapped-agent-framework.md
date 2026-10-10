@@ -94,7 +94,7 @@ async def main():
         guardrails=scanner,
         memory=memory,
         sandbox={
-            "network_mode": "none",  # NetworkMode.NONE — code cannot reach the network
+            "network": "none",  # NetworkMode.NONE (the default) — code cannot reach the network
             "memory_limit": "512M",
             "cpu_limit": 2,
             "timeout": 120,
@@ -121,7 +121,7 @@ Read that block as a stack diagram. The `model` string keeps inference on-box. T
 - **Model inference** — the provider string is `ollama:...` or a `BaseChatModel` pointed at an on-box endpoint. The [model setup guide](../../getting-started/model-setup.md) documents all three ways to pass a model, including a pre-configured LangChain client with a custom `base_url` if your local endpoint isn't Ollama.
 - **Embeddings** — `ChromaProvider` defaults to `all-MiniLM-L6-v2`, which runs locally with no API key. No OpenAI/Cohere embedding key means no embedding egress by construction.
 - **Guardrails** — every model-backed detector accepts a local directory in its `model=` parameter. The [guardrails reference](../../core/guardrails.md) has the exact two-step pattern: `save_pretrained(...)` the injection and GLiNER models on a connected machine, copy the folders across the gap, then reference `/opt/models/...`. The regex heads download nothing ever. For local content safety, `ContentSafetyDetector(provider="local")` uses Llama Guard through Ollama instead of Azure. Pre-loading these weights is covered step by step in [How to Pre-Load LLM Guardrail Models on an Air-Gapped Host](offline-guardrail-models.md).
-- **Code sandbox** — `network_mode: "none"` maps to `NetworkMode.NONE`, so agent-executed code physically cannot open a connection. The [sandbox reference](../../core/sandbox.md) also documents the seccomp syscall filter, the ~40 dropped Linux capabilities, and the read-only root filesystem that harden the container beyond just the network cut. For a locked-down host you can go further with the gVisor `runsc` runtime.
+- **Code sandbox** — `network: "none"` maps to `NetworkMode.NONE` (also the default), so agent-executed code physically cannot open a connection. The [sandbox reference](../../core/sandbox.md) also documents the seccomp syscall filter, the ~40 dropped Linux capabilities, and the read-only root filesystem that harden the container beyond just the network cut. For a locked-down host you can go further with the gVisor `runsc` runtime.
 - **Observability** — the default HTML and JSON transporters write to a local directory; the Prometheus transporter exposes an endpoint your in-cluster scraper pulls from. Promptise makes no external pricing or telemetry calls, so there is no default outbound trace to disable in the first place.
 
 The verification story is the whole point of choosing an integrated stack. Because these are defaults of one framework rather than five separate integrations, you audit the framework's egress posture once instead of re-certifying every seam each time a transitive dependency bumps a version.
@@ -132,7 +132,7 @@ To stand up your first **self-hosted AI agent** with no internet in the request 
 
 1. **Install and pull a local model.** `pip install "promptise[all]"`, install [Ollama](https://ollama.com), then `ollama pull llama3`. Point Promptise at it with `model="ollama:llama3"` — that one string is the entire model-provider change, as shown in the [model setup guide](../../getting-started/model-setup.md).
 2. **Pre-load the guardrail models.** On a connected machine, `save_pretrained` the injection and GLiNER weights, copy the folders across the air gap, and reference them with `InjectionDetector(model="/opt/models/injection")` and `NERDetector(model="/opt/models/gliner-pii")`. Call `scanner.warmup()` at startup so nothing loads lazily mid-request.
-3. **Turn on the local defaults.** Pass `guardrails=scanner`, `memory=ChromaProvider(persist_directory=...)`, and `sandbox={"network_mode": "none"}` to `build_agent()`. That is the full local stack — inference, embeddings, memory, injection/PII/content-safety guardrails, and no-egress code execution — running as integrated defaults rather than five hand-wired integrations.
+3. **Turn on the local defaults.** Pass `guardrails=scanner`, `memory=ChromaProvider(persist_directory=...)`, and `sandbox={"network": "none"}` to `build_agent()`. That is the full local stack — inference, embeddings, memory, injection/PII/content-safety guardrails, and no-egress code execution — running as integrated defaults rather than five hand-wired integrations.
 
 ## Frequently asked questions
 

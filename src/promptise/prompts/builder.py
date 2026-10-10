@@ -227,6 +227,8 @@ class PromptBuilder:
         # Create Prompt
         p = Prompt(fn, model=self._model_name, observe=self._observe)
         p._name = self._name
+        # The template is exact text, not a docstring: keep its indentation.
+        p._template = full_template.strip()
 
         # Attach components
         p._context_providers = list(self._context_providers)

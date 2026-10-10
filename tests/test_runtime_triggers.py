@@ -126,9 +126,13 @@ class TestCronTrigger:
         assert 50 <= diff <= 70
 
     def test_invalid_cron_raises(self) -> None:
-        trigger = CronTrigger("bad")
+        # Rejected when the trigger is created, not on the first wait.
         with pytest.raises(TriggerError, match="Invalid cron"):
-            trigger._simple_next_fire(datetime.now(timezone.utc))
+            CronTrigger("bad")
+
+    def test_simple_fallback_rejects_short_expression(self) -> None:
+        with pytest.raises(TriggerError, match="Invalid cron"):
+            CronTrigger._simple_next_fire_for("bad", datetime.now(timezone.utc))
 
 
 # =========================================================================

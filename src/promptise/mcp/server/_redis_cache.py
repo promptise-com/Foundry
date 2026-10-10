@@ -84,10 +84,12 @@ class RedisCache:
             return None
 
     async def set(self, key: str, value: Any, ttl: float) -> None:
-        """Set a cached value with TTL."""
+        """Set a cached value with TTL (millisecond precision)."""
+        if ttl <= 0:
+            return  # already expired; Redis rejects a non-positive expiry
         client = await self._get_client()
         raw = json.dumps(value, default=str)
-        await client.setex(self._key(key), int(ttl), raw)
+        await client.set(self._key(key), raw, px=max(1, round(ttl * 1000)))
 
     async def delete(self, key: str) -> None:
         """Delete a cached value."""

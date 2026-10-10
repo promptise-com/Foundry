@@ -156,7 +156,10 @@ async def test_verifiable_identity_is_presented_to_mcp_server() -> None:
             model="openai:gpt-5-mini",
             identity=identity,
         )
-    assert captured["bearer_token"] == token
+    # The client asks for the credential per request (so it is renewed before
+    # it expires) instead of receiving one token fetched at build time.
+    assert captured["bearer_token"] is None
+    assert captured["bearer_token_provider"](False) == token
 
 
 @pytest.mark.asyncio
@@ -180,6 +183,7 @@ async def test_explicit_server_bearer_is_not_overridden() -> None:
             identity=identity,
         )
     assert captured["bearer_token"] == "server-set"
+    assert captured["bearer_token_provider"] is None
 
 
 @pytest.mark.asyncio
@@ -202,7 +206,7 @@ async def test_per_server_audience_scopes_the_credential() -> None:
     bearers: list[Any] = []
 
     def _fake_client(**kwargs: Any) -> MagicMock:
-        bearers.append(kwargs.get("bearer_token"))
+        bearers.append(kwargs["bearer_token_provider"](False))
         return MagicMock()
 
     multi = MagicMock()
@@ -253,41 +257,119 @@ async def test_local_identity_presents_no_mcp_credential() -> None:
             identity=AgentIdentity("local-bot"),
         )
     assert captured["bearer_token"] is None
+    assert captured["bearer_token_provider"] is None
 
 
 @pytest.mark.asyncio
-async def test_unreachable_idp_does_not_fail_the_build(
+async def test_unreachable_idp_fails_closed(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """If the IdP cannot mint a credential at build time, the build must not
-    crash: it warns and connects without the credential (fail-closed at the
-    server, never a silent drop or a hard build failure)."""
+    """If the IdP cannot mint a credential, the provider handed to the MCP
+    client raises instead of returning ``None``, so the client fails the
+    request rather than sending it without the agent's credential."""
     import logging
     from contextlib import ExitStack
 
     from promptise.config import HTTPServerSpec
     from promptise.identity import CallableTokenProvider, CredentialAcquisitionError
 
-    def boom(audience: str | None = None) -> str:
-        raise CredentialAcquisitionError("metadata server unreachable")
+    healthy = {"value": False}
+    token = _jwt({"sub": "bot", "exp": 4102444800})
 
-    identity = AgentIdentity("bot", credential=CallableTokenProvider(token_fn=boom))
+    def mint(audience: str | None = None) -> str:
+        if not healthy["value"]:
+            raise CredentialAcquisitionError("metadata server unreachable")
+        return token
+
+    identity = AgentIdentity("bot", credential=CallableTokenProvider(token_fn=mint))
 
     captured: dict[str, Any] = {}
     with ExitStack() as stack:
         for cm in _patch_mcp(captured):
             stack.enter_context(cm)
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.INFO):
             agent = await build_agent(
                 servers={"tools": HTTPServerSpec(url="https://mcp.internal")},
                 model="openai:gpt-5-mini",
                 identity=identity,
             )
-    # The credential was dropped (not propagated as a crash)...
-    assert captured["bearer_token"] is None
-    assert isinstance(agent, PromptiseAgent)
-    # ...and the operator is told, loudly — never a silent drop.
-    assert any("could not acquire a credential" in rec.getMessage() for rec in caplog.records)
+            assert isinstance(agent, PromptiseAgent)
+            provide = captured["bearer_token_provider"]
+            # Never None (which would mean "send it unauthenticated").
+            with pytest.raises(CredentialAcquisitionError):
+                provide(False)
+            with pytest.raises(CredentialAcquisitionError):
+                provide(True)
+            healthy["value"] = True
+            assert provide(False) == token
+    # The operator is told, loudly — but once per outage, not per request —
+    # and told again when it recovers.
+    warnings = [r for r in caplog.records if "could not acquire a credential" in r.getMessage()]
+    assert len(warnings) == 1
+    assert "requests to it fail" in warnings[0].getMessage()
+    assert any("acquired a credential" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_authorization_header_counts_as_the_servers_own_bearer() -> None:
+    """A server configured with its own Authorization header keeps it; the
+    identity is not presented on top of (or instead of) it."""
+    from contextlib import ExitStack
+
+    from promptise.config import HTTPServerSpec
+
+    identity = AgentIdentity.from_oidc(
+        "bot", issuer="https://idp", token_fn=lambda: _jwt({"sub": "agent-x"})
+    )
+    captured: dict[str, Any] = {}
+    with ExitStack() as stack:
+        for cm in _patch_mcp(captured):
+            stack.enter_context(cm)
+        await build_agent(
+            servers={
+                "tools": HTTPServerSpec(
+                    url="https://mcp.internal", headers={"Authorization": "Bearer own"}
+                )
+            },
+            model="openai:gpt-5-mini",
+            identity=identity,
+        )
+    assert captured["bearer_token_provider"] is None
+    assert captured["headers"] == {"Authorization": "Bearer own"}
+
+
+@pytest.mark.asyncio
+async def test_identity_credential_is_refreshed_per_request() -> None:
+    """A renewed credential is what the next request presents, and a 401
+    (force_refresh=True) bypasses the identity's cache."""
+    from contextlib import ExitStack
+
+    from promptise.config import HTTPServerSpec
+    from promptise.identity import CallableTokenProvider
+
+    minted: list[str] = []
+
+    def mint(audience: str | None = None) -> str:
+        minted.append(_jwt({"sub": "bot", "n": len(minted), "exp": 4102444800}))
+        return minted[-1]
+
+    identity = AgentIdentity("bot", credential=CallableTokenProvider(token_fn=mint))
+    captured: dict[str, Any] = {}
+    with ExitStack() as stack:
+        for cm in _patch_mcp(captured):
+            stack.enter_context(cm)
+        await build_agent(
+            servers={"tools": HTTPServerSpec(url="https://mcp.internal", audience="api://t")},
+            model="openai:gpt-5-mini",
+            identity=identity,
+        )
+    provide = captured["bearer_token_provider"]
+    first = provide(False)
+    assert provide(False) == first  # still valid: served from the cache
+    refreshed = provide(True)  # the server answered 401
+    assert refreshed != first
+    assert provide(False) == refreshed
+    assert len(minted) == 2
 
 
 # -- Attribution: recorded events are stamped with the agent identity -----

@@ -224,7 +224,7 @@ class AgentIdentity:
             out["labels"] = dict(self.labels)
         return out
 
-    def get_credential(self, audience: str | None = None) -> str:
+    def get_credential(self, audience: str | None = None, *, force_refresh: bool = False) -> str:
         """Return a signed credential (JWT) proving this identity.
 
         Present this to a resource the agent calls — an MCP server or an
@@ -237,7 +237,13 @@ class AgentIdentity:
                 scoped to that audience — so **one identity can present to
                 several resources**. Projected-token and OIDC file/env
                 modes have a fixed audience and ignore this. ``None`` uses
-                the identity's configured default.
+                the identity's configured default (and shares its cached
+                credential).
+            force_refresh: Skip the cached credential and acquire a fresh
+                one, for when a resource rejected the cached credential
+                before its ``exp`` (rotated or revoked key, clock skew).
+                ``build_agent`` does this once when an MCP server answers
+                ``401``.
 
         Returns:
             The credential JWT.
@@ -256,7 +262,7 @@ class AgentIdentity:
                 f"credential factory — AgentIdentity.from_entra/from_aws/"
                 f"from_gcp/from_spiffe/from_oidc — to make it verifiable."
             )
-        return self._credential.get_credential(audience)
+        return self._credential.get_credential(audience, force_refresh=force_refresh)
 
     def auth_header(self, audience: str | None = None) -> dict[str, str]:
         """Return ``{"Authorization": "Bearer <credential>"}``.
@@ -341,7 +347,9 @@ class AgentIdentity:
             owner: Optional owning team or person.
             labels: Optional free-form metadata.
             mode: ``"auto"`` picks EKS-projected when
-                ``$PROMPTISE_IDENTITY_TOKEN_FILE`` is set, else STS.
+                ``$PROMPTISE_IDENTITY_TOKEN_FILE`` is set, else STS (on EKS
+                with IRSA, STS uses the pod's role; IRSA's
+                ``$AWS_WEB_IDENTITY_TOKEN_FILE`` is never presented).
             region: AWS region for STS. Falls back to ``$AWS_REGION``.
             token_file: EKS-projected token path.
             audience: Audience the credential targets.
@@ -490,7 +498,11 @@ class AgentIdentity:
         """Detect the platform and build a verifiable identity for it.
 
         Uses environment markers to pick Entra, AWS, GCP, or SPIFFE and
-        dispatches to the matching factory with platform defaults.
+        dispatches to the matching factory with platform defaults. On AWS,
+        ``$PROMPTISE_IDENTITY_TOKEN_FILE`` selects the projected-token mode
+        and is itself an AWS marker; any other AWS marker (Lambda, ECS,
+        ``EKS_POD_NAME``, IRSA's ``$AWS_WEB_IDENTITY_TOKEN_FILE``) selects
+        STS mode.
 
         Args:
             agent_id: Stable identifier for the agent.

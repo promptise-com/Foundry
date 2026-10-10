@@ -340,9 +340,10 @@ class TestObservabilityConfigDefaults:
         config = ObservabilityConfig()
         assert config.transporters == [TransporterType.HTML]
 
-    def test_default_record_prompts_is_false(self) -> None:
+    def test_default_record_prompts_follows_level(self) -> None:
         config = ObservabilityConfig()
-        assert config.record_prompts is False
+        # None = follow the level: prompt/response text only at FULL.
+        assert config.record_prompts is None
 
     def test_default_max_entries(self) -> None:
         config = ObservabilityConfig()

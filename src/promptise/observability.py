@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from .events import _PII_PATTERNS
+
 logger = logging.getLogger(__name__)
 
 #: Carries the identity of a *delegating* agent across a cross-agent call so
@@ -52,7 +54,110 @@ def get_current_delegation() -> dict[str, Any] | None:
     return _delegation_ctx_var.get()
 
 
+@dataclass
+class AgentRun:
+    """One observed agent invocation, from ``agent.input`` to ``agent.output``.
+
+    :class:`~promptise.agent.PromptiseAgent` opens a run for every
+    invocation it observes and makes it current for the duration of the
+    call.  While a run is current, :meth:`ObservabilityCollector.record`
+    sets each event's ``parent_id`` to :attr:`entry_id` (unless one is
+    passed explicitly), which is what links LLM turns, tool calls and
+    cache events to the invocation that caused them — the OpenTelemetry
+    transporter builds its span tree from it.  The callback handler also
+    adds the run's token usage and call counts here, so ``agent.output``
+    can report per-invocation totals.
+
+    Attributes:
+        entry_id: ``entry_id`` of the run's ``agent.input`` event.
+        started: Epoch seconds when the run started.
+        prompt_tokens: Input tokens used by this run's LLM calls.
+        completion_tokens: Output tokens used by this run's LLM calls.
+        llm_calls: LLM calls made during this run.
+        tool_calls: Tool calls made during this run.
+        errors: LLM and tool errors during this run.
+        cache_hit: Whether the run was answered from the semantic cache.
+    """
+
+    entry_id: str
+    started: float
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    llm_calls: int = 0
+    tool_calls: int = 0
+    errors: int = 0
+    cache_hit: bool = False
+
+    @property
+    def total_tokens(self) -> int:
+        """Input plus output tokens used by this run."""
+        return self.prompt_tokens + self.completion_tokens
+
+
+#: The agent run currently being observed (see :class:`AgentRun`).
+_run_ctx_var: contextvars.ContextVar[AgentRun | None] = contextvars.ContextVar(
+    "promptise_agent_run", default=None
+)
+
+
+def get_current_run() -> AgentRun | None:
+    """Return the :class:`AgentRun` being observed in this context, if any."""
+    return _run_ctx_var.get()
+
+
+#: Metadata keys holding Promptise / LangChain identifiers, never redacted
+#: (a run id that happened to look like a card number would stop matching).
+_UNREDACTED_KEYS = frozenset({"run_id", "entry_id", "parent_id"})
+
+#: The notifier's patterns, URL credentials first: the email pattern would
+#: otherwise consume ``password@host`` and leave the user name behind.
+_REDACTION_PATTERNS = sorted(_PII_PATTERNS, key=lambda p: not p[1].startswith("://"))
+
+
+def _redact_value(value: Any, key: str | None = None) -> Any:
+    if isinstance(value, str):
+        if key in _UNREDACTED_KEYS:
+            return value
+        for pattern, replacement in _REDACTION_PATTERNS:
+            value = pattern.sub(replacement, value)
+        return value
+    if isinstance(value, dict):
+        return {k: _redact_value(v, k if isinstance(k, str) else None) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return type(value)(_redact_value(v) for v in value)
+    return value
+
+
+def redact_sensitive(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Replace credentials and common PII in event metadata with placeholders.
+
+    The sanitizer :func:`~promptise.agent.build_agent` installs on the
+    collector it creates (``ObservabilityConfig.redact_sensitive``, on by
+    default), so tool arguments, tool results, error messages and recorded
+    prompt text cannot carry secrets into reports, log files or exported
+    traces.  It uses the same patterns as the event notifier: API keys
+    (``sk-…``), AWS access keys, GitHub tokens, ``Bearer`` tokens,
+    credentials in URLs (``://user:password@``), card numbers, US social
+    security numbers and email addresses.
+
+    String values are scrubbed at any depth; other values (numbers, flags)
+    are kept as they are.  Pattern matching cannot recognise every kind of
+    personal data (names, addresses), so set ``record_tool_io=False`` and
+    leave ``record_prompts`` off when traces leave your trust boundary.
+
+    Args:
+        metadata: Event metadata (or any JSON-like dict).
+
+    Returns:
+        A new dict with sensitive substrings replaced.
+    """
+    return dict(_redact_value(metadata))
+
+
 __all__ = [
+    "AgentRun",
+    "get_current_run",
+    "redact_sensitive",
     "TimelineEventType",
     "TimelineEventCategory",
     "TimelineEntry",
@@ -78,6 +183,7 @@ class TimelineEventType(str, Enum):
     AGENT_DEREGISTERED = "agent.deregistered"
     AGENT_INPUT = "agent.input"
     AGENT_OUTPUT = "agent.output"
+    AGENT_ERROR = "agent.error"
 
     # Task lifecycle (kept for extensibility)
     TASK_CREATED = "task.created"
@@ -171,6 +277,7 @@ _TRANSPARENCY_EVENTS = frozenset(
     {
         TimelineEventType.AGENT_INPUT,
         TimelineEventType.AGENT_OUTPUT,
+        TimelineEventType.AGENT_ERROR,
         TimelineEventType.TOOL_CALL,
         TimelineEventType.TOOL_RESULT,
         TimelineEventType.TOOL_ERROR,
@@ -370,6 +477,12 @@ class ObservabilityCollector:
         session_name: Human-readable label for this session.
         max_entries: Maximum number of entries to retain. Oldest entries
             are evicted when the buffer is full. Defaults to 100,000.
+        sanitizer: Optional callable applied to every event before it is
+            stored or sent to a transporter: it gets the event's metadata,
+            and ``{"details": <text>}`` for its details, and returns the
+            cleaned dict.  :func:`redact_sensitive` is the one
+            :func:`~promptise.agent.build_agent` uses.  ``None`` (default)
+            records events unchanged.
 
     Example::
 
@@ -423,7 +536,9 @@ class ObservabilityCollector:
             phase: Execution phase label.
             details: Human-readable event description.
             duration: Duration in seconds (for span events).
-            parent_id: Parent entry for hierarchical tracing.
+            parent_id: Parent entry for hierarchical tracing.  When
+                omitted and an agent run is being observed (see
+                :class:`AgentRun`), the run's ``agent.input`` entry.
             user_id: Explicit owning user for this event.  When omitted,
                 the collector reads :func:`promptise.agent.get_current_caller`
                 and attaches ``caller.user_id`` automatically.
@@ -437,6 +552,9 @@ class ObservabilityCollector:
         raw_metadata = metadata or {}
         if self._sanitizer is not None:
             raw_metadata = self._sanitizer(raw_metadata)
+            # ``details`` is free text too (error messages end up in it).
+            if details:
+                details = str(self._sanitizer({"details": details}).get("details", details))
 
         # Stamp the delegating agent's identity when this event is recorded
         # inside a cross-agent delegation, so the peer's timeline answers
@@ -468,6 +586,12 @@ class ObservabilityCollector:
                         caller_meta = getattr(caller, "metadata", None) or {}
                         effective_session_id = caller_meta.get("session_id")
 
+        effective_parent_id = parent_id
+        if effective_parent_id is None:
+            run = _run_ctx_var.get()
+            if run is not None:
+                effective_parent_id = run.entry_id
+
         entry = TimelineEntry(
             entry_id=str(uuid.uuid4()),
             timestamp=time.time(),
@@ -477,7 +601,7 @@ class ObservabilityCollector:
             phase=phase,
             details=details,
             duration=duration,
-            parent_id=parent_id,
+            parent_id=effective_parent_id,
             user_id=effective_user_id,
             session_id=effective_session_id,
             metadata=raw_metadata,
@@ -731,7 +855,32 @@ class ObservabilityCollector:
         events_by_type: dict[str, int] = {}
         latencies: list[float] = []
 
+        # Runs observed at BASIC level record no llm.end events; their
+        # agent.output carries the run's totals instead.  Count those only
+        # for runs that have no llm.end, so nothing is counted twice.
+        runs_with_llm_events = {
+            e.parent_id
+            for e in entries
+            if e.event_type == TimelineEventType.LLM_END and e.parent_id is not None
+        }
+
         for e in entries:
+            if (
+                e.event_type == TimelineEventType.AGENT_OUTPUT
+                and e.parent_id is not None
+                and e.parent_id not in runs_with_llm_events
+                and "llm_call_count" in e.metadata
+            ):
+                llm_call_count += int(e.metadata.get("llm_call_count", 0))
+                pt = int(e.metadata.get("prompt_tokens", 0))
+                ct = int(e.metadata.get("completion_tokens", 0))
+                tt = int(e.metadata.get("total_tokens", pt + ct))
+                total_prompt_tokens += pt
+                total_completion_tokens += ct
+                total_tokens += tt
+                if e.agent_id:
+                    tokens_by_agent[e.agent_id] = tokens_by_agent.get(e.agent_id, 0) + tt
+
             # Token accounting from LLM_END events
             if e.event_type == TimelineEventType.LLM_END:
                 llm_call_count += 1
@@ -750,7 +899,13 @@ class ObservabilityCollector:
             if e.event_type in (
                 TimelineEventType.LLM_ERROR,
                 TimelineEventType.TOOL_ERROR,
+                TimelineEventType.AGENT_ERROR,
                 TimelineEventType.TASK_FAILED,
+            ) or (
+                # A tool that reported an error instead of raising
+                # (ToolMessage with status="error").
+                e.event_type == TimelineEventType.TOOL_RESULT
+                and e.metadata.get("status") == "error"
             ):
                 error_count += 1
 

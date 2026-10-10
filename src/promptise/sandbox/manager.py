@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from .backends import DockerBackend, SandboxBackend
 from .config import SandboxConfig
 from .session import SandboxSession
+
+logger = logging.getLogger(__name__)
 
 
 class SandboxManager:
@@ -34,7 +37,8 @@ class SandboxManager:
             config: Sandbox configuration (SandboxConfig, dict, or bool)
 
         Raises:
-            ValueError: If config is invalid
+            ValueError: If config is invalid (``pydantic.ValidationError``,
+                a ``ValueError`` subclass, for unknown keys or bad values)
         """
         # Normalize config
         if isinstance(config, bool):
@@ -81,18 +85,18 @@ class SandboxManager:
         Raises:
             RuntimeError: If backend is not healthy or container creation fails
         """
-        # Health check
-        if not await self.backend.health_check():
+        try:
+            await self.backend.ensure_available()
+        except Exception as e:
             raise RuntimeError(
-                f"Sandbox backend '{self.config.backend}' is not available. "
-                f"Please ensure Docker is installed and running."
-            )
+                f"Sandbox backend '{self.config.backend}' is not available: {e}"
+            ) from e
 
         # Create container
         try:
             container_id = await self.backend.create_container()
         except Exception as e:
-            raise RuntimeError(f"Failed to create sandbox container: {e}")
+            raise RuntimeError(f"Failed to create sandbox container: {e}") from e
 
         # Create session
         session = SandboxSession(container_id, self.backend, self.config)
@@ -106,7 +110,7 @@ class SandboxManager:
             try:
                 await session.cleanup()
             except Exception as e:
-                print(f"[sandbox] Warning: Failed to cleanup session: {e}")
+                logger.warning("[sandbox] Failed to clean up session: %s", e)
 
         self._sessions.clear()
 

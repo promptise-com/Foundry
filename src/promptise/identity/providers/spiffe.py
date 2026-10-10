@@ -91,6 +91,7 @@ class SpiffeSdkProvider(CallableTokenProvider):
         super().__init__(
             token_fn=self._fetch_jwt_svid,
             provider_label="spiffe-sdk",
+            default_audience=audience,
         )
 
     def _fetch_jwt_svid(self, audience: str | None = None) -> str:

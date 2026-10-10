@@ -1582,11 +1582,18 @@ def replay_output(input_messages: Sequence[Any], cached_output: Any) -> dict[str
     }
 
 
+_ANNOTATION_KEYS = ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")
+
+
 def tool_annotations(tool: Any) -> Mapping[str, Any] | None:
-    """MCP annotations recorded on a LangChain tool, if any."""
+    """MCP annotations recorded on a LangChain tool, if any.
+
+    ``MCPToolAdapter`` (and ``langchain-mcp-adapters``) put them on
+    ``tool.metadata`` as flat keys (``{"readOnlyHint": True, ...}``).
+    """
     metadata = getattr(tool, "metadata", None) or {}
-    annotations = metadata.get("mcp_annotations")
-    return annotations if isinstance(annotations, Mapping) else None
+    hints = {k: metadata[k] for k in _ANNOTATION_KEYS if k in metadata}
+    return hints or None
 
 
 class ToolCallWatcher(AsyncCallbackHandler):

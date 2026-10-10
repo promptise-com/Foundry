@@ -198,6 +198,9 @@ class RateLimitMiddleware:
 class DeclaredRateLimitMiddleware:
     """Enforces per-tool rate limits declared via ``@server.tool(rate_limit=...)``.
 
+    Also enforces ``rate_limit=`` on ``@server.resource`` /
+    ``@server.resource_template`` / ``@server.prompt``.
+
     Auto-inserted into the middleware chain at build time when any registered
     tool declares a ``rate_limit`` — no manual wiring required (mirrors
     ``PerToolConcurrencyLimiter``).  Each declaring tool gets its own token
@@ -230,7 +233,12 @@ class DeclaredRateLimitMiddleware:
         spec = getattr(tool_def, "rate_limit", None)
         if not spec:
             return await call_next(ctx)
-        limiter = self._limiter_for(ctx.tool_name, spec)
+        # Tools keep their name as the bucket key; resources and prompts are
+        # namespaced so a prompt and a tool with one name never share a bucket.
+        kind = getattr(ctx, "request_type", "tool")
+        limiter = self._limiter_for(
+            ctx.tool_name if kind == "tool" else f"{kind}:{ctx.tool_name}", spec
+        )
         # Buckets never span tenants: tenant-qualify the per-client key, with
         # an injective (length-prefixed) join so a colon/pipe inside a tenant
         # or client id cannot collide two distinct tenants onto one bucket.
@@ -244,7 +252,7 @@ class DeclaredRateLimitMiddleware:
         allowed, retry_after = limiter.consume(key)
         if not allowed:
             raise RateLimitError(
-                f"Rate limit exceeded for tool {ctx.tool_name!r} (declared limit: {spec})",
+                f"Rate limit exceeded for {kind} {ctx.tool_name!r} (declared limit: {spec})",
                 retry_after=retry_after,
             )
         return await call_next(ctx)

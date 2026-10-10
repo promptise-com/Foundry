@@ -262,6 +262,8 @@ def manifest_to_process_config(
             context_kwargs["memory_max"] = manifest.memory["max"]
         if "min_score" in manifest.memory:
             context_kwargs["memory_min_score"] = manifest.memory["min_score"]
+        if "timeout" in manifest.memory:
+            context_kwargs["memory_timeout"] = manifest.memory["timeout"]
     # Apply explicit context overrides from the 'context' block
     if manifest.context:
         for key in ("writable_keys", "file_mounts", "env_prefix", "conversation_max_messages"):

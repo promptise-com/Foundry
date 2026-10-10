@@ -247,7 +247,7 @@ def _mint(claims: dict, *, key=None) -> str:
 
 
 class _StubJwkClient:
-    """Stand-in for pyjwt's PyJWKClient — returns a fixed public key."""
+    """Stand-in for the JWKS key set — returns a fixed public key."""
 
     def __init__(self, public_key, *, fail: bool = False) -> None:
         self._public_key = public_key
@@ -389,7 +389,7 @@ def _discovery_get(*, issuer=_ISSUER, jwks_uri="https://idp.example.com/keys", s
     return _get
 
 
-def _stub_jwk_factory(url):
+def _stub_jwk_factory(url, **kwargs):
     return _StubJwkClient(_JWKS_PUBLIC_KEY)
 
 
@@ -404,7 +404,7 @@ class TestJwksDiscovery:
         auth = JwksAuth.from_discovery(issuer=_ISSUER, audience="api://mcp")
         with (
             patch.object(httpx, "get", _discovery_get()),
-            patch("jwt.PyJWKClient", _stub_jwk_factory),
+            patch("promptise.mcp.server._auth._JwksKeySet", _stub_jwk_factory),
         ):
             assert await auth.authenticate(_disc_ctx()) == "agent-x"
         assert auth._jwks_url == "https://idp.example.com/keys"  # cached
@@ -413,7 +413,7 @@ class TestJwksDiscovery:
         auth = JwksAuth.from_discovery(issuer=_ISSUER, audience="api://mcp")
         with (
             patch.object(httpx, "get", _discovery_get(issuer="https://evil")),
-            patch("jwt.PyJWKClient", _stub_jwk_factory),
+            patch("promptise.mcp.server._auth._JwksKeySet", _stub_jwk_factory),
         ):
             with pytest.raises(AuthenticationError, match="issuer mismatch"):
                 await auth.authenticate(_disc_ctx())
@@ -452,7 +452,7 @@ class TestJwksDiscovery:
 
         with (
             patch.object(httpx, "get", _counting_get),
-            patch("jwt.PyJWKClient", _stub_jwk_factory),
+            patch("promptise.mcp.server._auth._JwksKeySet", _stub_jwk_factory),
         ):
             await auth.authenticate(_disc_ctx())
             await auth.authenticate(_disc_ctx())
@@ -465,3 +465,103 @@ class TestJwksDiscovery:
     def test_requires_audience(self) -> None:
         with pytest.raises(ValueError, match="non-empty audience"):
             JwksAuth.from_discovery(issuer=_ISSUER, audience="")
+
+
+# =====================================================================
+# JWKS key set: rotation, rate limits, IdP outages
+# =====================================================================
+
+
+def _rsa_jwk(kid: str, *, use: str = "sig") -> tuple[object, dict]:
+    import json as _json
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = _json.loads(pyjwt.algorithms.RSAAlgorithm.to_jwk(key.public_key()))
+    jwk.update({"kid": kid, "use": use, "alg": "RS256"})
+    return key, jwk
+
+
+class _FakeJwksEndpoint:
+    def __init__(self, *jwks: dict) -> None:
+        self.keys = list(jwks)
+        self.fetches = 0
+        self.down = False
+
+    def get(self, url: str, **kwargs: object) -> httpx.Response:
+        self.fetches += 1
+        if self.down:
+            raise httpx.ConnectError("IdP unreachable")
+        return httpx.Response(200, json={"keys": self.keys})
+
+
+class TestJwksKeySet:
+    def _key_set(self, endpoint: _FakeJwksEndpoint, monkeypatch, **kwargs):
+        from promptise.mcp.server._auth import _JwksKeySet
+
+        monkeypatch.setattr(httpx, "get", endpoint.get)
+        return _JwksKeySet("https://idp.example.com/keys", timeout=1.0, **kwargs)
+
+    def test_rotated_key_is_fetched_immediately(self, monkeypatch) -> None:
+        _, old = _rsa_jwk("old")
+        endpoint = _FakeJwksEndpoint(old)
+        keys = self._key_set(endpoint, monkeypatch)
+        assert keys.get_signing_key("old").key_id == "old"
+        _, new = _rsa_jwk("new")
+        endpoint.keys.append(new)
+        assert keys.get_signing_key("new").key_id == "new"
+        assert endpoint.fetches == 2
+
+    def test_unknown_kids_share_a_global_refetch_limit(self, monkeypatch) -> None:
+        _, jwk = _rsa_jwk("k1")
+        endpoint = _FakeJwksEndpoint(jwk)
+        keys = self._key_set(endpoint, monkeypatch, min_refetch_interval=60.0)
+        keys.get_signing_key("k1")
+        for kid in ("a", "b", "c", "d"):
+            with pytest.raises(LookupError):
+                keys.get_signing_key(kid)
+        # One re-fetch for the first unknown kid; the others are throttled.
+        assert endpoint.fetches == 2
+
+    def test_outage_keeps_verifying_with_cached_keys(self, monkeypatch, caplog) -> None:
+        _, jwk = _rsa_jwk("k1")
+        endpoint = _FakeJwksEndpoint(jwk)
+        keys = self._key_set(endpoint, monkeypatch, lifespan=0.0)
+        keys.get_signing_key("k1")
+        endpoint.down = True
+        # The set is due for a refresh, the IdP is down: the cached key serves.
+        assert keys.get_signing_key("k1").key_id == "k1"
+        assert any("using the cached keys" in r.getMessage() for r in caplog.records)
+
+    def test_first_fetch_failure_is_an_error(self, monkeypatch) -> None:
+        endpoint = _FakeJwksEndpoint()
+        endpoint.down = True
+        keys = self._key_set(endpoint, monkeypatch)
+        with pytest.raises(httpx.ConnectError):
+            keys.get_signing_key("k1")
+
+    def test_encryption_keys_are_not_signing_keys(self, monkeypatch) -> None:
+        _, enc = _rsa_jwk("k1", use="enc")
+        keys = self._key_set(_FakeJwksEndpoint(enc), monkeypatch)
+        with pytest.raises(LookupError):
+            keys.get_signing_key("k1")
+
+    async def test_jwks_auth_accepts_a_token_signed_with_a_rotated_key(self, monkeypatch) -> None:
+        old_key, old = _rsa_jwk("old")
+        endpoint = _FakeJwksEndpoint(old)
+        monkeypatch.setattr(httpx, "get", endpoint.get)
+        auth = JwksAuth(jwks_url="https://idp.example.com/keys", audience="api://mcp")
+
+        def mint(key: object, kid: str) -> str:
+            claims = {"sub": "agent-x", "aud": "api://mcp", "exp": int(time.time()) + 60}
+            return pyjwt.encode(claims, key, algorithm="RS256", headers={"kid": kid})
+
+        assert auth.verify_token(mint(old_key, "old")) is True
+        new_key, new = _rsa_jwk("new")
+        endpoint.keys = [new]
+        assert auth.verify_token(mint(new_key, "new")) is True
+        # Garbage kids do not turn every request into a JWKS fetch.
+        fetches = endpoint.fetches
+        forged = mint(rsa.generate_private_key(public_exponent=65537, key_size=2048), "forged")
+        for _ in range(10):
+            assert auth.verify_token(forged) is False
+        assert endpoint.fetches <= fetches + 1

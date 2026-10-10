@@ -467,7 +467,8 @@ class TestObservabilityConfig:
 
         assert cfg.level == ObserveLevel.STANDARD
         assert cfg.session_name == "promptise"
-        assert cfg.record_prompts is False
+        assert cfg.record_prompts is None  # follows level: on at FULL only
+        assert cfg.record_tool_io is True
         assert cfg.max_entries == 100_000
         assert cfg.transporters == [TransporterType.HTML]
         assert cfg.console_live is False

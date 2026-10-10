@@ -9,6 +9,7 @@ import pytest
 from promptise.identity import (
     AgentIdentity,
     AwsEksProjectedProvider,
+    AwsStsProvider,
     EntraProjectedTokenProvider,
     GcpMetadataProvider,
     PlatformDetectionError,
@@ -23,6 +24,7 @@ _ALL_MARKERS: tuple[str, ...] = (
     "AWS_EXECUTION_ENV",
     "EKS_POD_NAME",
     "AWS_WEB_IDENTITY_TOKEN_FILE",
+    "PROMPTISE_IDENTITY_TOKEN_FILE",
     "GOOGLE_CLOUD_PROJECT",
     "K_SERVICE",
     "GCE_METADATA_IP",
@@ -49,6 +51,7 @@ def test_detects_entra(monkeypatch: pytest.MonkeyPatch, marker: str) -> None:
         "AWS_EXECUTION_ENV",
         "EKS_POD_NAME",
         "AWS_WEB_IDENTITY_TOKEN_FILE",
+        "PROMPTISE_IDENTITY_TOKEN_FILE",
     ],
 )
 def test_detects_aws(monkeypatch: pytest.MonkeyPatch, marker: str) -> None:
@@ -114,6 +117,25 @@ def test_auto_aws(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("EKS_POD_NAME", "pod")
     monkeypatch.setenv("PROMPTISE_IDENTITY_TOKEN_FILE", str(f))
     assert isinstance(AgentIdentity.auto("bot").credential, AwsEksProjectedProvider)
+
+
+def test_auto_aws_projected_file_alone_selects_projected_mode(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The file projected mode reads is enough for auto() to find AWS."""
+    f = tmp_path / "t"
+    f.write_text("h.p.s", encoding="utf-8")
+    monkeypatch.setenv("PROMPTISE_IDENTITY_TOKEN_FILE", str(f))
+    credential = AgentIdentity.auto("bot").credential
+    assert isinstance(credential, AwsEksProjectedProvider)
+    assert credential.token_file == f
+
+
+def test_auto_aws_irsa_selects_sts_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """IRSA's token (audience sts.amazonaws.com) is never presented: STS mode."""
+    monkeypatch.setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "/var/run/secrets/eks/token")
+    monkeypatch.setenv("AWS_REGION", "eu-central-1")
+    assert isinstance(AgentIdentity.auto("bot").credential, AwsStsProvider)
 
 
 def test_auto_gcp(monkeypatch: pytest.MonkeyPatch) -> None:
