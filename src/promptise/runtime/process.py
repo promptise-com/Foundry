@@ -774,6 +774,10 @@ class AgentProcess:
         # Wire optional capabilities from ProcessConfig
         if self.config.identity is not None:
             build_kwargs["identity"] = self.config.identity
+        else:
+            # Attribute tool events and approval requests to this process
+            # (an identity supplies its own agent id).
+            build_kwargs["observer_agent_id"] = self.name
         if self.config.approval is not None:
             build_kwargs["approval"] = self.config.approval
         if self._event_notifier is not None:

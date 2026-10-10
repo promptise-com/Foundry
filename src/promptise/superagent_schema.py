@@ -443,6 +443,14 @@ class ApprovalSection(BaseModel):
         on_timeout: Action when timeout expires — ``"deny"`` or ``"allow"``.
         max_pending: Maximum concurrent pending approvals.
         redact_sensitive: Redact PII/credentials in approval requests.
+        max_retries_after_deny: Denials of one tool (per ``deny_scope``,
+            within ``deny_window``) after which the reviewer is not asked.
+        deny_window: Seconds a denial counts towards the limit.
+        deny_scope: ``"session"``, ``"user"`` or ``"agent"``.
+        sequential: Ask for one approval at a time per invocation.
+        context_messages: Conversation messages in ``context_summary``.
+        webhook_allow_private_networks: Allow ``webhook_url`` on a
+            private network (``WebhookApprovalHandler(allow_private_networks=True)``).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -457,6 +465,17 @@ class ApprovalSection(BaseModel):
     max_pending: int = Field(10, gt=0, description="Max concurrent pending approvals")
     redact_sensitive: bool = Field(True, description="Redact PII/credentials in requests")
     max_retries_after_deny: int = Field(3, gt=0, description="Max retries after denial")
+    deny_window: float = Field(600, gt=0, description="Seconds a denial counts towards the limit")
+    deny_scope: Literal["session", "user", "agent"] = Field(
+        "session", description="Whose denials count together"
+    )
+    sequential: bool = Field(False, description="Ask for one approval at a time per invocation")
+    context_messages: int = Field(
+        3, ge=0, description="Conversation messages included in context_summary"
+    )
+    webhook_allow_private_networks: bool = Field(
+        False, description="Allow webhook_url to point at a private network"
+    )
 
 
 class EventSinkConfig(BaseModel):
