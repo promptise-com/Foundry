@@ -83,16 +83,28 @@ def mount(
 
         count += 1
 
-    # Mount resources
+    # Mount resources and prompts.  Copies, so that the parent's server-wide
+    # invariants (``require_auth`` / ``require_tenant``, applied in place at
+    # build time) never alter the child's own definitions.  Each keeps its
+    # auth flag, roles and guards.
+    def _copy(definition: Any) -> Any:
+        return replace(
+            definition,
+            guards=list(definition.guards),
+            roles=list(definition.roles),
+            router_middleware=list(definition.router_middleware),
+        )
+
     for rdef in child._resource_registry.list_all():
-        parent._resource_registry.register(rdef)
+        if rdef.uri == "docs://manifest":
+            continue  # the parent serves its own manifest
+        parent._resource_registry.register(_copy(rdef))
 
     for rdef in child._resource_registry.list_templates():
-        parent._resource_registry.register(rdef)
+        parent._resource_registry.register(_copy(rdef))
 
-    # Mount prompts
     for pdef in child._prompt_registry.list_all():
-        parent._prompt_registry.register(pdef)
+        parent._prompt_registry.register(_copy(pdef))
 
     # Copy exception handlers
     for exc_type, handler in child._exception_handlers._handlers.items():

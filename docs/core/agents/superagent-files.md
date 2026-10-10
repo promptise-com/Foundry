@@ -116,10 +116,10 @@ sandbox:
   image: "python:3.11-slim"
   cpu_limit: 2
   memory_limit: "4G"
-  disk_limit: "10G"
-  network: restricted
+  disk_limit: "1G"
+  pids_limit: 256
+  network: none
   timeout: 300
-  tools: ["python"]
   workdir: "/workspace"
   allow_sudo: false
 ```
@@ -362,6 +362,9 @@ Optional. Configures persistent agent memory.
 #### `sandbox`
 
 Optional. Can be `true` for defaults or a detailed configuration object.
+Unknown keys are rejected. If the sandbox cannot be started (Docker not
+running, the `promptise[sandbox]` extra missing, gVisor not installed), loading
+the agent fails instead of running it without a sandbox.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -369,11 +372,11 @@ Optional. Can be `true` for defaults or a detailed configuration object.
 | `image` | `str` | `"python:3.11-slim"` | Base container image. |
 | `cpu_limit` | `int` | `2` | Maximum CPU cores (1--32). |
 | `memory_limit` | `str` | `"4G"` | Maximum memory. |
-| `disk_limit` | `str` | `"10G"` | Maximum disk space. |
-| `network` | `"none" \| "restricted" \| "full"` | `"restricted"` | Network isolation mode. |
-| `persistent` | `bool` | `false` | Keep workspace between runs. |
+| `disk_limit` | `str` | `"1G"` | Size of the writable workspace. |
+| `pids_limit` | `int` | `256` | Maximum processes and threads. |
+| `network` | `"none" \| "restricted" \| "full"` | `"none"` | Network isolation mode. `"restricted"` needs `iptables` in the image and refuses to start without it. |
+| `persistent` | `bool` | `false` | Keep the container after the session ends. |
 | `timeout` | `int` | `300` | Max execution time in seconds (1--3600). |
-| `tools` | `list[str]` | `["python"]` | Pre-installed tools. |
 | `workdir` | `str` | `"/workspace"` | Working directory inside container. |
 | `env` | `dict[str, str]` | `{}` | Additional environment variables. |
 | `allow_sudo` | `bool` | `false` | Allow sudo access in container. |

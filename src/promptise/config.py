@@ -64,6 +64,16 @@ class HTTPServerSpec(_BaseServer):
         api_key: Pre-shared API key.  When set, an ``x-api-key``
             header is created automatically.  Use this for simple
             secret-based auth when JWT is overkill.
+        forward_caller_token: When ``True`` (default) and an invocation
+            carries a :class:`~promptise.CallerContext` with a
+            ``bearer_token``, this server's tools are called with
+            ``Authorization: Bearer <caller token>`` over a session
+            opened for that caller, so the server sees the user, not
+            whoever built the agent.  ``bearer_token`` (or the agent
+            identity) is still used for tool discovery and for calls
+            without a caller token.  Set ``False`` for a third-party
+            server that must not receive your users' tokens, or one that
+            should always see the agent's own credential.
 
     Example — Bearer token::
 
@@ -114,6 +124,16 @@ class HTTPServerSpec(_BaseServer):
         default=None,
         description="Pre-shared API key for simple secret-based authentication. "
         "Injected as an x-api-key header.",
+    )
+
+    # Per-invocation identity: send the invoking user's token, not the agent's.
+    forward_caller_token: bool = Field(
+        default=True,
+        description="When an invocation carries a CallerContext with a "
+        "bearer_token, call this server's tools with that token (one session "
+        "per caller) instead of bearer_token / the agent identity. Set False "
+        "for servers outside your trust boundary, or whose credential is the "
+        "agent's own rather than the user's.",
     )
 
     @field_validator("auth")

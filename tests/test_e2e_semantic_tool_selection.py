@@ -245,20 +245,12 @@ class TestSemanticToolSelection:
     @pytest.mark.asyncio
     async def test_semantic_uses_fewer_tools_than_full(self, agent, agent_no_optimization):
         """Semantic agent should have fewer tools bound than the unoptimized agent."""
-        # The semantic agent rebuilds with top-K tools per query
-        # The unoptimized agent has all 40 tools bound
-        # We can check by looking at the tool count on the inner graph
-        (len(agent_no_optimization._all_tools) if agent_no_optimization._all_tools else 0)
+        # Both agents carry all 40 tools; the semantic one narrows what each
+        # model call is offered through its tool selector.
         semantic_index_count = len(agent._tool_index.all_tool_names) if agent._tool_index else 0
-
-        # The semantic index should know about all 40 tools
         assert semantic_index_count == 40, f"Expected 40 tools in index, got {semantic_index_count}"
-
-        # But the unoptimized agent should also have ~40 tools (plus maybe fallback)
-        # The key difference is that the semantic agent only sends top-K per invocation
-        # We verify this by checking that the semantic agent has a tool_index
-        assert agent._tool_index is not None, "Semantic agent should have a ToolIndex"
-        assert agent._graph_builder_fn is not None, "Semantic agent should have a graph builder"
+        assert agent._tool_selector is not None, "Semantic agent should have a tool selector"
+        assert agent_no_optimization._tool_selector is None
 
     # ------------------------------------------------------------------
     # Fallback tool: request_more_tools
@@ -267,9 +259,5 @@ class TestSemanticToolSelection:
     @pytest.mark.asyncio
     async def test_request_more_tools_available(self, agent):
         """The semantic agent should have a request_more_tools fallback."""
-        # Check that request_more_tools is in the agent's tool list
         assert agent._tool_index is not None
-        assert (
-            "request_more_tools" in [t.name for t in agent._all_tools]
-            or agent._graph_builder_fn is not None
-        )
+        assert "request_more_tools" in agent.tool_names

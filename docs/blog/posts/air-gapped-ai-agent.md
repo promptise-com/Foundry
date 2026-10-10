@@ -100,7 +100,7 @@ The point is not that each of these *can* be made local — it is that they are 
 
 ## Pre-loading models so the host can run with the network unplugged
 
-"Runs locally" still means the model weights have to arrive somehow. The injection classifier (~260 MB), the optional GLiNER NER head (~200 MB), the sentence-transformers embedding model, and the Ollama model all download from their registries on first use and cache on disk. For a `no internet AI agent`, you stage those artifacts once on a connected machine, copy them across the boundary, and point each component at a local directory.
+"Runs locally" still means the model weights have to arrive somehow. The injection classifier (~750 MB), the optional GLiNER NER head (~500 MB), the sentence-transformers embedding model, and the Ollama model all download from their registries on first use and cache on disk. For a `no internet AI agent`, you stage those artifacts once on a connected machine, copy them across the boundary, and point each component at a local directory.
 
 Every model-backed detector accepts a local path instead of a registry ID:
 

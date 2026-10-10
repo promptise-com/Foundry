@@ -43,7 +43,7 @@ Every capability is a single parameter on `build_agent()`. Start with just `mode
 build_agent()
 │
 ├─ Core (always active)
-│   model ─────────────── LLM provider ("openai:gpt-5-mini", "anthropic:claude-sonnet-4.5", etc.)
+│   model ─────────────── LLM provider ("openai:gpt-5-mini", "anthropic:claude-sonnet-4-5", etc.)
 │   servers ───────────── MCP tool servers (StdioServerSpec, HttpServerSpec)
 │   instructions ──────── System prompt
 │

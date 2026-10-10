@@ -480,8 +480,12 @@ await runtime.start_all()
 For multi-node deployments, `RuntimeTransport` exposes each node's runtime over HTTP, and `RuntimeCoordinator` manages cluster membership.
 
 ```python
+import os
+
 from promptise.runtime import AgentRuntime
 from promptise.runtime.distributed import RuntimeTransport, RuntimeCoordinator
+
+TOKEN = os.environ["PROMPTISE_NODE_TOKEN"]  # required for a non-loopback bind
 
 # Node 1 -- primary
 runtime_1 = AgentRuntime()
@@ -490,6 +494,7 @@ transport_1 = RuntimeTransport(
     host="0.0.0.0",
     port=9100,
     node_id="node-1",
+    auth_token=TOKEN,
 )
 await transport_1.start()
 
@@ -500,6 +505,7 @@ transport_2 = RuntimeTransport(
     host="0.0.0.0",
     port=9101,
     node_id="node-2",
+    auth_token=TOKEN,
 )
 await transport_2.start()
 
@@ -507,12 +513,13 @@ await transport_2.start()
 coordinator = RuntimeCoordinator(
     health_check_interval=15.0,
     node_timeout=45.0,
+    auth_token=TOKEN,  # sent as a bearer token to every node
 )
 coordinator.register_node("node-1", "http://node-1:9100")
 coordinator.register_node("node-2", "http://node-2:9101")
 ```
 
-Each node exposes a REST API for remote management:
+Each node exposes a REST API for remote management. Every endpoint except `/health` requires `Authorization: Bearer <token>`; binding a non-loopback address without `auth_token` raises `ValueError` (see [Discovery and Transport](../runtime/distributed/discovery-transport.md#security)).
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|

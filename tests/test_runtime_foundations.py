@@ -13,6 +13,7 @@ from promptise.runtime import (
     VALID_TRANSITIONS,
     AgentContext,
     DistributedConfig,
+    JournalConfig,
     JournalError,
     ManifestError,
     ManifestValidationError,
@@ -348,7 +349,10 @@ class TestProcessConfig:
 
     def test_nested_configs_have_defaults(self) -> None:
         cfg = ProcessConfig()
-        assert cfg.journal.level == "checkpoint"
+        # Journaling is opt-in per process; a JournalConfig itself
+        # defaults to checkpoint level.
+        assert cfg.journal.level == "none"
+        assert JournalConfig().level == "checkpoint"
         assert cfg.context.env_prefix == "AGENT_"
 
 

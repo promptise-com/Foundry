@@ -94,7 +94,7 @@ asyncio.run(main())
 Run it and the point lands immediately. `billing-bot` succeeds. `scraper-bot` — which holds a **valid, correctly signed token** and even carries the `refunder` role — is denied:
 
 ```
-ACCESS_DENIED  Client 'scraper-bot' is not in the allowed list [billing-bot]
+ACCESS_DENIED  Client 'scraper-bot' is not allowed to call this tool
 ```
 
 That denial is the entire thesis of this post. Authentication answered "is this a real, verified agent?" Authorization answered "is it *this* agent?" A framework that only does the first will happily let any authenticated caller invoke `issue_refund`. `RequireClientId` (and `HasRole`, `HasAllRoles`, `RequireTenant` for the coarser cuts) makes per-agent authorization a declaration on the tool, not a branch you remember to write. And the audit line records `subject="billing-bot"` and `subject="scraper-bot"` against each call — so the tamper-evident log answers "which agent did this?" from the verified credential, not a client-supplied string.

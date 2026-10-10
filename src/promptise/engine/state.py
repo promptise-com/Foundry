@@ -244,6 +244,14 @@ class GraphState:
         total_tokens: Cumulative token usage across all nodes.
         node_history: Ordered list of ``NodeResult`` objects for
             full execution trace.
+        turn_question: The current user question: the last
+            ``HumanMessage`` of the input.  Context compaction always
+            sends it.
+        turn_input: The input up to and including ``turn_question``
+            (system messages and chat history).
+
+    Dict messages (``{"role": "user", "content": ...}``) in ``messages``
+    are converted to LangChain message objects when the state is created.
     """
 
     messages: list[Any] = field(default_factory=list)
@@ -268,6 +276,17 @@ class GraphState:
     node_timings: dict[str, float] = field(default_factory=dict)
     total_tokens: int = 0
     node_history: list[NodeResult] = field(default_factory=list)
+
+    # The current turn, captured from the input (see ``__post_init__``)
+    turn_question: Any = field(default=None, repr=False)
+    turn_input: list[Any] = field(default_factory=list, repr=False)
+
+    def __post_init__(self) -> None:
+        from .compaction import normalize_messages, split_input
+
+        self.messages = normalize_messages(self.messages)
+        if self.turn_question is None and not self.turn_input:
+            self.turn_question, self.turn_input = split_input(self.messages)
 
     # --- helpers ---
 
@@ -357,8 +376,9 @@ class GraphState:
     def trim_messages(self) -> None:
         """Trim message history to ``max_messages`` if exceeded.
 
-        Keeps all system messages (essential context) plus the most
-        recent non-system messages to stay within the configured cap.
+        Keeps all system messages (essential context), the current user
+        question, plus the most recent non-system messages to stay within
+        the configured cap.
         """
         if self.max_messages <= 0 or len(self.messages) <= self.max_messages:
             return
@@ -371,7 +391,14 @@ class GraphState:
         keep = self.max_messages - len(system_msgs)
         if keep < 1:
             keep = 1
-        self.messages = system_msgs + non_system[-keep:]
+        question = self.turn_question
+        pin = question is not None and any(m is question for m in non_system[:-keep])
+        recent = non_system[-(keep - 1) :] if pin and keep > 1 else non_system[-keep:]
+        # A tool result whose assistant tool call was cut is rejected by
+        # providers; start the window after any such orphans.
+        while recent and getattr(recent[0], "type", None) == "tool":
+            recent.pop(0)
+        self.messages = system_msgs + ([question] if pin else []) + recent
 
 
 # ---------------------------------------------------------------------------

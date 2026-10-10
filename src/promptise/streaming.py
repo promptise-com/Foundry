@@ -91,10 +91,14 @@ class ToolEndEvent(StreamEvent):
 
     Attributes:
         tool_name: Raw MCP tool name.
-        tool_summary: One-line summary of the result.
-        duration_ms: Execution time in milliseconds.
-        success: Whether the tool completed without error.
-        tool_index: 0-based index of this tool call.
+        tool_summary: One-line summary of the result.  For a failed call,
+            the error: the server's message for a tool that reported an
+            error (an MCP ``ToolError``), or ``"Tool call failed"`` for one
+            that raised (the exception text is not exposed).
+        duration_ms: Execution time of this call in milliseconds.
+        success: ``False`` when the tool reported an error or raised.
+        tool_index: 0-based index of this tool call; its ``tool_start``
+            event has the same index.
     """
 
     type: str = "tool_end"
@@ -124,7 +128,10 @@ class DoneEvent(StreamEvent):
     """The agent has finished processing.
 
     Attributes:
-        full_response: Complete response text (post-guardrail redaction).
+        full_response: The final answer (post-guardrail redaction): the text
+            of the run's last model call, the same text ``ainvoke()``
+            returns as the last message.  Text a model wrote before calling
+            a tool was streamed as tokens but is not part of the answer.
         tool_calls: Summary of all tool calls made.
         duration_ms: Total invocation time in milliseconds.
         cache_hit: Whether the response came from cache.
@@ -314,6 +321,63 @@ def tool_summary(result: str | None, max_length: int = 120) -> str:
     if len(result) <= max_length:
         return result
     return result[: max_length - 3] + "..."
+
+
+def tool_error_summary(output: str | None, max_length: int = 120) -> str:
+    """Summarize a failed tool call's output for display.
+
+    An MCP ``ToolError`` arrives as ``{"error": {"code", "message", ...}}``;
+    its ``message`` is the summary.  Any other output is summarized like
+    :func:`tool_summary`.
+
+    Examples:
+        ``'{"error": {"code": "TOOL_ERROR", "message": "No order A-9."}}'``
+        → ``"No order A-9."``
+
+    Args:
+        output: Raw tool output.
+        max_length: Maximum summary length.
+
+    Returns:
+        One-line summary string.
+    """
+    if output:
+        try:
+            data = json.loads(output)
+        except (json.JSONDecodeError, TypeError):
+            data = None
+        error = data.get("error") if isinstance(data, dict) else None
+        message = error.get("message") if isinstance(error, dict) else None
+        if isinstance(message, str) and message.strip():
+            return tool_summary(message, max_length)
+    return tool_summary(output, max_length) if output else "Tool call failed"
+
+
+def content_text(content: Any) -> str:
+    """The text in a message's (or chunk's) ``content``.
+
+    ``content`` is a string, or a list of content blocks (Anthropic,
+    Gemini…) of which only the ``"text"`` blocks are text.
+
+    Args:
+        content: A ``BaseMessage.content`` value.
+
+    Returns:
+        The concatenated text, ``""`` when there is none.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "".join(parts)
+    return ""
 
 
 async def redact_tool_args(

@@ -429,15 +429,25 @@ class ProcessConfig(BaseModel):
         instructions: System prompt for the agent.
         servers: MCP server specifications (same format as ``.superagent``).
         triggers: Trigger configurations.
-        journal: Journal configuration.
+        journal: Journal configuration.  Off by default (``level="none"``);
+            pass a :class:`JournalConfig` to record transitions,
+            invocations and checkpoints (``JournalConfig()`` itself
+            defaults to ``level="checkpoint"``).
         context: AgentContext configuration.
         concurrency: Max concurrent trigger invocations.
         heartbeat_interval: Heartbeat period in seconds.
         idle_timeout: Seconds of inactivity before suspending (0 = never).
         max_lifetime: Max process lifetime in seconds (0 = unlimited).
         max_consecutive_failures: Consecutive failures before FAILED state.
-        restart_policy: When to restart a failed process.
-        max_restarts: Max restart attempts (for ``on_failure`` / ``always``).
+        restart_policy: When to restart the process automatically.
+            ``on_failure`` restarts it after it enters ``FAILED`` (e.g.
+            ``max_consecutive_failures`` reached); ``always`` also
+            restarts it when it stops itself at ``max_lifetime``.  An
+            explicit :meth:`~AgentProcess.stop` never triggers a restart.
+        max_restarts: Max consecutive restart attempts after failures.
+            The count resets after a successful invocation.
+        restart_backoff: Delay in seconds before the first restart
+            attempt; doubles on each consecutive attempt (capped at 60s).
     """
 
     model: str = Field("openai:gpt-5-mini", description="LLM model ID")
@@ -455,7 +465,8 @@ class ProcessConfig(BaseModel):
         default_factory=list, description="Trigger configurations"
     )
     journal: JournalConfig = Field(
-        default_factory=JournalConfig, description="Journal configuration"
+        default_factory=lambda: JournalConfig(level="none"),
+        description="Journal configuration (off unless set)",
     )
     context: ContextConfig = Field(
         default_factory=ContextConfig, description="AgentContext configuration"
@@ -471,6 +482,9 @@ class ProcessConfig(BaseModel):
         "never", description="Restart policy for failed processes"
     )
     max_restarts: int = Field(3, ge=0, description="Max restart attempts")
+    restart_backoff: float = Field(
+        1.0, ge=0, description="Initial restart delay in seconds (doubles, max 60s)"
+    )
 
     # -- Governance (all opt-in, zero overhead when disabled) --
     secrets: SecretScopeConfig = Field(

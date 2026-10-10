@@ -306,11 +306,11 @@ class SandboxConfigSection(BaseModel):
         image: Base container image.
         cpu_limit: Maximum CPU cores.
         memory_limit: Maximum memory (e.g., "4G").
-        disk_limit: Maximum disk space (e.g., "10G").
+        disk_limit: Size of the writable workspace (e.g., "1G").
+        pids_limit: Maximum number of processes and threads.
         network: Network isolation mode (none, restricted, full).
-        persistent: Keep workspace between runs.
+        persistent: Keep the container after the session ends.
         timeout: Max execution time in seconds.
-        tools: Pre-installed tools list.
         workdir: Working directory inside container.
         env: Additional environment variables.
         allow_sudo: Allow sudo access in container.
@@ -329,13 +329,13 @@ class SandboxConfigSection(BaseModel):
     image: str = Field("python:3.11-slim", description="Base container image")
     cpu_limit: int = Field(2, gt=0, le=32, description="Maximum CPU cores")
     memory_limit: str = Field("4G", description="Maximum memory")
-    disk_limit: str = Field("10G", description="Maximum disk space")
+    disk_limit: str = Field("1G", description="Size of the writable workspace")
+    pids_limit: int = Field(256, gt=0, le=65536, description="Maximum processes and threads")
     network: Literal["none", "restricted", "full"] = Field(
-        "restricted", description="Network isolation mode"
+        "none", description="Network isolation mode"
     )
-    persistent: bool = Field(False, description="Keep workspace between runs")
+    persistent: bool = Field(False, description="Keep the container after the session ends")
     timeout: int = Field(300, gt=0, le=3600, description="Max execution time in seconds")
-    tools: list[str] = Field(default_factory=lambda: ["python"], description="Pre-installed tools")
     workdir: str = Field("/workspace", description="Working directory")
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
     allow_sudo: bool = Field(False, description="Allow sudo access")
@@ -479,6 +479,14 @@ class ApprovalSection(BaseModel):
         on_timeout: Action when timeout expires — ``"deny"`` or ``"allow"``.
         max_pending: Maximum concurrent pending approvals.
         redact_sensitive: Redact PII/credentials in approval requests.
+        max_retries_after_deny: Denials of one tool (per ``deny_scope``,
+            within ``deny_window``) after which the reviewer is not asked.
+        deny_window: Seconds a denial counts towards the limit.
+        deny_scope: ``"session"``, ``"user"`` or ``"agent"``.
+        sequential: Ask for one approval at a time per invocation.
+        context_messages: Conversation messages in ``context_summary``.
+        webhook_allow_private_networks: Allow ``webhook_url`` on a
+            private network (``WebhookApprovalHandler(allow_private_networks=True)``).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -496,6 +504,17 @@ class ApprovalSection(BaseModel):
     max_pending: int = Field(10, gt=0, description="Max concurrent pending approvals")
     redact_sensitive: bool = Field(True, description="Redact PII/credentials in requests")
     max_retries_after_deny: int = Field(3, gt=0, description="Max retries after denial")
+    deny_window: float = Field(600, gt=0, description="Seconds a denial counts towards the limit")
+    deny_scope: Literal["session", "user", "agent"] = Field(
+        "session", description="Whose denials count together"
+    )
+    sequential: bool = Field(False, description="Ask for one approval at a time per invocation")
+    context_messages: int = Field(
+        3, ge=0, description="Conversation messages included in context_summary"
+    )
+    webhook_allow_private_networks: bool = Field(
+        False, description="Allow webhook_url to point at a private network"
+    )
 
     @model_validator(mode="after")
     def check_handler(self) -> ApprovalSection:
@@ -556,6 +575,26 @@ class AdaptiveSection(BaseModel):
     strategy_ttl: int = Field(0, ge=0, description="Strategy expiry in seconds (0 = never)")
     failure_retention: int = Field(50, gt=0, description="Max raw failure logs to keep")
     verify_human_feedback: bool = Field(True, description="LLM-as-judge on corrections")
+    feedback_rate_limit: int = Field(10, ge=0, description="Max corrections per hour per sender")
+    scope: Literal["per_user", "per_tenant", "per_session", "shared"] = Field(
+        "per_user",
+        description="Who shares failures and lessons (derived from the CallerContext)",
+    )
+    confidence_half_life: float = Field(
+        0.0, ge=0, description="Seconds for a synthesized lesson's confidence to halve (0 = off)"
+    )
+    min_confidence: float = Field(
+        0.3, ge=0.0, le=1.0, description="Lessons below this confidence are dropped"
+    )
+    allowed_tools: list[str] | None = Field(
+        None, description="Only learn from failures of these tools (None = all)"
+    )
+    review_lessons: bool = Field(
+        False, description="Hold synthesized lessons as pending until approved"
+    )
+    learn_from_approval_denials: bool = Field(
+        True, description="Store approval denial reasons as human corrections"
+    )
 
 
 class GuardrailsSection(BaseModel):
