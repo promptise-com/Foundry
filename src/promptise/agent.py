@@ -326,6 +326,9 @@ class PromptiseAgent:
 
         # Semantic cache
         self._cache = cache
+        # The FallbackChain behind the agent, if any (set by build_agent()):
+        # the cache keys answers by the chain member that is serving.
+        self._fallback_chain: Any | None = None
 
         # Human-in-the-loop approval
         self._approval = approval
@@ -449,6 +452,38 @@ class PromptiseAgent:
         else:
             config["callbacks"] = [*(callbacks or []), *handlers]
         return config
+
+    def _cache_model_id(self) -> str:
+        """Model id the cache keys this request's answer under.
+
+        For a :class:`FallbackChain` this is the member currently serving
+        (the first one whose circuit is not open), so an answer from a
+        fallback model is never served as the primary's.
+        """
+        if self._fallback_chain is not None:
+            return str(self._fallback_chain.active_model)
+        return self.model_name or ""
+
+    def _add_cache_watcher(
+        self, config: dict[str, Any] | None
+    ) -> tuple[dict[str, Any] | None, Any]:
+        """Add a :class:`~promptise.cache.ToolCallWatcher` to the run's callbacks.
+
+        The watcher evicts the caller's cached answers as soon as a write
+        tool runs.  Returns ``(config, watcher)``; ``watcher`` is ``None``
+        without a cache, or for a custom cache that only implements
+        ``check()`` / ``store()``.
+        """
+        if self._cache is None or not hasattr(self._cache, "is_write_tool"):
+            return config, None  # no cache, or a custom one without the policy
+        from .approval import _ApprovalToolWrapper
+        from .cache import ToolCallWatcher, tool_annotations
+
+        tools = self._tools
+        annotations = {t.name: tool_annotations(t) for t in tools}
+        gated = {t.name for t in tools if isinstance(t, _ApprovalToolWrapper)}
+        watcher = ToolCallWatcher(self._cache, get_current_caller(), annotations, gated)
+        return self._add_callback_handlers(config, [watcher]), watcher
 
     # -----------------------------------------------------------------
     # Core invocation methods
@@ -669,6 +704,8 @@ class PromptiseAgent:
         _cache_query: str = ""
         _ctx_fp: str = ""
         _inst_hash: str = ""
+        _cache_model: str = ""
+        _cache_input = list(input.get("messages", [])) if isinstance(input, dict) else []
         _start_time = time.monotonic()
 
         # Emit invocation.start event
@@ -753,8 +790,10 @@ class PromptiseAgent:
         if self._flows is not None and not _engine_active:
             input, _flow_text = await self._inject_flow_context(input, session_id)
 
-        # Step 1.5: Cache check — AFTER memory so fingerprint includes memory content
-        if self._cache is not None:
+        # Step 1.5: Cache check — AFTER memory so fingerprint includes memory content.
+        # Requests with earlier turns are only cached with cache_multi_turn=True.
+        _allows = getattr(self._cache, "allows_conversation", None)
+        if self._cache is not None and (_allows is None or _allows(_cache_input)):
             try:
                 from .cache import compute_context_fingerprint, compute_instruction_hash
 
@@ -764,22 +803,23 @@ class PromptiseAgent:
                     _cache_query = _ext_cache(input)
 
                 if _cache_query:
+                    _messages = input.get("messages", []) if isinstance(input, dict) else []
                     _instructions = getattr(self, "_raw_instructions", None)
                     if _flow_text:
                         _instructions = f"{_flow_text}\n\n{_instructions or ''}"
                     _inst_hash = compute_instruction_hash(_instructions)
                     _ctx_fp = compute_context_fingerprint(
                         memory_results=_memory_results,
-                        conversation_length=len(input.get("messages", []))
-                        if isinstance(input, dict)
-                        else 0,
+                        conversation_length=len(_messages),
                         instruction_hash=_inst_hash,
+                        history=_messages[:-1],
                     )
+                    _cache_model = self._cache_model_id()
                     cached = await self._cache.check(
                         _cache_query,
                         context_fingerprint=_ctx_fp,
                         caller=get_current_caller(),
-                        model_id=self.model_name,
+                        model_id=_cache_model,
                         instruction_hash=_inst_hash,
                     )
                     if cached is not None:
@@ -794,9 +834,21 @@ class PromptiseAgent:
                                 TimelineEventType.CACHE_HIT,
                                 agent_id=self._observed_agent_id(),
                                 details="Cache hit (semantically similar request)",
-                                metadata={"scope": cached.scope_key, "ttl": cached.ttl},
+                                metadata={
+                                    "scope": cached.scope_key,
+                                    "ttl": cached.ttl,
+                                    "similarity": round(cached.similarity or 0.0, 4),
+                                    "age_seconds": round(cached.age, 1),
+                                },
                             )
-                        output = cached.output
+                        # This request's messages plus the cached answer -- not
+                        # the messages of the request that stored it.
+                        from .cache import replay_output
+
+                        output = replay_output(
+                            input.get("messages", []) if isinstance(input, dict) else [],
+                            cached.output,
+                        )
                         # Output guardrails ALWAYS run on cached responses
                         if self._guardrails is not None:
                             response_text = _extract_response_text(output)
@@ -831,6 +883,7 @@ class PromptiseAgent:
 
         # Step 2: Observability and tool events — inject callback handlers
         config = self._with_callbacks(config)
+        config, _cache_watcher = self._add_cache_watcher(config)
 
         # Step 2.5: Adaptive strategy — collect this invocation's failed tool
         # calls (independent of observability, never shared across calls)
@@ -868,34 +921,40 @@ class PromptiseAgent:
         if self._prompt_config is not None:
             output = await self._check_prompt_output(output)
 
-        # Step 3.75: Store in cache AFTER guardrails (store post-redacted output)
-        if self._cache is not None and _cache_query:
+        # Step 3.75: Store in cache AFTER guardrails (store post-redacted output).
+        # Turns that called a write tool are never stored (replaying them would
+        # skip the write); other tool turns only with cache_tool_turns=True.
+        if self._cache is not None:
             try:
-                _resp = _extract_response_text(output)
-                if _resp:
-                    # Extract tool names used in this invocation for invalidation
-                    _tools_used: list[str] = []
-                    if isinstance(output, dict):
-                        for msg in output.get("messages", []):
-                            if hasattr(msg, "tool_calls"):
-                                for tc in msg.tool_calls or []:
-                                    name = (
-                                        tc.get("name")
-                                        if isinstance(tc, dict)
-                                        else getattr(tc, "name", None)
-                                    )
-                                    if name:
-                                        _tools_used.append(name)
+                from .cache import answer_messages, served_model, turn_tool_calls
 
+                _tools_used = turn_tool_calls(output)
+                if _cache_watcher is not None:
+                    _storable = await _cache_watcher.settle(_tools_used)
+                else:
+                    # A custom cache without SemanticCache's policy: never
+                    # store a turn that called a tool.
+                    _storable = not _tools_used
+                _store_kwargs: dict[str, Any] = {}
+                if _cache_watcher is not None:
+                    _store_kwargs["write_generation"] = _cache_watcher.write_generation
+                _answer = answer_messages(output)
+                _resp = _extract_response_text(output) if _cache_query and _storable else ""
+                if _resp and _answer:
                     await self._cache.store(
                         _cache_query,
                         _resp,
-                        output,
+                        # Only the answer: the asker's messages, injected
+                        # context and tool results stay with this request.
+                        {"messages": _answer},
                         context_fingerprint=_ctx_fp,
                         caller=get_current_caller(),
-                        model_id=self.model_name,
+                        # The model that actually answered (a FallbackChain may
+                        # have fallen back), not the one configured at build.
+                        model_id=served_model(output) or _cache_model,
                         instruction_hash=_inst_hash,
                         tools_used=_tools_used,
+                        **_store_kwargs,
                     )
                     if self.collector is not None and self._observing():
                         from .observability import TimelineEventType
@@ -1069,6 +1128,7 @@ class PromptiseAgent:
 
         # Step 2: Observability and tool events — inject callback handlers
         config = self._with_callbacks(config)
+        config, _ = self._add_cache_watcher(config)
 
         # Step 2.5: Adaptive strategy — collect this run's failed tool calls
         config, _failure_recorder = self._attach_failure_recorder(config)
@@ -1280,6 +1340,7 @@ class PromptiseAgent:
 
             # Step 2: Inject callback handlers (observability, tool events)
             config = self._with_callbacks(config)
+            config, _ = self._add_cache_watcher(config)
 
             # Step 2.5: Adaptive strategy — collect this run's failed tool calls
             config, _failure_recorder = self._attach_failure_recorder(config)
@@ -3093,6 +3154,11 @@ async def build_agent(
     """
     if model is None:  # Defensive check; CLI/code must always pass a model now.
         raise ValueError("A model is required. Provide a model instance or a provider id string.")
+    # A cache that cannot run fails the build, before any server is connected,
+    # instead of warning on every request while caching nothing.
+    if cache is not None and hasattr(cache, "check_dependencies"):
+        cache.check_dependencies()
+
     # Checked before any MCP connection is opened, so a bad value leaks nothing.
     if max_delegation_depth < 1:
         raise ValueError(f"max_delegation_depth must be at least 1, got {max_delegation_depth}")
@@ -3832,6 +3898,11 @@ async def build_agent(
     # Wire context engine
     if context_engine is not None:
         agent._context_engine = context_engine
+
+    from .fallback import FallbackChain
+
+    if isinstance(model, FallbackChain):
+        agent._fallback_chain = model
 
     # Wire event notifier to the cache (tool events come from the agent's
     # own tool-event handler, independent of observability)

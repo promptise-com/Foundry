@@ -24,8 +24,12 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable, Collection, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from uuid import UUID
+
+from langchain_core.callbacks import AsyncCallbackHandler
 
 if TYPE_CHECKING:
     pass  # type: ignore[import-not-found]
@@ -93,16 +97,21 @@ class CacheEntry:
     Attributes:
         query_text: The original user query.
         response_text: The extracted response text.
-        output: The full LangGraph output dict (for returning to caller).
+        output: The output to replay.  The agent stores ``{"messages": [answer]}``
+            (the final assistant message only) and, on a hit, returns it after
+            the current request's own messages.
         embedding: The query embedding vector.
         scope_key: Isolation scope (e.g. ``"user:user-42"``).
         context_fingerprint: Hash of memory + history + prompt context.
         model_id: LLM model that generated this response.
         instruction_hash: Hash of the system instructions.
         checksum: SHA-256 of response_text for corruption detection.
-        created_at: Monotonic timestamp of creation.
+        created_at: Wall-clock (``time.time()``) timestamp of creation.
         ttl: Time-to-live in seconds.
         metadata: Extra info (tools_used, token count, etc.).
+        similarity: Cosine similarity between the stored query and the
+            query that found this entry.  Set on the entries a search
+            returns; ``None`` on stored entries.
     """
 
     query_text: str
@@ -117,6 +126,12 @@ class CacheEntry:
     created_at: float
     ttl: int
     metadata: dict[str, Any] = field(default_factory=dict)
+    similarity: float | None = None
+
+    @property
+    def age(self) -> float:
+        """Seconds since this entry was stored."""
+        return max(0.0, time.time() - self.created_at)
 
     @property
     def expired(self) -> bool:
@@ -353,8 +368,18 @@ class InMemoryCacheBackend:
         scope_key: str,
         embedding: list[float],
         threshold: float,
+        *,
+        match: Callable[[CacheEntry], bool] | None = None,
     ) -> CacheEntry | None:
-        """Find the best matching entry above threshold."""
+        """Find the most similar entry above ``threshold``.
+
+        Only entries for which ``match`` returns ``True`` are considered,
+        so a closer entry stored under another context, model or
+        instruction set does not hide the one that applies.  The returned
+        entry is a copy with :attr:`CacheEntry.similarity` set.  Hits and
+        misses are counted by :class:`SemanticCache`, which knows whether
+        the request was served.
+        """
         entries = self._entries.get(scope_key, [])
         if not entries:
             return None
@@ -374,19 +399,25 @@ class InMemoryCacheBackend:
         query_vec = np.array(embedding, dtype=np.float32)
         scores = np.dot(emb_matrix, query_vec)
 
-        best_idx = int(np.argmax(scores))
-        best_score = float(scores[best_idx])
-
-        if best_score >= threshold:
-            entry = entries[best_idx]
+        corrupted: list[int] = []
+        found: CacheEntry | None = None
+        for idx in np.argsort(-scores, kind="stable"):
+            score = float(scores[idx])
+            if score < threshold:
+                break
+            entry = entries[int(idx)]
+            if match is not None and not match(entry):
+                continue
             if not entry.verify_checksum():
                 logger.warning("Cache: checksum mismatch, treating as miss")
-                self._remove_entry(scope_key, best_idx)
-                return None
-            self._stats.hits += 1
-            return entry
+                corrupted.append(int(idx))
+                continue
+            found = replace(entry, similarity=score)
+            break
 
-        return None
+        for idx in sorted(corrupted, reverse=True):
+            self._remove_entry(scope_key, idx)
+        return found
 
     async def store(self, scope_key: str, entry: CacheEntry) -> None:
         """Store an entry, evicting LRU if at capacity."""
@@ -591,8 +622,16 @@ class RedisCacheBackend:
         scope_key: str,
         embedding: list[float],
         threshold: float,
+        *,
+        match: Callable[[CacheEntry], bool] | None = None,
     ) -> CacheEntry | None:
-        """Find the best matching entry above threshold."""
+        """Find the most similar entry above ``threshold``.
+
+        Same contract as :meth:`InMemoryCacheBackend.search`: candidates
+        are tried from most to least similar and the first one that is
+        live, intact and accepted by ``match`` is returned, with
+        :attr:`CacheEntry.similarity` set.
+        """
         r = await self._get_redis()
 
         # Get all entry IDs for this scope
@@ -607,27 +646,34 @@ class RedisCacheBackend:
         if not raw_embeddings:
             return None
 
-        # Build numpy matrix and compute similarity
+        # Score every entry locally, keep those above the threshold
         np = _get_np()
         query_vec = np.array(embedding, dtype=np.float32)
-        best_score = -1.0
-        best_id: bytes | None = None
-
+        candidates: list[tuple[float, bytes]] = []
         for eid in entry_ids:
             raw_emb = raw_embeddings.get(eid)
             if raw_emb is None:
                 continue
             emb_vec = np.frombuffer(raw_emb, dtype=np.float32)
             score = float(np.dot(emb_vec, query_vec))
-            if score > best_score:
-                best_score = score
-                best_id = eid
+            if score >= threshold:
+                candidates.append((score, eid))
+        candidates.sort(key=lambda c: c[0], reverse=True)
 
-        if best_score < threshold or best_id is None:
-            return None
+        for score, eid in candidates:
+            entry = await self._load_entry(r, scope_key, eid, embedding)
+            if entry is None or (match is not None and not match(entry)):
+                continue
+            return replace(entry, similarity=score)
+        return None
 
-        # Load the entry
-        raw_entry = await r.hget(entries_key, best_id)
+    async def _load_entry(
+        self, r: Any, scope_key: str, entry_id: bytes, embedding: list[float]
+    ) -> CacheEntry | None:
+        """Load one entry; evict it and return ``None`` if expired or corrupt."""
+        entries_key = self._scope_entries_key(scope_key)
+        emb_key = self._scope_embeddings_key(scope_key)
+        raw_entry = await r.hget(entries_key, entry_id)
         if raw_entry is None:
             return None
 
@@ -636,7 +682,7 @@ class RedisCacheBackend:
             entry_data = json.loads(decrypted)
         except Exception:
             logger.warning("Redis cache: failed to deserialize entry, treating as miss")
-            await r.hdel(entries_key, best_id)
+            await r.hdel(entries_key, entry_id)
             return None
 
         # Deserialize LangGraph output
@@ -669,19 +715,18 @@ class RedisCacheBackend:
 
         # Check TTL (use wall clock for Redis — persists across restarts)
         if (time.time() - entry.created_at) > entry.ttl:
-            await r.hdel(entries_key, best_id)
-            await r.hdel(emb_key, best_id)
-            await r.zrem(self._scope_order_key(scope_key), best_id)
+            await r.hdel(entries_key, entry_id)
+            await r.hdel(emb_key, entry_id)
+            await r.zrem(self._scope_order_key(scope_key), entry_id)
             return None
 
         # Verify checksum
         if not entry.verify_checksum():
             logger.warning("Redis cache: checksum mismatch, evicting corrupted entry")
-            await r.hdel(entries_key, best_id)
-            await r.hdel(emb_key, best_id)
+            await r.hdel(entries_key, entry_id)
+            await r.hdel(emb_key, entry_id)
             return None
 
-        self._stats.hits += 1
         return entry
 
     async def store(self, scope_key: str, entry: CacheEntry) -> None:
@@ -835,8 +880,25 @@ class SemanticCache:
         max_total_entries: Max entries across all scopes.
         encrypt_values: Encrypt cached values at rest (Redis only).
         ttl_patterns: Regex → TTL overrides for time-sensitive queries.
-        invalidate_on_write: Evict cache when write tools fire.
-        cache_multi_turn: Cache multi-turn conversations (default: off).
+        invalidate_on_write: Evict the caller's cached responses when the
+            agent calls a write tool (see :meth:`is_write_tool`).
+        cache_multi_turn: Cache requests that carry earlier turns.  Off by
+            default: a follow-up such as "What river runs through it?"
+            means something different in every conversation, so only
+            single-message requests are cached.  When on, the earlier
+            messages are hashed into the cache key, so a follow-up only
+            hits for the same conversation history.
+        cache_tool_turns: Cache answers for turns in which the agent called
+            tools.  Off by default, so a cached answer never stands in for
+            a tool call.  When on, a turn is cached only if every tool it
+            called is read-only; a turn that called a write tool is never
+            cached, because replaying it would skip the write.
+        write_tools: Tool names (``*`` wildcards allowed) always treated as
+            writes, whatever their annotations say.
+        read_only_tools: Tool names (``*`` wildcards allowed) treated as
+            read-only, for tools without MCP annotations (for example
+            ``extra_tools``) or with wrong ones.  ``write_tools`` wins when
+            a name matches both.
         shared_data_acknowledged: Required when scope is ``"shared"``.
 
     Example::
@@ -871,6 +933,9 @@ class SemanticCache:
         ttl_patterns: dict[str, int] | None = None,
         invalidate_on_write: bool = True,
         cache_multi_turn: bool = False,
+        cache_tool_turns: bool = False,
+        write_tools: Sequence[str] | None = None,
+        read_only_tools: Sequence[str] | None = None,
         shared_data_acknowledged: bool = False,
     ) -> None:
         self._threshold = similarity_threshold
@@ -879,6 +944,12 @@ class SemanticCache:
         self._ttl_patterns = {re.compile(k): v for k, v in (ttl_patterns or {}).items()}
         self._invalidate_on_write = invalidate_on_write
         self._cache_multi_turn = cache_multi_turn
+        self._cache_tool_turns = cache_tool_turns
+        self._write_tools = [_glob_regex(p) for p in (write_tools or [])]
+        self._read_only_tools = [_glob_regex(p) for p in (read_only_tools or [])]
+        # scope_key → number of write invalidations so far.  A request
+        # that started before a write must not store what it read.
+        self._write_generation: dict[str, int] = {}
 
         # Warn if shared scope without acknowledgment
         if scope == "shared" and not shared_data_acknowledged:
@@ -925,6 +996,70 @@ class SemanticCache:
         if isinstance(self._embedding, LocalEmbeddingProvider):
             self._embedding.warmup()
 
+    def check_dependencies(self) -> None:
+        """Raise :class:`ImportError` if this cache cannot run here.
+
+        ``build_agent(cache=...)`` calls this, so a missing ``numpy`` or
+        ``sentence-transformers`` fails the build with an install hint
+        instead of silently disabling the cache on every request.  Only
+        checks that the packages are installed; :meth:`warmup` loads the
+        model.
+        """
+        import importlib.util
+
+        missing = []
+        if importlib.util.find_spec("numpy") is None:
+            missing.append("numpy")
+        if (
+            isinstance(self._embedding, LocalEmbeddingProvider)
+            and importlib.util.find_spec("sentence_transformers") is None
+        ):
+            missing.append("sentence-transformers")
+        if missing:
+            raise ImportError(
+                f"SemanticCache needs {' and '.join(missing)}, which "
+                f"{'is' if len(missing) == 1 else 'are'} not installed. Install with: "
+                f'pip install {" ".join(missing)}  (or pip install "promptise[all]"). '
+                "To embed through an API instead of a local model, pass "
+                "embedding=OpenAIEmbeddingProvider(...)."
+            )
+
+    # ── Policy ───────────────────────────────────────────────────────
+
+    def allows_conversation(self, messages: Sequence[Any]) -> bool:
+        """Whether a request with these input messages may use the cache.
+
+        A request carrying earlier turns (any user, assistant or tool
+        message before the last one) is only cached when
+        ``cache_multi_turn=True``.  System messages do not count.
+        """
+        return self._cache_multi_turn or _conversation_turns(messages) <= 1
+
+    def is_write_tool(self, name: str, annotations: Mapping[str, Any] | None = None) -> bool:
+        """Whether calling this tool may change data.
+
+        Decided in this order: a ``write_tools`` match is a write; a
+        ``read_only_tools`` match is not; otherwise the tool's MCP
+        ``readOnlyHint`` annotation decides.  A tool with no annotation
+        counts as a write -- the MCP default for ``readOnlyHint`` is false.
+        """
+        if any(p.match(name) for p in self._write_tools):
+            return True
+        if any(p.match(name) for p in self._read_only_tools):
+            return False
+        if name in _BUILTIN_READ_ONLY_TOOLS:
+            return False
+        return not (annotations or {}).get("readOnlyHint", False)
+
+    def write_generation(self, caller: Any | None = None) -> int:
+        """Number of write invalidations so far in ``caller``'s scope.
+
+        Pass the value read when a request starts to :meth:`store`; the
+        entry is dropped if a write invalidated the scope in between.
+        """
+        scope_key = self._build_scope_key(caller)
+        return self._write_generation.get(scope_key or "", 0)
+
     # ── Core API ─────────────────────────────────────────────────────
 
     async def check(
@@ -964,40 +1099,34 @@ class SemanticCache:
             return None
 
         # Embed the query
-        try:
-            embeddings = await self._embedding.embed([query_text])
-            if not embeddings:
-                logger.warning("Cache: embedding returned empty list, skipping")
-                self._backend._stats.misses += 1
-                return None
-            query_emb = embeddings[0]
-        except Exception:
-            logger.warning("Cache: embedding failed, skipping cache check", exc_info=True)
+        query_emb = await self._embed_one(query_text, "skipping cache check")
+        if query_emb is None:
             self._backend._stats.misses += 1
             return None
 
-        # Search backend
-        entry = await self._backend.search(scope_key, query_emb, self._threshold)
+        # Only entries stored under the same context, model and instructions
+        # apply -- a different context means the stored answer may be stale.
+        wanted_model = model_id or ""
 
+        def _applies(entry: CacheEntry) -> bool:
+            return (
+                entry.context_fingerprint == context_fingerprint
+                and entry.model_id == wanted_model
+                and entry.instruction_hash == instruction_hash
+            )
+
+        entry = await self._backend.search(scope_key, query_emb, self._threshold, match=_applies)
         if entry is None:
             self._backend._stats.misses += 1
             return None
 
-        # Verify context match — different context = stale answer
-        if (
-            entry.context_fingerprint != context_fingerprint
-            or entry.model_id != (model_id or "")
-            or entry.instruction_hash != instruction_hash
-        ):
-            self._backend._stats.misses += 1
-            return None
-
-        # Valid cache hit
+        self._backend._stats.hits += 1
         logger.debug(
-            "Cache hit for query %r (scope=%s, age=%.0fs)",
+            "Cache hit for query %r (scope=%s, similarity=%.3f, age=%.0fs)",
             query_text[:50],
             scope_key,
-            time.monotonic() - entry.created_at,
+            entry.similarity or 0.0,
+            entry.age,
         )
         return entry
 
@@ -1012,6 +1141,7 @@ class SemanticCache:
         model_id: str | None = None,
         instruction_hash: str = "",
         tools_used: list[str] | None = None,
+        write_generation: int | None = None,
     ) -> None:
         """Store a response in the cache.
 
@@ -1024,6 +1154,9 @@ class SemanticCache:
             model_id: LLM model identifier.
             instruction_hash: Hash of the system instructions.
             tools_used: List of tool names called during this invocation.
+            write_generation: :meth:`write_generation` read when the request
+                started.  If a write invalidated the scope since, the
+                response may predate the write and is not stored.
         """
         scope_key = self._build_scope_key(caller)
         if scope_key is None:
@@ -1032,15 +1165,24 @@ class SemanticCache:
         if not query_text.strip() or not response_text.strip():
             return
 
+        if (
+            write_generation is not None
+            and self._write_generation.get(scope_key, 0) != write_generation
+        ):
+            logger.debug(
+                "Cache: scope %s was written to during this request, not storing", scope_key
+            )
+            return
+
         # Embed the query
-        try:
-            embeddings = await self._embedding.embed([query_text])
-            if not embeddings:
-                logger.warning("Cache: embedding returned empty list, skipping store")
-                return
-            query_emb = embeddings[0]
-        except Exception:
-            logger.warning("Cache: embedding failed, skipping store", exc_info=True)
+        query_emb = await self._embed_one(query_text, "skipping store")
+        if query_emb is None:
+            return
+        # The embedding call yields: re-check that no write landed meanwhile.
+        if (
+            write_generation is not None
+            and self._write_generation.get(scope_key, 0) != write_generation
+        ):
             return
 
         # Compute TTL
@@ -1071,10 +1213,13 @@ class SemanticCache:
         )
 
     async def invalidate_for_write(self, tool_name: str, caller: Any | None = None) -> None:
-        """Invalidate cache entries after a write operation.
+        """Evict ``caller``'s cached responses after a write.
 
-        Called automatically when a tool with ``read_only_hint=False``
-        fires during an agent invocation.
+        The agent calls this when a write tool (see :meth:`is_write_tool`)
+        finishes or fails, so answers computed before the write are not
+        served after it.  Responses still in flight from before the write
+        are not stored either.  Does nothing with
+        ``invalidate_on_write=False``.
         """
         if not self._invalidate_on_write:
             return
@@ -1083,6 +1228,7 @@ class SemanticCache:
         if scope_key is None:
             return
 
+        self._write_generation[scope_key] = self._write_generation.get(scope_key, 0) + 1
         count = await self._backend.invalidate(scope_key)
         if count > 0:
             logger.debug(
@@ -1106,9 +1252,8 @@ class SemanticCache:
         Note:
             This purges the **per-user** scope (``user:<id>``), which is the
             default and the GDPR-relevant one.  A cache created with
-            ``scope="per_session"`` keys entries by session, not user, so
-            ``purge_user`` does not remove them — erase those by their
-            session scope instead.
+            ``scope="per_session"`` keys entries by the user's session, so
+            ``purge_user`` does not remove them; they expire with their TTL.
 
         Returns:
             Number of entries removed.
@@ -1147,6 +1292,18 @@ class SemanticCache:
             await self._backend.close()
 
     # ── Internals ────────────────────────────────────────────────────
+
+    async def _embed_one(self, text: str, action: str) -> list[float] | None:
+        """Embed one text, or log why not and return ``None``."""
+        try:
+            embeddings = await self._embedding.embed([text])
+        except Exception:
+            logger.warning("Cache: embedding failed, %s", action, exc_info=True)
+            return None
+        if not embeddings:
+            logger.warning("Cache: embedding returned empty list, %s", action)
+            return None
+        return embeddings[0]
 
     @staticmethod
     def _sanitize_scope_id(value: str) -> str:
@@ -1197,6 +1354,17 @@ class SemanticCache:
         digest = hashlib.sha256(material.encode()).hexdigest()
         return f"t:{digest[:40]}"
 
+    @staticmethod
+    def _session_scope_id(scoped_user: str, session_id: str) -> str:
+        """Injective, delimiter-free id for one user's session.
+
+        ``scoped_user`` comes from :meth:`_scoped_user_id`; the hash input
+        is length-prefixed, so no other ``(user, session)`` pair produces
+        the same id.
+        """
+        material = f"{len(scoped_user)}:{scoped_user}:{session_id}"
+        return hashlib.sha256(material.encode()).hexdigest()[:40]
+
     def _build_scope_key(self, caller: Any | None) -> str | None:
         """Build the scope isolation key from caller context.
 
@@ -1223,18 +1391,18 @@ class SemanticCache:
             return f"user:{safe_id}"
 
         if self._scope == "per_session":
-            session_id = (getattr(caller, "metadata", None) or {}).get("session_id")
-            if session_id:
-                # Same injective, tenant-qualified derivation as per_user
-                safe_sid = self._scoped_user_id(tenant_id, session_id)
-                if safe_sid:
-                    return f"session:{safe_sid}"
-            # Fall back to user scope
+            # A session partition always belongs to one user: session ids
+            # come from the application (often short or guessable), so two
+            # users naming the same session must not share answers.
             if user_id is None:
                 return None
             safe_id = self._scoped_user_id(tenant_id, user_id)
             if not safe_id:
                 return None
+            session_id = (getattr(caller, "metadata", None) or {}).get("session_id")
+            if session_id and str(session_id).strip():
+                return f"session:{self._session_scope_id(safe_id, str(session_id))}"
+            # No session id: fall back to the user's partition
             return f"user:{safe_id}"
 
         return None
@@ -1253,18 +1421,85 @@ class SemanticCache:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+# Promptise's own tools that never change data.
+_BUILTIN_READ_ONLY_TOOLS = frozenset({"request_more_tools"})
+
+_ROLE_ALIASES = {"user": "human", "assistant": "ai"}
+
+
+def _glob_regex(pattern: str) -> re.Pattern[str]:
+    """Compile a tool-name pattern where ``*`` matches anything."""
+    return re.compile("^" + re.escape(pattern).replace(r"\*", ".*") + "$")
+
+
+def _message_role(message: Any) -> str:
+    """Normalized role of a dict, tuple, string or LangChain message."""
+    if isinstance(message, dict):
+        role = str(message.get("role") or message.get("type") or "human")
+    elif isinstance(message, tuple) and message:
+        role = str(message[0])
+    elif isinstance(message, str):
+        role = "human"
+    else:
+        role = str(getattr(message, "type", "") or type(message).__name__)
+    return _ROLE_ALIASES.get(role, role)
+
+
+def _conversation_turns(messages: Sequence[Any]) -> int:
+    """Number of non-system messages (user, assistant and tool turns)."""
+    return sum(1 for m in messages if _message_role(m) != "system")
+
+
+def _message_digest(message: Any) -> str:
+    """Stable digest of one message: role, content and tool calls.
+
+    Tool-call ids are left out -- they are random per run, so including
+    them would make every conversation look new.
+    """
+    if isinstance(message, dict):
+        content: Any = message.get("content", "")
+        tool_calls: Any = message.get("tool_calls") or []
+        name = message.get("name")
+    elif isinstance(message, tuple):
+        content, tool_calls, name = (message[1] if len(message) > 1 else ""), [], None
+    elif isinstance(message, str):
+        content, tool_calls, name = message, [], None
+    else:
+        content = getattr(message, "content", "")
+        tool_calls = [
+            {"name": tc.get("name"), "args": tc.get("args")}
+            for tc in getattr(message, "tool_calls", None) or []
+        ]
+        name = getattr(message, "name", None)
+    material = json.dumps(
+        [_message_role(message), name, content, tool_calls], sort_keys=True, default=str
+    )
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
 def compute_context_fingerprint(
     *,
     memory_results: list[Any] | None = None,
     conversation_length: int = 0,
     instruction_hash: str = "",
     tool_set_hash: str = "",
+    history: Sequence[Any] | None = None,
 ) -> str:
     """Compute a fingerprint of the current context.
 
     Used as part of the cache key to ensure stale context doesn't
     produce stale cache hits.  Hashes the actual memory content —
     not just the count — so new memories invalidate stale cache entries.
+
+    Args:
+        memory_results: Memory search results injected for this request.
+        conversation_length: Number of input messages.
+        instruction_hash: Hash of the system instructions.
+        tool_set_hash: Hash of the tools available.
+        history: The messages before the query (earlier turns, system
+            messages).  Their role, content and tool calls are hashed, so
+            the same follow-up question in two different conversations
+            gets two different fingerprints.
     """
     # Hash actual memory content, not just count
     mem_hash = "none"
@@ -1279,13 +1514,164 @@ def compute_context_fingerprint(
                 mem_texts.append(str(r)[:200])
         mem_hash = hashlib.sha256("|".join(mem_texts).encode()).hexdigest()[:16]
 
+    hist_hash = "none"
+    if history:
+        joined = "|".join(_message_digest(m) for m in history)
+        hist_hash = hashlib.sha256(joined.encode()).hexdigest()[:32]
+
     parts = [
         f"mem:{mem_hash}",
         f"conv:{conversation_length}",
+        f"hist:{hist_hash}",
         f"inst:{instruction_hash[:16]}",
         f"tools:{tool_set_hash[:16]}",
     ]
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:32]
+
+
+def turn_tool_calls(output: Any) -> list[str]:
+    """Names of the tools called in the last turn of a graph output.
+
+    The last turn is everything after the final user message, so tool
+    calls from earlier turns in the history are not counted.
+    """
+    names: list[str] = []
+    messages = output.get("messages", []) if isinstance(output, dict) else []
+    for msg in reversed(messages):
+        if _message_role(msg) == "human":
+            break
+        for tc in getattr(msg, "tool_calls", None) or []:
+            name = tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", None)
+            if name:
+                names.append(name)
+    names.reverse()
+    return names
+
+
+def served_model(output: Any) -> str | None:
+    """Model that wrote the final answer, when a :class:`FallbackChain` recorded it."""
+    messages = output.get("messages", []) if isinstance(output, dict) else []
+    for msg in reversed(messages):
+        if _message_role(msg) == "ai":
+            metadata = getattr(msg, "response_metadata", None) or {}
+            model = metadata.get("fallback_model")
+            return str(model) if model else None
+    return None
+
+
+def answer_messages(output: Any) -> list[Any]:
+    """The final answer of a graph output: its last assistant message.
+
+    This is what the cache stores and replays.  The rest of the output --
+    the asker's own messages, injected context, tool calls and results --
+    belongs to the request that produced it, not to the one a hit serves.
+    """
+    messages = output.get("messages", []) if isinstance(output, dict) else []
+    for msg in reversed(messages):
+        if _message_role(msg) == "ai" and not (getattr(msg, "tool_calls", None) or []):
+            return [msg]
+    return []
+
+
+def replay_output(input_messages: Sequence[Any], cached_output: Any) -> dict[str, Any]:
+    """Graph output for a cache hit: this request's messages plus the cached answer."""
+    from langchain_core.messages import convert_to_messages
+
+    return {
+        "messages": [*convert_to_messages(list(input_messages)), *answer_messages(cached_output)]
+    }
+
+
+_ANNOTATION_KEYS = ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")
+
+
+def tool_annotations(tool: Any) -> Mapping[str, Any] | None:
+    """MCP annotations recorded on a LangChain tool, if any.
+
+    ``MCPToolAdapter`` (and ``langchain-mcp-adapters``) put them on
+    ``tool.metadata`` as flat keys (``{"readOnlyHint": True, ...}``).
+    """
+    metadata = getattr(tool, "metadata", None) or {}
+    hints = {k: metadata[k] for k in _ANNOTATION_KEYS if k in metadata}
+    return hints or None
+
+
+class ToolCallWatcher(AsyncCallbackHandler):
+    """Watch one request's tool calls for :class:`SemanticCache`.
+
+    Added to the run's callbacks by the agent.  When a write tool (see
+    :meth:`SemanticCache.is_write_tool`) finishes or fails, the caller's
+    cached responses are evicted at once -- before the agent writes its
+    answer, and even if the run fails afterwards.
+
+    Args:
+        cache: The agent's cache.
+        caller: The request's :class:`CallerContext`.
+        annotations: Tool name → MCP annotations for the agent's tools.
+        approval_gated: Names of the tools behind an approval gate.  A
+            turn that called one is never cached: the approval is a
+            decision about that one call, and a replayed answer would
+            skip asking.
+    """
+
+    def __init__(
+        self,
+        cache: SemanticCache,
+        caller: Any | None,
+        annotations: Mapping[str, Mapping[str, Any] | None],
+        approval_gated: Collection[str] = (),
+    ) -> None:
+        super().__init__()
+        self._cache = cache
+        self._caller = caller
+        self._annotations = annotations
+        self._approval_gated = frozenset(approval_gated)
+        self._running: dict[UUID, str] = {}
+        self.tools_called: list[str] = []
+        self.write_generation = cache.write_generation(caller)
+
+    def is_write(self, name: str) -> bool:
+        return self._cache.is_write_tool(name, self._annotations.get(name))
+
+    async def on_tool_start(
+        self,
+        serialized: dict[str, Any],
+        input_str: str,
+        *,
+        run_id: UUID,
+        **kwargs: Any,
+    ) -> None:
+        name = str((serialized or {}).get("name") or kwargs.get("name") or "")
+        self._running[run_id] = name
+        self.tools_called.append(name)
+
+    async def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any) -> None:
+        await self._finished(run_id)
+
+    async def on_tool_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
+        await self._finished(run_id)
+
+    async def _finished(self, run_id: UUID) -> None:
+        name = self._running.pop(run_id, None)
+        if name is not None and self.is_write(name):
+            await self._cache.invalidate_for_write(name, caller=self._caller)
+
+    async def settle(self, tools_in_output: Sequence[str]) -> bool:
+        """Finish the turn; return whether its answer may be cached.
+
+        ``tools_in_output`` are the tool calls found in the graph output,
+        which covers tools run without callbacks.  A write among them that
+        the watcher did not see evicts the cache now.
+        """
+        unseen_writes = [
+            n for n in tools_in_output if n not in self.tools_called and self.is_write(n)
+        ]
+        for name in unseen_writes:
+            await self._cache.invalidate_for_write(name, caller=self._caller)
+        called = [*self.tools_called, *tools_in_output]
+        if any(self.is_write(n) or n in self._approval_gated for n in called):
+            return False
+        return not called or self._cache._cache_tool_turns
 
 
 def compute_instruction_hash(instructions: str | None) -> str:
