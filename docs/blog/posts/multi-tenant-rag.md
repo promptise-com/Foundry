@@ -45,6 +45,9 @@ The honest summary: every one of these can be made secure. What none of them do 
 
 Promptise treats retrieval scope as part of identity, not a query argument. A memory/RAG provider is created in `MemoryScope.PER_USER`, and the "user" it keys on is `CallerContext.isolation_key` — `"{tenant_id}::{user_id}"` when a tenant is present, the plain `user_id` otherwise. That key is derived in exactly one place and auto-propagated from an async contextvar: you pass a `CallerContext` to `ainvoke()`, and the framework reads it back inside the retrieval layer. Your handler never touches the owner id, so there is no call site that can forget it.
 
+!!! note "Memory providers, not `RAGPipeline`"
+    The automatic per-caller scoping described here belongs to the memory providers (`InMemoryProvider`, `ChromaProvider`, `Mem0Provider`). A [`RAGPipeline`](../../core/rag.md) exposed with `rag_to_tool()` is one shared corpus: every caller of the agent can retrieve every document in it. To keep several tenants' documents in one RAG store, filter on the caller yourself, as shown in [Who can retrieve what](../../core/rag.md#who-can-retrieve-what).
+
 Here is the whole thing end to end — one user id, two tenants, one shared store, zero query changes:
 
 ```python
