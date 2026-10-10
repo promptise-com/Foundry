@@ -88,6 +88,12 @@ all = [
   "prometheus_client>=0.20.0",
 ]
 
+# pip install promptise[tool-optimization]
+# Semantic tool selection (optimize_tools="semantic"): local embeddings that
+# offer each model call only the relevant tools. Static optimization
+# ("minimal"/"standard") needs nothing extra. Also included in [all].
+tool-optimization = ["sentence-transformers>=2.2.0"]
+
 # pip install promptise[identity-aws]
 # AWS IAM federation via STS GetWebIdentityToken. Only needed for the
 # AwsStsProvider; the EKS-projected mode and every other provider work

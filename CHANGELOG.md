@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Tool optimization: semantic selection ignored its configuration and never offered the fallback** -- `optimize_tools="semantic"` always sent the model 8 tools: `semantic_top_k` was never passed to the index, `preserve_tools` were not added to the selection, and the `request_more_tools` fallback was appended after the per-request tool set was chosen, so the model never saw it (and the tools it listed weren't callable anyway). Now each model call is offered exactly the `semantic_top_k` most relevant tools, plus every preserved tool (they no longer take a relevance slot), plus `request_more_tools`. The fallback takes an optional `query` or `tool_names`, and every tool it returns is offered from the next model call on; called without arguments it returns and enables the whole catalogue. `ToolIndex.select()` returns the top `top_k` followed by the preserved tools.
+- **Tool optimization: selection now follows the conversation and the run** -- tools were chosen once per `ainvoke()` from the last message only, so a follow-up such as "Yes, go ahead." got unrelated tools (the `rollback_deployment` it confirmed disappeared). The selection query is now built from the recent conversation -- the latest user message, the assistant reply it answers, the tool calls of the previous and current turn, and earlier user turns (`semantic_context_turns`, default 3) -- and is re-evaluated before every model call, keeping tools already called in the turn. A tool the model calls that wasn't offered on that step still runs. Selection now also applies to `astream()` and `astream_with_tools()`, which used to send every tool, and to graphs passed as `agent_pattern`. The engine exposes this as a run-config tool selector (`promptise.engine.nodes.TOOL_SELECTOR_KEY`) that `PromptNode` and `CodeActionNode` consult per model call.
+- **Tool optimization: `preserve_tools` lost their parameter descriptions** -- schema minification stripped parameter descriptions from every MCP tool before the preserve check. Preserved tools now keep their full description and every parameter description.
+- **Tool optimization: a clear error when `sentence-transformers` is missing** -- `optimize_tools="semantic"` raised a bare `ModuleNotFoundError` partway through `build_agent()`. It now raises an `ImportError` naming the new `promptise[tool-optimization]` extra (also part of `[all]`), before any MCP server is connected; a failure while building the index closes the MCP connections it opened.
+- **Tool optimization: truncated descriptions ended oddly** -- truncation appended `...` after a sentence's own period ("can be restored....") and could end on a comma. It now ends on a whole sentence when that keeps at least two thirds of the budget, otherwise at a word boundary with trailing punctuation removed and a single `...`; abbreviations such as "e.g." are not treated as sentence ends.
+- **MCP client: tools without parameters got a fake `payload` parameter** -- the adapter turned an empty input schema into an optional `payload` object ("Raw payload") that the model could fill and that was then sent to the server. Such tools now have an empty object schema and are called with `{}`. A free-form object schema (`additionalProperties`) passes its keys through, and nested objects without `properties` become plain dicts.
+
+### Changed
+
+- **Docs: tool optimization savings are measured, not estimated** -- the "~40% / ~55% / ~85%" estimates are replaced by measurements on a 90-tool server with flat schemas (14% for `minimal` and `standard`, 90% for `semantic`), with guidance on when static optimization saves more. `ToolIndex` and `build_selection_query` are documented for checking selection offline.
+
 ## 1.2.1 — 2026-10-10
 
 ### Fixed
