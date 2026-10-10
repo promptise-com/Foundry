@@ -44,7 +44,8 @@ Agent reasons and decides to call send_email(to="alice@acme.com", subject="Invoi
 │
 └─ MATCH → Approval flow begins:
        ↓
-   1. Build ApprovalRequest (unique ID, tool name, redacted arguments, caller identity)
+   1. Build ApprovalRequest (unique ID, tool name, redacted arguments, caller identity,
+      agent ID, last few conversation messages)
        ↓
    2. Send to ApprovalHandler (webhook POST / async callback / UI queue)
        ↓
@@ -57,11 +58,12 @@ Agent reasons and decides to call send_email(to="alice@acme.com", subject="Invoi
    5. Decision received (or timeout triggers on_timeout action)
        ↓
    ┌─ APPROVED → tool executes with original (or modified) arguments → agent continues
+   │             (modified: the result starts with a note naming the changes)
    ├─ DENIED → tool returns "DENIED: reason" as result → agent adapts
    └─ TIMEOUT → on_timeout="deny" returns denial / on_timeout="allow" proceeds
 ```
 
-**Key principle:** The LLM doesn't know approval exists. It calls tools normally. The approval wrapper intercepts matching tool calls transparently. On approval, the tool runs. On denial, the tool returns a "DENIED" message as its result — the LLM sees this and adapts (tries alternatives, asks for help, or reports it can't proceed).
+**Key principle:** The LLM calls tools normally. The approval wrapper intercepts matching tool calls. On approval, the tool runs. On denial, the tool returns a "DENIED" message as its result — the LLM sees this and adapts (tries alternatives, asks for help, or reports it can't proceed). If the reviewer changed the arguments, the result says so, so the LLM doesn't mistake the edited outcome for the one it asked for.
 
 ---
 
@@ -104,7 +106,11 @@ policy = ApprovalPolicy(
     include_arguments=True,       # Show tool args to reviewer
     redact_sensitive=True,        # Redact PII/credentials in args
     max_pending=10,               # Max 10 concurrent pending approvals
-    max_retries_after_deny=3,     # Permanent deny after 3 retries
+    max_retries_after_deny=3,     # Stop asking after 3 denials...
+    deny_window=600,              # ...within 10 minutes...
+    deny_scope="session",         # ...for the same user and session
+    sequential=False,             # Ask about parallel calls concurrently
+    context_messages=3,           # Conversation messages shown to the reviewer
 )
 ```
 
@@ -131,9 +137,14 @@ That's it. Every tool call matching your patterns now requires human approval.
 | `timeout` | `float` | `300` | Seconds to wait for a decision before `on_timeout` triggers. Min: > 0. Max: 86,400 (24 hours). |
 | `on_timeout` | `"deny" \| "allow"` | `"deny"` | Action when timeout expires. `"deny"` is the safe default. Use `"allow"` only for non-critical, low-risk tools. |
 | `include_arguments` | `bool` | `True` | Include tool arguments in the approval request. Set to `False` to hide arguments from reviewers (e.g., when arguments contain data the reviewer shouldn't see). |
-| `redact_sensitive` | `bool` | `True` | Run arguments through PII/credential detection before sending to the reviewer. Requires the guardrails module. Falls back to raw arguments if guardrails are not installed. |
+| `redact_sensitive` | `bool` | `True` | Run the arguments and `context_summary` through PII/credential detection before sending them to the reviewer. Each string value is redacted on its own, so the arguments keep their structure. See [Argument Redaction](#argument-redaction). If the scan fails, a warning is logged and the reviewer gets the raw arguments. |
 | `max_pending` | `int` | `10` | Maximum concurrent pending approvals per agent. When reached, additional tool calls are auto-denied with "Too many pending approval requests." |
-| `max_retries_after_deny` | `int` | `3` | After this many denials of the same tool name, return a permanent denial message. Prevents the LLM from retrying the same denied tool in an infinite loop. |
+| `max_retries_after_deny` | `int \| None` | `3` | After this many denials of the same tool, within `deny_window` and for the same `deny_scope`, the tool is denied without asking the reviewer. Stops the LLM from retrying a denied tool in a loop. `None` disables the limit. See [Repeated denials](#repeated-denials). |
+| `deny_window` | `float \| None` | `600` | Seconds a denial counts towards `max_retries_after_deny`. `None` keeps denials until the agent is rebuilt. |
+| `deny_scope` | `"session" \| "user" \| "agent"` | `"session"` | Whose denials count together: the same user in the same `chat()` session, the same user across sessions, or every caller of the agent. |
+| `sequential` | `bool` | `False` | Ask about one call at a time. When the model requests several gated calls in one turn, they run concurrently and their requests reach the handler together. With `True`, each request waits until the previous one in the same invocation is decided. |
+| `context_messages` | `int` | `3` | How many of the conversation's last user/assistant messages go into `context_summary`. `0` leaves it empty. |
+| `metadata` | `dict \| Callable \| None` | `None` | Extra `ApprovalRequest.metadata`: a dict, or a callable `(tool_name, arguments) -> dict` (sync or async). The callable receives the **unredacted** arguments. |
 
 ---
 
@@ -146,20 +157,36 @@ Every handler receives an `ApprovalRequest` with these fields:
 | `request_id` | `str` | Cryptographically random unique ID (`secrets.token_hex(16)` — 32 hex chars). Use this to match requests with decisions. |
 | `tool_name` | `str` | The name of the tool the agent wants to call (e.g., `"send_email"`). |
 | `arguments` | `dict` | The tool arguments. Redacted if `redact_sensitive=True` — e.g., `{"to": "[EMAIL]", "body": "..."}`. Empty dict if `include_arguments=False`. |
-| `agent_id` | `str \| None` | Agent or process identifier (set automatically in runtime). |
+| `agent_id` | `str \| None` | The agent's identifier: the `AgentIdentity`'s agent id, or `build_agent(observer_agent_id=...)`. In the [Agent Runtime](#integration-with-agent-runtime), it is the process name. `None` when the agent has neither. |
 | `caller_user_id` | `str \| None` | The `user_id` from `CallerContext` — identifies which user triggered the action. |
-| `context_summary` | `str` | Brief context for the reviewer (can be customized). |
+| `context_summary` | `str` | The last `context_messages` user/assistant messages of the conversation the invocation started from, one per line (`user: ...` / `assistant: ...`, each cut to 500 characters). Redacted like the arguments. Empty outside `ainvoke()` / `chat()` / `astream()` or with `context_messages=0`. |
 | `timestamp` | `float` | When the request was created (`time.time()`). |
 | `timeout` | `float` | How long the handler has to respond before the default action triggers. |
-| `metadata` | `dict` | Developer-provided custom data (passed through unchanged). |
+| `metadata` | `dict` | `source` (`"agent"`), `session_id` (from `chat()` or `CallerContext.metadata["session_id"]`) and `tenant_id` when known, plus whatever `ApprovalPolicy(metadata=...)` adds. |
+
+For a `chat("Refund order A-1001, the mug arrived broken", session_id="s-9", caller=CallerContext(user_id="alice"))` on an agent built with `observer_agent_id="support-bot"`, the handler receives:
+
+```python
+ApprovalRequest(
+    request_id="6f1c…",
+    tool_name="issue_refund",
+    arguments={"order_id": "A-1001", "amount": 18.5, "reason": "Item arrived broken"},
+    agent_id="support-bot",
+    caller_user_id="alice",
+    context_summary="user: Refund order A-1001, the mug arrived broken",
+    timeout=300.0,
+    metadata={"source": "agent", "session_id": "s-9"},
+)
+```
 
 **HMAC signature:**
 
 ```python
-# Compute a signature for tamper-proof webhook delivery
+# The signature WebhookApprovalHandler sends as X-Promptise-Signature
 signature = request.compute_hmac("your-secret-key")
-# Returns a hex string — include in X-Promptise-Signature header
 ```
+
+It covers `request_id`, `tool_name`, `arguments`, `agent_id`, `caller_user_id` and `timestamp`. Check it on the receiving side with [`verify_webhook_signature()`](#hmac-verification-on-your-approval-service).
 
 **Serialization:**
 
@@ -175,7 +202,7 @@ payload = request.to_dict()
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `approved` | `bool` | **required** | Whether the tool call is approved. |
-| `modified_arguments` | `dict \| None` | `None` | If the reviewer edited the arguments. When set, the tool executes with these arguments instead of the originals. |
+| `modified_arguments` | `dict \| None` | `None` | The reviewer's edits, **merged onto the original arguments**: each top-level field given here replaces the original value, and fields left out keep theirs. `{"amount": 9.25}` changes only the amount. A field sent back exactly as the request showed it (e.g. a redacted `"[EMAIL]"`) keeps its original value, so `{**request.arguments, "amount": 9.25}` is safe with redaction on. A nested value replaces the whole field. The merged arguments are validated against the tool's schema before the tool runs. |
 | `reviewer_id` | `str \| None` | `None` | Who made the decision (for audit trail). |
 | `reason` | `str \| None` | `None` | Optional explanation shown to the agent on denial. |
 | `timestamp` | `float` | `time.time()` | When the decision was made. |
@@ -251,6 +278,7 @@ handler = WebhookApprovalHandler(
 | `poll_interval` | `float` | `2.0` | Seconds between poll attempts. Min: 0.5. |
 | `headers` | `dict[str, str] \| None` | `None` | Custom HTTP headers (e.g., auth tokens, API keys). |
 | `http_client` | `httpx.AsyncClient \| None` | `None` | Pre-configured HTTP client. Use for proxy, mTLS, custom CA certificates, or any httpx configuration. |
+| `allow_private_networks` | `bool` | `False` | Allow `url` and `poll_url` to point at localhost, private, link-local or reserved addresses. Off by default (see [SSRF Protection](#ssrf-protection)). Turn it on when your approval service runs on your own network. |
 
 **Webhook flow:**
 
@@ -278,16 +306,45 @@ handler = WebhookApprovalHandler(
 5. On timeout: handler raises TimeoutError → on_timeout action triggers
 ```
 
-**HMAC verification (server-side):**
+#### HMAC verification on your approval service
+
+Verify `X-Promptise-Signature` with `verify_webhook_signature()`. Pass it the raw request body, the header and the handler's `secret`:
 
 ```python
-import hmac, hashlib, json
+import os
 
-def verify_signature(request_id, tool_name, received_signature, secret):
-    payload = json.dumps({"request_id": request_id, "tool_name": tool_name}, sort_keys=True)
+from fastapi import FastAPI, HTTPException, Request
+from promptise.approval import verify_webhook_signature
+
+app = FastAPI()
+
+@app.post("/requests")
+async def receive_approval_request(request: Request):
+    body = await request.body()
+    if not verify_webhook_signature(
+        body,
+        request.headers.get("X-Promptise-Signature"),
+        os.environ["APPROVAL_WEBHOOK_SECRET"],
+        max_age=300,  # also reject requests older than 5 minutes (replay protection)
+    ):
+        raise HTTPException(status_code=401)
+    ...
+```
+
+It returns `True` only when the body is a JSON object with every signed field and the signature matches. With `max_age` set, the `timestamp` must also be within that many seconds of now. To verify without Promptise installed, compute the same value yourself. The signature is HMAC-SHA256 over sorted-key JSON of the six signed fields:
+
+```python
+import hashlib, hmac, json
+
+SIGNED_FIELDS = ("request_id", "tool_name", "arguments", "agent_id", "caller_user_id", "timestamp")
+
+def verify_signature(body: dict, received_signature: str, secret: str) -> bool:
+    payload = json.dumps({k: body[k] for k in SIGNED_FIELDS}, sort_keys=True, default=str)
     expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, received_signature)
 ```
+
+`context_summary`, `timeout` and `metadata` are not signed.
 
 **Enterprise proxy / mTLS configuration:**
 
@@ -304,6 +361,7 @@ client = httpx.AsyncClient(
 handler = WebhookApprovalHandler(
     url="https://internal-approval-api.corp.com/requests",
     http_client=client,
+    allow_private_networks=True,  # if the hostname resolves to a private IP
 )
 ```
 
@@ -336,6 +394,7 @@ async def approval_ui_loop():
             new_to = input("New recipient: ")
             handler.submit_decision(request.request_id, ApprovalDecision(
                 approved=True,
+                # Merged onto the original call: subject and body are kept
                 modified_arguments={"to": new_to},
             ))
         else:
@@ -395,11 +454,11 @@ assert isinstance(handler, ApprovalHandler)  # True
 
 ## What the Agent Sees
 
-The approval system is transparent to the LLM. It doesn't know approval is happening — it just calls tools and receives results.
+The LLM calls tools and receives results. It only learns that approval happened when a call is denied or the reviewer changes its arguments.
 
 ### Approved
 
-The tool executes normally. The agent sees the tool's actual result. It has no idea approval was involved.
+The tool executes normally. The agent sees the tool's actual result.
 
 ### Denied
 
@@ -424,19 +483,30 @@ The reviewer's reason is included, helping the agent understand why and adapt mo
 
 ### Modified arguments
 
-The reviewer approves but changes the arguments. The tool executes with the modified arguments. The agent sees the result of the modified call.
-
-Example: Agent calls `send_email(to="all-staff@acme.com")`. Reviewer changes to `to="marketing-team@acme.com"`. Agent sees the result of sending to marketing-team.
-
-### Permanent denial
-
-After `max_retries_after_deny` denials of the same tool:
+The reviewer approves but changes the arguments. The tool executes with the modified arguments. The result starts with a note naming each change, so the agent knows its request was not carried out as sent:
 
 ```
-DENIED: This action was permanently denied after 3 attempts. Do not retry this tool.
+[Approved with modified arguments] A reviewer changed amount: 18.5 -> 9.25. The tool ran with the modified arguments and the result below reflects them; treat the reviewer's values as final.
+
+{"refund_id": "R-0001", "order_id": "A-1001", "amount": 9.25, "status": "refunded"}
 ```
 
-This stops the agent from wasting reviewer time by retrying the same denied action.
+Without the note, an agent that asked for a full $18.50 refund and got $9.25 back would read the result as a partial failure and refund the rest itself. A reviewer's decision that changes nothing adds no note. Tools that return content blocks get the note as a leading text block.
+
+### Repeated denials
+
+After `max_retries_after_deny` denials of the same tool, the reviewer isn't asked again for a while:
+
+```
+DENIED: This action was already denied 3 times in the last 10 minutes, so the reviewer was not asked again. Do not retry this tool.
+```
+
+This stops the agent from wasting reviewer time by retrying the same denied action. The limit is scoped and expires:
+
+- **Scope** (`deny_scope`): by default, denials count per user (`CallerContext`, tenant-qualified) **and** `chat()` session. Another user or session is asked as usual. `"user"` counts across a user's sessions, and `"agent"` counts across every caller. Without a `CallerContext`, all callers share one count, so pass one in multi-user deployments.
+- **Window** (`deny_window`): denials older than 10 minutes (by default) stop counting. `None` keeps them until the agent is rebuilt.
+- **Reset**: an approval of the tool clears its count for that scope.
+- **What counts**: a reviewer's denial, and a timeout with `on_timeout="deny"`. Handler errors don't count, because no reviewer said no.
 
 ---
 
@@ -447,10 +517,10 @@ This stops the agent from wasting reviewer time by retrying the same denied acti
 `WebhookApprovalHandler` signs every request with HMAC-SHA256:
 
 - Header: `X-Promptise-Signature`
-- Payload: JSON of `{"request_id": "...", "tool_name": "..."}` (sorted keys)
+- Payload: sorted-key JSON of `request_id`, `tool_name`, `arguments`, `agent_id`, `caller_user_id` and `timestamp` (`promptise.approval.SIGNED_FIELDS`)
 - Secret: Your `secret` parameter
 
-Verify this in your approval API to reject spoofed requests.
+Verify this in your approval API with [`verify_webhook_signature()`](#hmac-verification-on-your-approval-service) to reject spoofed requests, and pass `max_age` to reject replayed ones.
 
 ### Single-Use Request IDs
 
@@ -458,12 +528,22 @@ Every `request_id` is generated with `secrets.token_hex(16)` — 128 bits of cry
 
 ### Argument Redaction
 
-When `redact_sensitive=True` (default), tool arguments are processed through the guardrails system before being sent to the reviewer:
+When `redact_sensitive=True` (default), tool arguments and `context_summary` are processed through the guardrails PII and credential detectors before being sent to the reviewer:
 
 - PII patterns: email addresses, phone numbers, SSNs → `[EMAIL]`, `[PHONE]`, `[SSN]`
 - Credential patterns: API keys, tokens → `[AWS_ACCESS_KEY]`, `[OPENAI_KEY]`
 
-The reviewer sees enough to make a decision without seeing raw sensitive data.
+Each string value is redacted on its own, including strings nested in dicts and lists. Keys, numbers, booleans and the structure are kept:
+
+```python
+{"to": "dana@example.com", "subject": "Your refund", "body": "Call +1 415 555 0100."}
+# → {"to": "[EMAIL]", "subject": "Your refund", "body": "Call [PHONE]."}
+
+{"order_id": "A-1001", "amount": 18.5}
+# → unchanged
+```
+
+The reviewer sees enough to make a decision without seeing raw sensitive data. Detection is pattern-based, so a value is only redacted when it looks like one of the known formats. Set `include_arguments=False` when the arguments must not reach the reviewer at all.
 
 ### SSRF Protection
 
@@ -473,6 +553,20 @@ The reviewer sees enough to make a decision without seeing raw sensitive data.
 - Blocks loopback (127.x)
 - Blocks link-local (169.254.x — cloud metadata endpoints)
 - Blocks `localhost` and known internal hostnames
+
+`poll_url` is checked the same way. If your approval service runs on your own network (`https://ops.internal/approvals`, `http://10.0.4.2:8080/approvals`), opt in explicitly:
+
+```python
+import os
+
+from promptise import WebhookApprovalHandler
+
+handler = WebhookApprovalHandler(
+    url="https://ops.internal/approvals",
+    secret=os.environ["APPROVAL_WEBHOOK_SECRET"],
+    allow_private_networks=True,
+)
+```
 
 ### Timeout Enforcement
 
@@ -512,6 +606,11 @@ approval:
   max_pending: 10
   redact_sensitive: true
   max_retries_after_deny: 3
+  deny_window: 600
+  deny_scope: session            # session | user | agent
+  sequential: false
+  context_messages: 3
+  webhook_allow_private_networks: false   # true for a webhook_url on your own network
 ```
 
 Supported handler types in YAML: `webhook` (requires `webhook_url`), `queue`.
@@ -526,6 +625,8 @@ Supported handler types in YAML: `webhook` (requires `webhook_url`), `queue`.
 Approval works seamlessly with autonomous agents in the runtime:
 
 ```python
+import os
+
 from promptise.runtime import ProcessConfig, TriggerConfig
 from promptise import ApprovalPolicy, WebhookApprovalHandler
 
@@ -535,13 +636,17 @@ config = ProcessConfig(
     triggers=[TriggerConfig(type="cron", cron_expression="*/5 * * * *")],
     approval=ApprovalPolicy(
         tools=["process_refund", "delete_account", "escalate_to_legal"],
-        handler=WebhookApprovalHandler(url="https://ops.internal/approvals"),
+        handler=WebhookApprovalHandler(
+            url="https://ops.internal/approvals",
+            secret=os.environ["APPROVAL_WEBHOOK_SECRET"],
+            allow_private_networks=True,  # ops.internal resolves to a private IP
+        ),
         timeout=600,
     ),
 )
 ```
 
-When the autonomous agent hits a tool requiring approval at 3am, the webhook fires, the ops team gets notified, and the agent waits.
+When the autonomous agent hits a tool requiring approval at 3am, the webhook fires, the ops team gets notified, and the agent waits. Requests from a process carry its name as `agent_id` (unless the process has an `identity`, whose agent id is used), so the ops team can see which process is asking. Triggered runs have no `CallerContext`, so with the default `deny_scope="session"` all of a process's runs share one denial count.
 
 ---
 
@@ -577,11 +682,12 @@ Cached responses bypass approval entirely — tools aren't called on cache hits,
 | **Tool doesn't match any pattern** | Executes immediately, zero overhead. |
 | **Approval arrives after timeout** | Discarded. Agent already received the timeout decision. Late approvals are logged. |
 | **Agent crash during pending approval** | On restart, the pending approval is gone. The agent starts fresh. |
-| **Multiple tools need approval in one invocation** | Each is handled independently, sequentially. The second approval starts after the first resolves. |
-| **Agent retries denied tool** | Tracked per tool name. After `max_retries_after_deny`, returns permanent denial without asking reviewer again. |
+| **Multiple tools need approval in one invocation** | When the model requests them in the same turn, they run concurrently, so the handler receives all requests at once and each is decided independently. Set `sequential=True` to ask one at a time: each request waits until the previous one in the same invocation is decided. Other invocations aren't held up. |
+| **Agent retries denied tool** | After `max_retries_after_deny` denials of that tool within `deny_window`, for the same user and session (`deny_scope`), it is denied without asking the reviewer. Other users and sessions are still asked. See [Repeated denials](#repeated-denials). |
 | **max_pending reached** | Additional tool calls are auto-denied: "Too many pending approval requests." |
 | **Handler throws an exception** | Treated as denial: "Approval handler error: {error type}." Agent continues. |
-| **Reviewer modifies arguments to invalid values** | The tool executes with modified arguments. If the tool validates internally (Pydantic), it will fail with a tool error. |
+| **Reviewer modifies only some arguments** | Merged onto the original call; the other arguments are kept. |
+| **Reviewer modifies arguments to invalid values** | The merged arguments are validated against the tool's schema first. Invalid values fail the call with a validation error, and the tool doesn't run. |
 | **No CallerContext provided** | Approval still works. `caller_user_id` is `None` in the request. |
 
 ---
@@ -597,6 +703,8 @@ Cached responses bypass approval entirely — tools aren't called on cache hits,
 | `CallbackApprovalHandler` | `from promptise import CallbackApprovalHandler` | Wrap an async callable or plain function |
 | `WebhookApprovalHandler` | `from promptise import WebhookApprovalHandler` | POST to URL + poll for decision |
 | `QueueApprovalHandler` | `from promptise import QueueApprovalHandler` | asyncio.Queue for in-process UIs |
+| `verify_webhook_signature` | `from promptise.approval import verify_webhook_signature` | Check `X-Promptise-Signature` on your approval service |
+| `wrap_tools_with_approval` | `from promptise.approval import wrap_tools_with_approval` | Gate a list of tools without `build_agent()` |
 
 ---
 
@@ -605,15 +713,16 @@ Cached responses bypass approval entirely — tools aren't called on cache hits,
 If you're not using `build_agent()`, you can wrap tools manually:
 
 ```python
-from promptise import wrap_tools_with_approval, ApprovalPolicy, CallbackApprovalHandler
+from promptise import ApprovalPolicy, CallbackApprovalHandler
+from promptise.approval import wrap_tools_with_approval
 
 policy = ApprovalPolicy(
     tools=["send_*", "delete_*"],
     handler=CallbackApprovalHandler(my_handler),
 )
 
-# Wrap a list of LangChain BaseTool instances
-wrapped_tools = wrap_tools_with_approval(tools, policy, event_notifier=notifier)
+# Wrap a list of LangChain BaseTool instances (MCP tools, @tool functions, ...)
+wrapped_tools = wrap_tools_with_approval(tools, policy, event_notifier=notifier, agent_id="billing-bot")
 # Tools matching patterns are wrapped; others pass through unchanged
 ```
 
@@ -622,7 +731,10 @@ wrapped_tools = wrap_tools_with_approval(tools, policy, event_notifier=notifier)
 | `tools` | `list[BaseTool]` | Tools to potentially wrap |
 | `policy` | `ApprovalPolicy` | Which tools need approval and how |
 | `event_notifier` | `EventNotifier \| None` | Optional notifier for approval events |
+| `agent_id` | `str \| None` | Sent as `ApprovalRequest.agent_id` and on events |
 | **Returns** | `list[BaseTool]` | New list with matching tools wrapped |
+
+Call it once per agent: the wrapped tools share their state (pending count, denial counts). Outside `build_agent()`, `context_summary` stays empty and denials are scoped by the `CallerContext` and session in effect when the tool runs, if any.
 
 ---
 

@@ -888,8 +888,16 @@ _pii(
     "National Drug Code (NDC)",
     group="drug_code",
 )
+# Blood type — contextual: a bare "A-" or "B+" is far more often an ID prefix
+# ("A-1001") or a grade than a blood type, so require "blood type/group".
 _pii(
-    "blood_type", "medical", r"\b(?:A|B|AB|O)[+-]\b", Severity.LOW, "Blood type", group="blood_type"
+    "blood_type",
+    "medical",
+    r"(?i)\bblood[\s_-]*(?:type|group)\s*(?:is\s+)?[:=]?\s*(?:AB|A|B|O)\s?"
+    r"(?:[+-]|(?:Rh\s*)?(?:pos|neg)(?:itive|ative)?\b)(?![\w+-])",
+    Severity.LOW,
+    "Blood type (contextual)",
+    group="blood_type",
 )
 
 # ── Date of birth (contextual) ──
@@ -2930,13 +2938,19 @@ class PromptiseSecurityScanner:
     def _apply_redactions(text: str, findings: list[SecurityFinding]) -> str:
         """Replace detected spans with redaction labels.
 
-        Processes findings in reverse order (right to left) so character
-        offsets remain valid after each replacement.
+        Overlapping spans (two patterns matching the same phone number, say)
+        are merged first and replaced once, labelled by the earliest and
+        longest finding; replacing each one separately would cut into the
+        text after the first replacement.  Spans are then replaced right to
+        left so character offsets remain valid.
         """
-        # Sort by start position descending
-        sorted_findings = sorted(findings, key=lambda f: f.start, reverse=True)
+        spans: list[list[Any]] = []  # [start, end, label]
+        for f in sorted(findings, key=lambda f: (f.start, -f.end)):
+            if spans and f.start < spans[-1][1]:
+                spans[-1][1] = max(spans[-1][1], f.end)
+            else:
+                spans.append([f.start, f.end, f"[{f.category.upper()}]"])
         result = text
-        for f in sorted_findings:
-            label = f"[{f.category.upper()}]"
-            result = result[: f.start] + label + result[f.end :]
+        for start, end, label in reversed(spans):
+            result = result[:start] + label + result[end:]
         return result

@@ -9,6 +9,7 @@ from .approval import (
     CallbackApprovalHandler,
     QueueApprovalHandler,
     WebhookApprovalHandler,
+    verify_webhook_signature,
 )
 from .approval_classifier import (
     DEFAULT_READ_ONLY_PREFIXES,
@@ -247,6 +248,7 @@ __all__ = [
     "CallbackApprovalHandler",
     "WebhookApprovalHandler",
     "QueueApprovalHandler",
+    "verify_webhook_signature",
     "AutoApprovalClassifier",
     "ApprovalRule",
     "ClassifierStats",

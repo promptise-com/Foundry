@@ -128,6 +128,41 @@ def get_current_caller() -> CallerContext | None:
     return _caller_ctx_var.get()
 
 
+@dataclass(frozen=True)
+class _Invocation:
+    """The running ``ainvoke()`` / ``astream()`` call, for approval gates.
+
+    Attributes:
+        invocation_id: Random id, unique per invocation.
+        messages: The input messages the invocation started from.
+    """
+
+    invocation_id: str
+    messages: tuple[Any, ...]
+
+
+_invocation_ctx_var: contextvars.ContextVar[_Invocation | None] = contextvars.ContextVar(
+    "promptise_invocation", default=None
+)
+# The ``chat()`` session id, while that session's invocation runs.
+_session_ctx_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "promptise_session", default=None
+)
+
+
+def _begin_invocation(input: Any) -> contextvars.Token[_Invocation | None]:
+    """Record the invocation that is starting; reset the returned token after."""
+    import secrets
+
+    messages = input.get("messages") if isinstance(input, Mapping) else None
+    return _invocation_ctx_var.set(
+        _Invocation(
+            invocation_id=secrets.token_hex(8),
+            messages=tuple(messages) if isinstance(messages, (list, tuple)) else (),
+        )
+    )
+
+
 from .tools import MCPClientError
 
 # Model can be a provider string (handled by LangChain), a chat model instance, or a Runnable.
@@ -341,6 +376,7 @@ class PromptiseAgent:
         if caller is None:
             caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
+        _inv_token = _begin_invocation(input)
         try:
             # Enforce max_invocation_time if configured
             timeout = getattr(self, "_max_invocation_time", 0)
@@ -378,6 +414,7 @@ class PromptiseAgent:
                 )
             raise
         finally:
+            _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
 
     async def _ainvoke_inner(
@@ -776,10 +813,12 @@ class PromptiseAgent:
             caller: Optional :class:`CallerContext` for per-request identity.
         """
         _ctx_token = _caller_ctx_var.set(caller)
+        _inv_token = _begin_invocation(input)
         try:
             async for chunk in self._astream_inner(input, config, **kwargs):
                 yield chunk
         finally:
+            _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
 
     async def _astream_inner(
@@ -870,6 +909,7 @@ class PromptiseAgent:
         )
 
         _ctx_token = _caller_ctx_var.set(caller)
+        _inv_token = _begin_invocation(input)
         _start = time.monotonic()
         _cumulative = ""
         _tool_counter = 0
@@ -1095,6 +1135,7 @@ class PromptiseAgent:
                 )
 
         finally:
+            _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
 
     # -----------------------------------------------------------------
@@ -1393,8 +1434,12 @@ class PromptiseAgent:
 
         lc_messages.append(HumanMessage(content=message))
 
-        # Step 4: Invoke the agent
-        output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+        # Step 4: Invoke the agent (the session id scopes approval-gate state)
+        _session_token = _session_ctx_var.set(session_id)
+        try:
+            output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+        finally:
+            _session_ctx_var.reset(_session_token)
 
         # Step 5: Extract assistant response text
         response_text = _extract_response_text(output)
@@ -2283,7 +2328,7 @@ async def build_agent(
     if approval is not None:
         from .approval import wrap_tools_with_approval
 
-        tools = wrap_tools_with_approval(tools, approval, event_notifier=events)
+        tools = wrap_tools_with_approval(tools, approval, event_notifier=events, agent_id=_obs_aid)
 
     graph = _build_graph(tools)
 
