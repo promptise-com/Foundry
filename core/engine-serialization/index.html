@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Save and load graphs as YAML files or Python dicts. Register custom node types for full round-trip support.">
+        <meta name="description" content="Save and load graphs as YAML files or Python dicts. A saved graph loads back as the same graph: every node setting round-trips, or saving refuses with an error">
       
       
         <meta name="author" content="Manser Ventures">
@@ -93,7 +93,7 @@
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
   <meta property="og:title" content="Serialization & YAML">
-  <meta property="og:description" content="Save and load graphs as YAML files or Python dicts. Register custom node types for full round-trip support.">
+  <meta property="og:description" content="Save and load graphs as YAML files or Python dicts. A saved graph loads back as the same graph: every node setting round-trips, or saving refuses with an error">
   <meta property="og:url" content="https://docs.promptise.com/core/engine-serialization/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -103,7 +103,7 @@
   
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Serialization & YAML">
-  <meta name="twitter:description" content="Save and load graphs as YAML files or Python dicts. Register custom node types for full round-trip support.">
+  <meta name="twitter:description" content="Save and load graphs as YAML files or Python dicts. A saved graph loads back as the same graph: every node setting round-trips, or saving refuses with an error">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -179,7 +179,7 @@
       "@type": "TechArticle",
       "headline": "Serialization \u0026 YAML",
       "name": "Serialization \u0026 YAML",
-      "description": "Save and load graphs as YAML files or Python dicts. Register custom node types for full round-trip support.",
+      "description": "Save and load graphs as YAML files or Python dicts. A saved graph loads back as the same graph: every node setting round-trips, or saving refuses with an error",
       "url": "https://docs.promptise.com/core/engine-serialization/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -4089,6 +4089,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-round-trips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Round-Trips
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-cant-be-saved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Can't Be Saved
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#yaml-format" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4096,6 +4118,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="YAML Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#edge-config-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edge Config Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -4107,45 +4146,6 @@
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Python Dict Format">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#graph_to_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        graph_to_config
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#graph_from_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        graph_from_config
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#node_to_config-node_from_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node_to_config / node_from_config
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -4165,17 +4165,6 @@
     <span class="md-ellipsis">
       
         Custom Node Types
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#edge-config-format" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Edge Config Format
       
     </span>
   </a>
@@ -9305,6 +9294,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-round-trips" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Round-Trips
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-cant-be-saved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Can't Be Saved
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#yaml-format" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9312,6 +9323,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="YAML Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#edge-config-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Edge Config Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9323,45 +9351,6 @@
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Python Dict Format">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#graph_to_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        graph_to_config
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#graph_from_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        graph_from_config
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#node_to_config-node_from_config" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        node_to_config / node_from_config
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -9381,17 +9370,6 @@
     <span class="md-ellipsis">
       
         Custom Node Types
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#edge-config-format" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Edge Config Format
       
     </span>
   </a>
@@ -9468,98 +9446,231 @@
 
 
 <h1 id="serialization-yaml">Serialization &amp; YAML<a class="headerlink" href="#serialization-yaml" title="Link to this section">&para;</a></h1>
-<p>Save and load graphs as YAML files or Python dicts. Register custom node types for full round-trip support.</p>
+<p>Save and load graphs as YAML files or Python dicts. A saved graph loads back as the same graph: every node setting round-trips, or saving refuses with an error that names the node and the setting.</p>
 <h2 id="save-a-graph">Save a Graph<a class="headerlink" href="#save-a-graph" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_graph</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">save_graph</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">"my-agent.yaml"</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptGraph</span><span class="p">,</span> <span class="n">PromptNode</span><span class="p">,</span> <span class="n">ValidateNode</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_graph</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">Verdict</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">passes</span><span class="p">:</span> <span class="nb">bool</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">issues</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">PromptGraph</span><span class="p">(</span><span class="s2">"checked-answer"</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"static"</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"answer"</span><span class="p">,</span> <span class="n">inject_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default_next</span><span class="o">=</span><span class="s2">"verify"</span><span class="p">))</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">ValidateNode</span><span class="p">(</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="s2">"verify"</span><span class="p">,</span> <span class="n">output_schema</span><span class="o">=</span><span class="n">Verdict</span><span class="p">,</span> <span class="n">on_pass</span><span class="o">=</span><span class="s2">"__end__"</span><span class="p">,</span> <span class="n">on_fail</span><span class="o">=</span><span class="s2">"answer"</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">))</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">graph</span><span class="o">.</span><span class="n">set_entry</span><span class="p">(</span><span class="s2">"answer"</span><span class="p">)</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">save_graph</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">"my-agent.yaml"</span><span class="p">)</span>
 </span></code></pre></div>
+<p>The file is written only if the whole graph can be represented (see <a href="#what-cant-be-saved">What can't be saved</a>).</p>
 <h2 id="load-a-graph">Load a Graph<a class="headerlink" href="#load-a-graph" title="Link to this section">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_graph</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">load_graph</span><span class="p">(</span><span class="s2">"my-agent.yaml"</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">load_graph</span><span class="p">(</span><span class="s2">"my-agent.yaml"</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="n">agent</span><span class="o">.</span><span class="n">tools</span><span class="p">,</span> <span class="n">refs</span><span class="o">=</span><span class="p">[</span><span class="n">Verdict</span><span class="p">])</span>
 </span></code></pre></div>
-<p>Supports top-level graph config or nested under a <code>graph</code> key.</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>What it's for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tools</code></td>
+<td>Tools are saved by name. Pass the tools to resolve them against — a list (typically <code>agent.tools</code>) or a <code>{name: tool}</code> mapping. A name that isn't provided raises.</td>
+</tr>
+<tr>
+<td><code>refs</code></td>
+<td>Python objects the file references by import path — <code>output_schema</code> models, processors, edge conditions, <code>@node</code> functions. Pass them as a list (or a <code>{"module:QualName": obj}</code> mapping). References into <code>promptise</code> itself resolve without it.</td>
+</tr>
+<tr>
+<td><code>allow_imports</code></td>
+<td>Import any other reference instead of requiring <code>refs</code>. Importing a module runs its code — only for files you trust. Default <code>False</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>The file may hold the graph at the top level or under a <code>graph</code> key.</p>
+<h2 id="what-round-trips">What Round-Trips<a class="headerlink" href="#what-round-trips" title="Link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Stored as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Instructions, transitions, <code>default_next</code>, <code>max_iterations</code>, metadata</td>
+<td>Plain data</td>
+</tr>
+<tr>
+<td>Every node type's own settings — <code>input_keys</code>, <code>output_key</code>, <code>inherit_context_from</code>, <code>context_scope</code>, <code>temperature</code>, <code>on_pass</code>/<code>on_fail</code>, <code>max_subgoals</code>, …</td>
+<td>Plain data</td>
+</tr>
+<tr>
+<td>Flags (including <code>inject_tools</code>, <code>is_entry</code>, <code>is_terminal</code>)</td>
+<td><code>flags: [inject_tools, ...]</code></td>
+</tr>
+<tr>
+<td><code>compaction</code> (a <code>ContextCompaction</code>, or <code>True</code>/<code>False</code>/an <code>int</code>)</td>
+<td>Its fields, e.g. <code>compaction: {after_tool_results: 3}</code> (a custom <code>count_tokens</code> as an import reference)</td>
+</tr>
+<tr>
+<td>Tools</td>
+<td>Tool names, resolved from <code>tools=</code> on load</td>
+</tr>
+<tr>
+<td><code>output_schema</code>, <code>preprocessor</code>, <code>postprocessor</code>, <code>transform</code>, <code>merge_fn</code>, <code>tool_selector</code>, a <code>LoopNode</code> condition</td>
+<td>Import reference <code>"module:QualName"</code></td>
+</tr>
+<tr>
+<td><code>model_override</code> given as a string</td>
+<td>The model id</td>
+</tr>
+<tr>
+<td>Nested nodes (<code>ParallelNode</code>, <code>LoopNode</code>, <code>RetryNode</code>, <code>FanOutNode</code>, <code>AutonomousNode</code> pool) and subgraphs</td>
+<td>Nested configs</td>
+</tr>
+<tr>
+<td>An <code>@node</code> function</td>
+<td>A reference to the module-level node</td>
+</tr>
+<tr>
+<td>Graph name, <code>mode</code>, entry, edges</td>
+<td>Plain data</td>
+</tr>
+<tr>
+<td>Edges from <code>on_tool_call</code>, <code>on_no_tool_call</code>, <code>on_output</code>, <code>on_error</code>, <code>on_confidence</code>, <code>on_guard_fail</code></td>
+<td>A <code>condition:</code> mapping</td>
+</tr>
+<tr>
+<td>Edges from <code>when(...)</code> / <code>loop_until(...)</code> with a module-level function</td>
+<td><code>condition: {ref: "module:function"}</code></td>
+</tr>
+<tr>
+<td><code>loop_until(..., max_iterations=...)</code> budgets</td>
+<td><code>loops: {refine: {max_iterations: 5, exit_to: deliver}}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Values a node would get by default are left out, so a saved graph stays short and picks up improved defaults (for example a reasoning node's built-in instructions).</p>
+<h2 id="what-cant-be-saved">What Can't Be Saved<a class="headerlink" href="#what-cant-be-saved" title="Link to this section">&para;</a></h2>
+<p>These are Python objects with state of their own. Saving a graph that uses them raises <code>GraphSerializationError</code>; remove them before saving and set them in code after loading:</p>
+<ul>
+<li>A lambda, or a function or class defined inside another function (as an <code>output_schema</code>, processor or edge condition) — move it to module level. An object defined in the script you run is saved as <code>__main__:Name</code>; pass it in <code>refs=</code> when loading.</li>
+<li><code>blocks</code>, <code>strategy</code>, <code>perspective</code>, <code>guards</code>, a <code>RouterNode</code>'s <code>context_blocks</code>.</li>
+<li>A <code>model_override</code> that is a model object rather than a model id string (it may carry credentials).</li>
+<li>A node class that isn't registered (see <a href="#custom-node-types">Custom Node Types</a>).</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphSerializationError</span><span class="p">,</span> <span class="n">save_graph</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">save_graph</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">"agent.yaml"</span><span class="p">)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">except</span> <span class="n">GraphSerializationError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="c1"># Edge act → verify condition: can't be saved — it is a lambda or defined</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="c1"># inside a function. Define it at module level in an importable module, ...</span>
+</span></code></pre></div>
+<p>Loading is just as strict: an unknown node type, an unknown field, a tool that wasn't provided or a reference that can't be resolved raises <code>GraphSerializationError</code> (a <code>ValueError</code>).</p>
 <h2 id="yaml-format">YAML Format<a class="headerlink" href="#yaml-format" title="Link to this section">&para;</a></h2>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">research-agent</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">entry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">plan</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">nodes</span><span class="p">:</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">plan</span><span class="p">:</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">plan</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">max_subgoals</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">quality_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">transitions</span><span class="p">:</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">proceed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">search</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">replan</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">plan</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="nt">search</span><span class="p">:</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prompt</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="nt">instructions</span><span class="p">:</span><span class="w"> </span><span class="s">"Search</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">information</span><span class="nv"> </span><span class="s">using</span><span class="nv"> </span><span class="s">available</span><span class="nv"> </span><span class="s">tools."</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="nt">inject_tools</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">    </span><span class="nt">default_next</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">observe</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="nt">observe</span><span class="p">:</span>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">observe</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="nt">default_next</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">verify</span>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>
-</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">  </span><span class="nt">verify</span><span class="p">:</span>
-</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guard</span>
-</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">    </span><span class="nt">on_pass</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">synthesize</span>
-</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">    </span><span class="nt">on_fail</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">search</span>
-</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
-</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">  </span><span class="nt">synthesize</span><span class="p">:</span>
-</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">synthesize</span>
-</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">    </span><span class="nt">default_next</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">__end__</span>
-</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>
-</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="nt">edges</span><span class="p">:</span>
-</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">plan</span>
-</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">    </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">search</span>
-</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">search</span>
-</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="w">    </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">observe</span>
-</span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">observe</span>
-</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="w">    </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">verify</span>
-</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="w">    </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">check_quality</span>
-</span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="w">    </span><span class="nt">priority</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">plan-act-verify</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">static</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">entry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">plan</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">nodes</span><span class="p">:</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">plan</span><span class="p">:</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">plan</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">instructions</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Plan how to answer with the sales tools.</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">output_schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_agent.schemas:Plan</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">flags</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">observable</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">stateful</span><span class="p p-Indicator">]</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">act</span><span class="p">:</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prompt</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="nt">instructions</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Work through the plan with your tools, then write the answer.</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="nt">flags</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">inject_tools</span><span class="p p-Indicator">]</span><span class="w">          </span><span class="c1"># receives the agent's tools at run time</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="nt">max_iterations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="nt">verify</span><span class="p">:</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">validate</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="nt">output_schema</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_agent.schemas:Verdict</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">    </span><span class="nt">on_pass</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">__end__</span>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">    </span><span class="nt">on_fail</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reflect</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">    </span><span class="nt">max_iterations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">    </span><span class="nt">flags</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">readonly</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">validate_output</span><span class="p p-Indicator">]</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="w">  </span><span class="nt">reflect</span><span class="p">:</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reflect</span>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">    </span><span class="nt">input_keys</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">validation</span><span class="p p-Indicator">]</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">    </span><span class="nt">flags</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">observable</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">stateful</span><span class="p p-Indicator">]</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="nt">edges</span><span class="p">:</span>
+</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">plan</span>
+</span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="w">    </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">act</span>
+</span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">act</span>
+</span><span id="__span-3-31"><a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="w">    </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">verify</span>
+</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reflect</span>
+</span><span id="__span-3-33"><a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="w">    </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">act</span>
+</span><span id="__span-3-34"><a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">verify</span>
+</span><span id="__span-3-35"><a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="w">    </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reflect</span>
+</span><span id="__span-3-36"><a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="nv">output</span><span class="p p-Indicator">,</span><span class="nt"> key</span><span class="p">:</span><span class="w"> </span><span class="nv">passes</span><span class="p p-Indicator">,</span><span class="nt"> value</span><span class="p">:</span><span class="w"> </span><span class="nv">false</span><span class="p p-Indicator">}</span>
 </span></code></pre></div>
+<p>A node with <code>flags: [inject_tools]</code> (or <code>inject_tools: true</code>) gets the agent's tools when the graph runs, so the file doesn't need to name them. Hand-written files may also use <code>is_entry: true</code> / <code>is_terminal: true</code>.</p>
+<h3 id="edge-config-format">Edge Config Format<a class="headerlink" href="#edge-config-format" title="Link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>from</code></td>
+<td><code>str</code></td>
+<td>Yes</td>
+<td>Source node name</td>
+</tr>
+<tr>
+<td><code>to</code></td>
+<td><code>str</code></td>
+<td>Yes</td>
+<td>Target node name</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td><code>str</code></td>
+<td>No</td>
+<td>Label for visualization</td>
+</tr>
+<tr>
+<td><code>priority</code></td>
+<td><code>int</code></td>
+<td>No</td>
+<td>Priority for condition checking (higher = checked first)</td>
+</tr>
+<tr>
+<td><code>condition</code></td>
+<td>mapping</td>
+<td>No</td>
+<td><code>{kind: tool_called}</code>, <code>{kind: no_tool_call}</code>, <code>{kind: error}</code>, <code>{kind: guard_failed}</code>, <code>{kind: output, key: ..., value: ...}</code>, <code>{kind: confidence, min_confidence: 0.7}</code>, or <code>{ref: "module:function"}</code></td>
+</tr>
+</tbody>
+</table>
+<p>The built-in conditions are <code>EdgeCondition</code> objects (<code>from promptise.engine import EdgeCondition</code>), so <code>graph.when("a", "b", condition=EdgeCondition("output", key="done", value=True))</code> saves too.</p>
 <h2 id="python-dict-format">Python Dict Format<a class="headerlink" href="#python-dict-format" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">graph_from_config</span><span class="p">,</span> <span class="n">graph_to_config</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Convert graph to dict</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">graph_to_config</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># Convert dict to graph</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">graph_from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">graph_from_config</span><span class="p">,</span> <span class="n">graph_to_config</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">graph_to_config</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>                    <span class="c1"># plain data, with "version": 2</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">graph_from_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="n">agent</span><span class="o">.</span><span class="n">tools</span><span class="p">,</span> <span class="n">refs</span><span class="o">=</span><span class="p">[</span><span class="n">Verdict</span><span class="p">])</span>
 </span></code></pre></div>
-<h3 id="graph_to_config">graph_to_config<a class="headerlink" href="#graph_to_config" title="Link to this section">&para;</a></h3>
-<p>Returns a dict with:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"research-agent"</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">"entry"</span><span class="p">:</span> <span class="s2">"plan"</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">"nodes"</span><span class="p">:</span> <span class="p">{</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="s2">"plan"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"plan"</span><span class="p">,</span> <span class="s2">"instructions"</span><span class="p">:</span> <span class="s2">"..."</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="s2">"search"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"prompt"</span><span class="p">,</span> <span class="s2">"inject_tools"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="p">},</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="s2">"edges"</span><span class="p">:</span> <span class="p">[</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="p">{</span><span class="s2">"from"</span><span class="p">:</span> <span class="s2">"plan"</span><span class="p">,</span> <span class="s2">"to"</span><span class="p">:</span> <span class="s2">"search"</span><span class="p">},</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="p">{</span><span class="s2">"from"</span><span class="p">:</span> <span class="s2">"search"</span><span class="p">,</span> <span class="s2">"to"</span><span class="p">:</span> <span class="s2">"observe"</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">:</span> <span class="s2">"always"</span><span class="p">,</span> <span class="s2">"priority"</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="p">],</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">}</span>
-</span></code></pre></div>
-<h3 id="graph_from_config">graph_from_config<a class="headerlink" href="#graph_from_config" title="Link to this section">&para;</a></h3>
-<p>Rebuilds the graph from a config dict. Creates nodes using the type registry, adds edges, and sets the entry node.</p>
-<h3 id="node_to_config-node_from_config">node_to_config / node_from_config<a class="headerlink" href="#node_to_config-node_from_config" title="Link to this section">&para;</a></h3>
-<p>Convert individual nodes:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">node_to_config</span><span class="p">,</span> <span class="n">node_from_config</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Serialize a node</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">node_to_config</span><span class="p">(</span><span class="n">my_node</span><span class="p">)</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># {"name": "search", "type": "prompt", "instructions": "...", "inject_tools": true, ...}</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Deserialize a node</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">node</span> <span class="o">=</span> <span class="n">node_from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</span></code></pre></div>
+<p><code>node_to_config(node)</code> and <code>node_from_config(config, tools=..., refs=..., allow_imports=...)</code> do the same for a single node.</p>
 <h2 id="node-type-registry">Node Type Registry<a class="headerlink" href="#node-type-registry" title="Link to this section">&para;</a></h2>
-<p>All 19 built-in node types are registered for YAML/dict deserialization:</p>
+<p>All built-in node types are registered:</p>
 <table>
 <thead>
 <tr>
@@ -9615,6 +9726,16 @@
 <td>Standard</td>
 </tr>
 <tr>
+<td><code>autonomous</code></td>
+<td>AutonomousNode</td>
+<td>Standard</td>
+</tr>
+<tr>
+<td><code>code_action</code></td>
+<td>CodeActionNode</td>
+<td>Standard</td>
+</tr>
+<tr>
 <td><code>think</code></td>
 <td>ThinkNode</td>
 <td>Reasoning</td>
@@ -9666,68 +9787,36 @@
 </tr>
 </tbody>
 </table>
+<p>A <code>CodeActionNode</code> built by <code>build_agent(agent_pattern="code-action")</code> holds a sandbox factory created at run time, so it can't be saved; one you build with a module-level factory can.</p>
 <h2 id="custom-node-types">Custom Node Types<a class="headerlink" href="#custom-node-types" title="Link to this section">&para;</a></h2>
-<p>Register custom node types so they can be serialized/deserialized:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_node_type</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">DatabaseNode</span><span class="p">(</span><span class="n">BaseNode</span><span class="p">):</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="o">...</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">register_node_type</span><span class="p">(</span><span class="s2">"database"</span><span class="p">,</span> <span class="n">DatabaseNode</span><span class="p">)</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Now you can use type: database in YAML</span>
+<p>Register custom node types so they can be saved and loaded:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_node_type</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">AuditedNode</span><span class="p">(</span><span class="n">PromptNode</span><span class="p">):</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="sd">"""A PromptNode subclass with no constructor parameters of its own."""</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">register_node_type</span><span class="p">(</span><span class="s2">"audited"</span><span class="p">,</span> <span class="n">AuditedNode</span><span class="p">)</span>
 </span></code></pre></div>
-<p>After registration, YAML files can reference the custom type:</p>
+<p>A registered subclass of a built-in node keeps all of the built-in's settings. If its constructor takes parameters of its own, define <code>to_config()</code> and <code>from_config()</code> so they are saved too — otherwise saving raises rather than dropping them. <code>from_config()</code> receives the node's whole config, base fields such as <code>instructions</code> and <code>default_next</code> included:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DatabaseNode</span><span class="p">(</span><span class="n">BaseNode</span><span class="p">):</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">table</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">table</span> <span class="o">=</span> <span class="n">table</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="k">return</span> <span class="p">{</span><span class="s2">"table"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">,</span> <span class="s2">"default_next"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_next</span><span class="p">}</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="nd">@classmethod</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"DatabaseNode"</span><span class="p">:</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span> <span class="n">table</span><span class="o">=</span><span class="n">config</span><span class="p">[</span><span class="s2">"table"</span><span class="p">],</span> <span class="n">default_next</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"default_next"</span><span class="p">))</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">register_node_type</span><span class="p">(</span><span class="s2">"database"</span><span class="p">,</span> <span class="n">DatabaseNode</span><span class="p">)</span>
+</span></code></pre></div>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">nodes</span><span class="p">:</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">fetch_data</span><span class="p">:</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">database</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">instructions</span><span class="p">:</span><span class="w"> </span><span class="s">"Fetch</span><span class="nv"> </span><span class="s">user</span><span class="nv"> </span><span class="s">data"</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">table</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">users</span>
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">default_next</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze</span>
-</span></code></pre></div>
-<h2 id="edge-config-format">Edge Config Format<a class="headerlink" href="#edge-config-format" title="Link to this section">&para;</a></h2>
-<p>Edges in YAML/dict config support:</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>from</code></td>
-<td><code>str</code></td>
-<td>Yes</td>
-<td>Source node name</td>
-</tr>
-<tr>
-<td><code>to</code></td>
-<td><code>str</code></td>
-<td>Yes</td>
-<td>Target node name</td>
-</tr>
-<tr>
-<td><code>label</code></td>
-<td><code>str</code></td>
-<td>No</td>
-<td>Label for visualization</td>
-</tr>
-<tr>
-<td><code>priority</code></td>
-<td><code>int</code></td>
-<td>No</td>
-<td>Priority for condition checking (higher = checked first)</td>
-</tr>
-</tbody>
-</table>
-<p>Conditions are not serializable — conditional edges must be added programmatically after loading:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">load_graph</span><span class="p">(</span><span class="s2">"my-agent.yaml"</span><span class="p">)</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">graph</span><span class="o">.</span><span class="n">when</span><span class="p">(</span><span class="s2">"analyze"</span><span class="p">,</span> <span class="s2">"retry"</span><span class="p">,</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">condition</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"confidence"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">,</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">label</span><span class="o">=</span><span class="s2">"low_confidence"</span><span class="p">,</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -9751,7 +9840,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:24:39 UTC">2026-10-10</span>
   </span>
 
     

@@ -9341,11 +9341,11 @@
 <p>Plenty of frameworks advertise a sandbox and deliver a <code>subprocess.run()</code> with a timeout. That stops an infinite loop. It does nothing about a script that reads <code>~/.aws/credentials</code>, opens a socket to an attacker, or forks until the box falls over. A real sandbox for <strong>secure agent-written code</strong> has to assume the code is hostile and remove capabilities up front.</p>
 <p>Promptise Foundry's sandbox runs each execution inside an isolated Docker container and layers on the controls that a bare subprocess can't provide:</p>
 <ul>
-<li><strong>Resource limits</strong> — CPU, memory, disk, and wall-clock quotas so a runaway script can't starve the host.</li>
-<li><strong>Network isolation</strong> — no network, restricted (DNS-filtered), or full — chosen per agent.</li>
+<li><strong>Resource limits</strong> — CPU, memory, process-count, workspace-size, and wall-clock quotas so a runaway script can't starve the host.</li>
+<li><strong>Network isolation</strong> — no network (the default), restricted (DNS plus outbound HTTP/HTTPS only), or full — chosen per agent.</li>
 <li><strong>Filesystem isolation</strong> — read-only root filesystem with a single writable <code>/workspace</code>.</li>
 <li><strong>Capability dropping</strong> — most Linux capabilities removed, leaving only what user code needs.</li>
-<li><strong>Security profiles</strong> — a seccomp syscall whitelist plus AppArmor filesystem rules.</li>
+<li><strong>Kernel hardening</strong> — Docker's default seccomp profile plus <code>no-new-privileges</code>, so setuid binaries can't escalate.</li>
 </ul>
 <p>Each of these is a separate wall. The value is in stacking them, and in the defaults being safe before you configure anything. The full field-by-field reference lives in the <a href="../../core/sandbox/">sandbox documentation</a>.</p>
 <h2 id="turn-on-sandboxed-code-execution-for-ai-in-one-line">Turn on sandboxed code execution for AI in one line<a class="headerlink" href="#turn-on-sandboxed-code-execution-for-ai-in-one-line" title="Link to this section">&para;</a></h2>
@@ -9376,28 +9376,28 @@
 </span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
 </span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
-<p>The agent writes the script, executes it inside the container, and reads back only the output. The host filesystem, host network, and host process table are never in scope. Docker must be installed and running for this to work — that is the one hard prerequisite.</p>
-<p>Need something tighter than the defaults? Pass a dict instead of a bool. This is where the <code>network_mode</code> control from the call-to-action comes in:</p>
+<p>The agent writes the script, executes it inside the container, and reads back only the output. The host filesystem, host network, and host process table are never in scope. Docker must be installed and running for this to work — that is the one hard prerequisite. <code>pip install "promptise[sandbox]"</code> pulls in the Docker client, and if Docker isn't reachable, <code>build_agent()</code> raises instead of quietly building an agent without sandbox tools.</p>
+<p>Need something tighter than the defaults? Pass a dict instead of a bool. This is where the <code>network</code> control from the call-to-action comes in:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="s2">"network_mode"</span><span class="p">:</span> <span class="s2">"restricted"</span><span class="p">,</span>  <span class="c1"># none | restricted | full</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="s2">"timeout"</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="s2">"tools"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"python"</span><span class="p">,</span> <span class="s2">"node"</span><span class="p">],</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="s2">"network"</span><span class="p">:</span> <span class="s2">"none"</span><span class="p">,</span>        <span class="c1"># none (default) | restricted | full</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="s2">"image"</span><span class="p">:</span> <span class="s2">"node:22-slim"</span><span class="p">,</span>  <span class="c1"># pick an image that already has the runtimes you need</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="s2">"timeout"</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="p">},</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
 </span></code></pre></div>
-<p><code>network_mode="restricted"</code> gives DNS-filtered egress for scripts that legitimately need to <code>pip install</code> or hit an allowed API, while <code>"none"</code> cuts the network entirely for code that should never phone home.</p>
+<p><code>"none"</code>, the default, cuts the network entirely for code that should never phone home. <code>network="restricted"</code> allows only DNS and outbound TCP 80/443 — enough for scripts that legitimately need to <code>pip install</code> or call an HTTPS API — enforced with iptables inside the container. The image must ship <code>iptables</code> (the default <code>python:3.11-slim</code> does not); if it doesn't, the sandbox refuses to start rather than run with open egress. Unknown keys raise, so a typo like <code>network_mode</code> fails loudly instead of being ignored.</p>
 <h2 id="the-hardening-layers-a-docker-sandbox-llm-setup-must-include">The hardening layers a docker sandbox llm setup must include<a class="headerlink" href="#the-hardening-layers-a-docker-sandbox-llm-setup-must-include" title="Link to this section">&para;</a></h2>
 <p>When you compare a "sandbox" claim across frameworks, these are the layers to check for. A Docker sandbox LLM integration that skips them is a container in name only.</p>
 <ul>
-<li><strong>Seccomp whitelist.</strong> The default profile permits only an explicit set of syscalls. Kernel module loading, raw device access, and privilege-escalation paths are blocked, not merely discouraged.</li>
+<li><strong>Seccomp and no-new-privileges.</strong> The container runs under Docker's default seccomp profile, which blocks roughly 44 dangerous syscalls such as <code>mount</code>, <code>reboot</code>, and <code>kexec_load</code>, and <code>no-new-privileges</code> stops setuid binaries from escalating.</li>
 <li><strong>~40 dropped capabilities.</strong> Dangerous Linux capabilities — <code>CAP_NET_ADMIN</code>, <code>CAP_SYS_ADMIN</code>, <code>CAP_SYS_PTRACE</code>, and dozens more — are removed. Only the minimal set to run user code remains.</li>
 <li><strong>Read-only root filesystem.</strong> <code>read_only_rootfs</code> is on by default. System paths are read-only; the agent can write to <code>/workspace</code> and <code>/tmp</code> and nowhere else, so it can't tamper with the runtime.</li>
-<li><strong>No ambient network.</strong> The default network mode is restricted, and <code>NetworkMode.NONE</code> removes the interface. There is no implicit path off the box.</li>
-<li><strong>AppArmor filesystem rules.</strong> <code>/home</code>, <code>/root</code>, <code>/dev/mem</code>, and <code>/proc/sys/kernel</code> are denied outright, independent of what the code tries.</li>
+<li><strong>No ambient network.</strong> The default network mode is <code>NetworkMode.NONE</code> — no interface besides loopback. <code>restricted</code> and <code>full</code> are explicit opt-ins, so there is no implicit path off the box.</li>
+<li><strong>Process, size, and time caps.</strong> <code>pids_limit</code> (default 256) stops fork bombs, the writable <code>/workspace</code> is a size-capped tmpfs (<code>disk_limit</code>, default <code>1G</code>), and a command that hits its timeout is killed inside the container rather than left running.</li>
 </ul>
 <p>If you need kernel-level isolation on top of the container boundary — the strongest option for genuinely untrusted, multi-source code — switch to the gVisor runtime. gVisor intercepts syscalls in a user-space kernel, shrinking the host attack surface further:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.sandbox.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SandboxConfig</span><span class="p">,</span> <span class="n">NetworkMode</span>
@@ -9443,13 +9443,13 @@
 <p>For the common case — your own agent generating your own code that you nonetheless can't fully trust — the container sandbox is the pragmatic default: strong isolation, one line to enable, no separate infrastructure.</p>
 <h2 id="frequently-asked-questions">Frequently asked questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this section">&para;</a></h2>
 <h3 id="do-i-need-docker-installed-to-use-the-sandbox">Do I need Docker installed to use the sandbox?<a class="headerlink" href="#do-i-need-docker-installed-to-use-the-sandbox" title="Link to this section">&para;</a></h3>
-<p>Yes. The default backend talks to the Docker daemon to create isolated containers, so Docker must be installed and running on the host. The optional gVisor backend additionally needs <code>runsc</code> installed. Without a container runtime, enable trusted execution paths instead of the sandbox.</p>
+<p>Yes. The default backend talks to the Docker daemon to create isolated containers, so Docker must be installed and running on the host. The optional gVisor backend additionally needs <code>runsc</code> installed. Install the client with <code>pip install "promptise[sandbox]"</code>. If you pass <code>sandbox=True</code> and Docker isn't reachable, <code>build_agent()</code> raises rather than building an agent without sandbox tools. Without a container runtime, enable trusted execution paths instead of the sandbox.</p>
 <h3 id="what-happens-to-network-access-inside-the-sandbox">What happens to network access inside the sandbox?<a class="headerlink" href="#what-happens-to-network-access-inside-the-sandbox" title="Link to this section">&para;</a></h3>
-<p>By default the network is restricted (DNS-filtered egress). Set <code>network_mode="none"</code> (or <code>NetworkMode.NONE</code>) to remove network access entirely for code that should never reach out, or <code>"full"</code> when a script genuinely needs open access. Inbound connections to the container are never exposed.</p>
+<p>By default the network is <code>none</code> (<code>NetworkMode.NONE</code>) — no access at all beyond loopback. Set <code>network="restricted"</code> to allow only DNS and outbound HTTP/HTTPS, enforced with iptables inside the container (the image must include <code>iptables</code>, or the sandbox refuses to start), or <code>"full"</code> when a script genuinely needs open access. Inbound connections to the container are never exposed.</p>
 <h3 id="is-gvisor-required-or-is-plain-docker-enough">Is gVisor required, or is plain Docker enough?<a class="headerlink" href="#is-gvisor-required-or-is-plain-docker-enough" title="Link to this section">&para;</a></h3>
 <p>Plain Docker with the default seccomp profile, dropped capabilities, and read-only rootfs is enough for most agent-written code. Reach for gVisor when you're running genuinely untrusted code on a shared host and want user-space syscall interception, accepting some runtime overhead in exchange.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Link to this section">&para;</a></h2>
-<p>Set <code>sandbox=True</code> (or <code>sandbox={"network_mode": "restricted"}</code>) on <code>build_agent()</code> and start running generated code with no blast radius. From there, walk the <a href="../../getting-started/quickstart/">Quick Start</a> to stand up your first agent, then read the <a href="../../core/sandbox/">sandbox reference</a> to tune resource limits, network mode, and the gVisor runtime for your threat model.</p>
+<p>Set <code>sandbox=True</code> (or <code>sandbox={"network": "none", "timeout": 120}</code>) on <code>build_agent()</code> and start running generated code with no blast radius. From there, walk the <a href="../../getting-started/quickstart/">Quick Start</a> to stand up your first agent, then read the <a href="../../core/sandbox/">sandbox reference</a> to tune resource limits, network mode, and the gVisor runtime for your threat model.</p>
 
 
 
@@ -9472,7 +9472,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:53:17 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:47:11 UTC">2026-10-10</span>
   </span>
 
     

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates five ordered">
+        <meta name="description" content="An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates six ordered">
       
       
         <meta name="author" content="Manser Ventures">
@@ -93,7 +93,7 @@
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
   <meta property="og:title" content="AutoApproval Classifier">
-  <meta property="og:description" content="An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates five ordered">
+  <meta property="og:description" content="An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates six ordered">
   <meta property="og:url" content="https://docs.promptise.com/core/approval-classifier/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -103,7 +103,7 @@
   
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="AutoApproval Classifier">
-  <meta name="twitter:description" content="An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates five ordered">
+  <meta name="twitter:description" content="An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates six ordered">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -179,7 +179,7 @@
       "@type": "TechArticle",
       "headline": "AutoApproval Classifier",
       "name": "AutoApproval Classifier",
-      "description": "An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates five ordered",
+      "description": "An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates six ordered",
       "url": "https://docs.promptise.com/core/approval-classifier/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -2820,10 +2820,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-5-layer-hierarchy" class="md-nav__link">
+  <a href="#the-6-layer-hierarchy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The 5-layer hierarchy
+        The 6-layer hierarchy
       
     </span>
   </a>
@@ -2838,6 +2838,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="ApprovalRule">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#argument_contains-matches-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        argument_contains matches JSON
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rules-see-the-real-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules see the real arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2864,13 +2892,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#stats-and-audit" class="md-nav__link">
+  <a href="#audit-which-layer-decided" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Stats and audit
+        Audit: which layer decided
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Audit: which layer decided">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#classifier-denials-and-the-retry-limit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Classifier denials and the retry limit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9253,10 +9309,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-5-layer-hierarchy" class="md-nav__link">
+  <a href="#the-6-layer-hierarchy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The 5-layer hierarchy
+        The 6-layer hierarchy
       
     </span>
   </a>
@@ -9271,6 +9327,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="ApprovalRule">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#argument_contains-matches-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        argument_contains matches JSON
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rules-see-the-real-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules see the real arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9297,13 +9381,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#stats-and-audit" class="md-nav__link">
+  <a href="#audit-which-layer-decided" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Stats and audit
+        Audit: which layer decided
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Audit: which layer decided">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#classifier-denials-and-the-retry-limit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Classifier denials and the retry limit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9399,7 +9511,7 @@
 
 
 <h1 id="autoapprovalclassifier">AutoApprovalClassifier<a class="headerlink" href="#autoapprovalclassifier" title="Link to this section">&para;</a></h1>
-<p>An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates five ordered layers — allow rules, deny rules, read-only detection, an optional LLM classifier, and finally the fallback handler — and returns the first definitive answer.</p>
+<p>An explicit decision hierarchy that sits in front of your approval handler. Instead of sending every tool call to a human, the classifier evaluates six ordered layers — deny rules, ask rules, allow rules, read-only detection, an optional LLM classifier, and finally the fallback handler — and returns the first definitive answer.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">ApprovalPolicy</span><span class="p">,</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">AutoApprovalClassifier</span><span class="p">,</span>
@@ -9408,19 +9520,20 @@
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"get_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"read-only"</span><span class="p">)],</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">deny_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"exec_shell"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"too risky"</span><span class="p">)],</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">read_only_auto_allow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">WebhookApprovalHandler</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"https://approvals.internal/api"</span><span class="p">),</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">],</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">handler</span><span class="o">=</span><span class="n">classifier</span><span class="p">,</span>  <span class="c1"># drop-in replacement</span>
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">deny_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"exec_shell"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"too risky"</span><span class="p">)],</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">ask_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"a person decides"</span><span class="p">)],</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"add_ticket_note"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"internal note"</span><span class="p">)],</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">read_only_auto_allow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">WebhookApprovalHandler</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"https://approvals.internal/api"</span><span class="p">),</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">)</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">],</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">handler</span><span class="o">=</span><span class="n">classifier</span><span class="p">,</span>  <span class="c1"># drop-in replacement</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
-<h2 id="the-5-layer-hierarchy">The 5-layer hierarchy<a class="headerlink" href="#the-5-layer-hierarchy" title="Link to this section">&para;</a></h2>
+<h2 id="the-6-layer-hierarchy">The 6-layer hierarchy<a class="headerlink" href="#the-6-layer-hierarchy" title="Link to this section">&para;</a></h2>
 <p>Evaluated in order. First definitive answer wins.</p>
 <table>
 <thead>
@@ -9432,113 +9545,230 @@
 </thead>
 <tbody>
 <tr>
-<td><strong>1. Allow rules</strong></td>
-<td>Pattern/predicate matching. First match → approve.</td>
-<td><code>approved=True</code></td>
-</tr>
-<tr>
-<td><strong>2. Deny rules</strong></td>
+<td><strong>1. Deny rules</strong></td>
 <td>Pattern/predicate matching. First match → deny.</td>
 <td><code>approved=False</code></td>
 </tr>
 <tr>
-<td><strong>3. Read-only auto-allow</strong></td>
-<td>Tool name starts with <code>get_</code>, <code>list_</code>, <code>read_</code>, <code>search_</code>, etc.</td>
+<td><strong>2. Ask rules</strong></td>
+<td>Pattern/predicate matching. First match → straight to the fallback handler, skipping layers 3–5.</td>
+<td>whatever the human says</td>
+</tr>
+<tr>
+<td><strong>3. Allow rules</strong></td>
+<td>Pattern/predicate matching. First match → approve.</td>
 <td><code>approved=True</code></td>
 </tr>
 <tr>
-<td><strong>4. LLM classifier</strong></td>
+<td><strong>4. Read-only auto-allow</strong></td>
+<td>The tool is read-only: annotated <code>readOnlyHint=True</code>, or named <code>get_…</code>, <code>list_…</code>, <code>read_…</code>, etc. See <a href="#read-only-auto-allow">Read-only auto-allow</a>.</td>
+<td><code>approved=True</code></td>
+</tr>
+<tr>
+<td><strong>5. LLM classifier</strong></td>
 <td>Optional async function returns <code>"allow"</code>, <code>"deny"</code>, or <code>"escalate"</code>.</td>
 <td>allow/deny or fall through</td>
 </tr>
 <tr>
-<td><strong>5. Fallback handler</strong></td>
+<td><strong>6. Fallback handler</strong></td>
 <td>Your existing <code>ApprovalHandler</code> (webhook, queue, callback).</td>
 <td>whatever the human says</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Deny always wins.</strong> Deny rules run before allow rules, so a broad allow rule can't approve a call a deny rule forbids. An admin bypass (<code>ApprovalRule(user="admin@acme.com")</code>) in <code>allow_rules</code> still won't auto-approve <code>delete_customer</code> when <code>deny_rules</code> has <code>ApprovalRule(tool="delete_*")</code>.</p>
+<p><strong>Ask rules always reach a person.</strong> Use them for calls that must never be auto-approved, even when an allow rule, the read-only check or the LLM classifier would let them through:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">ask_rules</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"get_payroll"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"salary data needs a person"</span><span class="p">),</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"send_*"</span><span class="p">,</span> <span class="n">argument_contains</span><span class="o">=</span><span class="s2">"@press."</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"press contact"</span><span class="p">),</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="p">],</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"send_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"routine email"</span><span class="p">)],</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">human_handler</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">)</span>
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Upgrading from 1.2.x</p>
+<p>Up to 1.2.1, allow rules were checked <em>before</em> deny rules, so the first matching allow rule won. If you relied on an allow rule to carve an exception out of a broader deny rule, narrow the deny rule (or use a predicate) instead.</p>
+</div>
 <hr />
 <h2 id="approvalrule">ApprovalRule<a class="headerlink" href="#approvalrule" title="Link to this section">&para;</a></h2>
-<p>Rules match by tool glob, user ID, argument substring, or async predicate. All non-empty filters must match (AND logic).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Simple glob match</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"destructive"</span><span class="p">)</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># User-scoped</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"*"</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="s2">"admin@acme.com"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"admin bypass"</span><span class="p">)</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Argument inspection</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"shell"</span><span class="p">,</span> <span class="n">argument_contains</span><span class="o">=</span><span class="s2">"rm -rf"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"dangerous command"</span><span class="p">)</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Custom async predicate</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">is_low_risk</span><span class="p">(</span><span class="n">req</span><span class="p">):</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">arguments</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">100</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">predicate</span><span class="o">=</span><span class="n">is_low_risk</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"small payload"</span><span class="p">)</span>
+<p>Rules match by tool glob, user ID, argument substring, or async predicate. All non-empty filters must match (AND logic). The same rule type is used for deny, ask and allow rules.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Simple glob match</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"destructive"</span><span class="p">)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># User-scoped</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"*"</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="s2">"admin@acme.com"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"admin bypass"</span><span class="p">)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Argument inspection</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"shell"</span><span class="p">,</span> <span class="n">argument_contains</span><span class="o">=</span><span class="s2">"rm -rf"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"dangerous command"</span><span class="p">)</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Custom async predicate</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">is_small_refund</span><span class="p">(</span><span class="n">req</span><span class="p">):</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="k">return</span> <span class="n">req</span><span class="o">.</span><span class="n">arguments</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"amount"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">20</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"issue_refund"</span><span class="p">,</span> <span class="n">predicate</span><span class="o">=</span><span class="n">is_small_refund</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"small refund"</span><span class="p">)</span>
 </span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Matches when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tool</code></td>
+<td><code>fnmatch(request.tool_name, tool)</code></td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td><code>request.caller_user_id == user</code> (from the <a href="../approval/#multi-user"><code>CallerContext</code></a>)</td>
+</tr>
+<tr>
+<td><code>argument_contains</code></td>
+<td>the substring appears in <code>json.dumps(arguments, sort_keys=True, ensure_ascii=False)</code></td>
+</tr>
+<tr>
+<td><code>predicate</code></td>
+<td><code>await predicate(request)</code> is truthy. A predicate that raises counts as <em>no match</em> (and is logged).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="argument_contains-matches-json"><code>argument_contains</code> matches JSON<a class="headerlink" href="#argument_contains-matches-json" title="Link to this section">&para;</a></h3>
+<p>The arguments are serialized as JSON with sorted keys and the default separators, so write the substring the way JSON prints it:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># {"customer_id": "C-7", "force": True}  →  '{"customer_id": "C-7", "force": true}'</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">,</span> <span class="n">argument_contains</span><span class="o">=</span><span class="s1">'"force": true'</span><span class="p">)</span>   <span class="c1"># matches</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">,</span> <span class="n">argument_contains</span><span class="o">=</span><span class="s2">"'force': True"</span><span class="p">)</span>   <span class="c1"># does not</span>
+</span></code></pre></div>
+<p>Matching is case-sensitive, and JSON escapes quotes and backslashes (<code>C:\temp</code> is <code>C:\\temp</code> in the JSON). For anything beyond a plain substring — case-insensitive email domains, numeric limits — use a <code>predicate</code>.</p>
+<h3 id="rules-see-the-real-arguments">Rules see the real arguments<a class="headerlink" href="#rules-see-the-real-arguments" title="Link to this section">&para;</a></h3>
+<p><code>ApprovalPolicy(redact_sensitive=True)</code> (the default) replaces emails, phone numbers and credentials with labels such as <code>[EMAIL]</code> in the request a reviewer sees. The classifier doesn't match against that copy: the agent's gate also passes the unredacted arguments (<code>ApprovalRequest.raw_arguments</code>), and deny/ask/allow rules, predicates, the read-only check and the LLM classifier all see the real values. So this rule fires even with redaction on:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"send_*"</span><span class="p">,</span> <span class="n">argument_contains</span><span class="o">=</span><span class="s2">"@competitor.example"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"never email competitors"</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Inside a predicate or the LLM classifier, <code>request.arguments</code> holds the real arguments. The fallback handler receives the reviewer's copy: <code>arguments</code> redacted as configured, and no <code>raw_arguments</code>. Rules also still work with <code>ApprovalPolicy(include_arguments=False)</code>, which hides the arguments from reviewers only.</p>
+<p><code>raw_arguments</code> is never part of <code>to_dict()</code> (webhook payloads), the webhook signature or <code>repr()</code>. Your LLM classifier gets the real arguments — the same values the agent's model produced — so redact them yourself if it sends them somewhere the agent's model doesn't.</p>
 <hr />
 <h2 id="read-only-auto-allow">Read-only auto-allow<a class="headerlink" href="#read-only-auto-allow" title="Link to this section">&para;</a></h2>
-<p>Enabled by default. Tool names starting with any of these prefixes are auto-approved:</p>
+<p>Enabled by default. A tool is auto-approved as read-only when:</p>
+<ol>
+<li>no word of its name is a destructive verb — <code>fetch_and_purge_cache</code>, <code>show_and_delete</code> and <code>getAndResetCounter</code> are never read-only (see <code>DEFAULT_DESTRUCTIVE_VERBS</code>: <code>delete</code>, <code>purge</code>, <code>drop</code>, <code>update</code>, <code>send</code>, <code>reset</code>, …), <strong>and</strong></li>
+<li>its MCP annotations don't say otherwise — <code>readOnlyHint=False</code> or <code>destructiveHint=True</code> rule it out, <strong>and</strong></li>
+<li>either it is annotated <code>readOnlyHint=True</code>, or (without a <code>readOnlyHint</code>) its name starts with one of the read-only prefixes:</li>
+</ol>
 <p><code>get_</code>, <code>list_</code>, <code>read_</code>, <code>search_</code>, <code>find_</code>, <code>fetch_</code>, <code>describe_</code>, <code>show_</code>, <code>view_</code>, <code>lookup_</code>, <code>query_</code>, <code>head_</code>, <code>stat_</code>, <code>exists_</code>, <code>count_</code></p>
-<p>Override with your own list:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">read_only_prefixes</span><span class="o">=</span><span class="p">(</span><span class="s2">"get_"</span><span class="p">,</span> <span class="s2">"list_"</span><span class="p">,</span> <span class="s2">"count_"</span><span class="p">),</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">my_handler</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
+<p>Annotations come from the MCP server — <code>@server.tool(read_only_hint=True)</code> on a Promptise server, or any server that sets <code>ToolAnnotations</code> — and reach the classifier as <code>ApprovalRequest.tool_annotations</code>. Promptise's MCP client keeps them on each tool's <code>metadata</code> (as <code>langchain-mcp-adapters</code> does), and the gate copies them from there, so a LangChain tool you build yourself can declare <code>metadata={"readOnlyHint": True}</code>. Annotations are hints from the server, not guarantees, so a destructive verb in the name always wins over <code>readOnlyHint=True</code>.</p>
+<p>Words are split on <code>_</code>, <code>-</code> and camelCase and compared whole: <code>get_settings</code> is fine (<code>settings</code> is not <code>set</code>), <code>get_and_set_flag</code> is not.</p>
+<p>Override the prefixes or the verbs:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">read_only_prefixes</span><span class="o">=</span><span class="p">(</span><span class="s2">"get_"</span><span class="p">,</span> <span class="s2">"list_"</span><span class="p">,</span> <span class="s2">"count_"</span><span class="p">),</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">destructive_verbs</span><span class="o">=</span><span class="p">(</span><span class="o">*</span><span class="n">DEFAULT_DESTRUCTIVE_VERBS</span><span class="p">,</span> <span class="s2">"archive"</span><span class="p">),</span>  <span class="c1"># replaces the list</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">my_handler</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>Or disable entirely:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">read_only_auto_allow</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">my_handler</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
+<p>Ignore annotations (<code>use_tool_annotations=False</code>; only the name decides), or disable the layer entirely:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">read_only_auto_allow</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">my_handler</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="p">)</span>
 </span></code></pre></div>
+<p><code>classifier.is_read_only(request)</code> tells you what the layer would decide for a request.</p>
 <hr />
 <h2 id="llm-classifier-optional">LLM classifier (optional)<a class="headerlink" href="#llm-classifier-optional" title="Link to this section">&para;</a></h2>
 <p>For fuzzy decisions that rules can't capture:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">safety_check</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="c1"># Call your LLM / safety model</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">llm</span><span class="o">.</span><span class="n">classify</span><span class="p">(</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="sa">f</span><span class="s2">"Is this tool call safe? </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="s2">)"</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="p">)</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">safe</span><span class="p">:</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="k">return</span> <span class="s2">"allow"</span><span class="p">,</span> <span class="s2">"LLM classified as safe"</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">dangerous</span><span class="p">:</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="k">return</span> <span class="s2">"deny"</span><span class="p">,</span> <span class="s2">"LLM classified as dangerous"</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="k">return</span> <span class="s2">"escalate"</span><span class="p">,</span> <span class="s2">"LLM unsure — send to human"</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="n">llm_classifier</span><span class="o">=</span><span class="n">safety_check</span><span class="p">,</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">my_handler</span><span class="p">,</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">safety_check</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="c1"># Call your LLM / safety model</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">llm</span><span class="o">.</span><span class="n">classify</span><span class="p">(</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>        <span class="sa">f</span><span class="s2">"Is this tool call safe? </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="s2">)"</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="p">)</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">safe</span><span class="p">:</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="k">return</span> <span class="s2">"allow"</span><span class="p">,</span> <span class="s2">"LLM classified as safe"</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">dangerous</span><span class="p">:</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        <span class="k">return</span> <span class="s2">"deny"</span><span class="p">,</span> <span class="s2">"LLM classified as dangerous"</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="k">return</span> <span class="s2">"escalate"</span><span class="p">,</span> <span class="s2">"LLM unsure — send to human"</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">llm_classifier</span><span class="o">=</span><span class="n">safety_check</span><span class="p">,</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">my_handler</span><span class="p">,</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>Returning <code>"escalate"</code> defers to the fallback handler (layer 5).</p>
+<p>Returning <code>"escalate"</code> defers to the fallback handler (layer 6). It runs only when no rule decided and the tool isn't read-only.</p>
 <hr />
-<h2 id="stats-and-audit">Stats and audit<a class="headerlink" href="#stats-and-audit" title="Link to this section">&para;</a></h2>
+<h2 id="audit-which-layer-decided">Audit: which layer decided<a class="headerlink" href="#audit-which-layer-decided" title="Link to this section">&para;</a></h2>
+<p>Every decision the classifier returns carries its trace in <code>decision.trace</code>, and says what decided it in <code>decision.decided_by</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>decision.decided_by</code></th>
+<th><code>decision.trace.layer</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"classifier"</code></td>
+<td><code>"deny_rule"</code>, <code>"allow_rule"</code>, <code>"read_only"</code>, <code>"llm_allow"</code>, <code>"llm_deny"</code></td>
+</tr>
+<tr>
+<td><code>"reviewer"</code> (the fallback's decision)</td>
+<td><code>"ask_rule"</code>, <code>"llm_escalate_then_fallback"</code>, <code>"fallback"</code>, <code>"error"</code> (the classifier raised and fell back)</td>
+</tr>
+</tbody>
+</table>
+<p><code>trace.rule_reason</code> holds the matched rule's <code>reason</code> or the LLM's reason, and <code>trace.matched_rule</code> the rule itself.</p>
+<p>To record every decision, pass <code>on_decision</code> to the policy. It is called for the classifier's decisions and also for those the gate makes without asking the handler at all — <code>max_pending</code>, the <a href="../approval/#repeated-denials">repeated-denial limit</a>, a timeout or a handler error (<code>decided_by="gate"</code>, <code>trace=None</code>):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span><span class="o">,</span><span class="w"> </span><span class="nn">time</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">write_audit_line</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">decision</span><span class="p">):</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="s2">"time"</span><span class="p">:</span> <span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%H:%M:%S"</span><span class="p">),</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="s2">"request_id"</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="s2">"user"</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">caller_user_id</span><span class="p">,</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="s2">"tool"</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="p">,</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="s2">"arguments"</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="p">,</span>          <span class="c1"># the redacted copy</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="s2">"approved"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">approved</span><span class="p">,</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="s2">"decided_by"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">decided_by</span><span class="p">,</span>       <span class="c1"># reviewer | classifier | gate</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>        <span class="s2">"layer"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">layer</span> <span class="k">if</span> <span class="n">decision</span><span class="o">.</span><span class="n">trace</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>        <span class="s2">"rule"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">rule_reason</span> <span class="k">if</span> <span class="n">decision</span><span class="o">.</span><span class="n">trace</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>        <span class="s2">"reviewer"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">reviewer_id</span><span class="p">,</span>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>        <span class="s2">"reason"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">reason</span><span class="p">,</span>
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="p">}</span>
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"approvals.jsonl"</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>
+</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">],</span> <span class="n">handler</span><span class="o">=</span><span class="n">classifier</span><span class="p">,</span> <span class="n">on_decision</span><span class="o">=</span><span class="n">write_audit_line</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>on_decision</code> may be async. If it raises, the error is logged and the decision stands. A handler that wraps the classifier sees only the decisions that reach the handler, so it misses the gate's own denials; use <code>on_decision</code> for the audit log.</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>classifier.last_trace</code> is shared</p>
+<p><code>last_trace</code> is the trace of the most recently <em>finished</em> decision. When several requests are in flight — several gated calls in one turn, or one call waiting on a human — another request can overwrite it before you read it. Read <code>decision.trace</code> instead.</p>
+</div>
+<h3 id="stats">Stats<a class="headerlink" href="#stats" title="Link to this section">&para;</a></h3>
 <p>Every decision increments a counter in <code>classifier.stats</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">allow_rule_hits</span><span class="p">)</span>    <span class="c1"># 42</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">deny_rule_hits</span><span class="p">)</span>     <span class="c1"># 3</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">read_only_allows</span><span class="p">)</span>   <span class="c1"># 189</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">llm_allows</span><span class="p">)</span>         <span class="c1"># 7</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">fallback_denies</span><span class="p">)</span>    <span class="c1"># 1</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">deny_rule_hits</span><span class="p">)</span>     <span class="c1"># 3</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">ask_rule_hits</span><span class="p">)</span>      <span class="c1"># 2  (also counted in fallback_*)</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">allow_rule_hits</span><span class="p">)</span>    <span class="c1"># 42</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">read_only_allows</span><span class="p">)</span>   <span class="c1"># 189</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">llm_allows</span><span class="p">)</span>         <span class="c1"># 7</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">classifier</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">fallback_denies</span><span class="p">)</span>    <span class="c1"># 1</span>
 </span></code></pre></div>
-<p>The last decision's diagnostic trace is available via <code>classifier.last_trace</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">trace</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">last_trace</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">layer</span><span class="p">)</span>        <span class="c1"># "allow_rule"</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">rule_reason</span><span class="p">)</span>  <span class="c1"># "read-only"</span>
-</span></code></pre></div>
+<h3 id="classifier-denials-and-the-retry-limit">Classifier denials and the retry limit<a class="headerlink" href="#classifier-denials-and-the-retry-limit" title="Link to this section">&para;</a></h3>
+<p><code>ApprovalPolicy(max_retries_after_deny=3)</code> stops the agent from asking a <em>person</em> over and over. Only the reviewer's denials (<code>decided_by="reviewer"</code>, including a fallback reached through an ask rule or an LLM escalation) and timeouts count towards it. A deny rule or an LLM <code>"deny"</code> costs no one any time and doesn't count, and an automatic approval doesn't reset what the reviewer denied. So after a deny rule refuses three over-the-limit refunds, a small refund the allow rule covers still goes through.</p>
+<p>Once the limit is reached for a tool (per <a href="../approval/#repeated-denials"><code>deny_scope</code></a>), later calls are denied by the gate without consulting the handler, including the classifier's rules, until the denials age out of <code>deny_window</code>.</p>
 <hr />
 <h2 id="drop-in-replacement">Drop-in replacement<a class="headerlink" href="#drop-in-replacement" title="Link to this section">&para;</a></h2>
 <p><code>AutoApprovalClassifier</code> implements the <code>ApprovalHandler</code> protocol. Swap it into any existing <code>ApprovalPolicy</code> without changing anything else:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Before</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">],</span> <span class="n">handler</span><span class="o">=</span><span class="n">webhook_handler</span><span class="p">)</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># After</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">],</span> <span class="n">handler</span><span class="o">=</span><span class="n">AutoApprovalClassifier</span><span class="p">(</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">deny_rules</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">webhook_handler</span><span class="p">,</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Before</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">],</span> <span class="n">handler</span><span class="o">=</span><span class="n">webhook_handler</span><span class="p">)</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># After</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">],</span> <span class="n">handler</span><span class="o">=</span><span class="n">AutoApprovalClassifier</span><span class="p">(</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">deny_rules</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">webhook_handler</span><span class="p">,</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="p">))</span>
 </span></code></pre></div>
+<p>On the agent side, the classifier only applies to the agent's own gate. <a href="../approval/#server-side-approval-gates">Server-side approval gates</a> reached through MCP elicitation go straight to its <code>fallback</code> (and <code>on_decision</code> records those decisions too, with <code>request.metadata["source"] == "mcp_elicitation"</code>).</p>
+<p>You can also use the classifier on an MCP server, as the handler of <code>ApprovalGateMiddleware</code>. There its rules see the validated arguments (also with <code>include_arguments=False</code>, which hides them from the fallback only) and the read-only layer sees the tool's own annotations (<code>@server.tool(read_only_hint=..., destructive_hint=...)</code>).</p>
 <hr />
 <h2 id="related">Related<a class="headerlink" href="#related" title="Link to this section">&para;</a></h2>
 <ul>
@@ -9568,7 +9798,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:00:58 UTC">2026-10-10</span>
   </span>
 
     

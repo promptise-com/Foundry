@@ -2685,6 +2685,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#updating-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Updating documents
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#deletion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2750,6 +2761,17 @@
     <span class="md-ellipsis">
       
         Metadata filtering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#who-can-retrieve-what" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who can retrieve what
       
     </span>
   </a>
@@ -9520,6 +9542,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#updating-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Updating documents
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#deletion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9585,6 +9618,17 @@
     <span class="md-ellipsis">
       
         Metadata filtering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#who-can-retrieve-what" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who can retrieve what
       
     </span>
   </a>
@@ -9801,11 +9845,16 @@
 <hr />
 <h2 id="base-classes-override-these">Base Classes (override these)<a class="headerlink" href="#base-classes-override-these" title="Link to this section">&para;</a></h2>
 <h3 id="documentloader">DocumentLoader<a class="headerlink" href="#documentloader" title="Link to this section">&para;</a></h3>
-<p>Load raw documents from wherever they live: filesystem, S3, Notion, Confluence, Postgres, a REST API. The base class has one method:</p>
+<p>Load raw documents from wherever they live: filesystem, S3, Notion, Confluence, Postgres, a REST API. Override one of two methods:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DocumentLoader</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">iter_load</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">():</span>   <span class="c1"># default: yields from load()</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>            <span class="k">yield</span> <span class="n">doc</span>
 </span></code></pre></div>
+<p>Override <code>load()</code> for sources that fit in memory, or <code>iter_load()</code> to stream a large source one document at a time.</p>
 <p><strong>Example — loading markdown files from disk:</strong></p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.rag</span><span class="w"> </span><span class="kn">import</span> <span class="n">Document</span><span class="p">,</span> <span class="n">DocumentLoader</span>
@@ -9824,7 +9873,7 @@
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">"*.md"</span><span class="p">)</span>
 </span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="p">]</span>
 </span></code></pre></div>
-<p>That's it. The pipeline calls <code>await loader.load()</code> during <code>index()</code> and feeds the documents to the chunker.</p>
+<p>That's it. During <code>index()</code> the pipeline reads the loader through <code>iter_load()</code> (which calls <code>load()</code> unless you override it) and feeds the documents to the chunker, about <code>batch_size</code> chunks at a time.</p>
 <h3 id="chunker">Chunker<a class="headerlink" href="#chunker" title="Link to this section">&para;</a></h3>
 <p>Split documents into retrievable chunks. The base class:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Chunker</span><span class="p">:</span>
@@ -9837,10 +9886,11 @@
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">chunker</span> <span class="o">=</span> <span class="n">RecursiveTextChunker</span><span class="p">(</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">chunk_size</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>       <span class="c1"># target chars per chunk</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">overlap</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>          <span class="c1"># overlap between consecutive chunks</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">separators</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>      <span class="c1"># defaults to ["\n\n", "\n", ". ", " ", ""]</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">separators</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>      <span class="c1"># defaults to ["\n\n", "\n", ". ", " "]</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>Chunk IDs are deterministic (<code>{document_id}:chunk-{i}</code>) so re-indexing the same document produces stable IDs — useful for incremental updates.</p>
+<p>When no separator splits a piece small enough, the piece is cut into <code>chunk_size</code>-character windows that share <code>overlap</code> characters. An empty string <code>""</code> in <code>separators</code> means that character-level cut, so LangChain-style lists such as <code>["\n\n", "\n", " ", ""]</code> work. <code>overlap</code> must be smaller than <code>chunk_size</code>. Empty and whitespace-only documents produce no chunks.</p>
+<p>Chunk IDs are deterministic (<code>{document_id}:chunk-{i}</code>) so re-indexing the same document produces stable IDs — useful for incremental updates (see <a href="#updating-documents">Updating documents</a>).</p>
 <p><strong>Rolling your own</strong> is ~20 lines. Subclass <code>Chunker</code> and return a list of <code>Chunk</code> objects with <code>document_id</code>, <code>text</code>, and any metadata you want to pass through.</p>
 <h3 id="embedder">Embedder<a class="headerlink" href="#embedder" title="Link to this section">&para;</a></h3>
 <p>Turn text into dense vectors. The base class has one method plus one property:</p>
@@ -9880,7 +9930,7 @@
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Chunk</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>        <span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="n">query_embedding</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="n">vector</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
 </span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="nb">filter</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -9895,6 +9945,7 @@
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">InMemoryVectorStore</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">1536</span><span class="p">)</span>  <span class="c1"># optional dimension enforcement</span>
 </span></code></pre></div>
+<p>Scores are cosine similarity mapped from <code>[-1, 1]</code> onto <code>[0, 1]</code> as <code>(cosine + 1) / 2</code>: an identical direction scores <code>1.0</code> and an unrelated (orthogonal) chunk scores <code>0.5</code>. A query vector whose length differs from the stored vectors (or from <code>dimension</code>) raises <code>ValueError</code> — the query and the index must come from the same embedder. A non-positive <code>limit</code> returns no results. Results are copies, so changing one never changes the stored chunk.</p>
 <p><strong>Rolling your own</strong> means implementing <code>add</code>, <code>search</code>, and <code>delete</code> against your backend. ~50-100 lines for most vector DBs.</p>
 <hr />
 <h2 id="ragpipeline">RAGPipeline<a class="headerlink" href="#ragpipeline" title="Link to this section">&para;</a></h2>
@@ -9924,12 +9975,16 @@
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">Document</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">"note-1"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">"Meeting notes: ..."</span><span class="p">),</span>
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">])</span>
 </span></code></pre></div>
+<h3 id="updating-documents">Updating documents<a class="headerlink" href="#updating-documents" title="Link to this section">&para;</a></h3>
+<p>Indexing a document whose <code>id</code> is already in the store replaces it: the pipeline removes the document's old chunks, then stores the new ones, so text you removed from a document can no longer be retrieved. If the new version's chunks fail to embed, the old version stays and the failure is in <code>report.errors</code>. When the same <code>id</code> appears twice in one <code>index()</code> call, the last one wins.</p>
+<p>Removing old chunks uses <code>VectorStore.delete_by_document()</code>. If your store doesn't implement it, the pipeline deletes the chunk ids it stored for that document itself — which only covers documents indexed by the same <code>RAGPipeline</code> instance, so implement <code>delete_by_document()</code> on a persistent store.</p>
 <h3 id="deletion">Deletion<a class="headerlink" href="#deletion" title="Link to this section">&para;</a></h3>
 <p>Remove a document and all its chunks:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">removed</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">delete_document</span><span class="p">(</span><span class="s2">"note-1"</span><span class="p">)</span>
 </span></code></pre></div>
+<p>This uses the same removal as an update, and returns <code>0</code> (with a warning) when the store has no <code>delete_by_document()</code> and the pipeline never indexed the document.</p>
 <h3 id="defaults">Defaults<a class="headerlink" href="#defaults" title="Link to this section">&para;</a></h3>
-<p><code>Chunker</code> defaults to <code>RecursiveTextChunker(chunk_size=1000, overlap=100)</code> if you don't supply one. Every other component is required.</p>
+<p><code>Chunker</code> defaults to <code>RecursiveTextChunker(chunk_size=500, overlap=50)</code> if you don't supply one, and <code>batch_size</code> (chunks per <code>embed()</code> call) defaults to <code>64</code>. <code>embedder</code> and <code>store</code> are required; <code>loader</code> is only needed when you call <code>index()</code> without documents.</p>
 <hr />
 <h2 id="rag_to_tool-expose-retrieval-to-an-agent">rag_to_tool — expose retrieval to an agent<a class="headerlink" href="#rag_to_tool-expose-retrieval-to-an-agent" title="Link to this section">&para;</a></h2>
 <p>The glue that turns a <code>RAGPipeline</code> into a LangChain tool the agent can call via <code>extra_tools</code>. The agent sees a single tool with a <code>query</code> argument; calling it runs retrieval and returns formatted results.</p>
@@ -9965,21 +10020,22 @@
 <tr>
 <td><code>limit</code></td>
 <td><code>5</code></td>
-<td>Default result count. LLM can override.</td>
+<td>Default result count (at least 1). The LLM can override it with any value of 1 or more.</td>
 </tr>
 <tr>
 <td><code>format</code></td>
 <td><code>"markdown"</code></td>
-<td>How results are returned to the LLM.</td>
+<td>How results are returned to the LLM. Any other value raises <code>ValueError</code>.</td>
 </tr>
 </tbody>
 </table>
 <p><strong>Format cheat sheet:</strong></p>
 <ul>
 <li><code>"markdown"</code> — human + LLM friendly, includes source and title headers</li>
-<li><code>"json"</code> — structured (array of <code>{score, text, metadata}</code>), best for downstream processing</li>
+<li><code>"json"</code> — structured: <code>{"notice": ..., "results": [{score, text, metadata}, ...]}</code>, best for downstream processing</li>
 <li><code>"text"</code> — plain text with source prefix, minimal token overhead</li>
 </ul>
+<p><strong>Retrieved text is untrusted.</strong> Anyone who can put text into an indexed document — a wiki editor, a customer filing a ticket — can write instructions aimed at the model. The tool output says that the results are data, not instructions to follow. In <code>"markdown"</code> and <code>"text"</code> the results sit inside a block delimited by a random tag generated for each call (<code>&lt;retrieved-documents-…&gt;</code>), so a document can't close the block early and pose as the tool's own output; in <code>"json"</code> the <code>notice</code> field carries the same statement. This lowers the risk but doesn't remove it: keep side-effecting tools behind <a href="../approval/">approval</a> when the agent also reads documents that outsiders can write.</p>
 <hr />
 <h2 id="production-patterns">Production patterns<a class="headerlink" href="#production-patterns" title="Link to this section">&para;</a></h2>
 <h3 id="content-hashing-for-dedup">Content hashing for dedup<a class="headerlink" href="#content-hashing-for-dedup" title="Link to this section">&para;</a></h3>
@@ -9990,24 +10046,49 @@
 </span></code></pre></div>
 <p>The hash is a stable 12-character string derived from the text — same text always hashes to the same value.</p>
 <h3 id="metadata-filtering">Metadata filtering<a class="headerlink" href="#metadata-filtering" title="Link to this section">&para;</a></h3>
-<p><code>InMemoryVectorStore.search()</code> supports exact-match metadata filters. Your custom stores should do the same:</p>
+<p><code>InMemoryVectorStore.search()</code> (and <code>pipeline.retrieve(..., filter=...)</code>) supports exact-match metadata filters: every key must be present on the chunk with an equal value, so <code>{"tenant_id": None}</code> does not match chunks that have no <code>tenant_id</code>. Your custom stores should do the same:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">query_embedding</span><span class="p">,</span>
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="n">limit</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">"category"</span><span class="p">:</span> <span class="s2">"support"</span><span class="p">,</span> <span class="s2">"status"</span><span class="p">:</span> <span class="s2">"published"</span><span class="p">},</span>
 </span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="who-can-retrieve-what">Who can retrieve what<a class="headerlink" href="#who-can-retrieve-what" title="Link to this section">&para;</a></h3>
+<p>A <code>RAGPipeline</code> is one shared corpus, and <code>rag_to_tool()</code> does not scope results to the caller: every caller of an agent that has the tool can retrieve every document in the pipeline. Index only documents that every caller may read. For per-user facts, use a <a href="../memory/">memory provider</a> with <code>MemoryScope.PER_USER</code>, which is scoped to the caller automatically.</p>
+<p>To keep several tenants' documents in one store, tag each document with its owner and write the tool yourself, filtering on the caller of the current request. <code>get_current_caller()</code> returns the <code>CallerContext</code> passed to <code>ainvoke()</code> / <code>chat()</code>, and the tool must refuse when there is none:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructuredTool</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_current_caller</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="k">await</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">documents</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="n">Document</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">"acme-sla"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">"Our SLA is 4 hours."</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"tenant_id"</span><span class="p">:</span> <span class="s2">"acme"</span><span class="p">}),</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="p">])</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">search_my_docs</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="n">caller</span> <span class="o">=</span> <span class="n">get_current_caller</span><span class="p">()</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>    <span class="k">if</span> <span class="n">caller</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">caller</span><span class="o">.</span><span class="n">tenant_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>        <span class="k">return</span> <span class="s2">"No tenant for this request; search refused."</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>    <span class="n">hits</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">"tenant_id"</span><span class="p">:</span> <span class="n">caller</span><span class="o">.</span><span class="n">tenant_id</span><span class="p">})</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>    <span class="k">return</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">text</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">hits</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"No relevant results found."</span>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="n">docs_tool</span> <span class="o">=</span> <span class="n">StructuredTool</span><span class="o">.</span><span class="n">from_function</span><span class="p">(</span>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>    <span class="n">coroutine</span><span class="o">=</span><span class="n">search_my_docs</span><span class="p">,</span>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"search_my_docs"</span><span class="p">,</span>
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">"Search the documents of the caller's organisation."</span><span class="p">,</span>
+</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>A tool you write yourself doesn't get <code>rag_to_tool()</code>'s untrusted-data block; add the same kind of notice to its output.</p>
 <h3 id="hybrid-search">Hybrid search<a class="headerlink" href="#hybrid-search" title="Link to this section">&para;</a></h3>
 <p><code>VectorStore</code> is just a protocol. Subclass to add BM25, reranking, recency boosts, or any hybrid strategy. Return <code>RetrievalResult</code> with your combined score.</p>
 <h3 id="multi-store-composition">Multi-store composition<a class="headerlink" href="#multi-store-composition" title="Link to this section">&para;</a></h3>
 <p>Run multiple pipelines for different corpora and expose each as its own tool. The agent picks the right one based on the description:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">docs_tool</span> <span class="o">=</span> <span class="n">rag_to_tool</span><span class="p">(</span><span class="n">docs_pipeline</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"search_docs"</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Product docs."</span><span class="p">)</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">tickets_tool</span> <span class="o">=</span> <span class="n">rag_to_tool</span><span class="p">(</span><span class="n">tickets_pipeline</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"search_tickets"</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Support tickets."</span><span class="p">)</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="n">extra_tools</span><span class="o">=</span><span class="p">[</span><span class="n">docs_tool</span><span class="p">,</span> <span class="n">tickets_tool</span><span class="p">],</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">docs_tool</span> <span class="o">=</span> <span class="n">rag_to_tool</span><span class="p">(</span><span class="n">docs_pipeline</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"search_docs"</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Product docs."</span><span class="p">)</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">tickets_tool</span> <span class="o">=</span> <span class="n">rag_to_tool</span><span class="p">(</span><span class="n">tickets_pipeline</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"search_tickets"</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Support tickets."</span><span class="p">)</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{},</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="n">extra_tools</span><span class="o">=</span><span class="p">[</span><span class="n">docs_tool</span><span class="p">,</span> <span class="n">tickets_tool</span><span class="p">],</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="when-to-use-rag-vs-memory">When to use RAG vs. Memory<a class="headerlink" href="#when-to-use-rag-vs-memory" title="Link to this section">&para;</a></h2>
@@ -10052,33 +10133,33 @@
 <hr />
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Link to this section">&para;</a></h2>
 <p>The in-memory components are designed for tests — zero dependencies, deterministic behavior. Wire them up with a fake embedder and you've got an end-to-end RAG test in ~20 lines:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.rag</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="n">Document</span><span class="p">,</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="n">Embedder</span><span class="p">,</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">InMemoryVectorStore</span><span class="p">,</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">RAGPipeline</span><span class="p">,</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="n">RecursiveTextChunker</span><span class="p">,</span>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="p">)</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">FakeEmbedder</span><span class="p">(</span><span class="n">Embedder</span><span class="p">):</span>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">embed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">texts</span><span class="p">):</span>
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>        <span class="k">return</span> <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">%</span> <span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"a"</span><span class="p">))</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="mi">1</span><span class="p">)]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">texts</span><span class="p">]</span>
-</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>    <span class="nd">@property</span>
-</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>        <span class="k">return</span> <span class="mi">2</span>
-</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>
-</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_retrieval</span><span class="p">():</span>
-</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>    <span class="n">pipeline</span> <span class="o">=</span> <span class="n">RAGPipeline</span><span class="p">(</span>
-</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>        <span class="n">chunker</span><span class="o">=</span><span class="n">RecursiveTextChunker</span><span class="p">(</span><span class="n">chunk_size</span><span class="o">=</span><span class="mi">200</span><span class="p">),</span>
-</span><span id="__span-17-20"><a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>        <span class="n">embedder</span><span class="o">=</span><span class="n">FakeEmbedder</span><span class="p">(),</span>
-</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>        <span class="n">store</span><span class="o">=</span><span class="n">InMemoryVectorStore</span><span class="p">(),</span>
-</span><span id="__span-17-22"><a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>    <span class="p">)</span>
-</span><span id="__span-17-23"><a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>    <span class="k">await</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">documents</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-17-24"><a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>        <span class="n">Document</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">"d1"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">"The capital of France is Paris."</span><span class="p">),</span>
-</span><span id="__span-17-25"><a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a>    <span class="p">])</span>
-</span><span id="__span-17-26"><a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a>    <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="s2">"France capital"</span><span class="p">)</span>
-</span><span id="__span-17-27"><a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a>    <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span><span class="s2">"Paris"</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">text</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.rag</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="n">Document</span><span class="p">,</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="n">Embedder</span><span class="p">,</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="n">InMemoryVectorStore</span><span class="p">,</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">RAGPipeline</span><span class="p">,</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="n">RecursiveTextChunker</span><span class="p">,</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">)</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">FakeEmbedder</span><span class="p">(</span><span class="n">Embedder</span><span class="p">):</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">embed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">texts</span><span class="p">):</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>        <span class="k">return</span> <span class="p">[[</span><span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">%</span> <span class="mi">10</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"a"</span><span class="p">))</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="mi">1</span><span class="p">)]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">texts</span><span class="p">]</span>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>    <span class="nd">@property</span>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">dimension</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>        <span class="k">return</span> <span class="mi">2</span>
+</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>
+</span><span id="__span-18-17"><a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_retrieval</span><span class="p">():</span>
+</span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>    <span class="n">pipeline</span> <span class="o">=</span> <span class="n">RAGPipeline</span><span class="p">(</span>
+</span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a>        <span class="n">chunker</span><span class="o">=</span><span class="n">RecursiveTextChunker</span><span class="p">(</span><span class="n">chunk_size</span><span class="o">=</span><span class="mi">200</span><span class="p">),</span>
+</span><span id="__span-18-20"><a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a>        <span class="n">embedder</span><span class="o">=</span><span class="n">FakeEmbedder</span><span class="p">(),</span>
+</span><span id="__span-18-21"><a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a>        <span class="n">store</span><span class="o">=</span><span class="n">InMemoryVectorStore</span><span class="p">(),</span>
+</span><span id="__span-18-22"><a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a>    <span class="p">)</span>
+</span><span id="__span-18-23"><a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a>    <span class="k">await</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">documents</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-18-24"><a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a>        <span class="n">Document</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">"d1"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">"The capital of France is Paris."</span><span class="p">),</span>
+</span><span id="__span-18-25"><a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a>    <span class="p">])</span>
+</span><span id="__span-18-26"><a id="__codelineno-18-26" name="__codelineno-18-26" href="#__codelineno-18-26"></a>    <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="s2">"France capital"</span><span class="p">)</span>
+</span><span id="__span-18-27"><a id="__codelineno-18-27" name="__codelineno-18-27" href="#__codelineno-18-27"></a>    <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span><span class="s2">"Paris"</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">text</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">)</span>
 </span></code></pre></div>
 <p>See <code>tests/test_rag.py</code> in the repo for the full test suite.</p>
 <hr />
@@ -10110,7 +10191,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 21:07:58 UTC">2026-10-10</span>
   </span>
 
     

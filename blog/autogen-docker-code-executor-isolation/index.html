@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container but not seccomp…">
+        <meta name="description" content="AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container at Docker's defaults, not cap-drop…">
       
       
         <meta name="author" content="Manser Ventures">
@@ -95,7 +95,7 @@
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
   <meta property="og:title" content="AutoGen Docker Executor vs a Hardened Agent Sandbox">
-  <meta property="og:description" content="AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container but not seccomp…">
+  <meta property="og:description" content="AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container at Docker's defaults, not cap-drop…">
   <meta property="og:url" content="https://docs.promptise.com/blog/autogen-docker-code-executor-isolation/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -105,7 +105,7 @@
   
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="AutoGen Docker Executor vs a Hardened Agent Sandbox">
-  <meta name="twitter:description" content="AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container but not seccomp…">
+  <meta name="twitter:description" content="AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container at Docker's defaults, not cap-drop…">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -181,7 +181,7 @@
       "@type": "TechArticle",
       "headline": "AutoGen Docker Executor vs a Hardened Agent Sandbox",
       "name": "AutoGen Docker Executor vs a Hardened Agent Sandbox",
-      "description": "AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container but not seccomp\u2026",
+      "description": "AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container at Docker\u0027s defaults, not cap-drop\u2026",
       "url": "https://docs.promptise.com/blog/autogen-docker-code-executor-isolation/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -9350,9 +9350,9 @@
 </span></code></pre></div>
 <p>So the container itself is real. What matters for a security decision is everything the constructor above <em>doesn't</em> let you set — and what the container is doing that whole time.</p>
 <h2 id="what-other-frameworks-do-today">What other frameworks do today<a class="headerlink" href="#what-other-frameworks-do-today" title="Link to this section">&para;</a></h2>
-<p>To be fair and precise: a Docker container is not "wide open." Docker applies a default seccomp profile to every container and already drops a chunk of Linux capabilities. AutoGen inherits that baseline for free, and it is genuinely better than nothing. The honest delta is not "AutoGen has no isolation" — it is that AutoGen's executor stops at Docker's defaults and does not expose the knobs a hardened profile turns on:</p>
+<p>To be fair and precise: a Docker container is not "wide open." Docker applies a default seccomp profile to every container and already drops a chunk of Linux capabilities. AutoGen inherits that baseline for free, and it is genuinely better than nothing. The honest delta is not "AutoGen has no isolation" — it is that AutoGen's executor stops at Docker's defaults and does not expose the knobs a hardened profile turns on. (Seccomp is not one of them: Promptise also runs under Docker's default seccomp profile, so on syscall filtering the two are level.)</p>
 <ul>
-<li><strong>No stricter seccomp whitelist.</strong> You get Docker's default deny-list profile, not a tight allow-list tuned to the syscalls model code legitimately needs. <code>DockerCommandLineCodeExecutor</code> exposes no <code>security_opt</code>/seccomp parameter to swap it.</li>
+<li><strong>No <code>no-new-privileges</code>.</strong> <code>DockerCommandLineCodeExecutor</code> exposes no <code>security_opt</code> parameter, so a setuid binary in the image keeps its escalation path.</li>
 <li><strong>No extra capability dropping.</strong> The container keeps Docker's default capability set; there is no <code>cap_drop</code> switch to strip it down to the minimum.</li>
 <li><strong>Writable root filesystem.</strong> There is no <code>read_only</code> option, so the container's rootfs is writable — model code can overwrite system files or persist a foothold for the container's lifetime.</li>
 <li><strong>Network on by default.</strong> The executor exposes no network switch, so the container runs on Docker's default bridge network with outbound access — the exfiltration path a computation task never needed.</li>
@@ -9416,8 +9416,8 @@
 </thead>
 <tbody>
 <tr>
-<td><strong>Seccomp whitelist</strong></td>
-<td>An allow-list <code>seccomp agent sandbox</code> profile permits only the syscalls user code needs and blocks kernel-module loading, raw device access, and privilege escalation.</td>
+<td><strong>Seccomp + no-new-privileges</strong></td>
+<td>Docker's default <code>seccomp agent sandbox</code> profile blocks roughly 44 dangerous syscalls (<code>mount</code>, <code>reboot</code>, <code>kexec_load</code>, …) — the same baseline AutoGen gets — and <code>no-new-privileges</code> stops setuid escalation, which AutoGen's executor does not set.</td>
 </tr>
 <tr>
 <td><strong>Capability dropping</strong></td>
@@ -9425,15 +9425,15 @@
 </tr>
 <tr>
 <td><strong>Read-only rootfs</strong></td>
-<td>The root filesystem is mounted read-only; only <code>/workspace</code> and <code>/tmp</code> are writable, so code can't overwrite system files or persist a foothold.</td>
+<td>The root filesystem is mounted read-only; only <code>/workspace</code> and <code>/tmp</code> are writable, as size-capped tmpfs mounts, so code can't overwrite system files or persist a foothold.</td>
 </tr>
 <tr>
 <td><strong>Network isolation</strong></td>
-<td><code>network="none"</code> (or DNS-filtered <code>restricted</code>) removes the outbound exfiltration path entirely.</td>
+<td><code>network="none"</code>, the default, removes the outbound exfiltration path entirely; the opt-in <code>restricted</code> mode allows only DNS and HTTP/HTTPS, enforced with iptables.</td>
 </tr>
 <tr>
 <td><strong>Resource limits</strong></td>
-<td>CPU, memory, and an execution timeout kill a runaway or fork-bomb program instead of your host.</td>
+<td>CPU, memory, a PID cap (default 256), and an execution timeout — a timed-out command is killed inside the container — stop a runaway or fork-bomb program instead of your host.</td>
 </tr>
 </tbody>
 </table>
@@ -9455,9 +9455,9 @@
 <p>Every one of these is documented layer by layer in the <a href="../../core/sandbox/">sandbox reference</a>. The delta versus AutoGen is not that these controls are impossible elsewhere — it's that here they are the default and a single dict away, and they sit <em>on top of</em> the governed bridge rather than around a standalone script.</p>
 <h2 id="frequently-asked-questions">Frequently asked questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this section">&para;</a></h2>
 <h3 id="does-autogens-docker-executor-apply-seccomp">Does AutoGen's Docker executor apply seccomp?<a class="headerlink" href="#does-autogens-docker-executor-apply-seccomp" title="Link to this section">&para;</a></h3>
-<p>Indirectly — it inherits Docker's default seccomp profile, like any container, so it is not unprotected. What it does not do is apply a <em>stricter whitelist</em> profile tuned for untrusted model code, and <code>DockerCommandLineCodeExecutor</code> exposes no parameter to swap the profile, drop extra capabilities, mount the rootfs read-only, or disable networking. A <code>seccomp agent sandbox</code> in Promptise means an allow-list profile plus cap-drop, read-only rootfs, and <code>network="none"</code> turned on by default rather than left at Docker's baseline.</p>
+<p>Indirectly — it inherits Docker's default seccomp profile, like any container, so it is not unprotected. Promptise uses that same default seccomp profile, so syscall filtering is not the difference. What <code>DockerCommandLineCodeExecutor</code> does not do is drop extra capabilities, set <code>no-new-privileges</code>, mount the rootfs read-only, or disable networking — it exposes no parameter for any of them. A <code>seccomp agent sandbox</code> in Promptise means Docker's default seccomp profile plus cap-drop, <code>no-new-privileges</code>, a read-only rootfs, resource limits, and <code>network="none"</code>, all turned on by default.</p>
 <h3 id="what-makes-a-hardened-agent-code-sandbox-different-from-just-a-container">What makes a hardened agent code sandbox different from "just a container"?<a class="headerlink" href="#what-makes-a-hardened-agent-code-sandbox-different-from-just-a-container" title="Link to this section">&para;</a></h3>
-<p>A container gives you isolation at Docker's defaults. A <code>hardened agent code sandbox</code> layers on a whitelist seccomp profile, ~40 dropped capabilities, a read-only root filesystem, a configurable network mode (defaulting to none for code-action), and resource limits — before any model code runs. In Promptise that profile is the default posture of <code>sandbox=True</code>, not a set of <code>docker run</code> flags you assemble yourself.</p>
+<p>A container gives you isolation at Docker's defaults. A <code>hardened agent code sandbox</code> keeps Docker's default seccomp profile and layers on ~40 dropped capabilities, <code>no-new-privileges</code>, a read-only root filesystem, a configurable network mode (defaulting to none), and resource limits — before any model code runs. In Promptise that profile is the default posture of <code>sandbox=True</code>, not a set of <code>docker run</code> flags you assemble yourself.</p>
 <h3 id="do-i-need-gvisor-for-agent-code-execution">Do I need gVisor for agent code execution?<a class="headerlink" href="#do-i-need-gvisor-for-agent-code-execution" title="Link to this section">&para;</a></h3>
 <p>Not for most workloads — the default Docker profile with seccomp, cap-drop, read-only rootfs, and <code>network="none"</code> already closes the common reaches. Reach for <code>gvisor agent code execution</code> (<code>sandbox={"backend": "gvisor"}</code>) when you are running genuinely untrusted or multi-tenant input and want a kernel-level boundary, since gVisor services syscalls in userspace so the container never touches the host kernel directly. It requires installing the <code>runsc</code> runtime on the host.</p>
 <h3 id="can-i-migrate-an-autogen-dockercommandlinecodeexecutor-workflow-to-promptise">Can I migrate an AutoGen <code>DockerCommandLineCodeExecutor</code> workflow to Promptise?<a class="headerlink" href="#can-i-migrate-an-autogen-dockercommandlinecodeexecutor-workflow-to-promptise" title="Link to this section">&para;</a></h3>
@@ -9486,7 +9486,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:53:17 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:47:11 UTC">2026-10-10</span>
   </span>
 
     

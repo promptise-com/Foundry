@@ -7437,6 +7437,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="InMemoryProvider">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.memory.InMemoryProvider.list_entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_entries
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -7473,6 +7490,17 @@
     <span class="md-ellipsis">
       
         close
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.memory.ChromaProvider.list_entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_entries
       
     </span>
   </a>
@@ -7536,10 +7564,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.memory.Mem0Provider.list_entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_entries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.memory.Mem0Provider.purge_user" class="md-nav__link">
     <span class="md-ellipsis">
       
         purge_user
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.memory.Mem0Provider.search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        search
       
     </span>
   </a>
@@ -9664,6 +9714,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="InMemoryProvider">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.memory.InMemoryProvider.list_entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_entries
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -9700,6 +9767,17 @@
     <span class="md-ellipsis">
       
         close
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.memory.ChromaProvider.list_entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_entries
       
     </span>
   </a>
@@ -9763,10 +9841,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.memory.Mem0Provider.list_entries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_entries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.memory.Mem0Provider.purge_user" class="md-nav__link">
     <span class="md-ellipsis">
       
         purge_user
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.memory.Mem0Provider.search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        search
       
     </span>
   </a>
@@ -10493,9 +10593,12 @@ when <code>scope=SHARED</code>.  Required when <code>scope=PER_USER</code>
 
 
 
-        <p>Substring-search memory provider for testing.</p>
-<p>Stores entries in a dictionary.  Search uses case-insensitive substring
-matching — <strong>not</strong> suitable for production.</p>
+        <p>Keyword-search memory provider for testing.</p>
+<p>Stores entries in a dictionary.  Search ranks entries that contain the
+whole query first, then entries by the share of the query's words they
+contain (case-insensitive, common stop words ignored).  Entries that
+share no word with the query are not returned.  There are no
+embeddings, so synonyms do not match — <strong>not</strong> suitable for production.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -10569,6 +10672,32 @@ caller owns.</p>
 
 
 
+<div class="doc doc-object doc-function">
+
+
+<h4 id="promptise.memory.InMemoryProvider.list_entries" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">list_entries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.memory.InMemoryProvider.list_entries" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>List stored entries whose metadata matches <code>metadata</code> exactly.</p>
+<p>Unlike :meth:<code>search</code> this does not rank by relevance; it is how
+callers enumerate entries they tagged (the adaptive strategy system
+uses it to count failures and cap stored lessons).  Scoping follows
+:meth:<code>search</code>.  Entries are returned oldest first, <code>score=1.0</code>.</p>
+
+
+    </div>
+
+</div>
+
 
 
   </div>
@@ -10597,6 +10726,17 @@ caller owns.</p>
 <p>Requires <code>pip install chromadb</code> (or <code>pip install "promptise[all]"</code>).
 Provides local vector similarity search with automatic embedding
 generation.  ChromaDB handles its own input validation internally.</p>
+<p><strong>Scores.</strong>  New collections are created with cosine distance
+(<code>metadata={"hnsw:space": "cosine"}</code>), and a result's
+:attr:<code>MemoryResult.score</code> is its cosine similarity (<code>1 - distance</code>,
+clamped to <code>[0, 1]</code>).  A collection that already exists keeps the
+distance function it was created with — Chroma cannot change it — and
+the score is derived from that function: <code>ip</code> uses <code>1 - distance</code>,
+and <code>l2</code> (Chroma's default, used by collections created by
+Promptise 1.2.1 and earlier) uses <code>1 - distance / 2</code>, which equals
+cosine similarity for unit-length embeddings such as Chroma's default
+model.  A warning is logged for an <code>l2</code> collection; re-create it to
+get cosine distances (see the memory guide).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -10659,6 +10799,22 @@ Sentence Transformers).</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>scope</code>
+            </td>
+            <td>
+                  <code><span title="promptise.memory.MemoryScope">MemoryScope</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Isolation mode (see :class:<code>MemoryScope</code>).</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="promptise.memory.MemoryScope.SHARED">SHARED</span></code>
             </td>
           </tr>
       </tbody>
@@ -10744,6 +10900,30 @@ garbage collection.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="promptise.memory.ChromaProvider.list_entries" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">list_entries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.memory.ChromaProvider.list_entries" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>List entries whose metadata matches <code>metadata</code> exactly.</p>
+<p>Runs a ChromaDB <code>get(where=...)</code>; see
+:meth:<code>InMemoryProvider.list_entries</code>.  Order is ChromaDB's.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="promptise.memory.ChromaProvider.purge_user" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">purge_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span></code>
 
@@ -10791,8 +10971,17 @@ a single round-trip.  Returns <code>0</code> for SHARED-scope providers.</p>
 
         <p>Adapter for <code>mem0 &lt;https://github.com/mem0ai/mem0&gt;</code>_.</p>
 <p>Requires <code>pip install mem0ai</code> (or <code>pip install "promptise[all]"</code>).
+Supported releases: <code>mem0ai&gt;=0.1.118,&lt;3</code> (the 0.1, 1.x and 2.x lines).
 Wraps Mem0's hybrid retrieval (vector + optional graph search) behind
 the :class:<code>MemoryProvider</code> protocol.</p>
+<p>Mem0 changed its Python API between major versions: from 2.0,
+<code>Memory.search()</code> and <code>Memory.get_all()</code> take the entity ids in a
+<code>filters</code> dict and the result count as <code>top_k</code> (and reject
+<code>user_id=</code> / <code>limit=</code>), while 0.1 and 1.x take <code>user_id=</code> /
+<code>agent_id=</code> / <code>limit=</code>.  The adapter reads the installed client's
+<code>search()</code> signature once and calls whichever form it accepts.
+<code>Memory.add()</code> takes the text as <code>messages</code> in every supported
+release.</p>
 <p>Mem0 can run fully local (with Ollama) or via their cloud platform.
 Pass a <code>config</code> dict to <code>from_config()</code> for self-hosted setups.</p>
 
@@ -10856,6 +11045,22 @@ defaults.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>scope</code>
+            </td>
+            <td>
+                  <code><span title="promptise.memory.MemoryScope">MemoryScope</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Isolation mode (see :class:<code>MemoryScope</code>).</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="promptise.memory.MemoryScope.SHARED">SHARED</span></code>
             </td>
           </tr>
       </tbody>
@@ -10936,6 +11141,31 @@ results = await provider.search("theme preferences")
 <div class="doc doc-object doc-function">
 
 
+<h4 id="promptise.memory.Mem0Provider.list_entries" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">list_entries</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.memory.Mem0Provider.list_entries" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>List the user's entries whose metadata matches <code>metadata</code> exactly.</p>
+<p>Uses Mem0's <code>get_all</code> (up to <code>limit</code> entries, in the API form
+the installed release accepts -- see :meth:<code>search</code>) and filters
+client-side.  See :meth:<code>InMemoryProvider.list_entries</code>.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="promptise.memory.Mem0Provider.purge_user" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">purge_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span></code>
 
@@ -10949,10 +11179,67 @@ results = await provider.search("theme preferences")
     <div class="doc doc-contents ">
 
         <p>Delete every Mem0 entry owned by <code>user_id</code>.</p>
-<p>Uses Mem0's <code>delete_all(user_id=...)</code> / <code>reset_user</code> path when
-available.  Falls back to listing + individual deletion for older
-mem0ai releases.  Returns <code>0</code> for SHARED-scope providers and
-when no entries existed.</p>
+<p>Counts the user's entries with <code>get_all</code> and removes them with
+Mem0's <code>delete_all(user_id=...)</code>; when <code>delete_all</code> is missing
+or fails, deletes the listed entries one by one.  Returns <code>0</code> for
+SHARED-scope providers and when no entries existed.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="promptise.memory.Mem0Provider.search" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">search</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.memory.Mem0Provider.search" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Search Mem0 for memories relevant to <em>query</em>.</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="promptise.memory.MemoryIsolationError">MemoryIsolationError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>scope=PER_USER</code> and no <code>user_id</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="Exception">Exception</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whatever the Mem0 client raises.  Errors are not
+turned into an empty result, so an incompatible Mem0
+release or an unreachable vector store is visible.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>

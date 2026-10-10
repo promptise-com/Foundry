@@ -10370,24 +10370,36 @@
 <h2 id="standard-nodes">Standard Nodes<a class="headerlink" href="#standard-nodes" title="Link to this section">&para;</a></h2>
 <h3 id="promptnode">PromptNode<a class="headerlink" href="#promptnode" title="Link to this section">&para;</a></h3>
 <p>The core LLM reasoning node. Full prompt-assembly pipeline with tool calling, guards, strategies, and context management.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"analyze"</span><span class="p">,</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">instructions</span><span class="o">=</span><span class="s2">"Analyze the data."</span><span class="p">,</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">blocks</span><span class="o">=</span><span class="p">[</span><span class="n">Identity</span><span class="p">(</span><span class="s2">"Analyst"</span><span class="p">),</span> <span class="n">Rules</span><span class="p">([</span><span class="s2">"Cite sources"</span><span class="p">])],</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">strategy</span><span class="o">=</span><span class="n">chain_of_thought</span><span class="p">,</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">tools</span><span class="o">=</span><span class="n">my_tools</span><span class="p">,</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">inject_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">output_key</span><span class="o">=</span><span class="s2">"analysis"</span><span class="p">,</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">input_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">"raw_data"</span><span class="p">],</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">inherit_context_from</span><span class="o">=</span><span class="s2">"search"</span><span class="p">,</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">preprocessor</span><span class="o">=</span><span class="n">enrich_fn</span><span class="p">,</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">postprocessor</span><span class="o">=</span><span class="n">format_fn</span><span class="p">,</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="n">guards</span><span class="o">=</span><span class="p">[</span><span class="n">SchemaStrictGuard</span><span class="p">(</span><span class="n">AnalysisOutput</span><span class="p">)],</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>    <span class="n">output_schema</span><span class="o">=</span><span class="n">AnalysisOutput</span><span class="p">,</span>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="n">transitions</span><span class="o">=</span><span class="p">{</span><span class="s2">"complete"</span><span class="p">:</span> <span class="s2">"report"</span><span class="p">,</span> <span class="s2">"need_data"</span><span class="p">:</span> <span class="s2">"search"</span><span class="p">},</span>
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">model_override</span><span class="o">=</span><span class="s2">"openai:gpt-4o-mini"</span><span class="p">,</span>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="n">temperature</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="n">max_tokens</span><span class="o">=</span><span class="mi">4096</span><span class="p">,</span>
-</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain_of_thought</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.blocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span><span class="p">,</span> <span class="n">Rules</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.guards</span><span class="w"> </span><span class="kn">import</span> <span class="n">SchemaStrictGuard</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="k">class</span><span class="w"> </span><span class="nc">AnalysisOutput</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">summary</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">complete</span><span class="p">:</span> <span class="nb">bool</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"analyze"</span><span class="p">,</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="n">instructions</span><span class="o">=</span><span class="s2">"Analyze the data."</span><span class="p">,</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">blocks</span><span class="o">=</span><span class="p">[</span><span class="n">Identity</span><span class="p">(</span><span class="s2">"Analyst"</span><span class="p">),</span> <span class="n">Rules</span><span class="p">([</span><span class="s2">"Cite sources"</span><span class="p">])],</span>
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="n">strategy</span><span class="o">=</span><span class="n">chain_of_thought</span><span class="p">,</span>
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="n">tools</span><span class="o">=</span><span class="n">my_tools</span><span class="p">,</span>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="n">inject_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>    <span class="n">output_key</span><span class="o">=</span><span class="s2">"analysis"</span><span class="p">,</span>
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>    <span class="n">input_keys</span><span class="o">=</span><span class="p">[</span><span class="s2">"raw_data"</span><span class="p">],</span>
+</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>    <span class="n">inherit_context_from</span><span class="o">=</span><span class="s2">"search"</span><span class="p">,</span>
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>    <span class="n">preprocessor</span><span class="o">=</span><span class="n">enrich_fn</span><span class="p">,</span>
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>    <span class="n">postprocessor</span><span class="o">=</span><span class="n">format_fn</span><span class="p">,</span>
+</span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>    <span class="n">guards</span><span class="o">=</span><span class="p">[</span><span class="n">SchemaStrictGuard</span><span class="p">()],</span>
+</span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>    <span class="n">output_schema</span><span class="o">=</span><span class="n">AnalysisOutput</span><span class="p">,</span>
+</span><span id="__span-10-26"><a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>    <span class="n">transitions</span><span class="o">=</span><span class="p">{</span><span class="s2">"complete"</span><span class="p">:</span> <span class="s2">"report"</span><span class="p">,</span> <span class="s2">"need_data"</span><span class="p">:</span> <span class="s2">"search"</span><span class="p">},</span>
+</span><span id="__span-10-27"><a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>    <span class="n">model_override</span><span class="o">=</span><span class="s2">"openai:gpt-4o-mini"</span><span class="p">,</span>
+</span><span id="__span-10-28"><a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a>    <span class="n">temperature</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+</span><span id="__span-10-29"><a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>    <span class="n">max_tokens</span><span class="o">=</span><span class="mi">4096</span><span class="p">,</span>
+</span><span id="__span-10-30"><a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10445,13 +10457,13 @@
 <td><code>inject_tools</code></td>
 <td><code>bool</code></td>
 <td><code>False</code></td>
-<td>If True, receives all MCP tools discovered by <code>build_agent()</code> at runtime</td>
+<td>If True, receives the tools <code>build_agent()</code> discovered (or <code>PromptGraphEngine(tools=...)</code>) at runtime, merged with <code>tools</code></td>
 </tr>
 <tr>
 <td><code>output_schema</code></td>
 <td><code>type</code></td>
 <td><code>None</code></td>
-<td>Pydantic model for structured output via <code>with_structured_output()</code></td>
+<td>Pydantic model or <code>TypedDict</code> for structured output via <code>with_structured_output()</code>. The output is stored as a plain dict (a Pydantic model is dumped), so transitions, edge conditions, <code>route</code> and <code>output_key</code> read it the same way</td>
 </tr>
 <tr>
 <td><code>guards</code></td>
@@ -10510,8 +10522,14 @@
 <tr>
 <td><code>auto_ledger_after</code></td>
 <td><code>int</code></td>
-<td><code>6</code></td>
-<td>For <code>context_scope="auto"</code>: number of accumulated tool results after which the node switches from full transcript to the bounded ledger</td>
+<td><code>None</code></td>
+<td>For <code>context_scope="auto"</code>: number of accumulated tool results after which the node switches from the full transcript to the compacted view (default 6, or the agent's <code>context_compaction</code> setting)</td>
+</tr>
+<tr>
+<td><code>compaction</code></td>
+<td><code>ContextCompaction \| bool \| int</code></td>
+<td><code>None</code></td>
+<td>This node's <a href="../../guides/context-lifecycle/#tune-it-or-turn-it-off">compaction settings</a>; wins over <code>build_agent(context_compaction=...)</code>. <code>False</code> keeps an <code>"auto"</code> node on the full transcript</td>
 </tr>
 <tr>
 <td><code>preprocessor</code></td>
@@ -10559,7 +10577,7 @@
 <td><code>max_iterations</code></td>
 <td><code>int</code></td>
 <td><code>10</code></td>
-<td>Max times this node can execute in one graph run</td>
+<td>Max times this node can execute in one graph run; each tool-loop round counts. The engine's <code>max_node_iterations</code> (25) caps it. Once used up, the node is not run again: the engine follows its <code>"error"</code> transition, else an <code>__error__</code> node, else ends the run</td>
 </tr>
 <tr>
 <td><code>flags</code></td>
@@ -10630,12 +10648,12 @@ no pattern to choose. The four modes:</p>
 </tr>
 <tr>
 <td><code>"scoped"</code></td>
-<td>The node's system prompt (carrying any inherited/injected distilled state) + the original task + <strong>only this node's own in-progress tool loop</strong></td>
+<td>The node's system prompt (carrying any inherited/injected distilled state) + the input's system messages + the <strong>current</strong> user question + <strong>only this node's own in-progress tool loop</strong></td>
 <td>Multi-stage reasoning graphs — drops the verbose intermediate messages produced by <em>other</em> stages so tokens don't grow across stages</td>
 </tr>
 <tr>
 <td><code>"ledger"</code></td>
-<td>System prompt + original task + the <strong>most recent</strong> assistant turn and its tool results + a compact <strong>deduplicated "facts gathered" ledger</strong></td>
+<td>System prompt + the input's system messages + a short note on earlier conversation + the <strong>current</strong> user question + the <strong>most recent</strong> assistant turn and its tool results + a compact <strong>deduplicated "facts gathered" ledger</strong> of older results</td>
 <td>Long single-node tool loops over an interconnected dataset, where the model otherwise re-queries the same facts dozens of times</td>
 </tr>
 </tbody>
@@ -10659,9 +10677,10 @@ space with <a href="../engine-prebuilts/#code-action-one-sandboxed-program">code
 </div>
 <p><strong>How <code>"ledger"</code> works:</strong></p>
 <ul>
-<li>The ledger is built from <code>state.observations</code> — one line per <code>tool(args) = result</code>, <strong>last value wins</strong> per <code>(tool, args)</code> so duplicates collapse.</li>
+<li>The input's system messages (yours and runtime-injected ones such as <code>[Context State]</code>) and the <strong>current</strong> user question are always sent. Dict messages (<code>{"role": "user", ...}</code>) are converted to LangChain messages first, so every input form works; with chat history, the question is the <em>last</em> user message and earlier turns become a short note.</li>
+<li>The ledger is built from the tool calls in the transcript older than the latest exchange — one line per <code>tool(args) = result</code>, <strong>last value wins</strong> per <code>(tool, args)</code> so duplicates collapse. Results longer than <code>keep_result_chars</code> (2,000) are cut to an excerpt that names the call; results shown in the latest exchange are not repeated.</li>
 <li>It is placed <strong>last</strong>, immediately before the model's turn, where it is most salient — so the model consults it instead of re-calling a tool.</li>
-<li>The most recent assistant turn and its tool results are kept <em>in-flow</em> so the model doesn't lose continuity and loop.</li>
+<li>The most recent assistant turn and its tool results (a whole parallel batch) are kept <em>in-flow</em> so the model doesn't lose continuity and loop.</li>
 <li>Tool execution is <strong>cache-served</strong>: if the node requests a <code>(tool, args)</code> pair already present in <code>state.observations</code>, the cached result is returned instead of re-executing — deep tasks otherwise re-fetch identical facts repeatedly.</li>
 </ul>
 <p>This is the mechanism behind the <a href="../engine-prebuilts/#managed-context-managed-tool-loop"><code>managed</code> prebuilt pattern</a>. It is an <strong>efficiency primitive</strong> — it bounds token growth and removes redundant tool calls without changing the answer the model produces.</p>
@@ -10769,12 +10788,14 @@ space with <a href="../engine-prebuilts/#code-action-one-sandboxed-program">code
 </table>
 <h3 id="guardnode">GuardNode<a class="headerlink" href="#guardnode" title="Link to this section">&para;</a></h3>
 <p>Programmatic validation and gating with pass/fail routing.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">GuardNode</span><span class="p">(</span><span class="s2">"check_quality"</span><span class="p">,</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="n">guards</span><span class="o">=</span><span class="p">[</span><span class="n">LengthGuard</span><span class="p">(</span><span class="n">min_chars</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span> <span class="n">ContentFilterGuard</span><span class="p">(</span><span class="n">blocked</span><span class="o">=</span><span class="p">[</span><span class="s2">"todo"</span><span class="p">])],</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">target_key</span><span class="o">=</span><span class="s2">"draft"</span><span class="p">,</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">on_pass</span><span class="o">=</span><span class="s2">"publish"</span><span class="p">,</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">on_fail</span><span class="o">=</span><span class="s2">"revise"</span><span class="p">,</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.guards</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContentFilterGuard</span><span class="p">,</span> <span class="n">LengthGuard</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">GuardNode</span><span class="p">(</span><span class="s2">"check_quality"</span><span class="p">,</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">guards</span><span class="o">=</span><span class="p">[</span><span class="n">LengthGuard</span><span class="p">(</span><span class="n">min_length</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span> <span class="n">ContentFilterGuard</span><span class="p">(</span><span class="n">blocked</span><span class="o">=</span><span class="p">[</span><span class="s2">"todo"</span><span class="p">])],</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">target_key</span><span class="o">=</span><span class="s2">"draft"</span><span class="p">,</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">on_pass</span><span class="o">=</span><span class="s2">"publish"</span><span class="p">,</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="n">on_fail</span><span class="o">=</span><span class="s2">"revise"</span><span class="p">,</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -11131,6 +11152,13 @@ space with <a href="../engine-prebuilts/#code-action-one-sandboxed-program">code
 </span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>        <span class="n">state</span><span class="o">.</span><span class="n">context</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_output"</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span>
 </span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>        <span class="k">return</span> <span class="n">NodeResult</span><span class="p">(</span><span class="n">node_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">result</span><span class="p">)</span>
 </span></code></pre></div>
+<p>When the graph is streamed (<code>astream()</code>, <code>astream_events()</code>,
+<code>agent.astream_with_tools()</code>), the engine calls the node's <code>stream()</code>. The
+default runs <code>execute()</code> once and yields an <code>on_node_end</code> event with the result,
+so a subclass only overrides <code>stream()</code> to emit events of its own — and then
+must end with <code>NodeEvent(event="on_node_end", node_name=self.name,
+data={"result": result})</code>. A stream that ends without the result fails the run;
+the engine never executes a node twice to get one.</p>
 <h3 id="basenode-parameters">BaseNode Parameters<a class="headerlink" href="#basenode-parameters" title="Link to this section">&para;</a></h3>
 <p>All nodes inherit these parameters from BaseNode:</p>
 <table>
@@ -11177,7 +11205,7 @@ space with <a href="../engine-prebuilts/#code-action-one-sandboxed-program">code
 <td><code>max_iterations</code></td>
 <td><code>int</code></td>
 <td><code>10</code></td>
-<td>Max executions per graph run</td>
+<td>Max executions per graph run — enforced by the engine; when used up, the <code>"error"</code> transition is followed (else <code>__error__</code>, else the run ends)</td>
 </tr>
 <tr>
 <td><code>metadata</code></td>
@@ -11216,7 +11244,7 @@ space with <a href="../engine-prebuilts/#code-action-one-sandboxed-program">code
 </span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"critical_step"</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="p">{</span><span class="n">NodeFlag</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">})</span>             <span class="c1"># Abort on error</span>
 </span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"optional"</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="p">{</span><span class="n">NodeFlag</span><span class="o">.</span><span class="n">SKIP_ON_ERROR</span><span class="p">,</span> <span class="n">NodeFlag</span><span class="o">.</span><span class="n">LIGHTWEIGHT</span><span class="p">})</span>
 </span></code></pre></div>
-<p>16 built-in flags cover execution control, context isolation, model selection, observability, and output processing. See <a href="../engine-flags/">Node Flags</a> for the full reference.</p>
+<p>18 built-in flags cover execution control, context isolation, model selection, observability, and output processing. See <a href="../engine-flags/">Node Flags</a> for the full reference.</p>
 <hr />
 <h2 id="skills-library">Skills Library<a class="headerlink" href="#skills-library" title="Link to this section">&para;</a></h2>
 <p>Pre-configured node factories for common tasks:</p>
@@ -11257,7 +11285,7 @@ space with <a href="../engine-prebuilts/#code-action-one-sandboxed-program">code
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 28, 2026 10:51:39 UTC">2026-06-28</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:24:39 UTC">2026-10-10</span>
   </span>
 
     

@@ -9678,7 +9678,9 @@ development/testing).  The agent <strong>never</strong> generates tokens itself.
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Legacy auth hint.</p>
+                <p>Deprecated and ignored — it was never sent to the server.
+Setting it emits a <code>FutureWarning</code>; use <code>bearer_token</code> or
+<code>api_key</code>.</p>
               </div>
             </td>
           </tr>
@@ -9705,6 +9707,26 @@ automatically.</p>
                 <p>Pre-shared API key.  When set, an <code>x-api-key</code>
 header is created automatically.  Use this for simple
 secret-based auth when JWT is overkill.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.config.HTTPServerSpec.forward_caller_token">forward_caller_token</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When <code>True</code> (default) and an invocation
+carries a :class:<code>~promptise.CallerContext</code> with a
+<code>bearer_token</code>, this server's tools are called with
+<code>Authorization: Bearer &lt;caller token&gt;</code> over a session
+opened for that caller, so the server sees the user, not
+whoever built the agent.  <code>bearer_token</code> (or the agent
+identity) is still used for tool discovery and for calls
+without a caller token.  Set <code>False</code> for a third-party
+server that must not receive your users' tokens, or one that
+should always see the agent's own credential.</p>
               </div>
             </td>
           </tr>

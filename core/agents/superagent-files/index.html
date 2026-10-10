@@ -2493,6 +2493,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#approval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        approval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#memory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2536,10 +2547,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cross-agent-references-and-cycle-detection" class="md-nav__link">
+  <a href="#teams-of-agents-cross_agents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cross-Agent References and Cycle Detection
+        Teams of agents (cross_agents)
       
     </span>
   </a>
@@ -9465,6 +9476,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#approval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        approval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#memory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9508,10 +9530,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cross-agent-references-and-cycle-detection" class="md-nav__link">
+  <a href="#teams-of-agents-cross_agents" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cross-Agent References and Cycle Detection
+        Teams of agents (cross_agents)
       
     </span>
   </a>
@@ -9635,35 +9657,34 @@
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="nt">database</span><span class="p">:</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"http://localhost:9000/mcp"</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nt">headers</span><span class="p">:</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">      </span><span class="nt">Authorization</span><span class="p">:</span><span class="w"> </span><span class="s">"Bearer</span><span class="nv"> </span><span class="s">${DB_TOKEN}"</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nt">bearer_token</span><span class="p">:</span><span class="w"> </span><span class="s">"${DB_TOKEN}"</span>
 </span></code></pre></div>
-<p>Load and run it in Python:</p>
+<p>Run it from the terminal with <code>promptise agent analyst.superagent</code>, or load and run it in Python:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.superagent</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_superagent_file</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">loader</span><span class="p">,</span> <span class="n">cross_agents</span> <span class="o">=</span> <span class="n">load_superagent_file</span><span class="p">(</span><span class="s2">"analyst.superagent"</span><span class="p">)</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="o">.</span><span class="n">to_build_kwargs</span><span class="p">())</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        <span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Show me top 10 customers by revenue"</span><span class="p">}]</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="p">})</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_superagent</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_superagent</span><span class="p">(</span><span class="s2">"analyst.superagent"</span><span class="p">)</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>            <span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Show me top 10 customers by revenue"</span><span class="p">}]</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="p">})</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
+<p><code>build_superagent()</code> loads the file, reads <code>.env</code>, resolves <code>${VAR}</code> references and builds the agent -- together with every agent listed under <code>cross_agents:</code>, at any depth (see <a href="#teams-of-agents-cross_agents">Teams of agents</a>).</p>
 <h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
 <p>A <code>.superagent</code> file is a YAML document validated against <code>SuperAgentSchema</code>. It replaces the programmatic <code>build_agent()</code> call with a declarative configuration file that can be version-controlled, shared across teams, and loaded at runtime.</p>
 <p>The loader pipeline works in three steps:</p>
 <ol>
-<li><strong>Parse and validate</strong> -- <code>SuperAgentLoader.from_file()</code> reads YAML and validates it against the Pydantic schema. Invalid fields are rejected immediately.</li>
-<li><strong>Resolve environment variables</strong> -- <code>resolve_env_vars()</code> replaces <code>${VAR}</code> and <code>${VAR:-default}</code> placeholders with actual values from the environment.</li>
+<li><strong>Parse and validate</strong> -- <code>SuperAgentLoader.from_file()</code> reads YAML and validates it against the Pydantic schema. Invalid fields -- and settings that could never be built, such as <code>approval.handler: callback</code> -- are rejected immediately.</li>
+<li><strong>Resolve environment variables</strong> -- <code>resolve_env_vars()</code> loads the nearest <code>.env</code> file, then replaces <code>${VAR}</code> and <code>${VAR:-default}</code> placeholders with actual values from the environment.</li>
 <li><strong>Convert to native types</strong> -- <code>to_agent_config()</code> produces a <code>SuperAgentConfig</code> object whose <code>to_build_kwargs()</code> method returns a dict ready for <code>build_agent(**kwargs)</code>.</li>
 </ol>
+<p><code>build_superagent()</code> runs all three steps for the file and each of its cross-agents, and builds them.</p>
 <h2 id="full-yaml-schema">Full YAML Schema<a class="headerlink" href="#full-yaml-schema" title="Link to this section">&para;</a></h2>
 <p>Here is a <code>.superagent</code> file using every available section:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="s">"1.0"</span>
@@ -9686,42 +9707,54 @@
 </span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
 </span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"https://search.example.com/mcp"</span>
 </span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="nt">transport</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">streamable-http</span>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">    </span><span class="nt">headers</span><span class="p">:</span>
-</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">      </span><span class="nt">Authorization</span><span class="p">:</span><span class="w"> </span><span class="s">"Bearer</span><span class="nv"> </span><span class="s">${SEARCH_TOKEN}"</span>
-</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">  </span><span class="nt">local_tools</span><span class="p">:</span>
-</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdio</span>
-</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">python</span>
-</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">    </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"-m"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"my_tools.server"</span><span class="p p-Indicator">]</span>
-</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">    </span><span class="nt">env</span><span class="p">:</span>
-</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">      </span><span class="nt">API_KEY</span><span class="p">:</span><span class="w"> </span><span class="s">"${MY_API_KEY}"</span>
-</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">    </span><span class="nt">cwd</span><span class="p">:</span><span class="w"> </span><span class="s">"/opt/tools"</span>
-</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">    </span><span class="nt">keep_alive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>
-</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="nt">cross_agents</span><span class="p">:</span>
-</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">  </span><span class="nt">math_expert</span><span class="p">:</span>
-</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="w">    </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="s">"./agents/math.superagent"</span>
-</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Specialized</span><span class="nv"> </span><span class="s">math</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">calculation</span><span class="nv"> </span><span class="s">agent"</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">    </span><span class="nt">bearer_token</span><span class="p">:</span><span class="w"> </span><span class="s">"${SEARCH_TOKEN}"</span><span class="w">   </span><span class="c1"># or api_key: "${SEARCH_KEY}"</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">  </span><span class="nt">local_tools</span><span class="p">:</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdio</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">python</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">    </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"-m"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"my_tools.server"</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">    </span><span class="nt">env</span><span class="p">:</span>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">      </span><span class="nt">API_KEY</span><span class="p">:</span><span class="w"> </span><span class="s">"${MY_API_KEY}"</span>
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">    </span><span class="nt">cwd</span><span class="p">:</span><span class="w"> </span><span class="s">"/opt/tools"</span><span class="w">                 </span><span class="c1"># default: this file's folder</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">    </span><span class="nt">keep_alive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="nt">cross_agents</span><span class="p">:</span>
+</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">  </span><span class="nt">math_expert</span><span class="p">:</span>
+</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">    </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="s">"./agents/math.superagent"</span>
+</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Specialized</span><span class="nv"> </span><span class="s">math</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">calculation</span><span class="nv"> </span><span class="s">agent"</span>
+</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="w">    </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">120</span><span class="w">                      </span><span class="c1"># seconds to wait for its answer</span>
 </span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>
-</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="nt">memory</span><span class="p">:</span>
-</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chroma</span><span class="w">                     </span><span class="c1"># "in_memory", "chroma", or "mem0"</span>
-</span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="w">  </span><span class="nt">collection</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">research_memory</span>
-</span><span id="__span-2-40"><a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="w">  </span><span class="nt">persist_directory</span><span class="p">:</span><span class="w"> </span><span class="s">".promptise/chroma"</span>
-</span><span id="__span-2-41"><a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a>
-</span><span id="__span-2-42"><a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a><span class="nt">sandbox</span><span class="p">:</span>
-</span><span id="__span-2-43"><a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker</span>
-</span><span id="__span-2-44"><a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="s">"python:3.11-slim"</span>
-</span><span id="__span-2-45"><a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a><span class="w">  </span><span class="nt">cpu_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-</span><span id="__span-2-46"><a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a><span class="w">  </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="s">"4G"</span>
-</span><span id="__span-2-47"><a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a><span class="w">  </span><span class="nt">disk_limit</span><span class="p">:</span><span class="w"> </span><span class="s">"10G"</span>
-</span><span id="__span-2-48"><a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">restricted</span>
-</span><span id="__span-2-49"><a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-</span><span id="__span-2-50"><a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a><span class="w">  </span><span class="nt">tools</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"python"</span><span class="p p-Indicator">]</span>
-</span><span id="__span-2-51"><a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a><span class="w">  </span><span class="nt">workdir</span><span class="p">:</span><span class="w"> </span><span class="s">"/workspace"</span>
-</span><span id="__span-2-52"><a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a><span class="w">  </span><span class="nt">allow_sudo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="nt">max_delegation_depth</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w">               </span><span class="c1"># nested delegations per request</span>
+</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="nt">delegation_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span><span class="w">               </span><span class="c1"># default wait for any cross-agent</span>
+</span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="nt">include_broadcast</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># add broadcast_to_agents</span>
+</span><span id="__span-2-40"><a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>
+</span><span id="__span-2-41"><a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a><span class="nt">approval</span><span class="p">:</span>
+</span><span id="__span-2-42"><a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a><span class="w">  </span><span class="nt">tools</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"send_email"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"delete_*"</span><span class="p p-Indicator">]</span>
+</span><span id="__span-2-43"><a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook</span><span class="w">                    </span><span class="c1"># or queue</span>
+</span><span id="__span-2-44"><a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a><span class="w">  </span><span class="nt">webhook_url</span><span class="p">:</span><span class="w"> </span><span class="s">"https://approvals.example.com/requests"</span>
+</span><span id="__span-2-45"><a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a><span class="w">  </span><span class="nt">webhook_secret</span><span class="p">:</span><span class="w"> </span><span class="s">"${APPROVAL_WEBHOOK_SECRET}"</span>
+</span><span id="__span-2-46"><a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a>
+</span><span id="__span-2-47"><a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a><span class="nt">max_invocation_time</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+</span><span id="__span-2-48"><a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a>
+</span><span id="__span-2-49"><a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a><span class="nt">memory</span><span class="p">:</span>
+</span><span id="__span-2-50"><a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chroma</span><span class="w">                     </span><span class="c1"># "in_memory", "chroma", or "mem0"</span>
+</span><span id="__span-2-51"><a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a><span class="w">  </span><span class="nt">collection</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">research_memory</span>
+</span><span id="__span-2-52"><a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a><span class="w">  </span><span class="nt">persist_directory</span><span class="p">:</span><span class="w"> </span><span class="s">".promptise/chroma"</span>
+</span><span id="__span-2-53"><a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a>
+</span><span id="__span-2-54"><a id="__codelineno-2-54" name="__codelineno-2-54" href="#__codelineno-2-54"></a><span class="nt">sandbox</span><span class="p">:</span>
+</span><span id="__span-2-55"><a id="__codelineno-2-55" name="__codelineno-2-55" href="#__codelineno-2-55"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker</span>
+</span><span id="__span-2-56"><a id="__codelineno-2-56" name="__codelineno-2-56" href="#__codelineno-2-56"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="s">"python:3.11-slim"</span>
+</span><span id="__span-2-57"><a id="__codelineno-2-57" name="__codelineno-2-57" href="#__codelineno-2-57"></a><span class="w">  </span><span class="nt">cpu_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span id="__span-2-58"><a id="__codelineno-2-58" name="__codelineno-2-58" href="#__codelineno-2-58"></a><span class="w">  </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="s">"4G"</span>
+</span><span id="__span-2-59"><a id="__codelineno-2-59" name="__codelineno-2-59" href="#__codelineno-2-59"></a><span class="w">  </span><span class="nt">disk_limit</span><span class="p">:</span><span class="w"> </span><span class="s">"1G"</span>
+</span><span id="__span-2-60"><a id="__codelineno-2-60" name="__codelineno-2-60" href="#__codelineno-2-60"></a><span class="w">  </span><span class="nt">pids_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">256</span>
+</span><span id="__span-2-61"><a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a><span class="w">  </span><span class="nt">network</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">none</span>
+</span><span id="__span-2-62"><a id="__codelineno-2-62" name="__codelineno-2-62" href="#__codelineno-2-62"></a><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+</span><span id="__span-2-63"><a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a><span class="w">  </span><span class="nt">workdir</span><span class="p">:</span><span class="w"> </span><span class="s">"/workspace"</span>
+</span><span id="__span-2-64"><a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a><span class="w">  </span><span class="nt">allow_sudo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </span></code></pre></div>
 <h3 id="section-reference">Section Reference<a class="headerlink" href="#section-reference" title="Link to this section">&para;</a></h3>
 <h4 id="version"><code>version</code><a class="headerlink" href="#version" title="Link to this section">&para;</a></h4>
-<p>Always <code>"1.0"</code>. Required for forward compatibility.</p>
+<p>Optional. <code>"1.0"</code> is the only schema version and the default, so a file without <code>version:</code> is read as <code>"1.0"</code>. Any other value is a validation error. Writing <code>version: "1.0"</code> keeps the file explicit if a later version is added.</p>
 <h4 id="agent"><code>agent</code><a class="headerlink" href="#agent" title="Link to this section">&para;</a></h4>
 <table>
 <thead>
@@ -10057,13 +10090,26 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 <td>HTTP headers (values support <code>${ENV_VAR}</code>).</td>
 </tr>
 <tr>
-<td><code>auth</code></td>
+<td><code>bearer_token</code></td>
 <td><code>str \| None</code></td>
 <td><code>None</code></td>
-<td>Legacy auth token.</td>
+<td>Sent as <code>Authorization: Bearer &lt;token&gt;</code>. Use <code>${ENV_VAR}</code>.</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Sent as <code>x-api-key: &lt;key&gt;</code>. Use <code>${ENV_VAR}</code>.</td>
+</tr>
+<tr>
+<td><code>audience</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Audience of the credential minted from the agent's <code>identity:</code> when no <code>bearer_token</code> is set.</td>
 </tr>
 </tbody>
 </table>
+<p><code>auth:</code> is rejected with a validation error. Earlier versions accepted it but never sent it to the server, so the server answered <code>401</code>. Use <code>bearer_token:</code> or <code>api_key:</code> instead.</p>
 </div>
 <div class="tabbed-block">
 <table>
@@ -10103,8 +10149,8 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 <tr>
 <td><code>cwd</code></td>
 <td><code>str \| None</code></td>
-<td><code>None</code></td>
-<td>Working directory.</td>
+<td>this file's folder</td>
+<td>Working directory of the server process. A relative <code>cwd</code> is relative to this file's folder.</td>
 </tr>
 <tr>
 <td><code>keep_alive</code></td>
@@ -10114,6 +10160,11 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 </tr>
 </tbody>
 </table>
+<p>Paths are relative to the <code>.superagent</code> file, not to the directory you run from: the server starts in the file's folder, so <code>args: ["incidents_server.py"]</code> finds the script next to the file. A relative <code>command</code> with a path separator (<code>./bin/server</code>) is resolved against the file's folder too; a bare name such as <code>python</code> or <code>npx</code> is looked up on <code>PATH</code>. A path with a root (<code>/opt/tools</code>, <code>C:\tools</code>, <code>\\server\share</code>) is used as written.</p>
+<p>On Windows, write paths in single quotes or with forward slashes. Inside double quotes YAML reads a backslash as an escape sequence: <code>"C:\Python312\python.exe"</code> is a parse error and <code>"C:\tools\new"</code> silently contains a tab and a newline.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">'C:\Python312\python.exe'</span><span class="w">   </span><span class="c1"># single quotes: backslashes are literal</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nt">cwd</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">C:/tools</span><span class="w">                         </span><span class="c1"># forward slashes work everywhere</span>
+</span></code></pre></div>
 </div>
 </div>
 </div>
@@ -10141,8 +10192,96 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 <td><code>""</code></td>
 <td>Description shown in the auto-generated <code>ask_agent_&lt;name&gt;</code> tool.</td>
 </tr>
+<tr>
+<td><code>timeout</code></td>
+<td><code>float \| None</code></td>
+<td><code>None</code></td>
+<td>Seconds to wait for this agent's answer; overrides <code>delegation_timeout</code>. After it, the tool returns <code>"Timed out waiting for peer agent reply."</code>.</td>
+</tr>
 </tbody>
 </table>
+<p>These top-level fields control delegation:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>max_delegation_depth</code></td>
+<td><code>int</code></td>
+<td><code>3</code></td>
+<td>Most nested delegations one request may make (this agent → peer → peer …). A deeper call, or a call back into an agent already working on the request, is refused with an error the model sees.</td>
+</tr>
+<tr>
+<td><code>delegation_timeout</code></td>
+<td><code>float \| None</code></td>
+<td><code>None</code></td>
+<td>Default seconds to wait for any cross-agent. <code>None</code> = no limit beyond the peer's own <code>max_invocation_time</code>.</td>
+</tr>
+<tr>
+<td><code>include_broadcast</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Also add the <code>broadcast_to_agents</code> tool.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="approval"><code>approval</code><a class="headerlink" href="#approval" title="Link to this section">&para;</a></h4>
+<p>Optional. Human approval for matching tool calls -- see <a href="../../approval/#yaml-configuration-superagent">Human-in-the-loop approval</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tools</code></td>
+<td><code>list[str]</code></td>
+<td><strong>required</strong></td>
+<td>Glob patterns of tool names that need approval.</td>
+</tr>
+<tr>
+<td><code>handler</code></td>
+<td><code>"webhook" \| "queue"</code></td>
+<td><code>"webhook"</code></td>
+<td><code>callback</code> is rejected: it needs a Python function.</td>
+</tr>
+<tr>
+<td><code>webhook_url</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Required for <code>webhook</code>.</td>
+</tr>
+<tr>
+<td><code>webhook_secret</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>HMAC secret for the <code>X-Promptise-Signature</code> header (<code>webhook</code> only). Use <code>${ENV_VAR}</code>.</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td><code>float</code></td>
+<td><code>300</code></td>
+<td>Seconds to wait for a decision.</td>
+</tr>
+<tr>
+<td><code>on_timeout</code></td>
+<td><code>"deny" \| "allow"</code></td>
+<td><code>"deny"</code></td>
+<td>What happens when nobody answers.</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>queue</code> handler is answered by code in the same process. <code>promptise agent</code> asks each request as a y/N question when you run it at a terminal; with piped input nobody can answer, so requests time out.</p>
 <h4 id="memory"><code>memory</code><a class="headerlink" href="#memory" title="Link to this section">&para;</a></h4>
 <p>Optional. Configures persistent agent memory.</p>
 <table>
@@ -10188,7 +10327,10 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 </tbody>
 </table>
 <h4 id="sandbox"><code>sandbox</code><a class="headerlink" href="#sandbox" title="Link to this section">&para;</a></h4>
-<p>Optional. Can be <code>true</code> for defaults or a detailed configuration object.</p>
+<p>Optional. Can be <code>true</code> for defaults or a detailed configuration object.
+Unknown keys are rejected. If the sandbox cannot be started (Docker not
+running, the <code>promptise[sandbox]</code> extra missing, gVisor not installed), loading
+the agent fails instead of running it without a sandbox.</p>
 <table>
 <thead>
 <tr>
@@ -10226,32 +10368,32 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 <tr>
 <td><code>disk_limit</code></td>
 <td><code>str</code></td>
-<td><code>"10G"</code></td>
-<td>Maximum disk space.</td>
+<td><code>"1G"</code></td>
+<td>Size of the writable workspace.</td>
+</tr>
+<tr>
+<td><code>pids_limit</code></td>
+<td><code>int</code></td>
+<td><code>256</code></td>
+<td>Maximum processes and threads.</td>
 </tr>
 <tr>
 <td><code>network</code></td>
 <td><code>"none" \| "restricted" \| "full"</code></td>
-<td><code>"restricted"</code></td>
-<td>Network isolation mode.</td>
+<td><code>"none"</code></td>
+<td>Network isolation mode. <code>"restricted"</code> needs <code>iptables</code> in the image and refuses to start without it.</td>
 </tr>
 <tr>
 <td><code>persistent</code></td>
 <td><code>bool</code></td>
 <td><code>false</code></td>
-<td>Keep workspace between runs.</td>
+<td>Keep the container after the session ends.</td>
 </tr>
 <tr>
 <td><code>timeout</code></td>
 <td><code>int</code></td>
 <td><code>300</code></td>
 <td>Max execution time in seconds (1--3600).</td>
-</tr>
-<tr>
-<td><code>tools</code></td>
-<td><code>list[str]</code></td>
-<td><code>["python"]</code></td>
-<td>Pre-installed tools.</td>
 </tr>
 <tr>
 <td><code>workdir</code></td>
@@ -10293,54 +10435,71 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 </tr>
 </tbody>
 </table>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">servers</span><span class="p">:</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">api</span><span class="p">:</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"${API_URL:-http://localhost:8000/mcp}"</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="nt">headers</span><span class="p">:</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">      </span><span class="nt">Authorization</span><span class="p">:</span><span class="w"> </span><span class="s">"Bearer</span><span class="nv"> </span><span class="s">${API_TOKEN}"</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">servers</span><span class="p">:</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">api</span><span class="p">:</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"${API_URL:-http://localhost:8000/mcp}"</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="nt">bearer_token</span><span class="p">:</span><span class="w"> </span><span class="s">"${API_TOKEN}"</span>
 </span></code></pre></div>
+<p>Before resolving, the loader loads the nearest <code>.env</code> file -- the same file, by the same rule, as the <code>promptise</code> CLI and model setup: the working directory or a parent up to the project root (the folder with <code>pyproject.toml</code> or <code>.git</code>), never overriding a variable that is already set. <code>PROMPTISE_NO_DOTENV=1</code> turns it off. So <code>python run_agent.py</code> and <code>promptise agent</code> see the same variables.</p>
 <p>Call <code>loader.validate_env_vars()</code> to check which variables are missing before resolving:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">missing</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">validate_env_vars</span><span class="p">()</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Set these env vars: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="k">else</span><span class="p">:</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">loader</span><span class="o">.</span><span class="n">resolve_env_vars</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">missing</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">validate_env_vars</span><span class="p">()</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Set these env vars: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">else</span><span class="p">:</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">loader</span><span class="o">.</span><span class="n">resolve_env_vars</span><span class="p">()</span>
 </span></code></pre></div>
-<h2 id="cross-agent-references-and-cycle-detection">Cross-Agent References and Cycle Detection<a class="headerlink" href="#cross-agent-references-and-cycle-detection" title="Link to this section">&para;</a></h2>
-<p>The loader recursively resolves cross-agent references. If agent A references agent B and agent B references agent A, the loader raises a <code>SuperAgentError</code> with the full reference chain.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># main.superagent</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="nt">cross_agents</span><span class="p">:</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">researcher</span><span class="p">:</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="s">"./researcher.superagent"</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Web</span><span class="nv"> </span><span class="s">research</span><span class="nv"> </span><span class="s">specialist"</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span><span class="nt">analyst</span><span class="p">:</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="s">"./analyst.superagent"</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Data</span><span class="nv"> </span><span class="s">analysis</span><span class="nv"> </span><span class="s">specialist"</span>
+<h2 id="teams-of-agents-cross_agents">Teams of agents (<code>cross_agents</code>)<a class="headerlink" href="#teams-of-agents-cross_agents" title="Link to this section">&para;</a></h2>
+<p>A file can list other <code>.superagent</code> files under <code>cross_agents:</code>. Each becomes an <code>ask_agent_&lt;name&gt;</code> tool of this agent. The referenced files can have cross-agents of their own.</p>
+<p>The loader resolves references at every depth. If agent A references agent B and agent B references agent A, the loader raises a <code>SuperAgentError</code> with the full reference chain.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># main.superagent</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="nt">cross_agents</span><span class="p">:</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">researcher</span><span class="p">:</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="s">"./researcher.superagent"</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Web</span><span class="nv"> </span><span class="s">research</span><span class="nv"> </span><span class="s">specialist"</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="nt">analyst</span><span class="p">:</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="s">"./analyst.superagent"</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Data</span><span class="nv"> </span><span class="s">analysis</span><span class="nv"> </span><span class="s">specialist"</span>
 </span></code></pre></div>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">loader</span><span class="p">,</span> <span class="n">cross_loaders</span> <span class="o">=</span> <span class="n">load_superagent_file</span><span class="p">(</span><span class="s2">"main.superagent"</span><span class="p">)</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">cross_loader</span> <span class="ow">in</span> <span class="n">cross_loaders</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Loaded peer: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="n">cross_loader</span><span class="o">.</span><span class="n">file_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="the-superagentloader-class">The <code>SuperAgentLoader</code> Class<a class="headerlink" href="#the-superagentloader-class" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.superagent</span><span class="w"> </span><span class="kn">import</span> <span class="n">SuperAgentLoader</span><span class="p">,</span> <span class="n">load_superagent_file</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">loader</span><span class="p">,</span> <span class="n">cross_loaders</span> <span class="o">=</span> <span class="n">load_superagent_file</span><span class="p">(</span><span class="s2">"main.superagent"</span><span class="p">)</span>
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="c1"># Step-by-step usage</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="n">loader</span><span class="o">.</span><span class="n">resolve_env_vars</span><span class="p">()</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="n">cross_loaders</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">resolve_cross_agents</span><span class="p">(</span><span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">servers</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_server_specs</span><span class="p">()</span>      <span class="c1"># dict[str, ServerSpec]</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="n">model</span>   <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_model_string</span><span class="p">()</span>      <span class="c1"># e.g. "openai:gpt-5-mini"</span>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="n">config</span>  <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>      <span class="c1"># SuperAgentConfig</span>
-</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>
-</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="c1"># Or use the convenience function</span>
-</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="n">loader</span><span class="p">,</span> <span class="n">cross_loaders</span> <span class="o">=</span> <span class="n">load_superagent_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="n">config</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>
-</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="n">kwargs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">to_build_kwargs</span><span class="p">()</span>
-</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">cross_loader</span> <span class="ow">in</span> <span class="n">cross_loaders</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Loaded peer: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="n">cross_loader</span><span class="o">.</span><span class="n">file_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="c1"># its own references are in cross_loader.cross_loaders</span>
+</span></code></pre></div>
+<p>Build a team with <code>build_superagent()</code> (or run it with <code>promptise agent main.superagent</code>):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_superagent</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_superagent</span><span class="p">(</span><span class="s2">"main.superagent"</span><span class="p">)</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"..."</span><span class="p">}]})</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>   <span class="c1"># shuts down every agent in the team</span>
+</span></code></pre></div>
+<p>Every cross-agent is built from its whole file -- servers, approval, memory, guardrails, its own cross-agents -- and the whole team is built in the running event loop. Build, use and shut down the team in the same task (one <code>asyncio.run</code>): MCP sessions, stdio ones above all, belong to the task that opened them.</p>
+<p><code>config.to_build_kwargs()</code> cannot build cross-agents, because each is an agent of its own. For a file with <code>cross_agents:</code> it warns and leaves them out; use <code>build_superagent()</code>, or build the peers yourself and pass <code>to_build_kwargs(cross_agents={...})</code>.</p>
+<p>At run time, delegation is bounded by <code>max_delegation_depth</code> (default 3) and by loop detection, and each call can be limited with <code>timeout:</code> / <code>delegation_timeout:</code>. See <a href="../cross-agent/#delegation-limits">Cross-Agent Delegation</a>.</p>
+<h2 id="the-superagentloader-class">The <code>SuperAgentLoader</code> Class<a class="headerlink" href="#the-superagentloader-class" title="Link to this section">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.superagent</span><span class="w"> </span><span class="kn">import</span> <span class="n">SuperAgentLoader</span><span class="p">,</span> <span class="n">load_superagent_file</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="c1"># Step-by-step usage</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="n">loader</span><span class="o">.</span><span class="n">resolve_env_vars</span><span class="p">()</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="n">cross_loaders</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">resolve_cross_agents</span><span class="p">(</span><span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="n">servers</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_server_specs</span><span class="p">()</span>      <span class="c1"># dict[str, ServerSpec]</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="n">model</span>   <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_model_string</span><span class="p">()</span>      <span class="c1"># e.g. "openai:gpt-5-mini"</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="n">config</span>  <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>      <span class="c1"># SuperAgentConfig</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="c1"># Or use the convenience function</span>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="n">loader</span><span class="p">,</span> <span class="n">cross_loaders</span> <span class="o">=</span> <span class="n">load_superagent_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="n">config</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="n">kwargs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">to_build_kwargs</span><span class="p">()</span>      <span class="c1"># warns if the file has cross_agents</span>
+</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="__span-18-17"><a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>
+</span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a><span class="c1"># Or build the agent and its whole team</span>
+</span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_superagent</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="api-summary">API Summary<a class="headerlink" href="#api-summary" title="Link to this section">&para;</a></h2>
 <table>
@@ -10360,7 +10519,12 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 <tr>
 <td><code>load_superagent_file()</code></td>
 <td><code>from promptise.superagent import load_superagent_file</code></td>
-<td>Convenience function that loads, resolves env vars, and resolves cross-agent refs in one call. Returns <code>(loader, cross_loaders)</code>.</td>
+<td>Convenience function that loads (reading <code>.env</code>), resolves env vars, and resolves cross-agent refs at every depth in one call. Returns <code>(loader, cross_loaders)</code>.</td>
+</tr>
+<tr>
+<td><code>build_superagent()</code></td>
+<td><code>from promptise import build_superagent</code></td>
+<td><code>await build_superagent(path_or_loader, *, model=None, instructions=None, trace=None, extra_servers=None)</code> -- builds the agent and every cross-agent in its file, at any depth, in the running event loop. <code>shutdown()</code> on the result shuts down the team. Overrides apply to the top agent.</td>
 </tr>
 <tr>
 <td><code>SuperAgentSchema</code></td>
@@ -10370,7 +10534,7 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
 <tr>
 <td><code>SuperAgentConfig</code></td>
 <td><code>from promptise.superagent import SuperAgentConfig</code></td>
-<td>Processed config with <code>to_build_kwargs()</code> for <code>build_agent()</code>.</td>
+<td>Processed config with <code>to_build_kwargs(*, cross_agents=None)</code> for <code>build_agent()</code>.</td>
 </tr>
 </tbody>
 </table>
@@ -10418,7 +10582,7 @@ end-to-end flow (outbound auth, server-side verification, audit).</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 19, 2026 13:53:24 UTC">2026-09-19</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 21:56:14 UTC">2026-10-10</span>
   </span>
 
     

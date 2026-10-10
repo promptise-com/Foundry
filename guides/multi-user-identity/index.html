@@ -1566,6 +1566,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Step 2: Pass CallerContext to Agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-token-travels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the token travels
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9343,6 +9360,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Step 2: Pass CallerContext to Agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-token-travels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the token travels
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9623,9 +9657,31 @@
 <p>The <code>caller</code> parameter:</p>
 <ul>
 <li>Stores the CallerContext in an async-safe contextvar for the duration of the invocation</li>
-<li>Passes <code>bearer_token</code> to every MCP client connection as an HTTP <code>Authorization</code> header</li>
+<li>Sends <code>bearer_token</code> as <code>Authorization: Bearer &lt;token&gt;</code> on every tool call to an HTTP or SSE MCP server during the invocation</li>
 <li>Scopes memory search, conversation history, and semantic cache to <code>user_id</code></li>
 <li>Available to guardrails, observability, and event handlers via <code>get_current_caller()</code></li>
+</ul>
+<h3 id="how-the-token-travels">How the token travels<a class="headerlink" href="#how-the-token-travels" title="Link to this section">&para;</a></h3>
+<p>The agent is built once and keeps one connection per server, opened with
+the credentials in its <code>HTTPServerSpec</code> — those are what tool discovery
+uses. When an invocation carries a <code>bearer_token</code>, its tool calls go over a
+separate MCP session opened with that token instead. Each distinct token
+gets its own session, so concurrent invocations for different users never
+share headers, and one user's token is never sent on another user's
+request. Sessions are reused by later calls with the same token and closed
+after five idle minutes.</p>
+<ul>
+<li>An invocation <strong>without</strong> a <code>bearer_token</code> uses the spec's credential
+  (or the agent's identity). The server then sees the agent, not the user.</li>
+<li>A server whose spec sets <code>forward_caller_token=False</code> always gets the
+  spec's credential. Use it for third-party servers that must not receive
+  your users' tokens.</li>
+<li>stdio servers have no request headers and never receive the token; the
+  agent logs a warning the first time it cannot send one. A stdio tool runs
+  with the agent's own privileges for every caller.</li>
+<li>If the server rejects the user's token, that tool call fails with
+  <code>401 Unauthorized</code> (reported to the model like any tool error); other
+  users' calls are unaffected.</li>
 </ul>
 <h2 id="step-3-build-the-mcp-server-with-auth">Step 3: Build the MCP Server with Auth<a class="headerlink" href="#step-3-build-the-mcp-server-with-auth" title="Link to this section">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -9948,7 +10004,7 @@ entries, and the <code>RequireTenant</code>/<code>HasTenant</code> guards read i
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 16, 2026 16:52:45 UTC">2026-07-16</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:39:05 UTC">2026-10-10</span>
   </span>
 
     

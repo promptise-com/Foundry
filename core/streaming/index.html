@@ -3113,15 +3113,26 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#server-sent-events-fastapi" class="md-nav__link">
+  <a href="#what-a-streamed-run-does" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Server-Sent Events (FastAPI)
+        What a Streamed Run Does
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Server-Sent Events (FastAPI)">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-sent-events-fastapi-eventsource" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-Sent Events (FastAPI + EventSource)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Server-Sent Events (FastAPI + EventSource)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3129,6 +3140,17 @@
     <span class="md-ellipsis">
       
         Frontend (JavaScript)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-with-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST with fetch()
       
     </span>
   </a>
@@ -3230,6 +3252,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tool_error_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tool_error_summary()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#event-serialization" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3242,6 +3275,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streaming-the-conversation-astream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming the Conversation: astream()
+      
+    </span>
+  </a>
   
 </li>
       
@@ -9342,15 +9386,26 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#server-sent-events-fastapi" class="md-nav__link">
+  <a href="#what-a-streamed-run-does" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Server-Sent Events (FastAPI)
+        What a Streamed Run Does
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Server-Sent Events (FastAPI)">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-sent-events-fastapi-eventsource" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-Sent Events (FastAPI + EventSource)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Server-Sent Events (FastAPI + EventSource)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -9358,6 +9413,17 @@
     <span class="md-ellipsis">
       
         Frontend (JavaScript)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-with-fetch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST with fetch()
       
     </span>
   </a>
@@ -9459,6 +9525,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tool_error_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tool_error_summary()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#event-serialization" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9471,6 +9548,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#streaming-the-conversation-astream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming the Conversation: astream()
+      
+    </span>
+  </a>
   
 </li>
       
@@ -9601,7 +9689,7 @@
 <td><code>tool_end</code></td>
 <td><code>ToolEndEvent</code></td>
 <td>Tool finishes</td>
-<td><code>tool_name</code>, <code>tool_summary</code>, <code>duration_ms</code>, <code>success</code></td>
+<td><code>tool_name</code>, <code>tool_summary</code>, <code>duration_ms</code>, <code>success</code>, <code>tool_index</code></td>
 </tr>
 <tr>
 <td><code>token</code></td>
@@ -9623,46 +9711,142 @@
 </tr>
 </tbody>
 </table>
+<p><code>done</code> and <code>error</code> are always the last event of a run.</p>
 <hr />
-<h2 id="server-sent-events-fastapi">Server-Sent Events (FastAPI)<a class="headerlink" href="#server-sent-events-fastapi" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.responses</span><span class="w"> </span><span class="kn">import</span> <span class="n">StreamingResponse</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/chat"</span><span class="p">)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">chat</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">ChatRequest</span><span class="p">):</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">event_stream</span><span class="p">():</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="k">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">astream_with_tools</span><span class="p">(</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>            <span class="p">{</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">message</span><span class="p">}]},</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>            <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user_id</span><span class="p">),</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="p">):</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>            <span class="k">yield</span> <span class="sa">f</span><span class="s2">"data: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">"</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="k">return</span> <span class="n">StreamingResponse</span><span class="p">(</span><span class="n">event_stream</span><span class="p">(),</span> <span class="n">media_type</span><span class="o">=</span><span class="s2">"text/event-stream"</span><span class="p">)</span>
+<h2 id="what-a-streamed-run-does">What a Streamed Run Does<a class="headerlink" href="#what-a-streamed-run-does" title="Link to this section">&para;</a></h2>
+<p>A streamed run executes exactly the steps <code>ainvoke()</code> would — the stream is a
+view of that run, not a second one:</p>
+<ul>
+<li><strong>One model call per step.</strong> Each step's model call is streamed as it is
+  generated. A question answered without tools is one model call; with a tool
+  it is two (the call that asks for the tool, and the answer).</li>
+<li><strong>The answer after a tool streams too.</strong> Its tokens arrive after the
+  <code>tool_end</code> events, and <code>full_response</code> is that answer.</li>
+<li><strong><code>full_response</code> is the final answer</strong> — the text of the run's last model
+  call, the same text <code>ainvoke()</code> returns as the last message. Text a model
+  writes <em>before</em> calling a tool ("Let me look that up.") streams as tokens and
+  is in <code>cumulative_text</code>, but not in <code>full_response</code>.</li>
+<li><strong>Tool calls run in parallel</strong>, as in <code>ainvoke()</code>. When the model asks for
+  several tools at once, every <code>tool_start</code> comes first, then each <code>tool_end</code>
+  as that call finishes — possibly out of order.</li>
+<li><strong><code>tool_index</code> and <code>duration_ms</code> belong to the call.</strong> A <code>tool_end</code> has the
+  same <code>tool_index</code> as its <code>tool_start</code>, and <code>duration_ms</code> is how long that
+  call ran.</li>
+<li><strong>Failed calls are <code>success: false</code>.</strong> A tool that reports an error — an MCP
+  server's <code>ToolError</code>, which the server returns with <code>isError</code> set — ends with
+  <code>success: false</code> and the error's message as <code>tool_summary</code>. A tool that
+  raises ends with <code>success: false</code> and <code>tool_summary</code> <code>"Tool call failed"</code>
+  (the exception text is not streamed). The model sees the error either way
+  and answers from it.</li>
+</ul>
+<p><code>examples/mcp/stream_tool_calls.py</code> shows both against a real model:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>&gt;&gt;&gt; Where are my orders A-1001 and A-1002?
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  1.5s  tool_start #0 Getting order status {'order_id': 'A-1001'}
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  1.5s  tool_start #1 Getting order status {'order_id': 'A-1002'}
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  2.5s  tool_end   #0 ok in 1006 ms: order_id: A-1001, status: shipped, carrier: DHL (+1 more)
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  2.5s  tool_end   #1 ok in 1006 ms: order_id: A-1002, status: processing, carrier: None (+1 more)
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  6.2s  answer streaming: Here's the current status: ...
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>  6.8s  done (308 characters in full_response)
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>&gt;&gt;&gt; Where is my order Z-9999?
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  1.3s  tool_start #0 Getting order status {'order_id': 'Z-9999'}
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>  2.3s  tool_end   #0 FAILED in 1006 ms: No order found with ID Z-9999.
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>  4.9s  answer streaming: I couldn't find an order with ID Z-9999 ...
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>  5.9s  done (816 characters in full_response)
+</span></code></pre></div>
+<hr />
+<h2 id="server-sent-events-fastapi-eventsource">Server-Sent Events (FastAPI + EventSource)<a class="headerlink" href="#server-sent-events-fastapi-eventsource" title="Link to this section">&para;</a></h2>
+<p>The browser's <code>EventSource</code> only sends <strong>GET</strong> requests, so the endpoint is a
+GET that takes the question as a query parameter:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">Depends</span><span class="p">,</span> <span class="n">FastAPI</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi.responses</span><span class="w"> </span><span class="kn">import</span> <span class="n">StreamingResponse</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/chat"</span><span class="p">)</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">chat</span><span class="p">(</span><span class="n">q</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="n">Depends</span><span class="p">(</span><span class="n">current_user</span><span class="p">)):</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="c1"># current_user is your auth dependency. EventSource sends the page's</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="c1"># cookies but cannot set headers, so authenticate with the session cookie.</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">event_stream</span><span class="p">():</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="k">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">astream_with_tools</span><span class="p">(</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>            <span class="p">{</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="n">q</span><span class="p">}]},</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>            <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">),</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="p">):</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>            <span class="k">yield</span> <span class="sa">f</span><span class="s2">"data: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">"</span>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="k">return</span> <span class="n">StreamingResponse</span><span class="p">(</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">event_stream</span><span class="p">(),</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>        <span class="n">media_type</span><span class="o">=</span><span class="s2">"text/event-stream"</span><span class="p">,</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>        <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Cache-Control"</span><span class="p">:</span> <span class="s2">"no-cache"</span><span class="p">,</span> <span class="s2">"X-Accel-Buffering"</span><span class="p">:</span> <span class="s2">"no"</span><span class="p">},</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>    <span class="p">)</span>
 </span></code></pre></div>
 <h3 id="frontend-javascript">Frontend (JavaScript)<a class="headerlink" href="#frontend-javascript" title="Link to this section">&para;</a></h3>
-<div class="language-javascript highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">source</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">EventSource</span><span class="p">(</span><span class="s2">"/chat"</span><span class="p">);</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nx">source</span><span class="p">.</span><span class="nx">onmessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">e</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">event</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">data</span><span class="p">);</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"tool_start"</span><span class="o">:</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">      </span><span class="nx">showToolIndicator</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">tool_display_name</span><span class="p">);</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"tool_end"</span><span class="o">:</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nx">updateToolResult</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">tool_summary</span><span class="p">);</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"token"</span><span class="o">:</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">      </span><span class="nx">appendText</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">text</span><span class="p">);</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"done"</span><span class="o">:</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">      </span><span class="nx">finishResponse</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">full_response</span><span class="p">);</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"error"</span><span class="o">:</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">      </span><span class="nx">showError</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">message</span><span class="p">);</span>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="p">};</span>
+<div class="language-javascript highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">source</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">EventSource</span><span class="p">(</span><span class="sb">`/chat?q=</span><span class="si">${</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">question</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nx">source</span><span class="p">.</span><span class="nx">onmessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">e</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">event</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">data</span><span class="p">);</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"tool_start"</span><span class="o">:</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">      </span><span class="nx">showToolIndicator</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">tool_index</span><span class="p">,</span><span class="w"> </span><span class="nx">event</span><span class="p">.</span><span class="nx">tool_display_name</span><span class="p">);</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"tool_end"</span><span class="o">:</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nx">updateToolResult</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">tool_index</span><span class="p">,</span><span class="w"> </span><span class="nx">event</span><span class="p">.</span><span class="nx">tool_summary</span><span class="p">,</span><span class="w"> </span><span class="nx">event</span><span class="p">.</span><span class="nx">success</span><span class="p">);</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"token"</span><span class="o">:</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nx">appendText</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">text</span><span class="p">);</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"done"</span><span class="o">:</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">      </span><span class="nx">source</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span><span class="w">  </span><span class="c1">// the run is over: stop EventSource from reconnecting</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">      </span><span class="nx">finishResponse</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">full_response</span><span class="p">);</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"error"</span><span class="o">:</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">      </span><span class="nx">source</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span>
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">      </span><span class="nx">showError</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">message</span><span class="p">);</span>
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="p">};</span>
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>
+</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="nx">source</span><span class="p">.</span><span class="nx">onerror</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">  </span><span class="c1">// A dropped connection: don't let EventSource silently re-ask the question.</span>
+</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">  </span><span class="nx">source</span><span class="p">.</span><span class="nx">close</span><span class="p">();</span>
+</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">  </span><span class="nx">showError</span><span class="p">(</span><span class="s2">"Connection lost."</span><span class="p">);</span>
+</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="p">};</span>
+</span></code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Always close the EventSource on <code>done</code> and <code>error</code></p>
+<p>When the server ends the response, <code>EventSource</code> treats it as a dropped
+connection and <strong>reconnects about 3 seconds later</strong> — the same GET, so the
+agent runs the question again (more model calls, more tool calls) and the
+page receives a second answer. Call <code>source.close()</code> when the <code>done</code> or
+<code>error</code> event arrives, and in <code>onerror</code>.</p>
+</div>
+<p>Use the event's <code>tool_index</code> to match a <code>tool_end</code> to its <code>tool_start</code>: parallel
+calls can finish in any order.</p>
+<h3 id="post-with-fetch">POST with <code>fetch()</code><a class="headerlink" href="#post-with-fetch" title="Link to this section">&para;</a></h3>
+<p>To send the question in a request body (long prompts, or a bearer token in a
+header), use a POST endpoint — the same handler with <code>@app.post</code> and a request
+model — and read the stream with <code>fetch()</code> instead of <code>EventSource</code>. A fetch
+stream does not reconnect on its own:</p>
+<div class="language-javascript highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">fetch</span><span class="p">(</span><span class="s2">"/chat"</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nx">method</span><span class="o">:</span><span class="w"> </span><span class="s2">"POST"</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s2">"Content-Type"</span><span class="o">:</span><span class="w"> </span><span class="s2">"application/json"</span><span class="p">,</span><span class="w"> </span><span class="nx">Authorization</span><span class="o">:</span><span class="w"> </span><span class="sb">`Bearer </span><span class="si">${</span><span class="nx">token</span><span class="si">}</span><span class="sb">`</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nx">body</span><span class="o">:</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">({</span><span class="w"> </span><span class="nx">message</span><span class="o">:</span><span class="w"> </span><span class="nx">question</span><span class="w"> </span><span class="p">}),</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">});</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="kd">const</span><span class="w"> </span><span class="nx">reader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">response</span><span class="p">.</span><span class="nx">body</span><span class="p">.</span><span class="nx">pipeThrough</span><span class="p">(</span><span class="ow">new</span><span class="w"> </span><span class="nx">TextDecoderStream</span><span class="p">()).</span><span class="nx">getReader</span><span class="p">();</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="kd">let</span><span class="w"> </span><span class="nx">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">""</span><span class="p">;</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">for</span><span class="w"> </span><span class="p">(;;)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">value</span><span class="p">,</span><span class="w"> </span><span class="nx">done</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">reader</span><span class="p">.</span><span class="nx">read</span><span class="p">();</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">done</span><span class="p">)</span><span class="w"> </span><span class="k">break</span><span class="p">;</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nx">buffer</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">value</span><span class="p">;</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">frames</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">buffer</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s2">"\n\n"</span><span class="p">);</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nx">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">frames</span><span class="p">.</span><span class="nx">pop</span><span class="p">();</span><span class="w">  </span><span class="c1">// keep an incomplete frame for the next chunk</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">const</span><span class="w"> </span><span class="nx">frame</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="nx">frames</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">frame</span><span class="p">.</span><span class="nx">startsWith</span><span class="p">(</span><span class="s2">"data: "</span><span class="p">))</span><span class="w"> </span><span class="nx">handleEvent</span><span class="p">(</span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">frame</span><span class="p">.</span><span class="nx">slice</span><span class="p">(</span><span class="mf">6</span><span class="p">)));</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="p">}</span>
 </span></code></pre></div>
 <hr />
 <h2 id="tool-display-names">Tool Display Names<a class="headerlink" href="#tool-display-names" title="Link to this section">&para;</a></h2>
@@ -9698,13 +9882,13 @@
 </tbody>
 </table>
 <p>Override with custom names:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">astream_with_tools</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="nb">input</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">tool_display_names</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="s2">"pg_query"</span><span class="p">:</span> <span class="s2">"Querying database"</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="s2">"s3_upload"</span><span class="p">:</span> <span class="s2">"Uploading to cloud storage"</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="p">},</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">async</span> <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">astream_with_tools</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="nb">input</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">tool_display_names</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="s2">"pg_query"</span><span class="p">:</span> <span class="s2">"Querying database"</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="s2">"s3_upload"</span><span class="p">:</span> <span class="s2">"Uploading to cloud storage"</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="p">},</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="tool-result-summaries">Tool Result Summaries<a class="headerlink" href="#tool-result-summaries" title="Link to this section">&para;</a></h2>
@@ -9713,6 +9897,8 @@
 <li>JSON dicts: <code>"name: Alice, status: active (+3 more)"</code></li>
 <li>JSON lists: <code>"Found 5 result(s)"</code></li>
 <li>Plain text: truncated to 120 characters</li>
+<li>Failed calls: the error message (<code>"No order found with ID Z-9999."</code>), or
+  <code>"Tool call failed"</code> when the tool raised</li>
 </ul>
 <hr />
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Link to this section">&para;</a></h2>
@@ -9766,20 +9952,21 @@
 <ul>
 <li>✅ Input guardrails (block injection → ErrorEvent)</li>
 <li>✅ Memory injection (relevant context before LLM call)</li>
-<li>✅ Output guardrails (PII redaction on final response)</li>
+<li>✅ Output guardrails (PII redaction on <code>full_response</code>; tokens are streamed as the model generates them, before the check)</li>
 <li>✅ Observability (callback handler records timeline)</li>
 <li>✅ Event notifications (invocation.start/complete emitted)</li>
-<li>✅ CallerContext propagation (multi-user safe)</li>
+<li>✅ CallerContext propagation (multi-user safe; the ambient caller is inherited when none is passed)</li>
+<li>✅ Adaptive strategy (failed tool calls are recorded, learned lessons injected)</li>
 </ul>
 <hr />
 <h2 id="helper-functions">Helper Functions<a class="headerlink" href="#helper-functions" title="Link to this section">&para;</a></h2>
 <h3 id="tool_display_name">tool_display_name()<a class="headerlink" href="#tool_display_name" title="Link to this section">&para;</a></h3>
 <p>Convert raw MCP tool names to human-readable labels:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.streaming</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool_display_name</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">tool_display_name</span><span class="p">(</span><span class="s2">"search_customers"</span><span class="p">)</span>      <span class="c1"># "Searching customers"</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">tool_display_name</span><span class="p">(</span><span class="s2">"get_order_status"</span><span class="p">)</span>      <span class="c1"># "Getting order status"</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">tool_display_name</span><span class="p">(</span><span class="s2">"deploy_production"</span><span class="p">)</span>     <span class="c1"># "Deploying production"</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.streaming</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool_display_name</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">tool_display_name</span><span class="p">(</span><span class="s2">"search_customers"</span><span class="p">)</span>      <span class="c1"># "Searching customers"</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">tool_display_name</span><span class="p">(</span><span class="s2">"get_order_status"</span><span class="p">)</span>      <span class="c1"># "Getting order status"</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">tool_display_name</span><span class="p">(</span><span class="s2">"deploy_production"</span><span class="p">)</span>     <span class="c1"># "Deploying production"</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9809,11 +9996,11 @@
 </table>
 <h3 id="tool_summary">tool_summary()<a class="headerlink" href="#tool_summary" title="Link to this section">&para;</a></h3>
 <p>Summarize tool output for the stream:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.streaming</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool_summary</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">tool_summary</span><span class="p">(</span><span class="s1">'{"results": [...100 items...]}'</span><span class="p">)</span>  <span class="c1"># '{"results": [...100 items...]}'[:120]</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">tool_summary</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>                               <span class="c1"># "Done"</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">tool_summary</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>                                 <span class="c1"># "Done"</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.streaming</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool_summary</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">tool_summary</span><span class="p">(</span><span class="s1">'{"results": [...100 items...]}'</span><span class="p">)</span>  <span class="c1"># '{"results": [...100 items...]}'[:120]</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">tool_summary</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>                               <span class="c1"># "Done"</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">tool_summary</span><span class="p">(</span><span class="s2">""</span><span class="p">)</span>                                 <span class="c1"># "Done"</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9841,10 +10028,30 @@
 </tr>
 </tbody>
 </table>
+<h3 id="tool_error_summary">tool_error_summary()<a class="headerlink" href="#tool_error_summary" title="Link to this section">&para;</a></h3>
+<p>Summarize a failed tool call — the message of an MCP <code>ToolError</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.streaming</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool_error_summary</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">tool_error_summary</span><span class="p">(</span><span class="s1">'{"error": {"code": "TOOL_ERROR", "message": "No order A-9."}}'</span><span class="p">)</span>  <span class="c1"># "No order A-9."</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">tool_error_summary</span><span class="p">(</span><span class="s2">"Error: Unknown tool 'x'"</span><span class="p">)</span>                                      <span class="c1"># "Error: Unknown tool 'x'"</span>
+</span></code></pre></div>
 <h3 id="event-serialization">Event Serialization<a class="headerlink" href="#event-serialization" title="Link to this section">&para;</a></h3>
 <p>All stream events support serialization:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">event</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>  <span class="c1"># Returns dict</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">event</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>  <span class="c1"># Returns JSON string (for SSE)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">event</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>  <span class="c1"># Returns dict</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">event</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>  <span class="c1"># Returns JSON string (for SSE)</span>
+</span></code></pre></div>
+<hr />
+<h2 id="streaming-the-conversation-astream">Streaming the Conversation: <code>astream()</code><a class="headerlink" href="#streaming-the-conversation-astream" title="Link to this section">&para;</a></h2>
+<p><code>agent.astream()</code> streams at a coarser grain: one chunk per step of the agent's
+graph, each the whole conversation so far — <code>{"messages": [...]}</code>. The last
+chunk is what <code>ainvoke()</code> returns. Use it to process intermediate messages
+(tool calls and their results) in code; use <code>astream_with_tools()</code> for a chat
+UI.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">astream</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Where is A-1001?"</span><span class="p">}]}):</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="n">last</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">last</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">last</span><span class="o">.</span><span class="n">content</span><span class="p">[:</span><span class="mi">60</span><span class="p">])</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># ToolMessage {"order_id": "A-1001", "status": "shipped", ...}   step 1: tool call + result</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="c1"># AIMessage Your order A-1001 has shipped with DHL ...           step 2: the answer</span>
 </span></code></pre></div>
 <hr />
 <h2 id="whats-next">What's Next?<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
@@ -9875,7 +10082,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:03:19 UTC">2026-10-10</span>
   </span>
 
     

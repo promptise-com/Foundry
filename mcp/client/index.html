@@ -9175,6 +9175,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#short-lived-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Short-lived tokens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#api-key-authentication" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9241,10 +9252,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#progress-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress notifications
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#accessing-the-session" class="md-nav__link">
     <span class="md-ellipsis">
       
         Accessing the session
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#answering-elicitation-server-side-approval-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Answering elicitation (server-side approval gates)
       
     </span>
   </a>
@@ -9267,6 +9300,17 @@
   
     <nav class="md-nav" aria-label="MCPMultiClient">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#calling-a-tool-as-a-specific-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calling a tool as a specific user
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#tool-name-collisions" class="md-nav__link">
@@ -9301,8 +9345,30 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#reconnecting-after-a-server-restart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconnecting after a server restart
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resources-and-prompts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resources and prompts
+      
+    </span>
+  </a>
   
 </li>
       
@@ -9495,20 +9561,37 @@
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"search"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"python"</span><span class="p">})</span>
 </span></code></pre></div>
 <p>The <code>bearer_token</code> is injected as an <code>Authorization: Bearer &lt;token&gt;</code> header on every request.</p>
-<h3 id="api-key-authentication">API key authentication<a class="headerlink" href="#api-key-authentication" title="Link to this section">&para;</a></h3>
+<h3 id="short-lived-tokens">Short-lived tokens<a class="headerlink" href="#short-lived-tokens" title="Link to this section">&para;</a></h3>
+<p>A fixed <code>bearer_token</code> stops working when it expires: the server answers <code>401</code> and the call fails with <code>MCPConnectionRejectedError</code> (<code>mid_session=True</code>). For tokens that expire while the client is open, such as an agent identity's credential, pass <code>bearer_token_provider</code> instead -- a callable (sync or async) that returns the current token:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">api_key</span><span class="o">=</span><span class="s2">"sk-my-secret-key"</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"https://billing.internal/mcp"</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">bearer_token_provider</span><span class="o">=</span><span class="k">lambda</span> <span class="n">force</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">get_credential</span><span class="p">(</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="s2">"api://billing"</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="n">force</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="p">),</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"search"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"python"</span><span class="p">})</span>
+</span></code></pre></div>
+<ul>
+<li>It is asked on every HTTP request, so keep it cheap (cache the token, as <code>AgentIdentity.get_credential</code> does). Sync callables run in a worker thread.</li>
+<li>When the server answers <code>401</code>, it is called with <code>force=True</code> and the request is re-sent once with the new token. If that is refused too, the call fails with <code>MCPConnectionRejectedError</code>.</li>
+<li>When it returns a token other than the one the session was opened with, the client opens a new session for the next call; calls still running on the old session finish there and are never re-sent.</li>
+<li>If it raises, the call fails with <code>MCPCredentialError</code> and nothing is sent -- never a request without the credential.</li>
+</ul>
+<p><code>build_agent(identity=...)</code> wires this up for every HTTP/SSE server without a <code>bearer_token</code> of its own, scoped to the server's <code>audience</code>. A caller token forwarded with <code>call_tool(..., bearer_token=...)</code> (see <a href="#calling-a-tool-as-a-specific-user">Calling a tool as a specific user</a>) takes precedence: the per-caller session presents the caller's token, not the provider's.</p>
+<h3 id="api-key-authentication">API key authentication<a class="headerlink" href="#api-key-authentication" title="Link to this section">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">api_key</span><span class="o">=</span><span class="s2">"sk-my-secret-key"</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
 </span></code></pre></div>
 <p>The <code>api_key</code> is injected as an <code>x-api-key</code> header on every request.</p>
 <h3 id="custom-headers">Custom headers<a class="headerlink" href="#custom-headers" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"x-org-id"</span><span class="p">:</span> <span class="s2">"acme-corp"</span><span class="p">,</span> <span class="s2">"x-trace-id"</span><span class="p">:</span> <span class="s2">"abc123"</span><span class="p">},</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"x-org-id"</span><span class="p">:</span> <span class="s2">"acme-corp"</span><span class="p">,</span> <span class="s2">"x-trace-id"</span><span class="p">:</span> <span class="s2">"abc123"</span><span class="p">},</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
 </span></code></pre></div>
 <h3 id="transports">Transports<a class="headerlink" href="#transports" title="Link to this section">&para;</a></h3>
 <p>MCPClient supports three transports:</p>
@@ -9539,21 +9622,21 @@
 </tbody>
 </table>
 <p><strong>HTTP (default):</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="o">...</span>
-</span></code></pre></div>
-<p><strong>SSE:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/sse"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="s2">"sse"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="o">...</span>
 </span></code></pre></div>
+<p><strong>SSE:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/sse"</span><span class="p">,</span> <span class="n">transport</span><span class="o">=</span><span class="s2">"sse"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="o">...</span>
+</span></code></pre></div>
 <p><strong>stdio:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">transport</span><span class="o">=</span><span class="s2">"stdio"</span><span class="p">,</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">command</span><span class="o">=</span><span class="s2">"python"</span><span class="p">,</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">"my_server.py"</span><span class="p">],</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">env</span><span class="o">=</span><span class="p">{</span><span class="s2">"MY_VAR"</span><span class="p">:</span> <span class="s2">"value"</span><span class="p">},</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="o">...</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">transport</span><span class="o">=</span><span class="s2">"stdio"</span><span class="p">,</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">command</span><span class="o">=</span><span class="s2">"python"</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">"my_server.py"</span><span class="p">],</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">env</span><span class="o">=</span><span class="p">{</span><span class="s2">"MY_VAR"</span><span class="p">:</span> <span class="s2">"value"</span><span class="p">},</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="o">...</span>
 </span></code></pre></div>
 <h3 id="constructor-parameters">Constructor parameters<a class="headerlink" href="#constructor-parameters" title="Link to this section">&para;</a></h3>
 <table>
@@ -9615,23 +9698,47 @@
 <td>Environment variables for the stdio process</td>
 </tr>
 <tr>
+<td><code>cwd</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Working directory for the stdio process</td>
+</tr>
+<tr>
 <td><code>timeout</code></td>
 <td><code>float</code></td>
 <td><code>30.0</code></td>
 <td>HTTP request timeout in seconds</td>
 </tr>
+<tr>
+<td><code>elicitation_callback</code></td>
+<td>SDK <code>ElicitationFnT \| None</code></td>
+<td><code>None</code></td>
+<td>Answers the server's MCP elicitation requests; the elicitation capability is declared only when set. See <a href="#answering-elicitation-server-side-approval-gates">Answering elicitation</a></td>
+</tr>
+<tr>
+<td><code>auto_reconnect</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td>Open a new session and retry once when an HTTP/SSE server has lost the session — see <a href="#reconnecting-after-a-server-restart">Reconnecting after a server restart</a>. Ignored for stdio</td>
+</tr>
+<tr>
+<td><code>bearer_token_provider</code></td>
+<td><code>Callable[[bool], str \| None]</code> (or async)</td>
+<td><code>None</code></td>
+<td>Returns the current token on every request, instead of <code>bearer_token</code> — see <a href="#short-lived-tokens">Short-lived tokens</a>. HTTP/SSE only</td>
+</tr>
 </tbody>
 </table>
 <h3 id="fetching-tokens">Fetching tokens<a class="headerlink" href="#fetching-tokens" title="Link to this section">&para;</a></h3>
 <p>Use the static <code>fetch_token</code> helper to acquire a JWT from a server's built-in token endpoint:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">token</span> <span class="o">=</span> <span class="k">await</span> <span class="n">MCPClient</span><span class="o">.</span><span class="n">fetch_token</span><span class="p">(</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="s2">"http://localhost:8080/auth/token"</span><span class="p">,</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">client_id</span><span class="o">=</span><span class="s2">"agent-admin"</span><span class="p">,</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">client_secret</span><span class="o">=</span><span class="s2">"admin-secret"</span><span class="p">,</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">token</span> <span class="o">=</span> <span class="k">await</span> <span class="n">MCPClient</span><span class="o">.</span><span class="n">fetch_token</span><span class="p">(</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="s2">"http://localhost:8080/auth/token"</span><span class="p">,</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">client_id</span><span class="o">=</span><span class="s2">"agent-admin"</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">client_secret</span><span class="o">=</span><span class="s2">"admin-secret"</span><span class="p">,</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
 </span></code></pre></div>
 <p><code>fetch_token</code> sends a POST with <code>{"client_id": ..., "client_secret": ...}</code> and returns the <code>access_token</code> string from the JSON response.</p>
 <div class="admonition warning">
@@ -9639,96 +9746,230 @@
 <p><code>fetch_token</code> is a convenience for development when the server has a built-in token endpoint. In production, obtain tokens from your Identity Provider (Auth0, Keycloak, Okta) and pass them via <code>bearer_token</code>.</p>
 </div>
 <h3 id="calling-tools">Calling tools<a class="headerlink" href="#calling-tools" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="c1"># List available tools</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">tools</span><span class="p">:</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="c1"># Call a tool with arguments</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"search_employees"</span><span class="p">,</span> <span class="p">{</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="s2">"query"</span><span class="p">:</span> <span class="s2">"python"</span><span class="p">,</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="s2">"remote_only"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>        <span class="s2">"limit"</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="p">})</span>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="c1"># Extract text from result</span>
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
-</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">):</span>
-</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>            <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="c1"># List available tools</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">tools</span><span class="p">:</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="c1"># Call a tool with arguments</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"search_employees"</span><span class="p">,</span> <span class="p">{</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        <span class="s2">"query"</span><span class="p">:</span> <span class="s2">"python"</span><span class="p">,</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>        <span class="s2">"remote_only"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>        <span class="s2">"limit"</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="p">})</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="c1"># Extract text from result</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">):</span>
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>            <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="progress-notifications">Progress notifications<a class="headerlink" href="#progress-notifications" title="Link to this section">&para;</a></h3>
+<p>Long-running tools can report progress (<code>ProgressReporter</code> on a Promptise server). Pass a <code>progress_callback</code> to receive it; it is awaited for each notification the server sends for that call:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_progress</span><span class="p">(</span><span class="n">progress</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">total</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">progress</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">message</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">''</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"crawl_site"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"pages"</span><span class="p">:</span> <span class="mi">3</span><span class="p">},</span> <span class="n">progress_callback</span><span class="o">=</span><span class="n">on_progress</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Without a callback the call carries no progress token, and servers don't send progress for it. <code>MCPMultiClient.call_tool()</code> accepts the same argument. Agents built with <code>build_agent()</code> take <code>on_tool_progress=</code> instead -- see <a href="../server/resilience-patterns/#receiving-progress-in-a-promptise-client-or-agent">Progress Reporting</a>.</p>
 <h3 id="accessing-the-session">Accessing the session<a class="headerlink" href="#accessing-the-session" title="Link to this section">&para;</a></h3>
 <p>For advanced use cases, access the underlying MCP <code>ClientSession</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">session</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">session</span>  <span class="c1"># mcp.client.session.ClientSession</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">headers</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">headers</span>  <span class="c1"># Read-only copy of HTTP headers</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">session</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">session</span>  <span class="c1"># mcp.client.session.ClientSession</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">headers</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">headers</span>  <span class="c1"># Read-only copy of HTTP headers</span>
 </span></code></pre></div>
+<h3 id="answering-elicitation-server-side-approval-gates">Answering elicitation (server-side approval gates)<a class="headerlink" href="#answering-elicitation-server-side-approval-gates" title="Link to this section">&para;</a></h3>
+<p>A server can ask the human behind the client for input mid-call through MCP
+elicitation. The common case is a server-side
+<a href="../server/approval-gates/">approval gate</a>: <code>ElicitationApprover</code> (the
+default on <a href="../server/mcpcast/#human-approval">MCPcast</a>-generated servers
+with <code>env-token</code>, <code>passthrough</code> or <code>none</code> auth) asks the client to confirm each
+gated tool call.</p>
+<p>By default <code>MCPClient</code> declares <strong>no</strong> elicitation support, so such a server
+denies the call with <code>APPROVAL_DENIED</code> and nothing runs. That is fail-closed and
+stays the behaviour until you pass <code>elicitation_callback</code>. The callback has the
+MCP SDK's signature, <code>async (context, params) -&gt; ElicitResult | ErrorData</code>. To
+send the requests to a human through any
+<a href="../../core/approval/">approval handler</a>, use
+<code>approval_elicitation_callback</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.approval</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallbackApprovalHandler</span><span class="p">,</span> <span class="n">approval_elicitation_callback</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcp.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">ask_human</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context_summary</span><span class="p">)</span>                     <span class="c1"># the server's own message</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span> <span class="c1"># the call this client sent</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="k">return</span> <span class="nb">input</span><span class="p">(</span><span class="s2">"Approve? [y/N] "</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"y"</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="n">client</span> <span class="o">=</span> <span class="n">MCPClient</span><span class="p">(</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="n">transport</span><span class="o">=</span><span class="s2">"stdio"</span><span class="p">,</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="n">command</span><span class="o">=</span><span class="s2">"python"</span><span class="p">,</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">"petstore-mcp/server.py"</span><span class="p">],</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>    <span class="n">env</span><span class="o">=</span><span class="p">{</span><span class="s2">"MCPCAST_UPSTREAM_TOKEN"</span><span class="p">:</span> <span class="s2">"Bearer &lt;your API token&gt;"</span><span class="p">},</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>    <span class="n">elicitation_callback</span><span class="o">=</span><span class="n">approval_elicitation_callback</span><span class="p">(</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>        <span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">ask_human</span><span class="p">),</span>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>        <span class="n">server_name</span><span class="o">=</span><span class="s2">"petstore"</span><span class="p">,</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="n">in_flight</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">client</span><span class="o">.</span><span class="n">in_flight_calls</span><span class="p">,</span>
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>    <span class="p">),</span>
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="p">)</span>
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="k">async</span> <span class="k">with</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"add_pet"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"Rex"</span><span class="p">})</span>
+</span></code></pre></div>
+<p><code>build_agent(approval=...)</code> does this for every server automatically (see
+<a href="../../core/approval/#server-side-approval-gates">Server-side approval gates</a>).
+<code>examples/mcp/approve_server_gates.py</code> runs both cases, with and without a
+handler, against a gated server and needs no LLM.</p>
+<p>A request carries no tool name on the wire, so the client relates it to a call
+itself. <code>client.in_flight_calls</code> lists the <code>call_tool</code> requests still awaiting a
+result (<code>InFlightToolCall</code>: <code>name</code>, <code>arguments</code> and the caller's <code>contextvars</code>
+snapshot). With exactly one call in flight, the approval request gets that
+call's tool name and arguments. Otherwise the reviewer decides from the
+server's message alone.</p>
+<p>What the client guarantees:</p>
+<ul>
+<li><strong>No acceptance without a handler decision.</strong> A callback that raises is answered with a JSON-RPC error, which a fail-closed server reads as a denial, and the session stays up.</li>
+<li><strong>Only confirmations are answered.</strong> <code>approval_elicitation_callback</code> accepts only an empty form or a form whose one decision field is a boolean from <code>CONFIRMATION_FIELDS</code> (<code>approve</code>, <code>confirm</code>, <code>proceed</code>, ...). URL-mode requests, and forms that ask for anything else, are declined without asking the handler.</li>
+<li><strong>Elicitation is sequential per connection.</strong> The MCP SDK handles server requests on the session's receive loop, so while a reviewer decides, other responses from that server wait. Keep handler timeouts below the server's approval timeout.</li>
+</ul>
+<p><code>MCPMultiClient(clients, elicitation_callback=...)</code> installs a default callback
+on every client that has none of its own. The SDK callback does not say which
+server asked, so give each <code>MCPClient</code> its own callback when the handler needs
+the server name.</p>
 <h2 id="mcpmulticlient">MCPMultiClient<a class="headerlink" href="#mcpmulticlient" title="Link to this section">&para;</a></h2>
 <p>Connect to multiple servers and aggregate their tools. Routes <code>call_tool</code> to the correct server automatically.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPMultiClient</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">multi</span> <span class="o">=</span> <span class="n">MCPMultiClient</span><span class="p">({</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="s2">"hr"</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://hr-server:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">hr_token</span><span class="p">),</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="s2">"docs"</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://docs-server:9090/mcp"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"sk-docs"</span><span class="p">),</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">})</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="c1"># Discover tools from all servers</span>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total tools: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    <span class="c1"># Call a tool -- routed to the correct server</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"search_employees"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"python"</span><span class="p">})</span>
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>    <span class="c1"># Inspect routing</span>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">multi</span><span class="o">.</span><span class="n">tool_to_server</span><span class="p">)</span>  <span class="c1"># {"search_employees": "hr", "search_docs": "docs"}</span>
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">multi</span><span class="o">.</span><span class="n">servers</span><span class="p">)</span>         <span class="c1"># {"hr": &lt;MCPClient&gt;, "docs": &lt;MCPClient&gt;}</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPMultiClient</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">multi</span> <span class="o">=</span> <span class="n">MCPMultiClient</span><span class="p">({</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="s2">"hr"</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://hr-server:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">hr_token</span><span class="p">),</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="s2">"docs"</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://docs-server:9090/mcp"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"sk-docs"</span><span class="p">),</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="p">})</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    <span class="c1"># Discover tools from all servers</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total tools: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>    <span class="c1"># Call a tool -- routed to the correct server</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"search_employees"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"python"</span><span class="p">})</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>    <span class="c1"># Inspect routing</span>
+</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">multi</span><span class="o">.</span><span class="n">tool_to_server</span><span class="p">)</span>  <span class="c1"># {"search_employees": "hr", "search_docs": "docs"}</span>
+</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">multi</span><span class="o">.</span><span class="n">servers</span><span class="p">)</span>         <span class="c1"># {"hr": &lt;MCPClient&gt;, "docs": &lt;MCPClient&gt;}</span>
 </span></code></pre></div>
+<h3 id="calling-a-tool-as-a-specific-user">Calling a tool as a specific user<a class="headerlink" href="#calling-a-tool-as-a-specific-user" title="Link to this section">&para;</a></h3>
+<p><code>call_tool(..., bearer_token=...)</code> sends that token as
+<code>Authorization: Bearer &lt;token&gt;</code> instead of the server's configured
+credentials. It is what <code>build_agent()</code> uses to make each invocation's tool
+calls as the invoking user (<code>CallerContext.bearer_token</code>):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="n">alice_view</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"my_tickets"</span><span class="p">,</span> <span class="p">{},</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">alice_jwt</span><span class="p">)</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">bob_view</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"my_tickets"</span><span class="p">,</span> <span class="p">{},</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">bob_jwt</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Each distinct token gets its own MCP session to the server: opened on first
+use, reused by later calls with the same token, and closed after
+<code>caller_session_idle_timeout</code> seconds unused (default 300). At most
+<code>max_caller_sessions</code> idle sessions stay open (default 256; least recently
+used first). Concurrent calls with different tokens never share a session
+or a header, and a session in use is never closed. The token replaces any
+<code>Authorization</code> header the client was configured with; other headers,
+including <code>x-api-key</code>, are kept. A server that rejects the token raises
+<code>MCPConnectionRejectedError</code> for that call only.</p>
+<p>stdio servers have no request headers: the token is ignored for them and a
+warning is logged once per server. <code>MCPClient.with_bearer_token(token)</code>
+returns an unconnected copy of a client that authenticates with <em>token</em>, if
+you manage sessions yourself.</p>
 <h3 id="tool-name-collisions">Tool name collisions<a class="headerlink" href="#tool-name-collisions" title="Link to this section">&para;</a></h3>
 <p>If two servers expose a tool with the same name, the last-discovered server wins and a warning is logged. Use server-specific prefixes on your MCP servers to avoid collisions.</p>
 <h3 id="error-handling">Error handling<a class="headerlink" href="#error-handling" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClientError</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"unknown_tool"</span><span class="p">,</span> <span class="p">{})</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">except</span> <span class="n">MCPClientError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="c1"># "Unknown tool 'unknown_tool'. Call list_tools() first to discover tools."</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClientError</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"unknown_tool"</span><span class="p">,</span> <span class="p">{})</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="k">except</span> <span class="n">MCPClientError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="c1"># "Unknown tool 'unknown_tool'. Call list_tools() first to discover tools."</span>
 </span></code></pre></div>
 <h3 id="rejected-connections">Rejected connections<a class="headerlink" href="#rejected-connections" title="Link to this section">&para;</a></h3>
 <p>When an HTTP server answers the <code>initialize</code> handshake with a 4xx status, connecting raises <code>MCPConnectionRejectedError</code> (a subclass of <code>MCPClientError</code>) immediately. The most common case is a server built with <code>require_auth=True</code> receiving no credentials, or the wrong ones:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPConnectionRejectedError</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>        <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="k">except</span> <span class="n">MCPConnectionRejectedError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span><span class="p">)</span>  <span class="c1"># 401</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="c1"># "Server at http://localhost:8080/mcp rejected the connection:</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="c1">#  401 Unauthorized. Check the bearer_token/api_key configured for it."</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPConnectionRejectedError</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>        <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="k">except</span> <span class="n">MCPConnectionRejectedError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">status_code</span><span class="p">)</span>  <span class="c1"># 401</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="c1"># "Server at http://localhost:8080/mcp rejected the connection:</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    <span class="c1">#  401 Unauthorized. Check the bearer_token/api_key configured for it."</span>
 </span></code></pre></div>
-<p>Through <code>MCPMultiClient</code> and <code>build_agent()</code> the message names the server instead (<code>Server 'orders' rejected the connection: 401 Unauthorized. ...</code>) and <code>e.server_name</code> is set. A <code>404</code> points you at the URL instead of the credentials. Retrying with the same configuration fails the same way, so fix the credentials or URL instead of retrying.</p>
-<p>Other connection failures (server down, connection refused) raise a plain <code>MCPClientError</code> such as <code>Failed to connect to http://localhost:8080/mcp (ConnectError: ...)</code>. If an established connection drops later, the next call raises <code>MCPClientError</code> (<code>Connection to ... was lost</code>). The failure never cancels the task that opened the client, because the client owns its transport in a task of its own. That also makes it safe to close a client from a different task than the one that opened it.</p>
+<p>Through <code>MCPMultiClient</code> and <code>build_agent()</code> the message names the server instead (<code>Server 'orders' rejected the connection: 401 Unauthorized. ...</code>) and <code>e.server_name</code> is set. A <code>404</code> — usually a URL without the <code>/mcp</code> path — points you at the URL instead of the credentials:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>Server at http://localhost:8080 rejected the connection: 404 Not Found.
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>Check the URL (http://localhost:8080); Promptise servers serve MCP at /mcp.
+</span></code></pre></div>
+<p>Retrying with the same configuration fails the same way, so fix the credentials or URL instead of retrying.</p>
+<p>Other connection failures (server down, connection refused) raise a plain <code>MCPClientError</code> such as <code>Failed to connect to http://localhost:8080/mcp (ConnectError: ...)</code>. If an established connection drops during a call, that call raises <code>MCPClientError</code> (<code>Connection to ... was lost</code>) at once. The failure never cancels the task that opened the client, because the client owns its transport in a task of its own. That also makes it safe to close a client from a different task than the one that opened it.</p>
+<h3 id="reconnecting-after-a-server-restart">Reconnecting after a server restart<a class="headerlink" href="#reconnecting-after-a-server-restart" title="Link to this section">&para;</a></h3>
+<p>A Streamable HTTP server keeps its sessions in memory. After a restart or redeploy it answers the old <code>mcp-session-id</code> with <code>404</code>, and the MCP specification requires the client to start a new session. <code>MCPClient</code> does this transparently:</p>
+<ol>
+<li>A call answered <code>404</code> for its session opens a new session (<code>initialize</code>) and is retried <strong>once</strong>. The server refused the request without running it, so the retry cannot run a tool twice. Concurrent calls that hit the same lost session share one re-initialisation.</li>
+<li>A connection that drops <strong>during</strong> a call (the server died mid-request) is not retried — the tool may already have run — and that call raises <code>MCPClientError</code>. The next call opens a new session, so the client recovers as soon as the server is back.</li>
+<li><code>MCPMultiClient</code> (and so every agent from <code>build_agent()</code>) then re-lists that server's tools, so routing follows the tools the new deployment serves.</li>
+</ol>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"check_stock"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"sku"</span><span class="p">:</span> <span class="s2">"SKU-1"</span><span class="p">})</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="c1"># ... the server is redeployed ...</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"check_stock"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"sku"</span><span class="p">:</span> <span class="s2">"SKU-1"</span><span class="p">})</span>  <span class="c1"># new session, same result</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">session_generation</span><span class="p">)</span>  <span class="c1"># 2</span>
+</span></code></pre></div>
+<p><code>client.session_generation</code> counts the sessions the client has opened (<code>1</code> after connecting). Pass <code>auto_reconnect=False</code> to handle a lost session yourself; the call then raises <code>MCPClientError</code> saying the server no longer knows the session.</p>
+<p>If the retry is answered <code>404</code> as well, the request reached a process that does not hold the brand-new session either — typically several replicas or workers behind a load balancer without sticky sessions. The error says so; route each <code>mcp-session-id</code> to one process, or serve the app stateless (see <a href="../server/deployment/#sessions-restarts-and-replicas">Deployment — Sessions, restarts and replicas</a>).</p>
+<p>The legacy SSE transport has no session-level <code>404</code>: when its stream breaks, the call in progress fails and the next call opens a new session.</p>
+<h2 id="resources-and-prompts">Resources and prompts<a class="headerlink" href="#resources-and-prompts" title="Link to this section">&para;</a></h2>
+<p>Besides tools, an MCP server can publish <strong>resources</strong> (documents and data, by URI) and <strong>prompts</strong> (ready-made instructions, by name). <code>MCPClient</code> and <code>MCPMultiClient</code> read both:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"sk-docs"</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="n">resources</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_resources</span><span class="p">()</span>            <span class="c1"># list[Resource]</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="n">templates</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_resource_templates</span><span class="p">()</span>   <span class="c1"># list[ResourceTemplate]</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">read_resource</span><span class="p">(</span><span class="s2">"docs://pages/refunds"</span><span class="p">)</span>
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="n">item</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">contents</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">mimeType</span><span class="p">)</span>        <span class="c1"># e.g. "text/markdown"</span>
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>            <span class="c1"># TextResourceContents; binary data arrives</span>
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>                                <span class="c1"># base64-encoded in BlobResourceContents.blob</span>
+</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>
+</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>    <span class="n">prompts</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_prompts</span><span class="p">()</span>                <span class="c1"># list[Prompt]</span>
+</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>    <span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">get_prompt</span><span class="p">(</span><span class="s2">"code_review"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"code"</span><span class="p">:</span> <span class="n">src</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
+</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>    <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">prompt</span><span class="o">.</span><span class="n">messages</span><span class="p">:</span>
+</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+</span></code></pre></div>
+<p>MCP carries prompt arguments as strings. <code>get_prompt</code> sends strings as they are and other values as JSON (<code>True</code> → <code>"true"</code>, <code>3</code> → <code>"3"</code>); a Promptise server converts them back to the prompt's parameter types.</p>
+<p>The list methods fetch every page. A read the server refuses (unknown URI, missing credentials, a guard such as <code>roles=["admin"]</code>) raises <code>MCPClientError</code>.</p>
+<p><code>MCPMultiClient</code> routes <code>read_resource</code> by URI (static resources first, then the servers' URI templates) and <code>get_prompt</code> by name. It discovers what each server serves on the first call that needs it, or when you call <code>list_resources()</code>, <code>list_resource_templates()</code> or <code>list_prompts()</code>. Pass <code>server=</code> to pick a server yourself, and <code>bearer_token=</code> to read as a caller over that caller's own session, as with <code>call_tool</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="n">page</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">read_resource</span><span class="p">(</span><span class="s2">"docs://pages/refunds"</span><span class="p">)</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="n">plan</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">get_prompt</span><span class="p">(</span><span class="s2">"onboarding"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"Ada"</span><span class="p">},</span> <span class="n">server</span><span class="o">=</span><span class="s2">"hr"</span><span class="p">)</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="n">payroll</span> <span class="o">=</span> <span class="k">await</span> <span class="n">multi</span><span class="o">.</span><span class="n">read_resource</span><span class="p">(</span><span class="s2">"hr://payroll"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">user_token</span><span class="p">)</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">multi</span><span class="o">.</span><span class="n">resource_to_server</span><span class="p">,</span> <span class="n">multi</span><span class="o">.</span><span class="n">template_to_server</span><span class="p">,</span> <span class="n">multi</span><span class="o">.</span><span class="n">prompt_to_server</span><span class="p">)</span>
+</span></code></pre></div>
+<p>To give an agent these resources and prompts, see <code>build_agent(expose_resources=True, expose_prompts=True)</code> in <a href="../../core/agents/building-agents/">Building Agents</a>.</p>
 <h2 id="mcptooladapter">MCPToolAdapter<a class="headerlink" href="#mcptooladapter" title="Link to this section">&para;</a></h2>
 <p>Convert MCP tools into LangChain <code>BaseTool</code> instances for use with LangGraph or any LangChain-compatible agent.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPMultiClient</span><span class="p">,</span> <span class="n">MCPToolAdapter</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">multi</span> <span class="o">=</span> <span class="n">MCPMultiClient</span><span class="p">({</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="s2">"hr"</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">),</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p">})</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span><span class="n">multi</span><span class="p">)</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    <span class="n">lc_tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    <span class="c1"># Each tool is a LangChain BaseTool with a Pydantic args_schema</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>    <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">lc_tools</span><span class="p">:</span>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Schema: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">args_schema</span><span class="o">.</span><span class="n">model_json_schema</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>
-</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>    <span class="c1"># Invoke directly</span>
-</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">lc_tools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"revenue"</span><span class="p">})</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPMultiClient</span><span class="p">,</span> <span class="n">MCPToolAdapter</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="n">multi</span> <span class="o">=</span> <span class="n">MCPMultiClient</span><span class="p">({</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="s2">"hr"</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">),</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="p">})</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>    <span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span><span class="n">multi</span><span class="p">)</span>
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>    <span class="n">lc_tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
+</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>
+</span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>    <span class="c1"># Each tool is a LangChain BaseTool with a Pydantic args_schema</span>
+</span><span id="__span-22-12"><a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>    <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">lc_tools</span><span class="p">:</span>
+</span><span id="__span-22-13"><a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-22-14"><a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Schema: </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">args_schema</span><span class="o">.</span><span class="n">model_json_schema</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-22-15"><a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>
+</span><span id="__span-22-16"><a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>    <span class="c1"># Invoke directly</span>
+</span><span id="__span-22-17"><a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">lc_tools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"revenue"</span><span class="p">})</span>
 </span></code></pre></div>
 <h3 id="recursive-schema-handling">Recursive schema handling<a class="headerlink" href="#recursive-schema-handling" title="Link to this section">&para;</a></h3>
 <p><code>MCPToolAdapter</code> builds fully-typed Pydantic models from MCP JSON Schemas, including:</p>
@@ -9742,71 +9983,75 @@
 </ul>
 <h3 id="tracing-callbacks">Tracing callbacks<a class="headerlink" href="#tracing-callbacks" title="Link to this section">&para;</a></h3>
 <p>Attach callbacks for observability. Integrate with Datadog, Prometheus, OpenTelemetry, or any logging backend:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_before</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Calling </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="n">kwargs</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_after</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> returned successfully"</span><span class="p">)</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_error</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span>
-</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="n">multi</span><span class="p">,</span>
-</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    <span class="n">on_before</span><span class="o">=</span><span class="n">on_before</span><span class="p">,</span>
-</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>    <span class="n">on_after</span><span class="o">=</span><span class="n">on_after</span><span class="p">,</span>
-</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>    <span class="n">on_error</span><span class="o">=</span><span class="n">on_error</span><span class="p">,</span>
-</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="p">)</span>
-</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="n">lc_tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_before</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Calling </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="n">kwargs</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_after</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> returned successfully"</span><span class="p">)</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_error</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="ne">Exception</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_progress</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">progress</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">total</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">progress</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">message</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">''</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>  <span class="c1"># may also be async</span>
+</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>
+</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span>
+</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>    <span class="n">multi</span><span class="p">,</span>
+</span><span id="__span-23-15"><a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a>    <span class="n">on_before</span><span class="o">=</span><span class="n">on_before</span><span class="p">,</span>
+</span><span id="__span-23-16"><a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a>    <span class="n">on_after</span><span class="o">=</span><span class="n">on_after</span><span class="p">,</span>
+</span><span id="__span-23-17"><a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>    <span class="n">on_error</span><span class="o">=</span><span class="n">on_error</span><span class="p">,</span>
+</span><span id="__span-23-18"><a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>    <span class="n">on_progress</span><span class="o">=</span><span class="n">on_progress</span><span class="p">,</span>  <span class="c1"># progress notifications during a call</span>
+</span><span id="__span-23-19"><a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a><span class="p">)</span>
+</span><span id="__span-23-20"><a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a><span class="n">lc_tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
 </span></code></pre></div>
 <h3 id="tool-introspection">Tool introspection<a class="headerlink" href="#tool-introspection" title="Link to this section">&para;</a></h3>
 <p>Get metadata about discovered tools without converting to LangChain:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">tool_infos</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">list_tool_info</span><span class="p">()</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">tool_infos</span><span class="p">:</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (server: </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">server_guess</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Schema: </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">input_schema</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">tool_infos</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">list_tool_info</span><span class="p">()</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">tool_infos</span><span class="p">:</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (server: </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">server_guess</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Schema: </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">input_schema</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="complete-example">Complete Example<a class="headerlink" href="#complete-example" title="Link to this section">&para;</a></h2>
 <p>A client that acquires a token, connects to a server, discovers tools, and calls them:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPMultiClient</span><span class="p">,</span> <span class="n">MCPToolAdapter</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">SERVER_URL</span> <span class="o">=</span> <span class="s2">"http://127.0.0.1:8080"</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    <span class="c1"># 1. Acquire a token</span>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="n">token</span> <span class="o">=</span> <span class="k">await</span> <span class="n">MCPClient</span><span class="o">.</span><span class="n">fetch_token</span><span class="p">(</span>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">SERVER_URL</span><span class="si">}</span><span class="s2">/auth/token"</span><span class="p">,</span>
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>        <span class="n">client_id</span><span class="o">=</span><span class="s2">"agent-admin"</span><span class="p">,</span>
-</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>        <span class="n">client_secret</span><span class="o">=</span><span class="s2">"admin-secret"</span><span class="p">,</span>
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>    <span class="p">)</span>
-</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>
-</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>    <span class="c1"># 2. Single-server connection</span>
-</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">SERVER_URL</span><span class="si">}</span><span class="s2">/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>        <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
-</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Discovered </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span><span class="si">}</span><span class="s2"> tools"</span><span class="p">)</span>
-</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>
-</span><span id="__span-17-20"><a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"list_employees"</span><span class="p">)</span>
-</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
-</span><span id="__span-17-22"><a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">):</span>
-</span><span id="__span-17-23"><a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>                <span class="n">employees</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
-</span><span id="__span-17-24"><a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">employees</span><span class="p">)</span><span class="si">}</span><span class="s2"> employees"</span><span class="p">)</span>
-</span><span id="__span-17-25"><a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a>
-</span><span id="__span-17-26"><a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a>    <span class="c1"># 3. Multi-server with LangChain adapter</span>
-</span><span id="__span-17-27"><a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a>    <span class="n">multi</span> <span class="o">=</span> <span class="n">MCPMultiClient</span><span class="p">({</span>
-</span><span id="__span-17-28"><a id="__codelineno-17-28" name="__codelineno-17-28" href="#__codelineno-17-28"></a>        <span class="s2">"hr"</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">SERVER_URL</span><span class="si">}</span><span class="s2">/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">),</span>
-</span><span id="__span-17-29"><a id="__codelineno-17-29" name="__codelineno-17-29" href="#__codelineno-17-29"></a>    <span class="p">})</span>
-</span><span id="__span-17-30"><a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a>
-</span><span id="__span-17-31"><a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
-</span><span id="__span-17-32"><a id="__codelineno-17-32" name="__codelineno-17-32" href="#__codelineno-17-32"></a>        <span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span><span class="n">multi</span><span class="p">)</span>
-</span><span id="__span-17-33"><a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a>        <span class="n">lc_tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
-</span><span id="__span-17-34"><a id="__codelineno-17-34" name="__codelineno-17-34" href="#__codelineno-17-34"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Converted </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">lc_tools</span><span class="p">)</span><span class="si">}</span><span class="s2"> tools for LangChain"</span><span class="p">)</span>
-</span><span id="__span-17-35"><a id="__codelineno-17-35" name="__codelineno-17-35" href="#__codelineno-17-35"></a>
-</span><span id="__span-17-36"><a id="__codelineno-17-36" name="__codelineno-17-36" href="#__codelineno-17-36"></a>        <span class="c1"># These tools are ready for build_agent(extra_tools=lc_tools)</span>
-</span><span id="__span-17-37"><a id="__codelineno-17-37" name="__codelineno-17-37" href="#__codelineno-17-37"></a>
-</span><span id="__span-17-38"><a id="__codelineno-17-38" name="__codelineno-17-38" href="#__codelineno-17-38"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClient</span><span class="p">,</span> <span class="n">MCPMultiClient</span><span class="p">,</span> <span class="n">MCPToolAdapter</span>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="n">SERVER_URL</span> <span class="o">=</span> <span class="s2">"http://127.0.0.1:8080"</span>
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>    <span class="c1"># 1. Acquire a token</span>
+</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a>    <span class="n">token</span> <span class="o">=</span> <span class="k">await</span> <span class="n">MCPClient</span><span class="o">.</span><span class="n">fetch_token</span><span class="p">(</span>
+</span><span id="__span-25-10"><a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a>        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">SERVER_URL</span><span class="si">}</span><span class="s2">/auth/token"</span><span class="p">,</span>
+</span><span id="__span-25-11"><a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a>        <span class="n">client_id</span><span class="o">=</span><span class="s2">"agent-admin"</span><span class="p">,</span>
+</span><span id="__span-25-12"><a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a>        <span class="n">client_secret</span><span class="o">=</span><span class="s2">"admin-secret"</span><span class="p">,</span>
+</span><span id="__span-25-13"><a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a>    <span class="p">)</span>
+</span><span id="__span-25-14"><a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a>
+</span><span id="__span-25-15"><a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a>    <span class="c1"># 2. Single-server connection</span>
+</span><span id="__span-25-16"><a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">SERVER_URL</span><span class="si">}</span><span class="s2">/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-25-17"><a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a>        <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+</span><span id="__span-25-18"><a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Discovered </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span><span class="si">}</span><span class="s2"> tools"</span><span class="p">)</span>
+</span><span id="__span-25-19"><a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a>
+</span><span id="__span-25-20"><a id="__codelineno-25-20" name="__codelineno-25-20" href="#__codelineno-25-20"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"list_employees"</span><span class="p">)</span>
+</span><span id="__span-25-21"><a id="__codelineno-25-21" name="__codelineno-25-21" href="#__codelineno-25-21"></a>        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+</span><span id="__span-25-22"><a id="__codelineno-25-22" name="__codelineno-25-22" href="#__codelineno-25-22"></a>            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="s2">"text"</span><span class="p">):</span>
+</span><span id="__span-25-23"><a id="__codelineno-25-23" name="__codelineno-25-23" href="#__codelineno-25-23"></a>                <span class="n">employees</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+</span><span id="__span-25-24"><a id="__codelineno-25-24" name="__codelineno-25-24" href="#__codelineno-25-24"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">employees</span><span class="p">)</span><span class="si">}</span><span class="s2"> employees"</span><span class="p">)</span>
+</span><span id="__span-25-25"><a id="__codelineno-25-25" name="__codelineno-25-25" href="#__codelineno-25-25"></a>
+</span><span id="__span-25-26"><a id="__codelineno-25-26" name="__codelineno-25-26" href="#__codelineno-25-26"></a>    <span class="c1"># 3. Multi-server with LangChain adapter</span>
+</span><span id="__span-25-27"><a id="__codelineno-25-27" name="__codelineno-25-27" href="#__codelineno-25-27"></a>    <span class="n">multi</span> <span class="o">=</span> <span class="n">MCPMultiClient</span><span class="p">({</span>
+</span><span id="__span-25-28"><a id="__codelineno-25-28" name="__codelineno-25-28" href="#__codelineno-25-28"></a>        <span class="s2">"hr"</span><span class="p">:</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">SERVER_URL</span><span class="si">}</span><span class="s2">/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">),</span>
+</span><span id="__span-25-29"><a id="__codelineno-25-29" name="__codelineno-25-29" href="#__codelineno-25-29"></a>    <span class="p">})</span>
+</span><span id="__span-25-30"><a id="__codelineno-25-30" name="__codelineno-25-30" href="#__codelineno-25-30"></a>
+</span><span id="__span-25-31"><a id="__codelineno-25-31" name="__codelineno-25-31" href="#__codelineno-25-31"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">multi</span><span class="p">:</span>
+</span><span id="__span-25-32"><a id="__codelineno-25-32" name="__codelineno-25-32" href="#__codelineno-25-32"></a>        <span class="n">adapter</span> <span class="o">=</span> <span class="n">MCPToolAdapter</span><span class="p">(</span><span class="n">multi</span><span class="p">)</span>
+</span><span id="__span-25-33"><a id="__codelineno-25-33" name="__codelineno-25-33" href="#__codelineno-25-33"></a>        <span class="n">lc_tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">adapter</span><span class="o">.</span><span class="n">as_langchain_tools</span><span class="p">()</span>
+</span><span id="__span-25-34"><a id="__codelineno-25-34" name="__codelineno-25-34" href="#__codelineno-25-34"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Converted </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">lc_tools</span><span class="p">)</span><span class="si">}</span><span class="s2"> tools for LangChain"</span><span class="p">)</span>
+</span><span id="__span-25-35"><a id="__codelineno-25-35" name="__codelineno-25-35" href="#__codelineno-25-35"></a>
+</span><span id="__span-25-36"><a id="__codelineno-25-36" name="__codelineno-25-36" href="#__codelineno-25-36"></a>        <span class="c1"># These tools are ready for build_agent(extra_tools=lc_tools)</span>
+</span><span id="__span-25-37"><a id="__codelineno-25-37" name="__codelineno-25-37" href="#__codelineno-25-37"></a>
+</span><span id="__span-25-38"><a id="__codelineno-25-38" name="__codelineno-25-38" href="#__codelineno-25-38"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <h2 id="api-summary">API Summary<a class="headerlink" href="#api-summary" title="Link to this section">&para;</a></h2>
 <table>
@@ -9834,14 +10079,44 @@
 <td>Discover all tools on the server</td>
 </tr>
 <tr>
-<td><code>client.call_tool(name, arguments)</code></td>
+<td><code>client.call_tool(name, arguments, progress_callback=None)</code></td>
 <td>Method</td>
-<td>Call a tool and get a <code>CallToolResult</code></td>
+<td>Call a tool and get a <code>CallToolResult</code>; the callback receives progress notifications</td>
+</tr>
+<tr>
+<td><code>client.list_resources()</code> / <code>client.list_resource_templates()</code></td>
+<td>Method</td>
+<td>Discover the server's resources and resource templates</td>
+</tr>
+<tr>
+<td><code>client.read_resource(uri)</code></td>
+<td>Method</td>
+<td>Read a resource and get a <code>ReadResourceResult</code></td>
+</tr>
+<tr>
+<td><code>client.list_prompts()</code></td>
+<td>Method</td>
+<td>Discover the server's prompts</td>
+</tr>
+<tr>
+<td><code>client.get_prompt(name, arguments)</code></td>
+<td>Method</td>
+<td>Get a rendered prompt as a <code>GetPromptResult</code></td>
+</tr>
+<tr>
+<td><code>client.in_flight_calls</code></td>
+<td>Property</td>
+<td><code>InFlightToolCall</code>s awaiting a result (for relating elicitation to a call)</td>
 </tr>
 <tr>
 <td><code>client.session</code></td>
 <td>Property</td>
-<td>Underlying MCP <code>ClientSession</code></td>
+<td>Underlying MCP <code>ClientSession</code> (no automatic reconnect for calls made on it directly)</td>
+</tr>
+<tr>
+<td><code>client.session_generation</code></td>
+<td>Property</td>
+<td>Number of sessions opened; grows by one on each transparent re-initialisation</td>
 </tr>
 <tr>
 <td><code>client.headers</code></td>
@@ -9849,9 +10124,14 @@
 <td>Read-only copy of HTTP headers</td>
 </tr>
 <tr>
-<td><code>MCPMultiClient(clients)</code></td>
+<td><code>MCPMultiClient(clients, elicitation_callback=None)</code></td>
 <td>Class</td>
 <td>Multi-server aggregating client</td>
+</tr>
+<tr>
+<td><code>approval_elicitation_callback(handler, ...)</code></td>
+<td>Function</td>
+<td>Elicitation callback that asks an approval handler (<code>promptise.approval</code>)</td>
 </tr>
 <tr>
 <td><code>multi.list_tools()</code></td>
@@ -9859,7 +10139,7 @@
 <td>Discover tools from all servers</td>
 </tr>
 <tr>
-<td><code>multi.call_tool(name, arguments)</code></td>
+<td><code>multi.call_tool(name, arguments, progress_callback=None)</code></td>
 <td>Method</td>
 <td>Call a tool, auto-routed to the correct server</td>
 </tr>
@@ -9869,12 +10149,22 @@
 <td>Tool name to server name mapping</td>
 </tr>
 <tr>
+<td><code>multi.read_resource(uri, *, server=None)</code></td>
+<td>Method</td>
+<td>Read a resource, routed by URI</td>
+</tr>
+<tr>
+<td><code>multi.get_prompt(name, arguments, *, server=None)</code></td>
+<td>Method</td>
+<td>Get a prompt, routed by name</td>
+</tr>
+<tr>
 <td><code>multi.servers</code></td>
 <td>Property</td>
 <td>Server name to <code>MCPClient</code> mapping</td>
 </tr>
 <tr>
-<td><code>MCPToolAdapter(multi, on_before, on_after, on_error)</code></td>
+<td><code>MCPToolAdapter(multi, on_before, on_after, on_error, on_progress)</code></td>
 <td>Class</td>
 <td>MCP-to-LangChain tool converter</td>
 </tr>
@@ -9896,7 +10186,12 @@
 <tr>
 <td><code>MCPConnectionRejectedError</code></td>
 <td>Exception</td>
-<td>The server refused the handshake with a 4xx (<code>status_code</code>, <code>reason</code>, <code>url</code>, <code>server_name</code>)</td>
+<td>The server refused the handshake with a 4xx, or an established session's credential (<code>status_code</code>, <code>reason</code>, <code>url</code>, <code>server_name</code>, <code>mid_session</code>)</td>
+</tr>
+<tr>
+<td><code>MCPCredentialError</code></td>
+<td>Exception</td>
+<td><code>bearer_token_provider</code> could not supply a token; nothing was sent</td>
 </tr>
 </tbody>
 </table>
@@ -9941,7 +10236,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 13:44:26 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:08:19 UTC">2026-10-10</span>
   </span>
 
     

@@ -5741,6 +5741,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#authentication-hmac-signatures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication: HMAC signatures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#direct-instantiation_2" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5789,17 +5800,6 @@
     <span class="md-ellipsis">
       
         Webhook metadata
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#queue-overflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Queue overflow
       
     </span>
   </a>
@@ -9609,6 +9609,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#authentication-hmac-signatures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication: HMAC signatures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#direct-instantiation_2" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9657,17 +9668,6 @@
     <span class="md-ellipsis">
       
         Webhook metadata
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#queue-overflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Queue overflow
       
     </span>
   </a>
@@ -9998,48 +9998,199 @@
 <h2 id="webhooktrigger">WebhookTrigger<a class="headerlink" href="#webhooktrigger" title="Link to this section">&para;</a></h2>
 <p>An <code>aiohttp</code> HTTP server that listens for incoming POST requests and converts them to <code>TriggerEvent</code> objects.</p>
 <h3 id="configuration_2">Configuration<a class="headerlink" href="#configuration_2" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">TriggerConfig</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">TriggerConfig</span><span class="p">(</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="nb">type</span><span class="o">=</span><span class="s2">"webhook"</span><span class="p">,</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">webhook_path</span><span class="o">=</span><span class="s2">"/events"</span><span class="p">,</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">webhook_port</span><span class="o">=</span><span class="mi">9090</span><span class="p">,</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">TriggerConfig</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">TriggerConfig</span><span class="p">(</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="nb">type</span><span class="o">=</span><span class="s2">"webhook"</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">webhook_path</span><span class="o">=</span><span class="s2">"/github"</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">webhook_port</span><span class="o">=</span><span class="mi">9090</span><span class="p">,</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">webhook_host</span><span class="o">=</span><span class="s2">"127.0.0.1"</span><span class="p">,</span>          <span class="c1"># default: loopback only</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">hmac_secret</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"GITHUB_WEBHOOK_SECRET"</span><span class="p">],</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">signature_scheme</span><span class="o">=</span><span class="s2">"github"</span><span class="p">,</span>         <span class="c1"># generic | github | stripe</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">allowed_sources</span><span class="o">=</span><span class="p">[</span><span class="s2">"203.0.113.0/24"</span><span class="p">],</span>  <span class="c1"># the sender's published IP ranges</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="n">filter_expression</span><span class="o">=</span><span class="s2">"payload['action'] == 'opened'"</span><span class="p">,</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="direct-instantiation_2">Direct instantiation<a class="headerlink" href="#direct-instantiation_2" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime.triggers.webhook</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebhookTrigger</span>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>webhook_path</code></td>
+<td><code>"/webhook"</code></td>
+<td>URL path that accepts POST requests</td>
+</tr>
+<tr>
+<td><code>webhook_port</code></td>
+<td><code>9090</code></td>
+<td>TCP port (1025–65535)</td>
+</tr>
+<tr>
+<td><code>webhook_host</code></td>
+<td><code>"127.0.0.1"</code></td>
+<td>Interface to bind. The default only accepts local connections; use <code>"0.0.0.0"</code> to accept requests from other machines</td>
+</tr>
+<tr>
+<td><code>hmac_secret</code></td>
+<td><code>None</code></td>
+<td>Shared secret; when set, requests without a valid signature get <code>401</code></td>
+</tr>
+<tr>
+<td><code>signature_scheme</code></td>
+<td><code>"generic"</code></td>
+<td>How the signature is computed (table below)</td>
+</tr>
+<tr>
+<td><code>signature_header</code></td>
+<td>scheme default</td>
+<td>Override the header the signature is read from</td>
+</tr>
+<tr>
+<td><code>signature_tolerance</code></td>
+<td><code>300</code></td>
+<td>Max age in seconds of a <code>stripe</code> signature timestamp; inside that window each signed request is accepted once (replay protection)</td>
+</tr>
+<tr>
+<td><code>allowed_sources</code></td>
+<td><code>[]</code> (any)</td>
+<td>Client IPs or CIDR ranges allowed to call the webhook; others get <code>403</code></td>
+</tr>
+<tr>
+<td><code>filter_expression</code></td>
+<td><code>None</code></td>
+<td>Skip events before the agent runs (see <a href="../#filtering-events-before-the-agent-runs">Filtering</a>)</td>
+</tr>
+</tbody>
+</table>
+<p>In a manifest, keep the secret out of the file with an environment reference: <code>hmac_secret: ${GITHUB_WEBHOOK_SECRET}</code>.</p>
+<h3 id="authentication-hmac-signatures">Authentication: HMAC signatures<a class="headerlink" href="#authentication-hmac-signatures" title="Link to this section">&para;</a></h3>
+<p>With <code>hmac_secret</code> set, every request must carry an HMAC-SHA256 signature of the raw body, made with the shared secret. The comparison is timing-safe.</p>
+<table>
+<thead>
+<tr>
+<th><code>signature_scheme</code></th>
+<th>Header</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>generic</code></td>
+<td><code>X-Webhook-Signature</code></td>
+<td><code>sha256=&lt;hex HMAC of body&gt;</code></td>
+</tr>
+<tr>
+<td><code>github</code></td>
+<td><code>X-Hub-Signature-256</code></td>
+<td><code>sha256=&lt;hex HMAC of body&gt;</code>, as GitHub sends it</td>
+</tr>
+<tr>
+<td><code>stripe</code></td>
+<td><code>Stripe-Signature</code></td>
+<td><code>t=&lt;unix ts&gt;,v1=&lt;hex HMAC of "&lt;ts&gt;.&lt;body&gt;"&gt;</code>, as Stripe sends it; rejected when the timestamp is older than <code>signature_tolerance</code>, or when the same signed request was already accepted</td>
+</tr>
+</tbody>
+</table>
+<p><code>generic</code> and <code>github</code> signatures cover only the body, with no timestamp, so anyone who captures a signed request can send it again. Serve the webhook over TLS (a reverse proxy in front of it) so requests can't be captured, and make the agent's actions safe to repeat where you can.</p>
+<p>Signing a request for the <code>generic</code> scheme:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span><span class="o">,</span><span class="w"> </span><span class="nn">hmac</span><span class="o">,</span><span class="w"> </span><span class="nn">json</span><span class="o">,</span><span class="w"> </span><span class="nn">urllib.request</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">trigger</span> <span class="o">=</span> <span class="n">WebhookTrigger</span><span class="p">(</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">path</span><span class="o">=</span><span class="s2">"/webhook"</span><span class="p">,</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">9090</span><span class="p">,</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">host</span><span class="o">=</span><span class="s2">"0.0.0.0"</span><span class="p">,</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="k">await</span> <span class="n">trigger</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># HTTP server now listening at http://0.0.0.0:9090/webhook</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="n">event</span> <span class="o">=</span> <span class="k">await</span> <span class="n">trigger</span><span class="o">.</span><span class="n">wait_for_next</span><span class="p">()</span>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">payload</span><span class="p">)</span>   <span class="c1"># POST body (JSON or text)</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>  <span class="c1"># {"method": "POST", "path": "/webhook", ...}</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="k">await</span> <span class="n">trigger</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">"order_id"</span><span class="p">:</span> <span class="mi">42</span><span class="p">})</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">signature</span> <span class="o">=</span> <span class="s2">"sha256="</span> <span class="o">+</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="sa">b</span><span class="s2">"my-secret"</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">Request</span><span class="p">(</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="s2">"http://127.0.0.1:9090/webhook"</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">data</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Content-Type"</span><span class="p">:</span> <span class="s2">"application/json"</span><span class="p">,</span> <span class="s2">"X-Webhook-Signature"</span><span class="p">:</span> <span class="n">signature</span><span class="p">},</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">))</span>
+</span></code></pre></div>
+<p>For other providers that sign the body with HMAC-SHA256 and a <code>sha256=</code> prefix, keep <code>signature_scheme="generic"</code> and set <code>signature_header</code> to their header name.</p>
+<div class="admonition warning">
+<p class="admonition-title">Set a secret before you expose the port</p>
+<p>Without <code>hmac_secret</code>, anyone who can reach the port can make the agent run, and pick what it reads. The trigger logs a warning at start-up in that case. Always set a secret (and ideally <code>allowed_sources</code>) when <code>webhook_host</code> isn't loopback.</p>
+</div>
+<p><code>allowed_sources</code> is checked against the TCP peer address. Behind a reverse proxy that is the proxy's address, so list the proxy and do the provider IP check there.</p>
+<h3 id="direct-instantiation_2">Direct instantiation<a class="headerlink" href="#direct-instantiation_2" title="Link to this section">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime.triggers.webhook</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebhookTrigger</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">trigger</span> <span class="o">=</span> <span class="n">WebhookTrigger</span><span class="p">(</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">path</span><span class="o">=</span><span class="s2">"/webhook"</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">port</span><span class="o">=</span><span class="mi">9090</span><span class="p">,</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">host</span><span class="o">=</span><span class="s2">"127.0.0.1"</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">hmac_secret</span><span class="o">=</span><span class="s2">"my-secret"</span><span class="p">,</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">signature_scheme</span><span class="o">=</span><span class="s2">"generic"</span><span class="p">,</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">)</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="k">await</span> <span class="n">trigger</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1"># HTTP server now listening at http://127.0.0.1:9090/webhook</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="n">event</span> <span class="o">=</span> <span class="k">await</span> <span class="n">trigger</span><span class="o">.</span><span class="n">wait_for_next</span><span class="p">()</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">payload</span><span class="p">)</span>   <span class="c1"># POST body (JSON or text)</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>  <span class="c1"># {"method": "POST", "path": "/webhook", ...}</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="k">await</span> <span class="n">trigger</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
 </span></code></pre></div>
 <h3 id="how-requests-are-handled">How requests are handled<a class="headerlink" href="#how-requests-are-handled" title="Link to this section">&para;</a></h3>
 <ol>
 <li>A POST request arrives at the configured path.</li>
-<li>The body is parsed as JSON (falling back to plain text).</li>
-<li>A <code>TriggerEvent</code> is created with the body as <code>payload</code>.</li>
-<li>Request metadata (method, path, query params, safe headers) is stored in <code>metadata</code>.</li>
-<li>The response <code>202 Accepted</code> is returned with the event ID.</li>
+<li>The client address is checked against <code>allowed_sources</code> → <code>403</code> if not allowed.</li>
+<li>With <code>hmac_secret</code> set, the signature is verified → <code>401</code> if missing or wrong.</li>
+<li>If the owning process can't take the event (it is <code>FAILED</code> or stopping, or its queue is full) → <code>503</code> with <code>Retry-After: 30</code>.</li>
+<li>The body is parsed as JSON (falling back to plain text) and a <code>TriggerEvent</code> is created with the body as <code>payload</code> and request details in <code>metadata</code>.</li>
+<li>If a <code>filter_expression</code> is set and doesn't match → <code>200 {"status": "ignored", "event_id": ...}</code>; the agent doesn't run.</li>
+<li>Otherwise the event is queued and <code>202 {"status": "accepted", "event_id": ...}</code> is returned.</li>
 </ol>
-<p>Sensitive headers (<code>Authorization</code>, <code>Cookie</code>, <code>Set-Cookie</code>) are automatically stripped from the metadata.</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body <code>status</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>202</code></td>
+<td><code>accepted</code></td>
+<td>Queued for the agent</td>
+</tr>
+<tr>
+<td><code>200</code></td>
+<td><code>ignored</code></td>
+<td>Didn't match <code>filter_expression</code></td>
+</tr>
+<tr>
+<td><code>401</code></td>
+<td><code>error</code></td>
+<td>Missing or invalid signature</td>
+</tr>
+<tr>
+<td><code>403</code></td>
+<td><code>error</code></td>
+<td>Source address not in <code>allowed_sources</code></td>
+</tr>
+<tr>
+<td><code>503</code></td>
+<td><code>unavailable</code></td>
+<td>Process failed/stopping or queue full; retry later</td>
+</tr>
+</tbody>
+</table>
+<p>Senders such as GitHub and Stripe retry on <code>5xx</code>, so events sent while the process is down are redelivered once it is running again, instead of piling up in a process that can't run them.</p>
+<p>Sensitive headers (<code>Authorization</code>, <code>Proxy-Authorization</code>, <code>Cookie</code>, <code>Set-Cookie</code>) and the signature header are stripped from the metadata.</p>
 <h3 id="health-check-endpoint">Health check endpoint<a class="headerlink" href="#health-check-endpoint" title="Link to this section">&para;</a></h3>
-<p>The webhook server also exposes <code>GET /health</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"healthy"</span><span class="p">,</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">"trigger_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"webhook-9090/events"</span><span class="p">,</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">"queue_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">}</span>
+<p>The webhook server also exposes <code>GET /health</code>. It returns <code>200</code> while events are accepted and <code>503</code> when they aren't:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"healthy"</span><span class="p">,</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">"trigger_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"webhook-9090/events"</span><span class="p">,</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nt">"queue_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <h3 id="webhook-payload">Webhook payload<a class="headerlink" href="#webhook-payload" title="Link to this section">&para;</a></h3>
 <p>The <code>payload</code> field contains the raw POST body:</p>
@@ -10047,6 +10198,7 @@
 <li>If the body is valid JSON, it is stored as a dict.</li>
 <li>Otherwise, it is stored as a string.</li>
 </ul>
+<p>The agent sees it inside a delimited untrusted-data block; see <a href="../#trigger-payloads-are-untrusted-input">Trigger payloads are untrusted input</a>.</p>
 <h3 id="webhook-metadata">Webhook metadata<a class="headerlink" href="#webhook-metadata" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
@@ -10070,18 +10222,18 @@
 </tr>
 <tr>
 <td><code>headers</code></td>
-<td>Safe headers (auth headers excluded)</td>
+<td>Safe headers (auth and signature headers excluded)</td>
 </tr>
 <tr>
 <td><code>remote</code></td>
 <td>Client IP address</td>
 </tr>
+<tr>
+<td><code>signature_verified</code></td>
+<td><code>True</code> when the request passed the HMAC check</td>
+</tr>
 </tbody>
 </table>
-<h3 id="queue-overflow">Queue overflow<a class="headerlink" href="#queue-overflow" title="Link to this section">&para;</a></h3>
-<p>If the webhook queue (capacity: 1000) is full, the server returns <code>503 Service Unavailable</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"queue full"</span><span class="p">}</span>
-</span></code></pre></div>
 <hr />
 <h2 id="shared-patterns">Shared Patterns<a class="headerlink" href="#shared-patterns" title="Link to this section">&para;</a></h2>
 <h3 id="queue-based-decoupling">Queue-based decoupling<a class="headerlink" href="#queue-based-decoupling" title="Link to this section">&para;</a></h3>
@@ -10117,7 +10269,7 @@
 <td>MessageBroker trigger</td>
 </tr>
 <tr>
-<td><code>WebhookTrigger(path, port, host)</code></td>
+<td><code>WebhookTrigger(path, port, host, hmac_secret, *, signature_scheme, signature_header, signature_tolerance, allowed_sources, event_filter)</code></td>
 <td>HTTP webhook trigger</td>
 </tr>
 </tbody>
@@ -10131,7 +10283,7 @@
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Webhook security</p>
-<p>The webhook server binds to <code>0.0.0.0</code> by default. In production, use a reverse proxy (nginx, Caddy) for TLS termination and authentication. The trigger itself does not perform any request authentication.</p>
+<p>The webhook server binds to <code>127.0.0.1</code> by default, so only local clients can reach it. When you bind <code>0.0.0.0</code>, set <code>hmac_secret</code> (and <code>allowed_sources</code> where the sender publishes its IP ranges), and put a reverse proxy (nginx, Caddy) in front for TLS. The trigger doesn't terminate TLS itself.</p>
 </div>
 <div class="admonition info">
 <p class="admonition-title">aiohttp shipped with base install</p>
@@ -10143,7 +10295,7 @@
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Queue capacity is finite</p>
-<p>If events arrive faster than the agent processes them, the queue will fill and events will be dropped. Monitor queue sizes via the dashboard or <code>status()</code> API. Increase <code>ProcessConfig.concurrency</code> for high-throughput scenarios.</p>
+<p>If events arrive faster than the agent processes them, the queue fills and the webhook answers <code>503</code> until there is room again. Monitor queue sizes via the dashboard or <code>status()</code> API. Increase <code>ProcessConfig.concurrency</code> for high-throughput scenarios.</p>
 </div>
 <hr />
 <h2 id="whats-next">What's Next<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
@@ -10175,7 +10327,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 20, 2026 13:13:52 UTC">2026-04-20</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:38:11 UTC">2026-10-10</span>
   </span>
 
     

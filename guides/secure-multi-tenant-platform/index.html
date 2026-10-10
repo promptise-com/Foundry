@@ -9609,24 +9609,38 @@ request id), and grants proceed to a normal audited call.</p>
 <p>The server enforces isolation for <em>tools</em>. On the <strong>agent</strong> side, the same
 <code>tenant_id</code> isolates memory, cache, and conversations — so a support agent
 serving Acme's user <code>alice</code> can never surface Globex's data, even for a
-same-named user.</p>
+same-named user. Each caller's <code>bearer_token</code> is what the billing server
+authenticates, so one agent serves every tenant.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span><span class="p">,</span> <span class="n">build_agent</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"billing"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"url"</span><span class="p">:</span> <span class="s2">"https://billing.internal/mcp"</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>                         <span class="s2">"transport"</span><span class="p">:</span> <span class="s2">"http"</span><span class="p">,</span> <span class="s2">"bearer_token"</span><span class="p">:</span> <span class="n">acme_jwt</span><span class="p">}},</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">ChromaProvider</span><span class="p">(</span><span class="n">persist_directory</span><span class="o">=</span><span class="s2">"./mem"</span><span class="p">),</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">cache</span><span class="o">=</span><span class="n">SemanticCache</span><span class="p">(),</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">conversation_store</span><span class="o">=</span><span class="n">SQLiteConversationStore</span><span class="p">(</span><span class="s2">"chat.db"</span><span class="p">),</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">)</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">acme_alice</span>   <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">)</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">globex_alice</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"globex"</span><span class="p">)</span>  <span class="c1"># sees NONE of acme</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="c1"># Same user_id, different tenants — fully isolated across cache/memory/sessions:</span>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What did we discuss?"</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="s2">"s1"</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">acme_alice</span><span class="p">)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="c1"># The agent's own credential: opens the connection and discovers tools.</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="c1"># Tool calls are made with each caller's bearer_token instead.</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"billing"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"url"</span><span class="p">:</span> <span class="s2">"https://billing.internal/mcp"</span><span class="p">,</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>                         <span class="s2">"transport"</span><span class="p">:</span> <span class="s2">"http"</span><span class="p">,</span> <span class="s2">"bearer_token"</span><span class="p">:</span> <span class="n">service_jwt</span><span class="p">}},</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">ChromaProvider</span><span class="p">(</span><span class="n">persist_directory</span><span class="o">=</span><span class="s2">"./mem"</span><span class="p">),</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">cache</span><span class="o">=</span><span class="n">SemanticCache</span><span class="p">(),</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">conversation_store</span><span class="o">=</span><span class="n">SQLiteConversationStore</span><span class="p">(</span><span class="s2">"chat.db"</span><span class="p">),</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">acme_alice</span>   <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">acme_alice_jwt</span><span class="p">)</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">globex_alice</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"globex"</span><span class="p">,</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>                             <span class="n">bearer_token</span><span class="o">=</span><span class="n">globex_alice_jwt</span><span class="p">)</span>  <span class="c1"># sees NONE of acme</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="c1"># Same user_id, different tenants — fully isolated across cache/memory/sessions,</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="c1"># and the billing server sees each caller's own token:</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What did we discuss?"</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="s2">"s1"</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">acme_alice</span><span class="p">)</span>
 </span></code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Never build the agent with one user's token</p>
+<p>The server derives the tenant from the token it receives. A
+<code>CallerContext</code> without a <code>bearer_token</code> is sent with the spec's
+credential, so the server sees whoever that credential belongs to —
+not the caller. Give the spec a service credential and give every
+caller their own token. See
+<a href="../../mcp/server/multi-tenancy/#the-users-token-reaches-the-mcp-server">The user's token reaches the MCP server</a>.</p>
+</div>
 <p>One derivation — <code>CallerContext.isolation_key</code> — feeds every per-user surface,
 so isolation is guaranteed at the scoping layer, not re-implemented per feature.
 The <code>tenant_id</code> even rides through cross-agent delegation automatically.</p>
@@ -9855,7 +9869,7 @@ approval is ever created.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 16, 2026 16:52:45 UTC">2026-07-16</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:39:05 UTC">2026-10-10</span>
   </span>
 
     

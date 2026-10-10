@@ -5495,6 +5495,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#error-rate-detection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9387,6 +9398,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#recovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recovery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#error-rate-detection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9571,11 +9593,14 @@
 </span></code></pre></div>
 <h2 id="detectors">Detectors<a class="headerlink" href="#detectors" title="Link to this section">&para;</a></h2>
 <h3 id="stuck-detection">Stuck detection<a class="headerlink" href="#stuck-detection" title="Link to this section">&para;</a></h3>
-<p>Tracks <code>(tool_name, hash(arguments))</code> tuples. When the agent calls the same tool with the same arguments <code>stuck_threshold</code> times consecutively, it's stuck.</p>
+<p>Tracks <code>(tool_name, hash(arguments))</code> tuples. When the agent calls the same tool with the same arguments <code>stuck_threshold</code> times consecutively <strong>within one invocation</strong>, it's stuck.</p>
+<p>Tool history starts fresh at every invocation (stuck and loop detection look for repetition inside a run). A scheduled agent that checks the same queue once per cron tick is behaving normally and is not reported as stuck.</p>
 <h3 id="loop-detection">Loop detection<a class="headerlink" href="#loop-detection" title="Link to this section">&para;</a></h3>
 <p>Examines the last <code>loop_window</code> tool calls for repeating patterns of any length. If a sequence like <code>search → read → analyze → search → read → analyze</code> repeats <code>loop_min_repeats</code> times, it's a loop.</p>
 <h3 id="empty-response-detection">Empty response detection<a class="headerlink" href="#empty-response-detection" title="Link to this section">&para;</a></h3>
-<p>Counts consecutive tool responses shorter than <code>empty_max_chars</code>. After <code>empty_threshold</code> consecutive trivial responses, the agent likely isn't making progress.</p>
+<p>Counts consecutive <strong>final replies</strong> (the agent's answer at the end of an invocation) shorter than <code>empty_max_chars</code>. After <code>empty_threshold</code> consecutive trivial replies, the agent likely isn't making progress. Tool results are not replies: a tool that returns <code>[]</code> because a queue is empty does not count. Reply lengths carry over between invocations.</p>
+<h3 id="recovery">Recovery<a class="headerlink" href="#recovery" title="Link to this section">&para;</a></h3>
+<p>After an anomaly, the next successful invocation emits a single <code>health.recovered</code> event. Further successes do not emit it again until another anomaly fires.</p>
 <h3 id="error-rate-detection">Error rate detection<a class="headerlink" href="#error-rate-detection" title="Link to this section">&para;</a></h3>
 <p>Sliding window error rate. When the fraction of failed tool calls exceeds <code>error_rate_threshold</code>, something is systematically wrong.</p>
 <h2 id="enforcement-actions">Enforcement actions<a class="headerlink" href="#enforcement-actions" title="Link to this section">&para;</a></h2>
@@ -9694,7 +9719,15 @@
 </tr>
 <tr>
 <td><code>.record_response(text)</code></td>
-<td>Record a response for empty detection</td>
+<td>Record the agent's final reply for empty detection (not tool results)</td>
+</tr>
+<tr>
+<td><code>.record_success()</code></td>
+<td>Record a successful invocation; returns <code>True</code> once, on the first success after an anomaly</td>
+</tr>
+<tr>
+<td><code>.begin_invocation()</code></td>
+<td>Start a new invocation: clears the tool history used by stuck/loop detection (the runtime calls it)</td>
 </tr>
 <tr>
 <td><code>.anomalies</code></td>
@@ -9759,7 +9792,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:22:26 UTC">2026-10-10</span>
   </span>
 
     

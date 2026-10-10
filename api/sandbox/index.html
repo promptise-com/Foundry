@@ -7764,6 +7764,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.sandbox.backends.SandboxBackend.ensure_available" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ensure_available
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.sandbox.backends.SandboxBackend.execute_command" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7879,6 +7890,17 @@
     <span class="md-ellipsis">
       
         create_container
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.sandbox.backends.DockerBackend.ensure_available" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ensure_available
       
     </span>
   </a>
@@ -10593,6 +10615,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.sandbox.backends.SandboxBackend.ensure_available" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ensure_available
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.sandbox.backends.SandboxBackend.execute_command" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10708,6 +10741,17 @@
     <span class="md-ellipsis">
       
         create_container
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.sandbox.backends.DockerBackend.ensure_available" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ensure_available
       
     </span>
   </a>
@@ -11294,6 +11338,8 @@
 
 
         <p>Configuration for sandbox environment.</p>
+<p>Unknown keys are rejected, so a misspelled option (<code>network_mode</code>
+instead of <code>network</code>) fails loudly instead of being ignored.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -11357,7 +11403,19 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Maximum disk space (default: "10G")</p>
+                <p>Size of the writable workspace (a tmpfs mounted at
+<code>workdir</code>; it counts toward <code>memory_limit</code>) (default: "1G")</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.sandbox.config.SandboxConfig.pids_limit">pids_limit</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum number of processes and threads (default: 256)</p>
               </div>
             </td>
           </tr>
@@ -11368,7 +11426,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Network isolation mode (default: "restricted")</p>
+                <p>Network isolation mode (default: "none")</p>
               </div>
             </td>
           </tr>
@@ -11379,7 +11437,7 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Keep workspace between runs (default: False)</p>
+                <p>Keep the container running after the session ends (default: False)</p>
               </div>
             </td>
           </tr>
@@ -11391,17 +11449,6 @@
             <td>
               <div class="doc-md-description">
                 <p>Max execution time in seconds (default: 300)</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="promptise.sandbox.config.SandboxConfig.tools">tools</span></code></td>
-            <td>
-                  <code><span title="list">list</span>[<span title="str">str</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Pre-installed tools to include (default: ["python"])</p>
               </div>
             </td>
           </tr>
@@ -11438,6 +11485,28 @@
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.sandbox.config.SandboxConfig.runtime">runtime</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Docker runtime to run the container with (<code>"runsc"</code> for gVisor)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.sandbox.config.SandboxConfig.read_only_rootfs">read_only_rootfs</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Mount the root filesystem read-only (default: True)</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -11452,8 +11521,7 @@
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">... </span>    <span class="n">cpu_limit</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">... </span>    <span class="n">memory_limit</span><span class="o">=</span><span class="s2">"8G"</span><span class="p">,</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">... </span>    <span class="n">network</span><span class="o">=</span><span class="n">NetworkMode</span><span class="o">.</span><span class="n">FULL</span><span class="p">,</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">... </span>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"python"</span><span class="p">,</span> <span class="s2">"node"</span><span class="p">,</span> <span class="s2">"rust"</span><span class="p">]</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">... </span><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -11542,6 +11610,29 @@
             <td>
               <div class="doc-md-description">
                 <p>SandboxConfig instance</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="pydantic.ValidationError">ValidationError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a key is unknown or a value is invalid.</p>
               </div>
             </td>
           </tr>
@@ -11871,7 +11962,8 @@ manager = SandboxManager(config)</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If config is invalid</p>
+                <p>If config is invalid (<code>pydantic.ValidationError</code>,
+a <code>ValueError</code> subclass, for unknown keys or bad values)</p>
               </div>
             </td>
           </tr>
@@ -12376,6 +12468,13 @@ sandbox container, handling timeouts, and managing the session lifecycle.</p>
     <div class="doc doc-contents ">
 
         <p>Install a package in the sandbox.</p>
+<p>Packages are installed into the writable workspace, so this works on
+the default read-only root filesystem: <code>pip</code> falls back to a user
+install under <code>$HOME</code> (the workspace), <code>npm</code> installs into
+<code>&lt;workdir&gt;/node_modules</code>, <code>cargo</code> into <code>&lt;workdir&gt;/.cargo</code> and
+<code>go</code> into <code>&lt;workdir&gt;/go</code>. Downloading a package needs network
+access, which the default <code>network="none"</code> does not provide; bake
+packages into a custom <code>image</code> instead, or enable the network.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -12811,7 +12910,7 @@ sandbox container, handling timeouts, and managing the session lifecycle.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If session is not running.</p>
+                <p>If session is not running, or the write fails.</p>
               </div>
             </td>
           </tr>
@@ -13099,6 +13198,53 @@ sandbox container, handling timeouts, and managing the session lifecycle.</p>
             <td>
               <div class="doc-md-description">
                 <p>Container ID</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="promptise.sandbox.backends.SandboxBackend.ensure_available" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">ensure_available</span><span class="p">()</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.sandbox.backends.SandboxBackend.ensure_available" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Raise with the reason when the backend cannot run containers.</p>
+<p>The default implementation relies on :meth:<code>health_check</code>. Backends
+that know <em>why</em> they are unavailable override it to say so.</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="RuntimeError">RuntimeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the backend is not available.</p>
               </div>
             </td>
           </tr>
@@ -13752,7 +13898,56 @@ for enhanced security through user-space kernel implementation.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If container creation fails</p>
+                <p>If container creation fails, or if
+<code>network="restricted"</code> cannot be enforced (the container is
+removed and never used).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="promptise.sandbox.backends.DockerBackend.ensure_available" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">ensure_available</span><span class="p">()</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.sandbox.backends.DockerBackend.ensure_available" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Check that Docker answers and the requested runtime is installed.</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="RuntimeError">RuntimeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With the actual reason: the daemon is unreachable,
+or the configured runtime (<code>runsc</code> for gVisor) is not
+registered with Docker.</p>
               </div>
             </td>
           </tr>
@@ -13780,6 +13975,9 @@ for enhanced security through user-space kernel implementation.</p>
     <div class="doc doc-contents ">
 
         <p>Execute a command in Docker container with proper timeout enforcement.</p>
+<p>When the timeout expires, every process the command started is killed
+inside the container (see :meth:<code>_kill_exec</code>), so a runaway program
+does not keep burning CPU after the call returns.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -13908,7 +14106,7 @@ for enhanced security through user-space kernel implementation.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Check if Docker is available and gVisor runtime is configured if requested.</p>
+        <p>Check if Docker is available and the requested runtime is configured.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -13926,7 +14124,7 @@ for enhanced security through user-space kernel implementation.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>True if Docker is healthy (and gVisor is available if requested)</p>
+                <p>True if Docker is healthy (and the runtime is available if requested)</p>
               </div>
             </td>
           </tr>
@@ -14174,8 +14372,14 @@ for enhanced security through user-space kernel implementation.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Write a file to Docker container using Docker API.</p>
-<p>Uses Docker's put_archive API to safely write files without shell injection risks.</p>
+        <p>Write a file into the container from inside it.</p>
+<p>Docker's archive API cannot write to a container with a read-only
+root filesystem (nor into its tmpfs mounts), so the content is
+streamed in base64 slices through <code>exec</code> and decoded in the
+container. Arbitrary content (quotes, newlines, shell metacharacters)
+is never interpreted by the shell. The file is written to a temporary
+name and renamed into place, and missing parent directories are
+created.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -14214,7 +14418,7 @@ for enhanced security through user-space kernel implementation.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Path to file</p>
+                <p>Absolute path to the file inside the container</p>
               </div>
             </td>
             <td>
@@ -14235,6 +14439,29 @@ for enhanced security through user-space kernel implementation.</p>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="RuntimeError">RuntimeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the file cannot be written.</p>
+              </div>
             </td>
           </tr>
       </tbody>

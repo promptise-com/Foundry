@@ -9833,13 +9833,13 @@
 <p>A <strong>multi-user agentic system</strong> has three layers of identity:</p>
 <ol>
 <li><strong>User identity</strong> — who the human is (JWT claims, user_id, roles, scopes). Carried by <code>CallerContext</code> on every agent invocation.</li>
-<li><strong>Agent-to-server identity</strong> — the agent authenticating to MCP servers. Carried by <code>HTTPServerSpec.bearer_token</code> on every tool call.</li>
+<li><strong>Agent-to-server identity</strong> — who the MCP server sees. The agent's own credential (<code>HTTPServerSpec.bearer_token</code>) opens the connection and discovers tools; when an invocation's <code>CallerContext</code> carries the user's <code>bearer_token</code>, every tool call during it is made with that token instead.</li>
 <li><strong>Session identity</strong> — which conversation this message belongs to. Carried by <code>session_id</code> and <code>user_id</code> on every <code>chat()</code> call.</li>
 </ol>
 <p>These three layers work together. The user's JWT flows from your backend through the agent to the MCP server. The MCP server validates the token, extracts roles/scopes, and applies per-tool guards. The conversation store enforces ownership. The cache isolates per-user. Guardrails scan every input and output. Observability records every decision with the authenticated identity attached.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>User (JWT) → Your Backend → build_agent(bearer_token=jwt)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>User (JWT) → Your Backend → agent.ainvoke(..., caller=CallerContext(...))
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                                    ↓
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                            CallerContext(user_id, roles, scopes)
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                            CallerContext(user_id, bearer_token=jwt, roles, scopes)
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                    ↓
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                    ┌───────────────┼───────────────┐
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                    ↓               ↓               ↓
@@ -10062,14 +10062,16 @@
 </span></code></pre></div>
 <p>That's 30 tools across 5 domains. Each domain has its own router with appropriate guards. The agent discovers all 30 automatically — but sending all 30 tool descriptions to the LLM on every message wastes thousands of tokens. That's where semantic tool optimization comes in.</p>
 <p>For asymmetric tokens from identity providers (Auth0, Keycloak, Okta):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsymmetricJWTAuth</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">AsymmetricJWTAuth</span><span class="p">(</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">public_key_pem</span><span class="o">=</span><span class="s2">"$</span><span class="si">{IDP_PUBLIC_KEY}</span><span class="s2">"</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">algorithms</span><span class="o">=</span><span class="p">[</span><span class="s2">"RS256"</span><span class="p">],</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">issuer</span><span class="o">=</span><span class="s2">"https://auth.example.com"</span><span class="p">,</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">audience</span><span class="o">=</span><span class="s2">"my-api"</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsymmetricJWTAuth</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">auth</span> <span class="o">=</span> <span class="n">AsymmetricJWTAuth</span><span class="p">(</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">public_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"IDP_PUBLIC_KEY"</span><span class="p">],</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">algorithm</span><span class="o">=</span><span class="s2">"RS256"</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">issuer</span><span class="o">=</span><span class="s2">"https://auth.example.com"</span><span class="p">,</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">audience</span><span class="o">=</span><span class="s2">"my-api"</span><span class="p">,</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>For simpler deployments, API key authentication with role mappings:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">APIKeyAuth</span>
@@ -10219,6 +10221,19 @@
 </span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Every tool call the agent makes includes this JWT in the <code>Authorization</code> header. The MCP server validates it, extracts roles/scopes, and applies guards. If the user has the <code>analyst</code> role, they can call <code>get_customer_data</code>. If they don't have <code>admin</code>, <code>delete_customer</code> is blocked.</p>
+<div class="admonition tip">
+<p class="admonition-title">One agent for every user</p>
+<p>Building an agent per request, as here, works but repeats tool discovery
+each time. You can instead build one agent with a service credential and
+pass each user's JWT on the invocation:
+<code>agent.ainvoke(..., caller=CallerContext(user_id=..., bearer_token=user_jwt))</code>.
+Every tool call during that invocation is then made with the user's
+token, over an MCP session opened for it, so concurrent users never
+share credentials. See
+<a href="../../mcp/server/multi-tenancy/#the-users-token-reaches-the-mcp-server">The user's token reaches the MCP server</a>.
+Never build a shared agent with one <em>user's</em> token: every user would
+then act as that user.</p>
+</div>
 <h3 id="semantic-tool-optimization-30-tools-without-the-token-cost">Semantic tool optimization — 30 tools without the token cost<a class="headerlink" href="#semantic-tool-optimization-30-tools-without-the-token-cost" title="Link to this section">&para;</a></h3>
 <p>With 30 tools, every LLM call sends ~3,000-5,000 tokens of tool descriptions. Most messages only need 3-5 tools. Semantic optimization analyzes the user's message, matches it against tool descriptions using a local embedding model, and sends only the relevant tools:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
@@ -10722,7 +10737,7 @@ request (four-eyes). Full guide:
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:40:35 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:39:05 UTC">2026-10-10</span>
   </span>
 
     

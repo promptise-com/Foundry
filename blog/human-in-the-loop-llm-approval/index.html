@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The 5-layer AutoApprovalClassifier (allow rules, deny rules…">
+        <meta name="description" content="Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The layered AutoApprovalClassifier (deny rules, ask rules, allow rules…">
       
       
         <meta name="author" content="Manser Ventures">
@@ -95,7 +95,7 @@
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
   <meta property="og:title" content="Human-in-the-Loop Approval for AI Agent Tool Calls">
-  <meta property="og:description" content="Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The 5-layer AutoApprovalClassifier (allow rules, deny rules…">
+  <meta property="og:description" content="Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The layered AutoApprovalClassifier (deny rules, ask rules, allow rules…">
   <meta property="og:url" content="https://docs.promptise.com/blog/human-in-the-loop-llm-approval/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -105,7 +105,7 @@
   
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Human-in-the-Loop Approval for AI Agent Tool Calls">
-  <meta name="twitter:description" content="Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The 5-layer AutoApprovalClassifier (allow rules, deny rules…">
+  <meta name="twitter:description" content="Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The layered AutoApprovalClassifier (deny rules, ask rules, allow rules…">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -181,7 +181,7 @@
       "@type": "TechArticle",
       "headline": "Human-in-the-Loop Approval for AI Agent Tool Calls",
       "name": "Human-in-the-Loop Approval for AI Agent Tool Calls",
-      "description": "Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The 5-layer AutoApprovalClassifier (allow rules, deny rules\u2026",
+      "description": "Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The layered AutoApprovalClassifier (deny rules, ask rules, allow rules\u2026",
       "url": "https://docs.promptise.com/blog/human-in-the-loop-llm-approval/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -9132,10 +9132,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-five-layer-autoapprovalclassifier" class="md-nav__link">
+  <a href="#the-six-layer-autoapprovalclassifier" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The five-layer AutoApprovalClassifier
+        The six-layer AutoApprovalClassifier
       
     </span>
   </a>
@@ -9306,7 +9306,7 @@
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 20a8 8 0 0 0 8-8 8 8 0 0 0-8-8 8 8 0 0 0-8 8 8 8 0 0 0 8 8m0-18a10 10 0 0 1 10 10 10 10 0 0 1-10 10C6.47 22 2 17.5 2 12A10 10 0 0 1 12 2m.5 5v5.25l4.5 2.67-.75 1.23L11 13V7z"/></svg>
                           <span class="md-ellipsis">
                             
-                              6 min read
+                              7 min read
                             
                           </span>
                         </div>
@@ -9334,7 +9334,7 @@
 
 
 <h1 id="human-in-the-loop-approval-for-ai-agent-tool-calls">Human-in-the-Loop Approval for AI Agent Tool Calls<a class="headerlink" href="#human-in-the-loop-approval-for-ai-agent-tool-calls" title="Link to this section">&para;</a></h1>
-<p>Human-in-the-loop LLM approval is the difference between an agent that can safely touch production and one that stays stuck in a demo. The hard part is not intercepting tool calls — it is deciding <em>which</em> ones actually need a human. Approve everything and your reviewers drown in <code>get_status</code> prompts until they rubber-stamp a <code>delete_database</code> by reflex. Approve nothing and one hallucinated argument wipes a table. By the end of this post you will have a five-layer classifier that auto-clears the safe calls, escalates only the risky ones, and fails closed when no one answers.</p>
+<p>Human-in-the-loop LLM approval is the difference between an agent that can safely touch production and one that stays stuck in a demo. The hard part is not intercepting tool calls — it is deciding <em>which</em> ones actually need a human. Approve everything and your reviewers drown in <code>get_status</code> prompts until they rubber-stamp a <code>delete_database</code> by reflex. Approve nothing and one hallucinated argument wipes a table. By the end of this post you will have a six-layer classifier that auto-clears the safe calls, escalates only the risky ones, and fails closed when no one answers.</p>
 <!-- more -->
 
 <h2 id="approving-everything-is-unusable-approving-nothing-is-unsafe">Approving everything is unusable; approving nothing is unsafe<a class="headerlink" href="#approving-everything-is-unusable-approving-nothing-is-unsafe" title="Link to this section">&para;</a></h2>
@@ -9345,12 +9345,13 @@
 <li>The one call that mattered — a refund, a deletion, a shell command — slides through on autopilot.</li>
 </ul>
 <p>Alert fatigue is not a UX nitpick; it is the failure mode that makes HITL worse than useless. The fix is not a bigger queue. It is a <em>policy</em> that understands the vast majority of tool calls are boring and safe, and that human attention is a scarce resource you spend only on the calls that can hurt you.</p>
-<h2 id="the-five-layer-autoapprovalclassifier">The five-layer AutoApprovalClassifier<a class="headerlink" href="#the-five-layer-autoapprovalclassifier" title="Link to this section">&para;</a></h2>
-<p>Promptise Foundry ships that policy as the <a href="../../core/approval-classifier/"><code>AutoApprovalClassifier</code></a>. It wraps any approval handler you already have — a webhook, a queue, a callback — and runs each request through five ordered layers. The first layer to reach a verdict wins:</p>
+<h2 id="the-six-layer-autoapprovalclassifier">The six-layer AutoApprovalClassifier<a class="headerlink" href="#the-six-layer-autoapprovalclassifier" title="Link to this section">&para;</a></h2>
+<p>Promptise Foundry ships that policy as the <a href="../../core/approval-classifier/"><code>AutoApprovalClassifier</code></a>. It wraps any approval handler you already have — a webhook, a queue, a callback — and runs each request through six ordered layers. The first layer to reach a verdict wins:</p>
 <ol>
-<li><strong>Explicit allow rules.</strong> Glob patterns, argument substrings, per-user filters, or async predicates that always allow. First match wins.</li>
-<li><strong>Explicit deny rules.</strong> The same matching machinery, but they always deny. Put <code>delete_*</code> and <code>exec_shell</code> here.</li>
-<li><strong>Read-only auto-allow.</strong> Tool names starting with <code>get_</code>, <code>list_</code>, <code>read_</code>, <code>search_</code>, <code>fetch_</code>, and a dozen more prefixes are cleared without prompting. This is where most of your volume disappears.</li>
+<li><strong>Explicit deny rules.</strong> Glob patterns, argument substrings, per-user filters, or async predicates that always deny. Put <code>delete_*</code> and <code>exec_shell</code> here. They run first, so no allow rule can override them.</li>
+<li><strong>Ask rules.</strong> The same matching machinery, but they always send the call to a human, whatever the layers below would say.</li>
+<li><strong>Explicit allow rules.</strong> The same again, but they always allow. First match wins.</li>
+<li><strong>Read-only auto-allow.</strong> Tools annotated <code>readOnlyHint=True</code>, or named <code>get_</code>, <code>list_</code>, <code>read_</code>, <code>search_</code>, <code>fetch_</code> and a dozen more prefixes, are cleared without prompting — unless the name also contains a destructive verb (<code>fetch_and_purge_cache</code>) or the server marks the tool destructive. This is where most of your volume disappears.</li>
 <li><strong>Optional LLM classifier.</strong> An async function that returns <code>("allow" | "deny" | "escalate", reason)</code>. Use it for the fuzzy middle — "does this argument look destructive?" — and only when the cheap rule layers didn't already decide.</li>
 <li><strong>Human fallback.</strong> Your existing handler. Reached only when nothing above it fired. This is the real human, and now they only see calls that genuinely earned their attention.</li>
 </ol>
@@ -9378,12 +9379,12 @@
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
 </span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"get_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"read-only report"</span><span class="p">),</span>
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="p">],</span>
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="n">deny_rules</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>        <span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"destructive"</span><span class="p">),</span>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>        <span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"*"</span><span class="p">,</span> <span class="n">argument_contains</span><span class="o">=</span><span class="s2">"rm -rf"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"dangerous shell"</span><span class="p">),</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">deny_rules</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"destructive"</span><span class="p">),</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"*"</span><span class="p">,</span> <span class="n">argument_contains</span><span class="o">=</span><span class="s2">"rm -rf"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"dangerous shell"</span><span class="p">),</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="p">],</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>        <span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"get_*"</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"read-only report"</span><span class="p">),</span>
 </span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="p">],</span>
 </span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">read_only_auto_allow</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>   <span class="c1"># list_*, search_*, fetch_*, ... cleared automatically</span>
 </span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">human_reviewer</span><span class="p">),</span>
@@ -9426,8 +9427,8 @@
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">AutoApprovalClassifier</span><span class="p">(</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"get_*"</span><span class="p">)],</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">deny_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">)],</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">deny_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"delete_*"</span><span class="p">)],</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">allow_rules</span><span class="o">=</span><span class="p">[</span><span class="n">ApprovalRule</span><span class="p">(</span><span class="n">tool</span><span class="o">=</span><span class="s2">"get_*"</span><span class="p">)],</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">llm_classifier</span><span class="o">=</span><span class="n">is_destructive</span><span class="p">,</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">fallback</span><span class="o">=</span><span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">human_reviewer</span><span class="p">),</span>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">)</span>
@@ -9436,7 +9437,7 @@
 <h2 id="failing-closed-and-auditing-every-decision">Failing closed and auditing every decision<a class="headerlink" href="#failing-closed-and-auditing-every-decision" title="Link to this section">&para;</a></h2>
 <p>Two properties make this safe to run unattended.</p>
 <p><strong>It fails closed.</strong> <code>on_timeout="deny"</code> means a request that no human answers within the timeout is rejected, not silently allowed. The default is deny for exactly this reason — an unanswered approval should never become an approval. Set it to <code>"allow"</code> only for genuinely low-stakes tools where availability matters more than caution.</p>
-<p><strong>Every decision is auditable.</strong> The <code>stats</code> object counts hits per layer (<code>allow_rule_hits</code>, <code>read_only_allows</code>, <code>llm_denies</code>, <code>fallback_denies</code>, and so on), and <code>classifier.last_trace</code> tells you exactly why the most recent call was cleared or blocked. If you see <code>fallback_allows</code> climbing, your rules are too tight and humans are picking up slack they shouldn't. If <code>read_only_allows</code> dominates, the read-only layer is earning its keep. You tune the policy from real traffic, not intuition. For the security background on why layered, deny-by-default gating beats a single checkpoint, the <a href="../llm-guardrails-python/">LLM Guardrails in Python: The Complete Guide</a> walks through the broader defense-in-depth model this fits into.</p>
+<p><strong>Every decision is auditable.</strong> The <code>stats</code> object counts hits per layer (<code>allow_rule_hits</code>, <code>read_only_allows</code>, <code>llm_denies</code>, <code>fallback_denies</code>, and so on), and each decision carries <code>decision.trace</code>, which tells you exactly why that call was cleared or blocked; pass <code>ApprovalPolicy(on_decision=...)</code> to write every one to your audit log. If you see <code>fallback_allows</code> climbing, your rules are too tight and humans are picking up slack they shouldn't. If <code>read_only_allows</code> dominates, the read-only layer is earning its keep. You tune the policy from real traffic, not intuition. For the security background on why layered, deny-by-default gating beats a single checkpoint, the <a href="../llm-guardrails-python/">LLM Guardrails in Python: The Complete Guide</a> walks through the broader defense-in-depth model this fits into.</p>
 <h2 id="when-a-plain-approval-gate-is-the-better-fit">When a plain approval gate is the better fit<a class="headerlink" href="#when-a-plain-approval-gate-is-the-better-fit" title="Link to this section">&para;</a></h2>
 <p>Be honest about scope. The classifier is the right tool when your agent calls many tools, most of them safe, and you need volume without losing the dangerous few. It is overkill in a few cases:</p>
 <ul>
@@ -9453,7 +9454,7 @@
 <h3 id="what-happens-if-no-one-approves-a-request-in-time">What happens if no one approves a request in time?<a class="headerlink" href="#what-happens-if-no-one-approves-a-request-in-time" title="Link to this section">&para;</a></h3>
 <p>The request is denied. <code>ApprovalPolicy</code> defaults to <code>on_timeout="deny"</code>, so an approval that times out becomes a rejection rather than a silent allow. This "fail closed" behavior is why the gate is safe to leave running unattended.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Link to this section">&para;</a></h2>
-<p>Wrap your approver in an <code>AutoApprovalClassifier</code> to auto-clear read-only calls and gate only the destructive ones — it is a one-line change on top of the webhook, queue, or callback handler you already have. Start with the <a href="../../getting-started/quickstart/">Quick Start</a> to stand up an agent, then follow the <a href="../../core/approval-classifier/">approval classifier guide</a> to tune the five layers against your own tool set.</p>
+<p>Wrap your approver in an <code>AutoApprovalClassifier</code> to auto-clear read-only calls and gate only the destructive ones — it is a one-line change on top of the webhook, queue, or callback handler you already have. Start with the <a href="../../getting-started/quickstart/">Quick Start</a> to stand up an agent, then follow the <a href="../../core/approval-classifier/">approval classifier guide</a> to tune the six layers against your own tool set.</p>
 
 
 
@@ -9476,7 +9477,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:53:17 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:00:58 UTC">2026-10-10</span>
   </span>
 
     

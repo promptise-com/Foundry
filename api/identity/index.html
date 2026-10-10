@@ -11273,7 +11273,9 @@ identifier and no IdP to derive one from.</p>
             <td>
               <div class="doc-md-description">
                 <p><code>"auto"</code> picks EKS-projected when
-<code>$PROMPTISE_IDENTITY_TOKEN_FILE</code> is set, else STS.</p>
+<code>$PROMPTISE_IDENTITY_TOKEN_FILE</code> is set, else STS (on EKS
+with IRSA, STS uses the pod's role; IRSA's
+<code>$AWS_WEB_IDENTITY_TOKEN_FILE</code> is never presented).</p>
               </div>
             </td>
             <td>
@@ -11853,7 +11855,11 @@ must be supplied.</p>
 
         <p>Detect the platform and build a verifiable identity for it.</p>
 <p>Uses environment markers to pick Entra, AWS, GCP, or SPIFFE and
-dispatches to the matching factory with platform defaults.</p>
+dispatches to the matching factory with platform defaults. On AWS,
+<code>$PROMPTISE_IDENTITY_TOKEN_FILE</code> selects the projected-token mode
+and is itself an AWS marker; any other AWS marker (Lambda, ECS,
+<code>EKS_POD_NAME</code>, IRSA's <code>$AWS_WEB_IDENTITY_TOKEN_FILE</code>) selects
+STS mode.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -12153,7 +12159,7 @@ to attribute the agent's actions.</p>
 
 
 <h5 id="promptise.identity.AgentIdentity.get_credential" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_credential</span><span class="p">(</span><span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">get_credential</span><span class="p">(</span><span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#promptise.identity.AgentIdentity.get_credential" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -12191,11 +12197,32 @@ AWS STS, GCP metadata, SPIFFE SDK) issues a credential
 scoped to that audience — so <strong>one identity can present to
 several resources</strong>. Projected-token and OIDC file/env
 modes have a fixed audience and ignore this. <code>None</code> uses
-the identity's configured default.</p>
+the identity's configured default (and shares its cached
+credential).</p>
               </div>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>force_refresh</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Skip the cached credential and acquire a fresh
+one, for when a resource rejected the cached credential
+before its <code>exp</code> (rotated or revoked key, clock skew).
+<code>build_agent</code> does this once when an MCP server answers
+<code>401</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>
@@ -12400,7 +12427,7 @@ own credential rather than sharing one.</p>
 
 
 <h5 id="promptise.identity.IdentityProvider.get_credential" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_credential</span><span class="p">(</span><span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">get_credential</span><span class="p">(</span><span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">force_refresh</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#promptise.identity.IdentityProvider.get_credential" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -12436,14 +12463,34 @@ is re-acquired on every call.</p>
             <td>
               <div class="doc-md-description">
                 <p>The resource the credential is for. <code>None</code> uses the
-provider's default audience. An active provider mints a
-separate credential per audience (cached per audience); a
-passive provider's token has a fixed audience and this is
-ignored.</p>
+provider's default audience; asking for the default audience
+by name returns the same cached credential. An active provider
+mints a separate credential per audience (cached per
+audience); a passive provider's token has a fixed audience and
+this is ignored.</p>
               </div>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>force_refresh</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Skip the cache and acquire a fresh credential.
+Use it when a resource rejected the cached one (an HTTP
+<code>401</code>) although it has not reached its <code>exp</code>: the key
+was rotated or revoked, or the clocks disagree.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>
@@ -12777,6 +12824,25 @@ their own label.</p>
             </td>
             <td>
                   <code>&#39;callable&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>default_audience</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The audience <code>token_fn</code> mints for when it is
+called with <code>None</code>. When given, <code>token_fn</code> always receives
+an explicit audience, and asking for <code>None</code> or for this
+audience shares one cached credential instead of fetching twice.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -13847,6 +13913,25 @@ case the credential is always considered stale).</p>
                 <em>required</em>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>acquired_at_epoch</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When the credential was acquired. When known,
+the refresh buffer is capped at half the credential's lifetime,
+so a token that lives less than twice the buffer is still
+reused for a while instead of being re-acquired on every call.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -13885,7 +13970,8 @@ case the credential is always considered stale).</p>
         <p>Return <code>True</code> when the credential should be re-acquired.</p>
 <p>A credential with no known expiry is always stale (re-acquired
 on every use). Otherwise it is stale once the current time is
-within <code>buffer_seconds</code> of the <code>exp</code> claim.</p>
+within <code>buffer_seconds</code> of the <code>exp</code> claim — or within half its
+lifetime of it, if that is shorter.</p>
 
 
     </div>

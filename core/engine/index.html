@@ -3614,6 +3614,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming-runs-the-same-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming runs the same steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#failures-reach-the-caller" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9369,6 +9380,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming-runs-the-same-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming runs the same steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#failures-reach-the-caller" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9533,7 +9555,7 @@
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"verify"</span><span class="p">)</span>      <span class="c1"># Plan → Solve → Self-check (1 turn)</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"managed"</span><span class="p">)</span>     <span class="c1"># Tool loop with facts-ledger context</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"code-action"</span><span class="p">)</span> <span class="c1"># Writes ONE sandboxed program (1 turn)</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"peoatr"</span><span class="p">)</span>      <span class="c1"># Plan → Act → Think → Reflect</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"peoatr"</span><span class="p">)</span>      <span class="c1"># Plan → Act → Think → Reflect → Answer</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"research"</span><span class="p">)</span>    <span class="c1"># Search → Verify → Synthesize</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"autonomous"</span><span class="p">)</span>  <span class="c1"># Agent builds own path</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"deliberate"</span><span class="p">)</span>  <span class="c1"># Think → Plan → Act → Observe → Reflect</span>
@@ -9611,7 +9633,7 @@
 </span><span id="__span-3-63"><a id="__codelineno-3-63" name="__codelineno-3-63" href="#__codelineno-3-63"></a>│  └─ Dynamic (LLM-directed)
 </span><span id="__span-3-64"><a id="__codelineno-3-64" name="__codelineno-3-64" href="#__codelineno-3-64"></a>│     └── output.route                LLM names next node at runtime
 </span><span id="__span-3-65"><a id="__codelineno-3-65" name="__codelineno-3-65" href="#__codelineno-3-65"></a>│
-</span><span id="__span-3-66"><a id="__codelineno-3-66" name="__codelineno-3-66" href="#__codelineno-3-66"></a>├─ Flags (16 typed) ─────────────────────────────────────────────
+</span><span id="__span-3-66"><a id="__codelineno-3-66" name="__codelineno-3-66" href="#__codelineno-3-66"></a>├─ Flags (18 typed) ─────────────────────────────────────────────
 </span><span id="__span-3-67"><a id="__codelineno-3-67" name="__codelineno-3-67" href="#__codelineno-3-67"></a>│  │
 </span><span id="__span-3-68"><a id="__codelineno-3-68" name="__codelineno-3-68" href="#__codelineno-3-68"></a>│  ├─ Execution Control
 </span><span id="__span-3-69"><a id="__codelineno-3-69" name="__codelineno-3-69" href="#__codelineno-3-69"></a>│  │  ├── ENTRY / TERMINAL            Graph start and end markers
@@ -9687,7 +9709,7 @@
 </span><span id="__span-3-139"><a id="__codelineno-3-139" name="__codelineno-3-139" href="#__codelineno-3-139"></a>│  │  └── code-action                 Writes ONE sandboxed program (1 turn)
 </span><span id="__span-3-140"><a id="__codelineno-3-140" name="__codelineno-3-140" href="#__codelineno-3-140"></a>│  │
 </span><span id="__span-3-141"><a id="__codelineno-3-141" name="__codelineno-3-141" href="#__codelineno-3-141"></a>│  ├─ Structured Reasoning
-</span><span id="__span-3-142"><a id="__codelineno-3-142" name="__codelineno-3-142" href="#__codelineno-3-142"></a>│  │  ├── peoatr                      Plan → Act → Think → Reflect
+</span><span id="__span-3-142"><a id="__codelineno-3-142" name="__codelineno-3-142" href="#__codelineno-3-142"></a>│  │  ├── peoatr                      Plan → Act → Think → Reflect → Answer
 </span><span id="__span-3-143"><a id="__codelineno-3-143" name="__codelineno-3-143" href="#__codelineno-3-143"></a>│  │  ├── deliberate                  Think → Plan → Act → Observe → Reflect
 </span><span id="__span-3-144"><a id="__codelineno-3-144" name="__codelineno-3-144" href="#__codelineno-3-144"></a>│  │  └── research                    Search → Verify → Synthesize
 </span><span id="__span-3-145"><a id="__codelineno-3-145" name="__codelineno-3-145" href="#__codelineno-3-145"></a>│  │
@@ -9722,11 +9744,44 @@
 </span><span id="__span-3-174"><a id="__codelineno-3-174" name="__codelineno-3-174" href="#__codelineno-3-174"></a>   ├── graph_from_config()            Dict → graph
 </span><span id="__span-3-175"><a id="__codelineno-3-175" name="__codelineno-3-175" href="#__codelineno-3-175"></a>   └── register_node_type()           Custom types for YAML
 </span></code></pre></div>
+<h2 id="streaming-runs-the-same-steps">Streaming runs the same steps<a class="headerlink" href="#streaming-runs-the-same-steps" title="Link to this section">&para;</a></h2>
+<p><code>PromptGraphEngine</code> has three entry points, and all three drive one traversal
+loop: the same hooks, flags, mutations and transitions, one model call per
+step, tool calls in parallel.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Yields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ainvoke(input)</code></td>
+<td>Nothing — returns <code>{"messages": [...]}</code> at the end</td>
+</tr>
+<tr>
+<td><code>astream(input)</code></td>
+<td><code>{"messages": [...]}</code> after every node; the last chunk equals <code>ainvoke()</code>'s result</td>
+</tr>
+<tr>
+<td><code>astream_events(input)</code></td>
+<td>Events: <code>on_chat_model_stream</code> per model chunk, <code>on_tool_start</code> / <code>on_tool_end</code> / <code>on_tool_error</code> per tool call (a start and its end share a <code>run_id</code>), <code>on_node_start</code> / <code>on_node_end</code> / <code>on_node_error</code></td>
+</tr>
+</tbody>
+</table>
+<p>When streaming, the engine runs each node through <code>node.stream()</code>.
+<code>PromptNode.stream()</code> streams its one model call and runs the same pipeline as
+<code>execute()</code>; other nodes execute once and report their result. A node's stream
+must end with an <code>on_node_end</code> event carrying its <code>NodeResult</code> under
+<code>data["result"]</code> — a stream that ends without one fails the run rather than
+running the node a second time. <code>PromptGraphEngine.astream_events()</code> is what
+<a href="../streaming/"><code>agent.astream_with_tools()</code></a> consumes.</p>
 <h2 id="failures-reach-the-caller">Failures reach the caller<a class="headerlink" href="#failures-reach-the-caller" title="Link to this section">&para;</a></h2>
 <p>A run that ends on a node whose own execution failed — a rejected API key, a
 provider outage, a <code>CRITICAL</code> node error, a <code>RETRYABLE</code> node out of retries —
-raises <code>GraphExecutionError</code> from <code>ainvoke()</code> (and from <code>astream_events()</code>
-after its events). The exception names the graph and node, carries the
+raises <code>GraphExecutionError</code> from <code>ainvoke()</code> (and from <code>astream()</code> and
+<code>astream_events()</code> after their output). The exception names the graph and node, carries the
 <code>ExecutionReport</code>, and chains the provider exception as <code>__cause__</code>;
 <code>PromptiseAgent.ainvoke()</code> lets it propagate. A failure the graph <em>recovers</em>
 from does not raise: an edge routes it to a handler node that succeeds, or a
@@ -9734,12 +9789,14 @@ hook sets <code>error_recovered</code> / clears the node's <code>error</code>. H
 successful node's <code>error</code> (timing, budget) do not count as failures. What
 never happens: an "answer" that silently echoes the question because the
 model call failed.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphExecutionError</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.messages</span><span class="w"> </span><span class="kn">import</span> <span class="n">HumanMessage</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[</span><span class="n">HumanMessage</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Hi"</span><span class="p">)]})</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">except</span> <span class="n">GraphExecutionError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="o">.</span><span class="n">node_name</span><span class="p">,</span> <span class="n">exc</span><span class="o">.</span><span class="n">__cause__</span><span class="p">)</span>   <span class="c1"># 'reason' AuthenticationError(...)</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphExecutionError</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[</span><span class="n">HumanMessage</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Hi"</span><span class="p">)]})</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">except</span> <span class="n">GraphExecutionError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">exc</span><span class="o">.</span><span class="n">node_name</span><span class="p">,</span> <span class="n">exc</span><span class="o">.</span><span class="n">__cause__</span><span class="p">)</span>   <span class="c1"># 'reason' AuthenticationError(...)</span>
 </span></code></pre></div>
 <h2 id="performance">Performance<a class="headerlink" href="#performance" title="Link to this section">&para;</a></h2>
 <p>The engine adds <strong>&lt;0.02ms overhead</strong> per invocation (excluding LLM latency). Key optimizations:</p>
@@ -9767,7 +9824,7 @@ model call failed.</p>
 <ul>
 <li><a href="../engine-nodes/">Nodes</a> — All 20 node types with full parameter reference</li>
 <li><a href="../engine-edges/">Edges &amp; Transitions</a> — 10 edge helpers, transition resolution, LLM routing</li>
-<li><a href="../engine-flags/">Node Flags</a> — 16 typed flags controlling execution, caching, error handling</li>
+<li><a href="../engine-flags/">Node Flags</a> — 18 typed flags controlling execution, caching, error handling</li>
 <li><a href="../engine-processors/">Processors</a> — Pre/post processors for data transformation</li>
 <li><a href="../engine-tools/">Runtime Tool Injection</a> — How MCP tools flow into nodes</li>
 <li><a href="../engine-hooks/">Hooks &amp; Observability</a> — 5 hooks, execution reports, per-node metrics</li>
@@ -9798,7 +9855,7 @@ model call failed.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 19, 2026 13:53:14 UTC">2026-09-19</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:24:39 UTC">2026-10-10</span>
   </span>
 
     

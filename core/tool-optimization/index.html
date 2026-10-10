@@ -2992,6 +2992,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#preset-levels" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3143,6 +3154,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Combining with Other Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#checking-selection-offline-with-toolindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking selection offline with ToolIndex
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9443,6 +9471,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#preset-levels" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9595,6 +9634,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Combining with Other Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#checking-selection-offline-with-toolindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking selection offline with ToolIndex
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9696,7 +9752,7 @@
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># ~40% token savings on tool definitions</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># "minimal": shorter tool definitions, same tools</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
@@ -9707,15 +9763,15 @@
 <p><strong>Layer 1: Static optimization</strong> (applied once at build time) — reduces the per-tool token cost without changing which tools are available:</p>
 <ul>
 <li><strong>Schema minification</strong> — strips <code>description</code> metadata from Pydantic Field schemas. The LLM still sees field names, types, and required status — but not verbose per-field descriptions.</li>
-<li><strong>Description truncation</strong> — caps tool-level descriptions at N characters (word boundary).</li>
+<li><strong>Description truncation</strong> — caps tool-level descriptions at N characters, ending on a whole sentence when that keeps most of the budget, otherwise at a word boundary with a single <code>...</code>.</li>
 <li><strong>Depth flattening</strong> — replaces deeply nested objects with <code>dict</code> beyond a configurable depth.</li>
 </ul>
-<p><strong>Layer 2: Semantic tool selection</strong> (applied per invocation) — the biggest optimization. Instead of sending all 50 tools, only the most relevant tools are selected for each query:</p>
+<p><strong>Layer 2: Semantic tool selection</strong> (applied before every model call) — the biggest optimization. Instead of sending all 50 tools, only the most relevant ones are offered:</p>
 <ol>
-<li>At build time, all tool descriptions are embedded using a lightweight local model</li>
-<li>Before each <code>ainvoke()</code>, the user's query is embedded and compared against tool descriptions</li>
-<li>Only the top-K most relevant tools are included in the LLM call</li>
-<li>A <code>request_more_tools</code> fallback tool is included so the agent can self-recover if the semantic selection missed something</li>
+<li>At build time, every tool's name and description is embedded with a small local model.</li>
+<li>Before <strong>each model call</strong> (not just once per <code>ainvoke()</code>), a query is built from the recent conversation — the latest user message, the assistant reply it answers, the tool calls of the previous and current turn, and earlier user turns — and compared against the tool embeddings. A follow-up like "Yes, go ahead." therefore keeps the tools of the request it confirms, and the selection follows the agent as it calls tools.</li>
+<li>The model is offered the <code>semantic_top_k</code> most relevant tools, plus every tool in <code>preserve_tools</code>, tools already called in the previous or current turn, and the <code>request_more_tools</code> fallback.</li>
+<li>If the right tool is missing, the model calls <code>request_more_tools</code>; the tools it returns are offered from the next model call on.</li>
 </ol>
 <hr />
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Link to this section">&para;</a></h2>
@@ -9725,29 +9781,34 @@
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Uses "minimal" preset</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="install">Install<a class="headerlink" href="#install" title="Link to this section">&para;</a></h3>
+<p>Static optimization (<code>True</code>, <code>"minimal"</code>, <code>"standard"</code>) needs nothing extra. Semantic selection embeds tools with <code>sentence-transformers</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"promptise[tool-optimization]"</span><span class="w">   </span><span class="c1"># also included in promptise[all]</span>
+</span></code></pre></div>
+<p>Without it, <code>build_agent(optimize_tools="semantic")</code> raises an <code>ImportError</code> that names this extra, before connecting to any server.</p>
 <h3 id="preset-levels">Preset levels<a class="headerlink" href="#preset-levels" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Static optimization only — safe, no behavioral change</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"minimal"</span><span class="p">)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Deeper minification + nested description stripping</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"standard"</span><span class="p">)</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Full semantic selection — biggest savings, per-invocation tool filtering</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"semantic"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Static optimization only — safe, no behavioral change</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"minimal"</span><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Deeper minification + nested description stripping</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"standard"</span><span class="p">)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Full semantic selection — biggest savings, per-invocation tool filtering</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"semantic"</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="fine-grained-control">Fine-grained control<a class="headerlink" href="#fine-grained-control" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolOptimizationConfig</span><span class="p">,</span> <span class="n">OptimizationLevel</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="n">ToolOptimizationConfig</span><span class="p">(</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="n">level</span><span class="o">=</span><span class="n">OptimizationLevel</span><span class="o">.</span><span class="n">SEMANTIC</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="n">max_description_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="n">semantic_top_k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">preserve_tools</span><span class="o">=</span><span class="p">{</span><span class="s2">"critical_payment_tool"</span><span class="p">,</span> <span class="s2">"auth_tool"</span><span class="p">},</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="p">),</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolOptimizationConfig</span><span class="p">,</span> <span class="n">OptimizationLevel</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="n">ToolOptimizationConfig</span><span class="p">(</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">level</span><span class="o">=</span><span class="n">OptimizationLevel</span><span class="o">.</span><span class="n">SEMANTIC</span><span class="p">,</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="n">max_description_length</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="n">semantic_top_k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="n">preserve_tools</span><span class="o">=</span><span class="p">{</span><span class="s2">"critical_payment_tool"</span><span class="p">,</span> <span class="s2">"auth_tool"</span><span class="p">},</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="p">),</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="three-preset-levels">Three Preset Levels<a class="headerlink" href="#three-preset-levels" title="Link to this section">&para;</a></h2>
@@ -9804,13 +9865,14 @@
 <td>Yes</td>
 </tr>
 <tr>
-<td><strong>Estimated savings</strong></td>
-<td><strong>~40%</strong></td>
-<td><strong>~55%</strong></td>
-<td><strong>~85%</strong></td>
+<td><strong>Measured savings</strong> (see below)</td>
+<td><strong>14%</strong></td>
+<td><strong>14%</strong></td>
+<td><strong>90%</strong></td>
 </tr>
 </tbody>
 </table>
+<p>The savings are tool-definition tokens per model call, measured on one server: 90 tools with flat schemas (string parameters with one-line descriptions, tool descriptions under 200 characters). Static optimization saves what your schemas spend on parameter descriptions, long tool descriptions and nesting, so expect more on verbose or deeply nested schemas and less on terse ones; <code>standard</code> only pulls ahead of <code>minimal</code> when schemas are nested. Semantic selection's saving grows with the number of tools, since the model sees about <code>semantic_top_k</code> of them whatever the total. Measure your own payload with <a href="../observability/">observability</a> before relying on a number.</p>
 <hr />
 <h2 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Link to this section">&para;</a></h2>
 <h3 id="tooloptimizationconfig">ToolOptimizationConfig<a class="headerlink" href="#tooloptimizationconfig" title="Link to this section">&para;</a></h3>
@@ -9858,19 +9920,25 @@
 <td><code>semantic_selection</code></td>
 <td><code>bool \| None</code></td>
 <td>from preset</td>
-<td>Enable per-invocation semantic tool selection</td>
+<td>Select tools semantically before every model call (needs <code>promptise[tool-optimization]</code>)</td>
 </tr>
 <tr>
 <td><code>semantic_top_k</code></td>
 <td><code>int \| None</code></td>
-<td>from preset</td>
-<td>Number of tools to select per invocation</td>
+<td>from preset (8)</td>
+<td>Most-relevant tools offered per model call; preserved, recently called and unlocked tools and the fallback come on top</td>
+</tr>
+<tr>
+<td><code>semantic_context_turns</code></td>
+<td><code>int \| None</code></td>
+<td>from preset (3)</td>
+<td>Recent user turns that make up the selection query</td>
 </tr>
 <tr>
 <td><code>always_include_fallback</code></td>
 <td><code>bool \| None</code></td>
 <td>from preset</td>
-<td>Include <code>request_more_tools</code> fallback</td>
+<td>Include the <code>request_more_tools</code> fallback</td>
 </tr>
 <tr>
 <td><code>embedding_model</code></td>
@@ -9882,7 +9950,7 @@
 <td><code>preserve_tools</code></td>
 <td><code>set[str] \| None</code></td>
 <td><code>None</code></td>
-<td>Tool names that are never optimized and always selected</td>
+<td>Tool names that are never optimized and always offered</td>
 </tr>
 </tbody>
 </table>
@@ -9915,62 +9983,86 @@
 <p>Semantic selection embeds tool descriptions using <code>sentence-transformers</code>. The default model is <code>all-MiniLM-L6-v2</code> (384 dimensions, no API key needed). On first use it downloads from HuggingFace Hub and caches locally at <code>~/.cache/huggingface/</code>. After that, it runs fully offline.</p>
 <h4 id="local-air-gapped-deployments">Local / air-gapped deployments<a class="headerlink" href="#local-air-gapped-deployments" title="Link to this section">&para;</a></h4>
 <p>For enterprises that cannot access external networks, download the model files once and point to a local directory:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Download the model on a machine with internet</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2').save('/models/all-MiniLM-L6-v2')"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Download the model on a machine with internet</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2').save('/models/all-MiniLM-L6-v2')"</span>
 </span></code></pre></div>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Use the local model — zero network calls</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="n">ToolOptimizationConfig</span><span class="p">(</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="n">level</span><span class="o">=</span><span class="n">OptimizationLevel</span><span class="o">.</span><span class="n">SEMANTIC</span><span class="p">,</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="n">embedding_model</span><span class="o">=</span><span class="s2">"/models/all-MiniLM-L6-v2"</span><span class="p">,</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="p">),</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Use the local model — zero network calls</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="n">ToolOptimizationConfig</span><span class="p">(</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="n">level</span><span class="o">=</span><span class="n">OptimizationLevel</span><span class="o">.</span><span class="n">SEMANTIC</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        <span class="n">embedding_model</span><span class="o">=</span><span class="s2">"/models/all-MiniLM-L6-v2"</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="p">),</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>You can also use any other <code>sentence-transformers</code>-compatible model:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">optimize_tools</span><span class="o">=</span><span class="n">ToolOptimizationConfig</span><span class="p">(</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">level</span><span class="o">=</span><span class="n">OptimizationLevel</span><span class="o">.</span><span class="n">SEMANTIC</span><span class="p">,</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">embedding_model</span><span class="o">=</span><span class="s2">"BAAI/bge-small-en-v1.5"</span><span class="p">,</span>  <span class="c1"># or any local path</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">optimize_tools</span><span class="o">=</span><span class="n">ToolOptimizationConfig</span><span class="p">(</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">level</span><span class="o">=</span><span class="n">OptimizationLevel</span><span class="o">.</span><span class="n">SEMANTIC</span><span class="p">,</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">embedding_model</span><span class="o">=</span><span class="s2">"BAAI/bge-small-en-v1.5"</span><span class="p">,</span>  <span class="c1"># or any local path</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="the-request_more_tools-fallback">The <code>request_more_tools</code> fallback<a class="headerlink" href="#the-request_more_tools-fallback" title="Link to this section">&para;</a></h3>
-<p>When semantic selection is active, a special fallback tool is automatically included:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Tool: request_more_tools
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>Description: "If you need a tool that is not currently available, call this
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>             to see all available tools and their descriptions."
+<p>When semantic selection is active, every model call is also offered a fallback tool (turn it off with <code>always_include_fallback=False</code>):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Tool: request_more_tools(query?: str, tool_names?: list[str])
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>"Call this when none of your current tools can do what is needed. Describe the
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a> capability in `query` (or give exact `tool_names`); the matching tools are
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a> returned and you can call them on your next step. Without arguments it lists
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a> and enables every available tool."
 </span></code></pre></div>
-<p>If the semantic search missed a relevant tool, the agent can self-recover by calling this and then retrying. This ensures the agent is never stuck.</p>
+<ul>
+<li><code>query</code> searches the index and returns the <code>semantic_top_k</code> best matches.</li>
+<li><code>tool_names</code> returns exactly those tools (unknown names are reported).</li>
+<li>No arguments returns the whole catalogue — the escape hatch, at the cost of offering every tool from then on.</li>
+</ul>
+<p>Every tool the call returns is offered on the agent's next model call, and stays offered for the rest of that turn and the next one. Nothing is stored on the agent: the selection is recomputed from the <code>request_more_tools</code> call in the conversation, so concurrent requests never see each other's tools.</p>
+<p>A tool call the model makes for a tool that exists but wasn't offered on that step still runs — selection decides what the model is shown, it is not access control. Use <a href="../approval/">approval</a> or server-side guards to restrict what may run.</p>
 <h3 id="preserve_tools"><code>preserve_tools</code><a class="headerlink" href="#preserve_tools" title="Link to this section">&para;</a></h3>
 <p>Tools listed in <code>preserve_tools</code> are:</p>
 <ol>
-<li>Never optimized (full descriptions and schemas are preserved)</li>
-<li>Always included in semantic selection (regardless of relevance score)</li>
+<li>Never optimized: the full tool description and every parameter description are kept</li>
+<li>Offered on every model call by semantic selection, on top of the <code>semantic_top_k</code> relevant tools</li>
 </ol>
 <p>Use this for critical tools that the agent must always have access to:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">optimize_tools</span><span class="o">=</span><span class="n">ToolOptimizationConfig</span><span class="p">(</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">level</span><span class="o">=</span><span class="n">OptimizationLevel</span><span class="o">.</span><span class="n">SEMANTIC</span><span class="p">,</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">preserve_tools</span><span class="o">=</span><span class="p">{</span><span class="s2">"process_payment"</span><span class="p">,</span> <span class="s2">"verify_identity"</span><span class="p">},</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">optimize_tools</span><span class="o">=</span><span class="n">ToolOptimizationConfig</span><span class="p">(</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">level</span><span class="o">=</span><span class="n">OptimizationLevel</span><span class="o">.</span><span class="n">SEMANTIC</span><span class="p">,</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">preserve_tools</span><span class="o">=</span><span class="p">{</span><span class="s2">"process_payment"</span><span class="p">,</span> <span class="s2">"verify_identity"</span><span class="p">},</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="combining-with-other-features">Combining with Other Features<a class="headerlink" href="#combining-with-other-features" title="Link to this section">&para;</a></h2>
 <p>Tool optimization composes with all other agent features:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"standard"</span><span class="p">,</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">observe</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># observability still tracks all tool calls</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>        <span class="c1"># memory injection happens before tool selection</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># sandbox tools are added after optimization</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"standard"</span><span class="p">,</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">observe</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># observability still tracks all tool calls</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>        <span class="c1"># memory injection happens before tool selection</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># sandbox tools keep full schemas</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">)</span>
 </span></code></pre></div>
+<p>Static optimization applies to tools discovered from MCP servers. Semantic selection covers every tool the agent has — MCP, <code>extra_tools</code>, sandbox and cross-agent tools — and applies to <code>ainvoke()</code>, <code>chat()</code>, <code>astream()</code> and <code>astream_with_tools()</code>.</p>
+<h3 id="checking-selection-offline-with-toolindex">Checking selection offline with <code>ToolIndex</code><a class="headerlink" href="#checking-selection-offline-with-toolindex" title="Link to this section">&para;</a></h3>
+<p><code>ToolIndex</code> (in <code>promptise.tool_optimization</code>) is the index semantic selection uses. Build one over an agent's tools to check, before paying for any model call, whether each of your typical requests would be offered the right tool — and to compare embedding models or description lengths:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.tool_optimization</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolIndex</span><span class="p">,</span> <span class="n">build_selection_query</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">tools</span> <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s2">"request_more_tools"</span><span class="p">]</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">index</span> <span class="o">=</span> <span class="n">ToolIndex</span><span class="p">(</span><span class="n">tools</span><span class="p">,</span> <span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"all-MiniLM-L6-v2"</span><span class="p">)</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="k">for</span> <span class="n">request</span><span class="p">,</span> <span class="n">expected</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"Suspend user u_42, she left."</span><span class="p">,</span> <span class="s2">"suspend_user"</span><span class="p">)]:</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">offered</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">index</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">8</span><span class="p">)]</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s2">"-&gt;"</span><span class="p">,</span> <span class="s2">"ok"</span> <span class="k">if</span> <span class="n">expected</span> <span class="ow">in</span> <span class="n">offered</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"missed (got </span><span class="si">{</span><span class="n">offered</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># The query the agent would use for a whole conversation:</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="n">query</span> <span class="o">=</span> <span class="n">build_selection_query</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">user_turns</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>index.select(query, top_k=8, preserve=None)</code> returns the <code>top_k</code> most relevant tools followed by the preserved ones (which don't take a relevance slot). Embeddings of repeated queries are cached.</p>
 <hr />
 <h2 id="faq">FAQ<a class="headerlink" href="#faq" title="Link to this section">&para;</a></h2>
 <p><strong>Does optimization affect tool call quality?</strong></p>
 <p>Schema minification removes per-field descriptions but keeps field names, types, and required status. Most LLMs infer field purpose from well-named parameters (e.g., <code>user_id</code>, <code>email</code>, <code>start_date</code>). For tools with ambiguous parameter names, use <code>preserve_tools</code> to exempt them.</p>
 <p><strong>What if semantic selection picks the wrong tools?</strong></p>
-<p>The <code>request_more_tools</code> fallback lets the agent self-recover. It lists all available tools, and the agent can retry with the right one. In practice, semantic selection with top-K=8 covers most use cases.</p>
+<p>The model can call <code>request_more_tools</code>, and the tools it returns are offered on the next model call. To catch misses before they cost anything, check your typical requests with <a href="#checking-selection-offline-with-toolindex"><code>ToolIndex</code></a>. The two most effective fixes are longer tool descriptions in the index (raise <code>max_description_length</code> — the semantic preset truncates descriptions to 100 characters, and those truncated descriptions are what gets embedded) and adding must-have tools to <code>preserve_tools</code>.</p>
 <p><strong>Does this work with all LLM providers?</strong></p>
 <p>Yes. Tool optimization modifies the tool definitions before they reach LangChain — it works with OpenAI, Anthropic, Ollama, and any other provider.</p>
 <hr />
@@ -10002,7 +10094,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:48:16 UTC">2026-10-10</span>
   </span>
 
     

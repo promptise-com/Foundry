@@ -9575,6 +9575,13 @@ hooks when the Agent Runtime has attached them — and the node enforces a hard
     style S fill:#2d1b4e,stroke:#c084fc,color:#fff
     style END fill:#1a1a1a,stroke:#666,color:#aaa</code></pre>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"code-action"</span><span class="p">)</span>  <span class="c1"># sandbox auto-enabled</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Tune the pattern from build_agent (unknown keys are rejected):</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="o">...</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"code-action"</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">code_action</span><span class="o">=</span><span class="p">{</span><span class="s2">"exec_timeout"</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span> <span class="s2">"max_repairs"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"max_tool_calls"</span><span class="p">:</span> <span class="mi">20</span><span class="p">},</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">PromptGraph</span><span class="o">.</span><span class="n">code_action</span><span class="p">(</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">tools</span><span class="o">=</span><span class="n">my_tools</span><span class="p">,</span>
@@ -9601,22 +9608,24 @@ conversational tasks prefer <code>react</code>/<code>managed</code>. Validated e
 real sandbox + real model (see <code>tests/test_code_action_integration.py</code>).</p>
 </div>
 <h2 id="peoatr">PEOATR<a class="headerlink" href="#peoatr" title="Link to this section">&para;</a></h2>
-<p>Plan → Act → Think → Reflect. Four-stage structured reasoning with specialized nodes.</p>
+<p>Plan → Act → Think → Reflect → Answer. Structured reasoning with specialized nodes.</p>
 <pre class="mermaid"><code>graph TD
-    P[plan] --&gt;|proceed| A[act]
-    P --&gt;|replan| P
-    A --&gt;|tool called| T[think]
-    A --&gt;|final answer| END[__end__]
+    P[plan] --&gt;|quality &lt; 3| P
+    P --&gt; A[act]
+    A --&gt;|tool calls| A
+    A --&gt; T[think]
     T --&gt;|continue| A
     T --&gt;|reflect| R[reflect]
     R --&gt;|continue| A
     R --&gt;|replan| P
-    R --&gt;|answer| A
+    R --&gt;|answer| ANS[answer]
+    ANS --&gt; END[__end__]
 
     style P fill:#1e3a5f,stroke:#60a5fa,color:#fff
     style A fill:#1a2e1a,stroke:#4ade80,color:#fff
     style T fill:#2d1b4e,stroke:#c084fc,color:#fff
     style R fill:#3a2a0a,stroke:#fbbf24,color:#fff
+    style ANS fill:#1a2e1a,stroke:#4ade80,color:#fff
     style END fill:#1a1a1a,stroke:#666,color:#aaa</code></pre>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"peoatr"</span><span class="p">)</span>
 </span></code></pre></div>
@@ -9628,15 +9637,18 @@ real sandbox + real model (see <code>tests/test_code_action_integration.py</code
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">acting_instructions</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span>       <span class="c1"># Extra instructions for the act node</span>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">thinking_instructions</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span>     <span class="c1"># Extra instructions for the think node</span>
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">reflecting_instructions</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span>   <span class="c1"># Extra instructions for the reflect node</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="p">)</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="n">max_act_steps</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>             <span class="c1"># Act budget per run (each tool-loop round counts)</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Each stage has its own role:</p>
 <ul>
-<li><strong>Plan</strong> (PlanNode) — Create subgoals, self-evaluate quality, reject bad plans</li>
-<li><strong>Act</strong> (PromptNode) — Execute tools to achieve the active subgoal</li>
-<li><strong>Think</strong> (ThinkNode) — Analyze tool results, check if subgoal is complete</li>
-<li><strong>Reflect</strong> (ReflectNode) — Evaluate progress, route to continue/replan/answer</li>
+<li><strong>Plan</strong> (PlanNode) — Create subgoals and rate the plan; a plan rated below 3 is redone</li>
+<li><strong>Act</strong> (PromptNode) — Execute tools for the active subgoal, then summarize what it found</li>
+<li><strong>Think</strong> (ThinkNode) — Analyze the results: call another tool now (<code>continue</code>) or step back (<code>reflect</code>)</li>
+<li><strong>Reflect</strong> (ReflectNode) — Evaluate progress and route: <code>answer</code>, <code>replan</code> or <code>continue</code></li>
+<li><strong>Answer</strong> (SynthesizeNode) — Write the final answer from the gathered results</li>
 </ul>
+<p>Plan, think and reflect return structured output (<code>PeoatrPlan</code>, <code>PeoatrThought</code>, <code>PeoatrReflection</code> in <code>promptise.engine.prebuilts</code>), so their routing decisions always reach the engine. Every stage has an iteration budget (plan 3, act and think <code>max_act_steps</code>, reflect 4). A stage that has used its budget hands over to <code>answer</code> (<code>plan</code> hands over to <code>act</code>), so a run always ends with a written answer instead of looping to the engine's step cap.</p>
 <h2 id="research">Research<a class="headerlink" href="#research" title="Link to this section">&para;</a></h2>
 <p>Search → Verify → Synthesize. Three-stage research pipeline with optional verification.</p>
 <pre class="mermaid"><code>graph LR
@@ -9751,8 +9763,9 @@ real sandbox + real model (see <code>tests/test_code_action_integration.py</code
 </span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="n">graph</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">PromptGraph</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="o">*</span><span class="n">nodes</span><span class="p">:</span> <span class="n">BaseNode</span><span class="p">,</span>        <span class="c1"># Variadic: nodes to chain sequentially</span>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="p">)</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="n">PromptNode</span><span class="p">(</span><span class="s2">"extract"</span><span class="p">),</span>   <span class="c1"># Variadic: the nodes to chain, in order</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="n">PromptNode</span><span class="p">(</span><span class="s2">"summarize"</span><span class="p">),</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Automatically sets the first node as entry. The last node defaults to <code>__end__</code>.</p>
 <h2 id="custom-graph">Custom Graph<a class="headerlink" href="#custom-graph" title="Link to this section">&para;</a></h2>
@@ -9813,7 +9826,7 @@ real sandbox + real model (see <code>tests/test_code_action_integration.py</code
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 8, 2026 18:01:17 UTC">2026-06-08</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:24:39 UTC">2026-10-10</span>
   </span>
 
     

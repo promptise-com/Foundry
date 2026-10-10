@@ -9815,6 +9815,7 @@
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="sd">"""Generate a prompt for analyzing a metric."""</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">"Analyze the trend for </span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2"> over the last 30 days."</span>
 </span></code></pre></div>
+<p>URIs and prompt names are not prefixed. The router's <code>auth</code>, <code>guards</code>, <code>middleware</code> and <code>tags</code> apply to its resources and prompts exactly as they do to its tools.</p>
 <h3 id="mounting-routers-on-the-server">Mounting routers on the server<a class="headerlink" href="#mounting-routers-on-the-server" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">server</span> <span class="o">=</span> <span class="n">MCPServer</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"platform"</span><span class="p">)</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">server</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">analytics_router</span><span class="p">)</span>
@@ -9869,6 +9870,7 @@
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">ctx</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> took </span><span class="si">{</span><span class="n">elapsed</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">s"</span><span class="p">)</span>
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">return</span> <span class="n">result</span>
 </span></code></pre></div>
+<p>The chain runs for tool calls, resource reads and prompt requests alike. <code>ctx.request_type</code> says which (<code>"tool"</code>, <code>"resource"</code> or <code>"prompt"</code>), <code>ctx.tool_name</code> holds the tool, resource or prompt name, and a resource read sets <code>ctx.state["resource_uri"]</code>. Branch on <code>ctx.request_type</code> in a middleware that only makes sense for tools.</p>
 <h3 id="built-in-middleware">Built-in middleware<a class="headerlink" href="#built-in-middleware" title="Link to this section">&para;</a></h3>
 <h4 id="loggingmiddleware">LoggingMiddleware<a class="headerlink" href="#loggingmiddleware" title="Link to this section">&para;</a></h4>
 <p>Logs every tool call with timing information.</p>
@@ -10091,7 +10093,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:08:19 UTC">2026-10-10</span>
   </span>
 
     

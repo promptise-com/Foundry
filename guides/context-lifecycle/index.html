@@ -1391,10 +1391,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#how-ledger-works" class="md-nav__link">
+  <a href="#how-compaction-works" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How "ledger" works
+        How compaction works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tune-it-or-turn-it-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tune it, or turn it off
       
     </span>
   </a>
@@ -9309,10 +9320,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#how-ledger-works" class="md-nav__link">
+  <a href="#how-compaction-works" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How "ledger" works
+        How compaction works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tune-it-or-turn-it-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tune it, or turn it off
       
     </span>
   </a>
@@ -9482,10 +9504,11 @@ is <strong>context bloat</strong>. Every tool call appends its request and resul
 transcript. On a deep task the model ends up re-reading a growing wall of its
 own past calls — it loses the thread, re-queries facts it already has, and pays
 for thousands of redundant tokens on every turn.</p>
-<p>Promptise gives you three opt-in levers to control exactly how much history a
-reasoning node sees, so context stays bounded as the work gets deep. This guide
-shows the problem, the three modes of <code>context_scope</code>, the two ready-made
-patterns built on them, and a decision table for picking the right one.</p>
+<p>Promptise bounds this for you: the default agent compacts a tool loop once it
+gets long, and you can tune or turn that off, or choose per node how much
+history it sees. This guide shows the problem, how compaction works, the modes
+of <code>context_scope</code>, the two ready-made patterns built on them, and a decision
+table for picking the right one.</p>
 <div class="admonition info">
 <p class="admonition-title">Runnable example</p>
 <p>Everything here is demonstrated end-to-end in
@@ -9508,8 +9531,9 @@ super-linearly, latency climbs, and accuracy can <em>drop</em> as the signal get
 in the middle.</p>
 <h2 id="the-lever-context_scope-on-promptnode">The lever: <code>context_scope</code> on <code>PromptNode</code><a class="headerlink" href="#the-lever-context_scope-on-promptnode" title="Link to this section">&para;</a></h2>
 <p>Every <a href="../../core/engine-nodes/#promptnode"><code>PromptNode</code></a> accepts a
-<code>context_scope</code> argument controlling what it sees on each LLM call. It is fully
-opt-in — the default preserves today's behavior exactly.</p>
+<code>context_scope</code> argument controlling what it sees on each LLM call. A node you
+create yourself defaults to <code>"full"</code>; the default ReAct agent that
+<code>build_agent()</code> builds uses <code>"auto"</code>.</p>
 <table>
 <thead>
 <tr>
@@ -9520,19 +9544,24 @@ opt-in — the default preserves today's behavior exactly.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>"full"</code> <em>(default)</em></td>
+<td><code>"full"</code> <em>(<code>PromptNode</code> default)</em></td>
 <td>The whole accumulated transcript</td>
 <td>Short tasks, or when every prior message matters</td>
 </tr>
 <tr>
-<td><code>"scoped"</code></td>
-<td>Its system prompt (with any inherited/distilled state) + the original task + <strong>only its own in-progress tool loop</strong></td>
-<td>Multi-stage reasoning graphs — drops the verbose output of <em>other</em> stages so tokens don't grow across stages</td>
+<td><code>"auto"</code> <em>(the ReAct default)</em></td>
+<td><code>"full"</code> while the tool loop is short, then the compacted view once the run has 6 tool results (or passes a token budget)</td>
+<td>The default: simple tasks are unchanged, deep tool loops stay bounded</td>
 </tr>
 <tr>
 <td><code>"ledger"</code></td>
-<td>System prompt + task + the <strong>most recent</strong> exchange + a compact <strong>deduplicated "facts gathered" ledger</strong></td>
+<td>The compacted view on every call</td>
 <td>Long single-node tool loops that gather many facts then aggregate</td>
+</tr>
+<tr>
+<td><code>"scoped"</code></td>
+<td>Pinned messages + the current question + <strong>only its own in-progress tool loop</strong></td>
+<td>Multi-stage reasoning graphs: drops the verbose output of <em>other</em> stages so tokens don't grow across stages</td>
 </tr>
 </tbody>
 </table>
@@ -9541,24 +9570,76 @@ opt-in — the default preserves today's behavior exactly.</p>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Multi-stage graph: each stage only sees its own working set.</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"analyze"</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">context_scope</span><span class="o">=</span><span class="s2">"scoped"</span><span class="p">)</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Deep tool loop: replace the growing transcript with a facts ledger.</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Deep tool loop: compact from the first call.</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"reason"</span><span class="p">,</span> <span class="n">inject_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">context_scope</span><span class="o">=</span><span class="s2">"ledger"</span><span class="p">)</span>
 </span></code></pre></div>
-<h3 id="how-ledger-works">How <code>"ledger"</code> works<a class="headerlink" href="#how-ledger-works" title="Link to this section">&para;</a></h3>
-<p>Instead of an ever-growing transcript, the node sees a compact ledger built
-from the tool results so far:</p>
-<ul>
-<li>One line per <code>tool(args) = result</code>, <strong>last value wins</strong> per <code>(tool, args)</code> —
-  duplicates collapse automatically.</li>
-<li>The ledger is placed <strong>last</strong>, right before the model's turn, where it is
-  most salient, so the model consults it instead of re-calling a tool.</li>
-<li>The most recent assistant turn and its tool results are kept <em>in-flow</em> so the
-  model doesn't lose continuity.</li>
-<li>Tool execution is <strong>cache-served</strong>: a repeated <code>(tool, args)</code> call returns the
-  cached result instead of re-executing.</li>
-</ul>
-<p>See <a href="../../core/engine-nodes/#context-scope">Context scope</a> for the full
-mechanism.</p>
+<h3 id="how-compaction-works">How compaction works<a class="headerlink" href="#how-compaction-works" title="Link to this section">&para;</a></h3>
+<p>Once a node compacts (<code>"ledger"</code>, or <code>"auto"</code> past its threshold), each model
+call gets a bounded view instead of the transcript:</p>
+<ol>
+<li><strong>Pinned, always sent:</strong> every system message in the input, such as
+   instructions you or the runtime added (<code>[Context State]</code>, mission, budget),
+   and the node's own system prompt.</li>
+<li><strong>Earlier conversation:</strong> chat history before the current question (what
+   <code>agent.chat()</code> loads from the session) becomes a short note: the last 6
+   messages, 400 characters each.</li>
+<li><strong>The current question</strong>, exactly as you passed it. A
+   <code>{"role": "user", ...}</code> dict, a <code>HumanMessage</code> and a <code>("user", ...)</code> tuple
+   all work: input messages are converted to LangChain messages first.</li>
+<li><strong>The latest exchange, verbatim:</strong> the model's last tool call(s) and their
+   results, so it sees the outcome of its last action in flow. A parallel
+   batch is kept whole.</li>
+<li><strong>A ledger of older results</strong>, last: one line per earlier <code>tool(args)</code>,
+   <strong>last value wins</strong> per <code>(tool, args)</code>. A result longer than 2,000
+   characters is cut to its first 2,000 with a note naming the call, so the
+   model can call it again for the full text. Results already shown in the
+   latest exchange are not repeated.</li>
+</ol>
+<p>In ledger mode a repeated <code>(tool, args)</code> call is <strong>served from cache</strong>
+instead of re-executing, so fetching a cut result in full again costs no tool
+call.</p>
+<div class="admonition warning">
+<p class="admonition-title">No LLM summarization</p>
+<p>Compaction is deterministic: it cuts and drops, it never asks a model to
+summarize, and it costs no extra calls. A fact in the part of an old result
+that was cut is only back in view if the model calls the tool again. If your
+tools return large results that must stay verbatim, raise
+<code>keep_result_chars</code>, return leaner results (a summary tool instead of a raw
+dump), or turn compaction off.</p>
+</div>
+<h3 id="tune-it-or-turn-it-off">Tune it, or turn it off<a class="headerlink" href="#tune-it-or-turn-it-off" title="Link to this section">&para;</a></h3>
+<p><code>build_agent(context_compaction=...)</code> sets compaction for the whole agent:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextCompaction</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Never compact: the model always sees the full transcript.</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">context_compaction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Compact after 10 tool results instead of 6.</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">context_compaction</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Full control.</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="o">...</span><span class="p">,</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">context_compaction</span><span class="o">=</span><span class="n">ContextCompaction</span><span class="p">(</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">after_tool_results</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>     <span class="c1"># "auto" threshold</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">keep_result_chars</span><span class="o">=</span><span class="mi">8_000</span><span class="p">,</span>   <span class="c1"># older results longer than this are cut</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="n">max_tokens</span><span class="o">=</span><span class="mi">60_000</span><span class="p">,</span>         <span class="c1"># also compact past this many tokens, and</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>                                   <span class="c1"># shrink the ledger until the view fits</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">history_messages</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>        <span class="c1"># earlier messages in the history note</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="n">history_chars</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>         <span class="c1"># characters per earlier message</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="p">),</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="p">)</span>
+</span></code></pre></div>
+<p><code>False</code> keeps <code>"auto"</code> nodes on the full transcript; nodes you set to
+<code>"ledger"</code> or <code>"scoped"</code> keep that choice. A node's own
+<code>PromptNode(compaction=...)</code> wins over the agent's setting.</p>
+<p>With a <a href="../../core/context-engine/"><code>ContextEngine</code></a>, the budget the engine has
+left after your instructions and tool definitions becomes <code>max_tokens</code>, so the
+engine keeps bounding the context on every call of the tool loop, not only the
+first.</p>
+<p>See <a href="../../core/engine-nodes/#context-scope">Context scope</a> for the node-level
+reference.</p>
 <h2 id="two-ready-made-patterns">Two ready-made patterns<a class="headerlink" href="#two-ready-made-patterns" title="Link to this section">&para;</a></h2>
 <p>You rarely need to wire a node by hand — two built-in <code>agent_pattern</code> values
 package these levers for the common cases.</p>
@@ -9566,21 +9647,21 @@ package these levers for the common cases.</p>
 <p>A single node that must <strong>plan, solve, and re-check its own answer</strong> within one
 generation. You get the accuracy benefit of an explicit verification step at
 one-turn latency — no multi-call pipeline.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{},</span>                      <span class="c1"># no tools needed for pure reasoning</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"verify"</span><span class="p">,</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">instructions</span><span class="o">=</span><span class="s2">"Give only the final answer at the end."</span><span class="p">,</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>     <span class="s2">"A bat and a ball cost $1.10. The bat costs $1.00 more than the ball. "</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>     <span class="s2">"How much is the ball?"</span><span class="p">}</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">]})</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="c1"># The VERIFY step catches the intuitive-but-wrong $0.10 and corrects to $0.05.</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{},</span>                      <span class="c1"># no tools needed for pure reasoning</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"verify"</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">instructions</span><span class="o">=</span><span class="s2">"Give only the final answer at the end."</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>     <span class="s2">"A bat and a ball cost $1.10. The bat costs $1.00 more than the ball. "</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>     <span class="s2">"How much is the ball?"</span><span class="p">}</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="p">]})</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="c1"># The VERIFY step catches the intuitive-but-wrong $0.10 and corrects to $0.05.</span>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Honest scope</p>
@@ -9593,18 +9674,18 @@ is a cheap safety net, not a step change. On a capable model it is
 <h3 id="managed-efficiency-for-deep-tool-chains"><code>managed</code> — efficiency for deep tool chains<a class="headerlink" href="#managed-efficiency-for-deep-tool-chains" title="Link to this section">&para;</a></h3>
 <p>A single tool-using node run with <code>context_scope="ledger"</code>. Best for traversing
 a database or graph: gather many facts, then aggregate.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"company"</span><span class="p">:</span> <span class="n">my_server_spec</span><span class="p">},</span>  <span class="c1"># or pass extra_tools=[...]</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"managed"</span><span class="p">,</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">instructions</span><span class="o">=</span><span class="p">(</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="s2">"Answer by calling tools. A ledger of facts you already gathered is "</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="s2">"provided each turn — consult it and never re-fetch a fact you have."</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="p">),</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">max_agent_iterations</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>          <span class="c1"># deep chains make many calls</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"company"</span><span class="p">:</span> <span class="n">my_server_spec</span><span class="p">},</span>  <span class="c1"># or pass extra_tools=[...]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"managed"</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">instructions</span><span class="o">=</span><span class="p">(</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="s2">"Answer by calling tools. A ledger of facts you already gathered is "</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="s2">"provided each turn — consult it and never re-fetch a fact you have."</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="p">),</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">max_agent_iterations</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>          <span class="c1"># deep chains make many calls</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Honest scope</p>
@@ -9624,8 +9705,12 @@ that is a model-capability limit, not a context one.</p>
 </thead>
 <tbody>
 <tr>
-<td>Short Q&amp;A, every message matters</td>
-<td>Default <code>react</code> (<code>context_scope="full"</code>)</td>
+<td>Short Q&amp;A, short tool loops</td>
+<td>Default <code>react</code> (<code>context_scope="auto"</code>: full until the loop gets long)</td>
+</tr>
+<tr>
+<td>Every tool result must stay verbatim</td>
+<td><code>build_agent(..., context_compaction=False)</code></td>
 </tr>
 <tr>
 <td>One question that's easy to get <em>subtly</em> wrong</td>
@@ -9648,17 +9733,17 @@ that is a model-capability limit, not a context one.</p>
 <h2 id="composing-it-yourself">Composing it yourself<a class="headerlink" href="#composing-it-yourself" title="Link to this section">&para;</a></h2>
 <p><code>context_scope</code> is a node-level primitive — drop it onto any node in a custom
 graph, mixing modes per stage:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptGraph</span><span class="p">,</span> <span class="n">PromptNode</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">PromptGraph</span><span class="p">(</span><span class="s2">"research"</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"static"</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"gather"</span><span class="p">,</span> <span class="n">inject_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">context_scope</span><span class="o">=</span><span class="s2">"ledger"</span><span class="p">))</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"write"</span><span class="p">,</span> <span class="n">context_scope</span><span class="o">=</span><span class="s2">"scoped"</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>                          <span class="n">inherit_context_from</span><span class="o">=</span><span class="s2">"gather"</span><span class="p">))</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">graph</span><span class="o">.</span><span class="n">sequential</span><span class="p">(</span><span class="s2">"gather"</span><span class="p">,</span> <span class="s2">"write"</span><span class="p">)</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">graph</span><span class="o">.</span><span class="n">set_entry</span><span class="p">(</span><span class="s2">"gather"</span><span class="p">)</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="n">my_servers</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>                          <span class="n">agent_pattern</span><span class="o">=</span><span class="n">graph</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptGraph</span><span class="p">,</span> <span class="n">PromptNode</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">PromptGraph</span><span class="p">(</span><span class="s2">"research"</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"static"</span><span class="p">)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"gather"</span><span class="p">,</span> <span class="n">inject_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">context_scope</span><span class="o">=</span><span class="s2">"ledger"</span><span class="p">))</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"write"</span><span class="p">,</span> <span class="n">context_scope</span><span class="o">=</span><span class="s2">"scoped"</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>                          <span class="n">inherit_context_from</span><span class="o">=</span><span class="s2">"gather"</span><span class="p">))</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">graph</span><span class="o">.</span><span class="n">sequential</span><span class="p">(</span><span class="s2">"gather"</span><span class="p">,</span> <span class="s2">"write"</span><span class="p">)</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">graph</span><span class="o">.</span><span class="n">set_entry</span><span class="p">(</span><span class="s2">"gather"</span><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="n">my_servers</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>                          <span class="n">agent_pattern</span><span class="o">=</span><span class="n">graph</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Here <code>gather</code> runs a bounded tool loop (ledger), then <code>write</code> sees only the
 distilled output it inherits plus the task (scoped) — neither stage drowns in
@@ -9667,8 +9752,12 @@ the other's raw messages.</p>
 <ul>
 <li><strong>Context is a resource to manage, not a side effect.</strong> On deep tasks it is
   the deciding factor for cost, latency, and reliability.</li>
-<li><strong><code>context_scope</code> is opt-in and zero-regression</strong> — <code>"full"</code> stays the
-  default; reach for <code>"scoped"</code> or <code>"ledger"</code> only where the chain gets long.</li>
+<li><strong>The default agent compacts long tool loops</strong> (<code>"auto"</code>): short tasks see
+  the full transcript; past 6 tool results the model sees the pinned messages,
+  the current question, its latest exchange and a ledger. Tune it with
+  <code>context_compaction</code>, or set it to <code>False</code>.</li>
+<li><strong>Compaction never drops the question or your system messages</strong>, and it
+  never summarizes with a model: older results are cut, not rewritten.</li>
 <li><strong><code>verify</code> is the accuracy lever; <code>managed</code> is the efficiency lever.</strong> Be
   honest about which problem you have — they solve different ones.</li>
 </ul>
@@ -9702,7 +9791,7 @@ the other's raw messages.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 7, 2026 15:39:58 UTC">2026-06-07</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 18:53:19 UTC">2026-10-10</span>
   </span>
 
     

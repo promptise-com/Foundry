@@ -9357,7 +9357,15 @@ it nears expiry:</p>
 <ul>
 <li>The expiry is read from the JWT's standard <code>exp</code> claim
   (<code>decode_jwt_expiry</code>); a credential is re-acquired once it is within
-  <code>CREDENTIAL_REFRESH_BUFFER_SECONDS</code> (60s) of expiry.</li>
+  <code>CREDENTIAL_REFRESH_BUFFER_SECONDS</code> (60s) of expiry — or within half
+  its lifetime, for a credential that lives less than two minutes.</li>
+<li>Asking for no audience and asking for the provider's default audience
+  share one cached credential. Passive sources (projected-token files,
+  OIDC), whose audience is fixed, keep a single entry for every audience.</li>
+<li><code>get_credential(audience, force_refresh=True)</code> skips the cache, for a
+  credential a resource rejected before its <code>exp</code> (a revoked or rotated
+  key, clock skew). <code>build_agent</code> does this once when an MCP server
+  answers <code>401</code>.</li>
 <li>A credential with no decodable <code>exp</code> — an opaque token, or a
   file-projected token rotated in place by the platform — is treated as
   always-stale and re-acquired on every use, so rotation is always
@@ -9448,8 +9456,11 @@ metadata-server probe</strong> (fast, offline-safe):</p>
 <p>A verifiable identity is presented to MCP servers as a bearer credential
 <strong>automatically</strong>: when you pass <code>identity=</code> to <code>build_agent</code>, every MCP
 server that has no bearer of its own receives the agent's credential as
-its <code>bearer_token</code> (an explicit per-server bearer always wins; the
-credential is resolved at build time).</p>
+its <code>bearer_token</code> (an explicit per-server bearer always wins). The
+credential is requested per request, not once at build time: it is renewed
+before it expires (the session is reopened with it), refreshed once when a
+server answers <code>401</code>, and a request for which no credential can be acquired
+fails with <code>MCPCredentialError</code> rather than being sent unauthenticated.</p>
 <p>Each server's credential is scoped to that server's
 <a href="../../core/config/#httpserverspec"><code>HTTPServerSpec.audience</code></a> — so a
 single identity presents a <code>billing</code>-scoped token to the billing server
@@ -9503,7 +9514,7 @@ agent, to the resource — without a shared secret.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 28, 2026 12:55:08 UTC">2026-06-28</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:36:36 UTC">2026-10-10</span>
   </span>
 
     
