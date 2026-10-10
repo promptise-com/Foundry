@@ -132,6 +132,8 @@ dev = [
   "mkdocs>=1.6",
   "mkdocs-material>=9.5",
   "mkdocstrings[python]>=0.29",
+  # 12.2 made Highlight() require `md`, which mkdocstrings 1.0 does not pass
+  "pymdown-extensions>=10,<12.2",
   "mkdocs-redirects>=1.2",
   "mkdocs-git-revision-date-localized-plugin>=1.2",
   "mkdocs-meta-descriptions-plugin>=4.0",

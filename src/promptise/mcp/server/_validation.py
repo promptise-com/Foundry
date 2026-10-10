@@ -34,7 +34,7 @@ from __future__ import annotations
 import inspect
 import json as _json
 from collections.abc import Mapping
-from typing import Annotated, Any, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Optional, Union, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel, Field, create_model
 from pydantic import ValidationError as PydanticValidationError
@@ -234,6 +234,24 @@ def _preparse_json_strings(
     return result
 
 
+def _unwrap_implicit_optional(hint: Any) -> Any:
+    """Undo Python 3.10's implicit ``Optional`` around an ``Annotated`` hint.
+
+    For a parameter defaulting to ``None``, ``get_type_hints`` on Python
+    3.10 turns ``Annotated[Optional[str], Field(...)]`` into
+    ``Optional[Annotated[Optional[str], Field(...)]]``.  Pydantic ignores
+    ``Field`` metadata on a ``Union`` member, so the description would be
+    lost.  Python 3.11+ no longer adds the wrapper.
+    """
+    args = get_args(hint)
+    if get_origin(hint) is Union and len(args) == 2 and type(None) in args:
+        inner = args[0] if args[1] is type(None) else args[1]
+        if get_origin(inner) is Annotated:
+            base, *meta = get_args(inner)
+            return Annotated[(Optional[base], *meta)]
+    return hint
+
+
 def _has_description(annotation: Any, field_info: FieldInfo) -> bool:
     """Return ``True`` if the field already carries a description.
 
@@ -295,7 +313,7 @@ def build_input_model(
         if name in exclude or name == "self":
             continue
 
-        annotation = resolved_hints.get(name, param.annotation)
+        annotation = _unwrap_implicit_optional(resolved_hints.get(name, param.annotation))
         if annotation is inspect.Parameter.empty:
             annotation = str  # default to str if untyped
 
