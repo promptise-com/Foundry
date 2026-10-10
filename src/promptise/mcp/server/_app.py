@@ -54,7 +54,7 @@ from ._decorators import build_prompt_def, build_resource_def, build_tool_def
 from ._di import DependencyResolver
 from ._errors import MCPError
 from ._lifecycle import LifecycleManager
-from ._middleware import compile_middleware_chain
+from ._middleware import compile_middleware_chain, with_tool_timeout
 from ._registry import PromptRegistry, ResourceRegistry, ToolRegistry
 from ._transport import TransportType, run_transport
 from ._validation import build_input_model, validate_arguments
@@ -149,6 +149,8 @@ class MCPServer:
         max_concurrent: int | None = None,
         # Server-side human-in-the-loop approval
         requires_approval: bool = False,
+        # Opt out of CacheMiddleware
+        cache: bool = True,
     ) -> Callable[..., Any]:
         """Register a function as an MCP tool.
 
@@ -177,6 +179,10 @@ class MCPServer:
                 ``ApprovalGateMiddleware`` — building a server with an
                 ungated ``requires_approval`` tool raises at build time
                 rather than silently not enforcing it.
+            cache: ``False`` keeps a server-wide ``CacheMiddleware`` from
+                caching this tool's results (use it for tools that change
+                data or must always be fresh).  Tools annotated
+                ``destructive_hint=True`` are never cached either.
 
         Example::
 
@@ -233,6 +239,7 @@ class MCPServer:
                 annotations=annotations,
                 max_concurrent=max_concurrent,
                 requires_approval=requires_approval,
+                cache=cache,
             )
             self._tool_registry.register(tool_def)
 
@@ -768,13 +775,13 @@ class MCPServer:
         self._apply_require_tenant()
 
         # Auto-insert per-tool concurrency limiter if any tool has
-        # max_concurrent set (guard against double-insert)
+        # max_concurrent set (guard against double-insert), outside any
+        # circuit breaker so capacity refusals never trip it
         has_per_tool_limits = any(getattr(t, "max_concurrent", None) for t in tool_reg.list_all())
         if has_per_tool_limits:
-            from ._concurrency import PerToolConcurrencyLimiter
+            from ._concurrency import PerToolConcurrencyLimiter, insert_per_tool_limiter
 
-            if not any(isinstance(m, PerToolConcurrencyLimiter) for m in middlewares):
-                middlewares.append(PerToolConcurrencyLimiter())
+            insert_per_tool_limiter(middlewares, PerToolConcurrencyLimiter())
 
         # Auto-insert declared rate-limit enforcement if any tool has
         # rate_limit set (guard against double-insert). This makes
@@ -1013,6 +1020,9 @@ class MCPServer:
 
                     effective_handler = _guarded
 
+                if tdef.timeout:
+                    effective_handler = with_tool_timeout(effective_handler, tdef.timeout, name)
+
                 # Use pre-compiled middleware chain (avoids per-request
                 # closure construction)
                 chain_fn = _compiled_chains.get(name, _default_chain)
@@ -1029,7 +1039,9 @@ class MCPServer:
                 return serialised
 
             except MCPError as exc:
-                return [TextContent(type="text", text=exc.to_text())]
+                # A handler registered for this MCPError subclass may reshape it
+                mapped = await exception_handlers.handle(ctx, exc)
+                return [TextContent(type="text", text=(mapped or exc).to_text())]
             except Exception as exc:
                 # Try custom exception handlers first
                 mapped = await exception_handlers.handle(ctx, exc)
