@@ -2,6 +2,27 @@
 
 ## 1.3.0 — unreleased
 
+### Upgrading from 1.2.x
+
+1.3.0 is a security and correctness release. Most of it needs no code changes, but several defaults now fail closed. Check this list before upgrading:
+
+- **MCP servers listen on `127.0.0.1` by default.** `server.run(transport="http")` without `host=` is no longer reachable from other machines or containers. In Docker or behind a load balancer, pass `host="0.0.0.0"` and set `allowed_hosts`. A public bind without `AuthMiddleware` or `allowed_hosts` logs a warning at startup.
+- **`CORSConfig(allow_origins=["*"], allow_credentials=True)` raises `ValueError`.** List the origins that may send credentials.
+- **Resources and prompts go through auth, guards and middleware like tools.** `require_auth=True`, `require_tenant`, router auth and guards, and rate limits now also cover resource reads and prompt requests, so a client without a token gets an MCP error where it used to read them. Resources and prompts can take `auth=`, `roles=` and `guards=` like tools.
+- **Guardrails fail closed.** `guardrails=True` / `PromptiseSecurityScanner.default()` needs `transformers` and `torch`. If a model-backed head cannot run, scans are blocked instead of passed.
+- **Sandbox fails closed.** `build_agent(sandbox=...)` raises when the sandbox cannot start (no Docker client, Docker not running, gVisor missing) instead of building the agent without sandbox tools. The default network is `"none"`.
+- **Identity credentials fail closed.** When an agent's identity cannot get a token (IdP down, expired file), the call fails with `MCPCredentialError`; nothing is sent unauthenticated.
+- **Runtime transport and API need a token on public binds.** `RuntimeTransport(host="0.0.0.0")` without `auth_token` raises (pass `allow_unauthenticated=True` to opt out). `OrchestrationAPI` rejects an empty `auth_token`. On loopback, both refuse browser-originated requests (cross-site `Origin`, non-loopback `Host`).
+- **`ProcessConfig`, `TriggerConfig` and `TriggerDeliveryConfig` reject unknown keys**, and `ProcessConfig.journal` is off by default.
+- **MCP tool errors raise.** An MCP tool that returns an error result raises `MCPToolError` when called directly (`tool.ainvoke(...)`); inside an agent the model still sees the server's message, and the call counts as failed.
+- **Event webhook signatures changed.** Receivers must verify the new `t=...,v1=...` header with `promptise.events.verify_event_signature()`; the old bare-hex signature is gone.
+- **Webhooks to private addresses are refused at send time**, including after DNS changes. Set `allow_private_networks=True` on the sink or handler for internal receivers.
+- **Semantic cache stores less.** Follow-up turns and turns that called tools are not cached by default (`cache_multi_turn=True`, `cache_tool_turns=True` for read-only tools), `scope="per_session"` needs a `user_id`, and `build_agent(cache=...)` raises `ImportError` when the cache's packages are missing.
+- **Cross-agent delegation.** `broadcast_to_agents` is opt-in (`include_broadcast=True`), the model can no longer pick a timeout, and delegation stops at `max_delegation_depth` (default 3). `.superagent` files reject `auth:` on HTTP servers (use `bearer_token:` / `api_key:`), and `promptise validate` fails on missing environment variables.
+- **Reasoning Graph.** Pydantic structured outputs are dicts in `result.output` and `state.context`; a `PromptNode` stops at its own `max_iterations` (default 10); unknown `agent_pattern` names raise `ValueError`.
+- **Observability** redacts secrets and personal data in traces by default (`ObservabilityConfig.redact_sensitive=False` to turn it off), and prompt text is recorded only at `FULL` unless `record_prompts=True`.
+- **Adaptive strategy** keeps lessons per caller (`scope="per_user"`); lessons saved by 1.2.1 or earlier carry no scope and are no longer shown. Re-add the ones you need.
+
 ### Added
 - **MCP client: `bearer_token_provider` for short-lived credentials** -- `MCPClient(bearer_token_provider=...)` takes a callable (sync or async) that returns the current token and is asked on every HTTP request, instead of a fixed `bearer_token`. When the server answers `401`, the provider is called with `force_refresh=True` and the request is re-sent once with the new token (concurrent rejections share one refresh). A session opened with a token the provider has since renewed is reopened before the next call; calls still running on the old session finish there and are never re-sent. HTTP and SSE only. New `MCPCredentialError` (a `MCPClientError`) when the provider cannot supply a token.
 - **Identity: `get_credential(audience, force_refresh=True)`** -- on `AgentIdentity` and every provider, skips the cached credential, for when a resource rejected it before its `exp` (rotated or revoked key, clock skew). Active providers (`from_entra`, `from_aws` STS, `from_gcp`, `from_spiffe`) now know their default audience (`provider.default_audience`), so `get_credential()` and `get_credential(<default audience>)` share one cached credential. `JwksAuth.from_discovery()` accepts `leeway` like the constructor.
