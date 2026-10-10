@@ -493,6 +493,47 @@ class MCPClient:
             raise MCPClientError(f"Failed to call tool '{name}': {exc}") from exc
 
     @property
+    def transport(self) -> str:
+        """The transport this client connects with (``"http"``, ``"sse"``, ``"stdio"``)."""
+        return self._transport
+
+    @property
+    def supports_bearer_token(self) -> bool:
+        """Whether a per-caller bearer token can be sent to this server.
+
+        ``True`` for HTTP and SSE.  ``False`` for stdio, which has no
+        request headers: a stdio server runs with the agent's own
+        privileges for every caller.
+        """
+        return self._transport != "stdio"
+
+    def with_bearer_token(self, bearer_token: str) -> MCPClient:
+        """Return a new, unconnected client that authenticates as *bearer_token*.
+
+        The copy keeps this client's URL, transport, timeout and headers
+        (including ``x-api-key``) and replaces any ``Authorization`` header,
+        whatever its casing, with ``Bearer <bearer_token>``.  Used to open a
+        session per caller, so one caller's token is never sent on another
+        caller's requests.
+
+        Raises:
+            MCPClientError: For a stdio client, which cannot carry headers.
+        """
+        if not self.supports_bearer_token:
+            raise MCPClientError(
+                f"Cannot send a bearer token over the {self._transport} transport; "
+                "only HTTP and SSE servers receive request headers."
+            )
+        headers = {k: v for k, v in self._headers.items() if k.lower() != "authorization"}
+        return MCPClient(
+            url=self._url,
+            transport=self._transport,
+            headers=headers,
+            bearer_token=bearer_token,
+            timeout=self._timeout,
+        )
+
+    @property
     def session(self) -> ClientSession | None:
         """The underlying MCP ``ClientSession``, or ``None`` if not connected."""
         return self._session

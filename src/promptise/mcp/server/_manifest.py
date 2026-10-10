@@ -21,20 +21,23 @@ Example::
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from typing import Any
 
 
-def build_manifest(server: Any) -> dict[str, Any]:
+def build_manifest(server: Any, tools: Iterable[Any] | None = None) -> dict[str, Any]:
     """Build a JSON-serialisable manifest from a server's registrations.
 
     Args:
         server: An ``MCPServer`` instance.
+        tools: The tool definitions to describe (default: every registered
+            tool).
 
     Returns:
         A dict with ``server``, ``tools``, ``resources``, ``prompts`` sections.
     """
-    tools: list[dict[str, Any]] = []
-    for tdef in server._tool_registry.list_all():
+    tool_infos: list[dict[str, Any]] = []
+    for tdef in server._tool_registry.list_all() if tools is None else tools:
         tool_info: dict[str, Any] = {
             "name": tdef.name,
             "description": tdef.description,
@@ -52,7 +55,7 @@ def build_manifest(server: Any) -> dict[str, Any]:
             tool_info["rate_limit"] = tdef.rate_limit
         if tdef.timeout:
             tool_info["timeout"] = tdef.timeout
-        tools.append(tool_info)
+        tool_infos.append(tool_info)
 
     resources: list[dict[str, Any]] = []
     for rdef in server._resource_registry.list_all():
@@ -92,7 +95,7 @@ def build_manifest(server: Any) -> dict[str, Any]:
             "version": server.version,
             "instructions": server.instructions,
         },
-        "tools": tools,
+        "tools": tool_infos,
         "resources": resources,
         "resource_templates": templates,
         "prompts": prompts,
@@ -111,7 +114,20 @@ def register_manifest(server: Any) -> None:
     from ._decorators import build_resource_def
 
     async def manifest_handler() -> str:
-        return json.dumps(build_manifest(server), indent=2, default=str)
+        tools = None
+        if getattr(server, "_hide_unauthorized_tools", False):
+            # Same per-caller view as tools/list.
+            from ._context import get_context
+            from ._visibility import visible_tools
+
+            ctx = get_context()
+            tools = await visible_tools(
+                server._tool_registry.list_all(),
+                server._middlewares,
+                server_name=server.name,
+                meta=ctx.meta,
+            )
+        return json.dumps(build_manifest(server, tools), indent=2, default=str)
 
     res_def = build_resource_def(
         manifest_handler,

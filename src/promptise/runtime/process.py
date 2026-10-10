@@ -128,7 +128,14 @@ def _resolve_server_specs(
                     kw["transport"] = spec["transport"]
                 elif "type" in spec:
                     kw["transport"] = spec["type"]
-                for opt in ("headers", "auth", "bearer_token", "api_key", "audience"):
+                for opt in (
+                    "headers",
+                    "auth",
+                    "bearer_token",
+                    "api_key",
+                    "audience",
+                    "forward_caller_token",
+                ):
                     if opt in spec:
                         kw[opt] = spec[opt]
                 resolved[name] = HTTPServerSpec(**kw)
@@ -757,7 +764,16 @@ class AgentProcess:
 
             self._mcp_multi = MCPMultiClient(clients)
             await self._mcp_multi.__aenter__()
-            self._mcp_adapter = MCPToolAdapter(self._mcp_multi)
+            # Same per-caller token forwarding as build_agent(): servers
+            # that opt out keep the spec's credential for every call.
+            self._mcp_adapter = MCPToolAdapter(
+                self._mcp_multi,
+                forward_caller_token=[
+                    sname
+                    for sname, spec in resolved.items()
+                    if not isinstance(spec, HTTPServerSpec) or spec.forward_caller_token
+                ],
+            )
             mcp_tools = await self._mcp_adapter.as_langchain_tools()
             extra_tools.extend(mcp_tools)
 

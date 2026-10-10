@@ -284,10 +284,35 @@ class TestClient:
             await di_resolver.cleanup()
             clear_context()
 
-    async def list_tools(self) -> list[Tool]:
-        """List all registered tools (including annotations)."""
+    def _request_meta(self, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        """Transport headers, then client meta, then per-call headers."""
+        from ._context import get_request_headers
+
+        return {**dict(get_request_headers()), **dict(self._meta), **(headers or {})}
+
+    async def list_tools(self, *, headers: dict[str, str] | None = None) -> list[Tool]:
+        """List the registered tools (including annotations).
+
+        With ``MCPServer(hide_unauthorized_tools=True)`` only the tools the
+        client's credentials may call are listed, as on the live server.
+
+        Args:
+            headers: Simulated HTTP headers, merged over the client meta.
+        """
+        if getattr(self._server, "_require_tenant", False):
+            self._server._apply_require_tenant()
+        tdefs = self._server._tool_registry.list_all()
+        if getattr(self._server, "_hide_unauthorized_tools", False):
+            from ._visibility import visible_tools
+
+            tdefs = await visible_tools(
+                tdefs,
+                self._server._middlewares,
+                server_name=self._server.name,
+                meta=self._request_meta(headers),
+            )
         tools: list[Tool] = []
-        for tdef in self._server._tool_registry.list_all():
+        for tdef in tdefs:
             mcp_annotations = None
             if tdef.annotations is not None:
                 mcp_annotations = MCPToolAnnotations(
@@ -327,7 +352,9 @@ class TestClient:
         # Try static resource first
         rdef = res_reg.get(uri)
         if rdef is not None:
-            ctx = RequestContext(server_name=self._server.name, tool_name=rdef.name)
+            ctx = RequestContext(
+                server_name=self._server.name, tool_name=rdef.name, meta=self._request_meta()
+            )
             set_context(ctx)
             try:
                 result = rdef.handler()
@@ -344,6 +371,7 @@ class TestClient:
             ctx = RequestContext(
                 server_name=self._server.name,
                 tool_name=tmpl_def.name,
+                meta=self._request_meta(),
             )
             set_context(ctx)
             try:

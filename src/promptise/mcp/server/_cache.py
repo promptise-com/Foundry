@@ -1,7 +1,8 @@
 """Caching layer for MCP server tool results.
 
 Provides an in-memory cache backend, a ``@cached`` decorator for tools,
-and a ``CacheMiddleware`` for server-wide caching.
+and a ``CacheMiddleware`` for server-wide caching.  Both scope entries to
+the authenticated caller by default (see :data:`CacheScope`).
 
 Example::
 
@@ -25,7 +26,7 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 logger = logging.getLogger("promptise.server")
 
@@ -162,15 +163,70 @@ class InMemoryCache:
 # Default shared cache instance
 _default_cache = InMemoryCache()
 
+CacheScope = Literal["client", "tenant", "shared"]
+"""Who may share a cached result.
 
-def _make_cache_key(func_name: str, kwargs: dict[str, Any]) -> str:
-    """Build a deterministic cache key from function name + arguments."""
-    serialised = json.dumps(kwargs, sort_keys=True, default=str)
-    # MD5 is used purely as a non-cryptographic digest to produce short,
-    # deterministic cache keys. Not used for security — collision resistance
-    # is unnecessary here, just fast fingerprinting.
-    key_hash = hashlib.md5(serialised.encode(), usedforsecurity=False).hexdigest()[:16]
-    return f"cache:{func_name}:{key_hash}"
+* ``"client"`` *(default)* — only the same authenticated principal
+  (issuer + tenant + client id).  Safe for any tool, including ones whose
+  result depends on who is asking.
+* ``"tenant"`` — every client of the same tenant.  Use for data that is
+  tenant-wide and the same for every user in the tenant.
+* ``"shared"`` — everyone.  Use only for data that is the same for every
+  caller (public reference data, weather, exchange rates).
+"""
+
+_SCOPES = ("client", "tenant", "shared")
+
+
+def _validate_scope(scope: str) -> None:
+    if scope not in _SCOPES:
+        raise ValueError(f"cache scope must be one of {_SCOPES}, got {scope!r}")
+
+
+def _digest(value: Any) -> str:
+    """SHA-256 of *value*'s canonical JSON form."""
+    serialised = json.dumps(value, sort_keys=True, default=str)
+    return hashlib.sha256(serialised.encode()).hexdigest()
+
+
+def _scope_part(scope: str, ctx: Any | None) -> str:
+    """The key component that keeps one caller's entries from another's."""
+    if scope == "shared":
+        return "shared"
+    client = getattr(ctx, "client", None)
+    if client is None:
+        # Outside a request (a handler called directly): nobody to share with.
+        return "no-request"
+    if scope == "tenant":
+        return "tenant:" + _digest([client.tenant_id])
+    client_id = getattr(ctx, "client_id", None) or client.client_id
+    return "client:" + _digest([client.issuer, client.tenant_id, client_id])
+
+
+def _is_authenticated(ctx: Any) -> bool:
+    """Whether auth middleware has already identified the caller."""
+    return getattr(ctx, "client_id", None) is not None
+
+
+def _make_cache_key(name: str, arguments: dict[str, Any], scope_part: str = "shared") -> str:
+    """Build a deterministic cache key from a name, the arguments and the scope."""
+    return f"cache:{name}:{scope_part}:{_digest(arguments)}"
+
+
+def _user_arguments(kwargs: dict[str, Any], ctx: Any | None) -> dict[str, Any]:
+    """The tool's own arguments, without objects the framework injected.
+
+    ``RequestContext``, ``BackgroundTasks``, ``Depends`` values and the like
+    differ on every request, so keying on them means the cache never hits.
+    Inside a tool call the validated user arguments are known exactly; a
+    direct call falls back to dropping the request context.
+    """
+    from ._context import RequestContext
+
+    tool_args = ctx.state.get("_tool_arguments") if ctx is not None else None
+    if isinstance(tool_args, dict):
+        return {k: v for k, v in kwargs.items() if k in tool_args}
+    return {k: v for k, v in kwargs.items() if not isinstance(v, RequestContext)}
 
 
 def cached(
@@ -178,32 +234,61 @@ def cached(
     *,
     key_func: Callable[..., str] | None = None,
     backend: CacheBackend | None = None,
+    scope: CacheScope = "client",
 ) -> Callable[..., Any]:
     """Decorator that caches tool handler results.
+
+    Entries are scoped to the calling principal by default, so a result
+    computed for one client is never returned to another — even when the
+    handler reads the caller with :func:`get_context` rather than taking
+    a ``ctx`` parameter.  Injected parameters (``ctx: RequestContext``,
+    ``Depends(...)`` values, ``BackgroundTasks`` ...) are not part of the
+    key.
 
     Args:
         ttl: Time-to-live in seconds.
         key_func: Custom key function ``(func_name, kwargs) -> str``.
-            Defaults to hashing the function name + JSON-serialised kwargs.
+            Receives every keyword argument the handler gets (injected ones
+            included).  Its key is still prefixed with the *scope*, so a
+            custom key cannot widen sharing beyond it.
         backend: Cache backend.  Defaults to the module-level
             ``InMemoryCache`` singleton.
+        scope: Who may share an entry: ``"client"`` (default), ``"tenant"``
+            or ``"shared"`` — see :data:`CacheScope`.  Widen it only for
+            data that does not depend on the caller.
 
     Example::
 
         @server.tool()
         @cached(ttl=300)
-        async def expensive_query(query: str) -> dict:
-            return await db.search(query)
+        async def my_open_tickets(ctx: RequestContext) -> list[dict]:
+            return await db.tickets(owner=ctx.client.client_id)
+
+        @server.tool()
+        @cached(ttl=300, scope="shared")
+        async def exchange_rate(currency: str) -> float:
+            return await fx.rate(currency)
     """
+    _validate_scope(scope)
     cache = backend or _default_cache
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        name = f"{func.__module__}.{func.__qualname__}"
+
         @functools.wraps(func)
         async def wrapper(**kwargs: Any) -> Any:
+            from ._context import _current_context
+
+            ctx = _current_context.get()
+            scope_part = _scope_part(scope, ctx)
+            # The shared default backend serves every server in the process.
+            server = ctx.server_name if ctx is not None else ""
             if key_func is not None:
-                cache_key = key_func(func.__name__, kwargs)
+                cache_key = f"cache:{server}:{scope_part}:{key_func(func.__name__, kwargs)}"
             else:
-                cache_key = _make_cache_key(func.__name__, kwargs)
+                cache_key = _make_cache_key(
+                    f"{server}:{name}", _user_arguments(kwargs, ctx), scope_part
+                )
 
             # Try cache
             cached_value = await cache.get(cache_key)
@@ -229,12 +314,24 @@ def cached(
 class CacheMiddleware:
     """Server-wide caching middleware.
 
-    Caches all tool results based on tool name + arguments.
-    Opt-out individual tools by setting ``tdef.cache = False`` in state.
+    Caches every tool's result, keyed on the server, tool name, arguments
+    and — by default — the authenticated caller, so one client never
+    receives a result computed for another.  Note that it caches *every*
+    tool, including ones that change data; to cache only some tools, use
+    :func:`cached` on those handlers instead.
+
+    A cache hit still runs the tool's guards (``HasRole``, ``HasTenant``,
+    ...), so a cached result is never returned to a caller the tool would
+    refuse.  When the tool requires authentication but the caller has not
+    been identified yet (``CacheMiddleware`` added *before*
+    ``AuthMiddleware``), the call bypasses the cache rather than share
+    entries between unidentified callers: add ``AuthMiddleware`` first.
 
     Args:
         backend: Cache backend.
         ttl: Default TTL in seconds.
+        scope: Who may share an entry: ``"client"`` (default), ``"tenant"``
+            or ``"shared"`` — see :data:`CacheScope`.
     """
 
     def __init__(
@@ -242,23 +339,45 @@ class CacheMiddleware:
         backend: CacheBackend | None = None,
         *,
         ttl: float = 60.0,
+        scope: CacheScope = "client",
     ) -> None:
+        _validate_scope(scope)
         self.cache = backend or InMemoryCache()
         self.ttl = ttl
+        self.scope = scope
+        self._warned_order = False
 
     async def __call__(
         self,
         ctx: Any,
         call_next: Callable[..., Any],
     ) -> Any:
-        cache_key = f"mw:{ctx.tool_name}:{json.dumps(ctx.state.get('arguments', {}), sort_keys=True, default=str)}"
-        # MD5 is used as a non-cryptographic fingerprint (short, fast, deterministic)
-        # for the middleware cache key. Not a security boundary.
-        key_hash = hashlib.md5(cache_key.encode(), usedforsecurity=False).hexdigest()[:16]
-        final_key = f"mw:{ctx.tool_name}:{key_hash}"
+        tool_def = ctx.state.get("tool_def")
+        guards = getattr(tool_def, "guards", None)
+        needs_identity = self.scope != "shared" or bool(guards)
+        if needs_identity and getattr(tool_def, "auth", False) and not _is_authenticated(ctx):
+            if not self._warned_order:
+                self._warned_order = True
+                logger.warning(
+                    "CacheMiddleware runs before authentication, so it cannot tell "
+                    "callers apart; caching is skipped for authenticated tools. "
+                    "Add AuthMiddleware before CacheMiddleware."
+                )
+            return await call_next(ctx)
+
+        arguments = ctx.state.get("_tool_arguments", ctx.state.get("arguments", {}))
+        final_key = _make_cache_key(
+            f"mw:{ctx.server_name}:{ctx.tool_name}",
+            arguments,
+            _scope_part(self.scope, ctx),
+        )
 
         cached_value = await self.cache.get(final_key)
         if cached_value is not None:
+            if guards:
+                from ._testing import check_guards
+
+                await check_guards(guards, ctx)
             return cached_value
 
         result = await call_next(ctx)

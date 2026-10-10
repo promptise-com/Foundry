@@ -30,7 +30,7 @@ class CallerContext:
 
     Pass this to ``ainvoke()`` or ``chat()`` to carry per-request
     identity through the entire invocation — guardrails, conversation
-    ownership, observability, and (future) MCP token forwarding.
+    ownership, observability, and the MCP servers the agent calls.
 
     Attributes:
         user_id: Unique user identifier.  Used for conversation session
@@ -40,9 +40,16 @@ class CallerContext:
             isolation surface (semantic cache, memory search, conversation
             ownership) is scoped per tenant — two tenants with the same
             ``user_id`` can never see each other's data.
-        bearer_token: JWT or OAuth token for the caller.  Currently
-            available for guardrails and logging; MCP token forwarding
-            is a planned enhancement.
+        bearer_token: JWT or OAuth token for the caller.  Sent as
+            ``Authorization: Bearer <token>`` on every tool call to an
+            HTTP/SSE MCP server during this invocation, over a session
+            opened for this token — never shared with another caller —
+            so the server authenticates the user, not the credential the
+            agent was built with.  A server opts out with
+            ``HTTPServerSpec(forward_caller_token=False)``.  stdio servers
+            have no request headers and never receive it.  Tool
+            discovery at build time still uses the server spec's
+            credentials.
         roles: Caller's roles (e.g. ``{"admin", "analyst"}``).
             Available for custom guardrail rules and logging.
         scopes: OAuth scopes (e.g. ``{"read", "write"}``).
@@ -2051,12 +2058,21 @@ async def build_agent(
         _promptise_multi = MCPMultiClient(clients)
         await _promptise_multi.__aenter__()
 
+        # Every server's tools send the invoking caller's bearer token unless
+        # its spec opts out. stdio servers are included so the multi-client
+        # can warn that the token cannot reach them.
+        forward_to = [
+            sname
+            for sname, spec in servers.items()
+            if not isinstance(spec, HTTPServerSpec) or spec.forward_caller_token
+        ]
         adapter = MCPToolAdapter(
             _promptise_multi,
             on_before=_cb_before,
             on_after=_cb_after,
             on_error=_cb_error,
             optimize=_opt_config,
+            forward_caller_token=forward_to,
         )
         try:
             discovered = await adapter.as_langchain_tools()

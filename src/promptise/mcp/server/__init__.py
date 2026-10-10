@@ -34,7 +34,7 @@ from ._auth import (
 )
 from ._background import BackgroundTasks
 from ._batch import register_batch_tool
-from ._cache import CacheBackend, CacheMiddleware, InMemoryCache, cached
+from ._cache import CacheBackend, CacheMiddleware, CacheScope, InMemoryCache, cached
 from ._cancellation import CancellationToken, CancelledError
 from ._circuit_breaker import CircuitBreakerMiddleware, CircuitOpenError, CircuitState
 from ._composition import mount
@@ -205,6 +205,7 @@ __all__ = [
     "InMemoryCache",
     "RedisCache",
     "CacheMiddleware",
+    "CacheScope",
     "cached",
     # Manifest
     "build_manifest",

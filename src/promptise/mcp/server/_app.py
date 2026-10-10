@@ -74,6 +74,16 @@ class MCPServer:
             tool authenticates and carries a ``RequireTenant`` guard, so a
             client whose token lacks the tenant claim is denied on every
             call.  Implies ``require_auth``.
+        hide_unauthorized_tools: Filter ``tools/list`` (and the
+            ``docs://manifest`` resource) per request, so each caller sees
+            only the tools its identity may call: the request is
+            authenticated with the server's ``AuthMiddleware`` and every
+            tool's guards are evaluated against it.  Off by default, in
+            which case every tool is listed to everyone and guards apply
+            when a tool is called.  Guards that depend on state set by
+            other middleware (not ``AuthMiddleware`` or its
+            ``on_authenticate`` hook) cannot be evaluated at list time and
+            hide their tool.
     """
 
     def __init__(
@@ -86,6 +96,7 @@ class MCPServer:
         shutdown_timeout: float | None = 30.0,
         require_auth: bool = False,
         require_tenant: bool = False,
+        hide_unauthorized_tools: bool = False,
     ) -> None:
         self.name = name
         self.version = version
@@ -93,6 +104,7 @@ class MCPServer:
         self._shutdown_timeout = shutdown_timeout
         self._require_auth = require_auth or require_tenant
         self._require_tenant = require_tenant
+        self._hide_unauthorized_tools = hide_unauthorized_tools
 
         self._tool_registry = ToolRegistry()
         self._resource_registry = ResourceRegistry()
@@ -827,10 +839,25 @@ class MCPServer:
         # Pre-compiled chain for tools registered after build (fallback)
         _default_chain = compile_middleware_chain(list(middlewares))
 
+        hide_unauthorized = self._hide_unauthorized_tools
+
         @ll.list_tools()
         async def list_tools() -> list[Tool]:
+            tdefs = tool_reg.list_all()
+            if hide_unauthorized:
+                from ._context import bind_transport_request
+                from ._visibility import visible_tools
+
+                try:
+                    mcp_request = getattr(ll.request_context, "request", None)
+                except LookupError:
+                    mcp_request = None
+                http_headers, _ = bind_transport_request(mcp_request)
+                tdefs = await visible_tools(
+                    tdefs, middlewares, server_name=server_name, meta=dict(http_headers)
+                )
             tools: list[Tool] = []
-            for tdef in tool_reg.list_all():
+            for tdef in tdefs:
                 # Build MCP ToolAnnotations from our ToolAnnotations
                 mcp_annotations = None
                 if tdef.annotations is not None:
@@ -1086,12 +1113,25 @@ class MCPServer:
                 )
             return templates
 
+        def _request_meta() -> dict[str, Any]:
+            """Headers of the HTTP request carrying this read (see call_tool)."""
+            from ._context import bind_transport_request
+
+            try:
+                mcp_request = getattr(ll.request_context, "request", None)
+            except LookupError:
+                mcp_request = None
+            http_headers, _ = bind_transport_request(mcp_request)
+            return dict(http_headers)
+
         @ll.read_resource()
         async def read_resource(uri: str) -> str:
             # Try static resource first
             rdef = res_reg.get(str(uri))
             if rdef is not None:
-                ctx = RequestContext(server_name=server_name, tool_name=rdef.name)
+                ctx = RequestContext(
+                    server_name=server_name, tool_name=rdef.name, meta=_request_meta()
+                )
                 set_context(ctx)
                 try:
                     result = rdef.handler()
@@ -1105,7 +1145,9 @@ class MCPServer:
             match = res_reg.match_template(str(uri))
             if match is not None:
                 tmpl_def, params = match
-                ctx = RequestContext(server_name=server_name, tool_name=tmpl_def.name)
+                ctx = RequestContext(
+                    server_name=server_name, tool_name=tmpl_def.name, meta=_request_meta()
+                )
                 set_context(ctx)
                 try:
                     result = tmpl_def.handler(**params)

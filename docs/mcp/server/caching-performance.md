@@ -19,7 +19,7 @@ server = MCPServer(name="weather-api")
 cache = InMemoryCache(max_size=500)
 
 @server.tool(read_only_hint=True)
-@cached(ttl=300, backend=cache)
+@cached(ttl=300, backend=cache, scope="shared")  # same answer for every caller
 async def get_weather(city: str, units: str = "metric") -> dict:
     """Get current weather for a city (cached for 5 minutes).
 
@@ -42,23 +42,52 @@ async def get_weather(city: str, units: str = "metric") -> dict:
     }
 ```
 
-**How cache keys work**: The key is `function_name + json.dumps(sorted_args)`. So `get_weather("London", "metric")` and `get_weather("London", "imperial")` are separate cache entries.
+**How cache keys work**: The key is the server, the function, the tool's arguments and the caller (see [Who shares a cached result](#who-shares-a-cached-result)). So `get_weather("London", "metric")` and `get_weather("London", "imperial")` are separate cache entries. Parameters the framework injects — `ctx: RequestContext`, `Depends(...)` values, `BackgroundTasks` — are not part of the key.
 
-**Custom key functions**: Override the default key generation when you need control:
+**Custom key functions**: Override how the arguments map to a key when you need control. The function receives every keyword argument the handler gets, and its key is still prefixed with the server and the scope, so it cannot widen sharing beyond `scope`:
 
 ```python
-def user_scoped_key(func_name: str, args: dict) -> str:
-    """Cache per user, ignoring pagination args."""
-    from promptise.mcp.server import get_context
-    ctx = get_context()
-    return f"{ctx.client_id}:{func_name}:{args.get('query', '')}"
+def ignore_page(func_name: str, args: dict) -> str:
+    """One entry per query, whatever the page."""
+    return f"{func_name}:{args.get('query', '')}"
 
 @server.tool()
-@cached(ttl=60, backend=cache, key_func=user_scoped_key)
+@cached(ttl=60, backend=cache, key_func=ignore_page)
 async def search_documents(query: str, page: int = 1) -> list[dict]:
-    """Search docs — cached per user, ignoring page number."""
+    """Search docs — cached per caller, ignoring page number."""
     return await doc_store.search(query, page=page)
 ```
+
+### Who shares a cached result
+
+A tool's result often depends on who asks: the same `list_accounts()` call
+returns Acme's accounts to Acme and Globex's to Globex. Both `@cached` and
+`CacheMiddleware` therefore key every entry on the authenticated caller by
+default. The `scope` argument widens that, and you opt in explicitly:
+
+| `scope` | Entries shared by | Use for |
+|---------|-------------------|---------|
+| `"client"` *(default)* | The same principal: issuer, tenant and client id | Anything that depends on the caller. Always safe |
+| `"tenant"` | Every client of the same tenant | Tenant-wide data that is the same for every user in the tenant |
+| `"shared"` | Everyone | Data that is the same for every caller: public reference data, weather, exchange rates |
+
+```python
+@server.tool(auth=True)
+@cached(ttl=300)                       # per caller
+async def my_open_tickets(ctx: RequestContext) -> list[dict]:
+    return await db.tickets(owner=ctx.client.client_id)
+
+@server.tool(auth=True)
+@cached(ttl=300, scope="tenant")       # one entry per tenant
+async def org_holidays(ctx: RequestContext) -> list[str]:
+    return await db.holidays(org=ctx.client.tenant_id)
+```
+
+The scope comes from the request, not from the handler's parameters, so a
+handler that reads the caller with `get_context()` is isolated just like
+one that takes `ctx`. Unauthenticated callers all share the `anonymous`
+identity. Outside a request (a handler called directly in a test), nothing
+is shared with request traffic.
 
 ### `InMemoryCache`
 
@@ -94,7 +123,7 @@ cache = RedisCache(
 )
 
 @server.tool()
-@cached(ttl=300, backend=cache)
+@cached(ttl=300, backend=cache, scope="shared")
 async def get_forecast(city: str, days: int = 5) -> dict:
     """5-day forecast — cached in Redis, shared across all server instances."""
     return await weather_api.forecast(city, days)
@@ -118,11 +147,26 @@ Requires `pip install redis`.
 Apply caching to all tools server-wide (instead of per-tool with `@cached`):
 
 ```python
-from promptise.mcp.server import CacheMiddleware, InMemoryCache
+from promptise.mcp.server import AuthMiddleware, CacheMiddleware, InMemoryCache
 
 cache = InMemoryCache(max_size=200)
+server.add_middleware(AuthMiddleware(auth))          # identify the caller first
 server.add_middleware(CacheMiddleware(backend=cache, ttl=120))
 ```
+
+Entries are keyed on the server, the tool, its arguments and the caller,
+with the same `scope` choices as `@cached` (default `"client"`).
+
+- **Add `AuthMiddleware` first.** Middleware runs in the order added. If
+  `CacheMiddleware` runs before the caller is identified, calls to
+  authenticated tools skip the cache (and a warning is logged once) rather
+  than share entries between callers.
+- **Guards run on cache hits.** A hit still evaluates the tool's guards, so
+  a cached result is never returned to a caller the tool would refuse.
+- **It caches every tool**, including ones that change data: a second
+  identical call within the TTL returns the first result without running
+  the handler. If the server has write tools, cache the read tools with
+  `@cached` instead.
 
 ### Custom cache backends
 
@@ -350,7 +394,7 @@ server.add_middleware(ConcurrencyLimiter(max_concurrent=100))       # 100 total
     max_concurrent=10,        # Only 10 concurrent DB queries
     read_only_hint=True,
 )
-@cached(ttl=300, backend=cache)
+@cached(ttl=300, backend=cache, scope="shared")  # the catalog is the same for everyone
 async def search_products(query: str, category: str = "all") -> list[dict]:
     """Search the product catalog.
 
@@ -365,10 +409,11 @@ async def search_products(query: str, category: str = "all") -> list[dict]:
 
 | Symbol | Type | Description |
 |--------|------|-------------|
-| `@cached(ttl, key_func, backend)` | Decorator | Cache tool results with TTL |
+| `@cached(ttl, key_func, backend, scope)` | Decorator | Cache tool results with TTL, per caller by default |
 | `InMemoryCache(max_size, cleanup_interval)` | Class | In-process LRU cache with expiry |
 | `RedisCache(url, prefix, client)` | Class | Redis-backed distributed cache |
-| `CacheMiddleware(backend, ttl)` | Class | Server-wide caching middleware |
+| `CacheMiddleware(backend, ttl, scope)` | Class | Server-wide caching middleware, per caller by default |
+| `CacheScope` | Type | `"client"`, `"tenant"` or `"shared"` |
 | `CacheBackend` | Protocol | Interface for custom cache backends |
 | `RateLimitMiddleware(limiter, per_tool)` | Class | Token-bucket rate limiting |
 | `TokenBucketLimiter(rate_per_minute, burst)` | Class | Token bucket rate limiter |
