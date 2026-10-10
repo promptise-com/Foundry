@@ -42,8 +42,8 @@ If you don't want to read the whole page, here's where to start:
 | Your situation | Use this model |
 |----------------|----------------|
 | **Just starting, want it to work** | `openai:gpt-5-mini` — best balance of cost, speed, reliability |
-| **Production agent, need maximum reliability** | `anthropic:claude-sonnet-4.6` — best tool calling in 2026 |
-| **Maximum reasoning quality, cost no object** | `anthropic:claude-opus-4.6` or `openai:gpt-5` |
+| **Production agent, need maximum reliability** | `anthropic:claude-sonnet-4-6` — best tool calling in 2026 |
+| **Maximum reasoning quality, cost no object** | `anthropic:claude-opus-4-6` or `openai:gpt-5` |
 | **Multi-million token context** | `google:gemini-3-pro` — 2M token window |
 | **Self-hosted, no data leaves your infra** | `ollama:qwen3-coder` or `ollama:deepseek-v3.2` |
 | **Local laptop dev** | `ollama:phi-4-mini` or `ollama:qwen3-coder-30b-a3b` |
