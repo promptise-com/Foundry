@@ -493,3 +493,44 @@ class TestBuildDeepAgentExtraTools:
         assert "extra_tools" in sig.parameters
         param = sig.parameters["extra_tools"]
         assert param.default is None
+
+
+# ---------------------------------------------------------------------------
+# Memory settings reach build_agent()
+# ---------------------------------------------------------------------------
+
+
+class TestMemorySettingsReachBuildAgent:
+    """``ContextConfig.memory_max`` / ``memory_min_score`` / ``memory_timeout``
+    are passed to ``build_agent()`` (they used to be accepted and ignored)."""
+
+    @pytest.mark.asyncio
+    async def test_process_passes_memory_settings(self) -> None:
+        from unittest.mock import patch
+
+        config = ProcessConfig(
+            model="openai:gpt-5-mini",
+            context=ContextConfig(
+                memory_provider="in_memory",
+                memory_max=3,
+                memory_min_score=0.4,
+                memory_timeout=20.0,
+            ),
+        )
+        process = AgentProcess(name="mem", config=config)
+        with patch("promptise.agent.build_agent", new=AsyncMock()) as mock_build:
+            await process._build_agent()
+        kwargs = mock_build.await_args.kwargs
+        assert kwargs["memory_max_results"] == 3
+        assert kwargs["memory_min_score"] == 0.4
+        assert kwargs["memory_timeout"] == 20.0
+
+    def test_manifest_memory_timeout(self) -> None:
+        from promptise.runtime.manifest import AgentManifestSchema, manifest_to_process_config
+
+        manifest = AgentManifestSchema(
+            name="m",
+            memory={"provider": "in_memory", "max": 2, "min_score": 0.5, "timeout": 12},
+        )
+        ctx = manifest_to_process_config(manifest).context
+        assert (ctx.memory_max, ctx.memory_min_score, ctx.memory_timeout) == (2, 0.5, 12)

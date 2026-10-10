@@ -42,6 +42,22 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
     Captures every LLM turn, tool call, token count, latency,
     retry, and error.  Designed to be the *only* integration point needed
     between LangChain's event system and Promptise's observability.
+
+    What is recorded depends on ``level`` (see
+    :class:`~promptise.observability_config.ObserveLevel`): ``OFF`` records
+    nothing, ``BASIC`` skips the per-turn ``llm.start`` / ``llm.end``
+    events (token usage is still added to the current agent run),
+    ``STANDARD`` records every turn, and ``FULL`` also records prompt and
+    response text unless ``record_prompts=False``.
+
+    Args:
+        collector: The :class:`~promptise.observability.ObservabilityCollector`.
+        agent_id: Agent identifier stamped on every event.
+        record_prompts: Record prompt and response text.  ``None`` follows
+            ``level`` (on at ``FULL`` only); ``True`` / ``False`` force it.
+        level: Detail level.
+        record_tool_io: Record tool arguments and result previews.  When
+            ``False``, only their lengths are recorded.
     """
 
     # Tell LangChain we handle *all* event types.
@@ -55,14 +71,20 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         collector: Any,  # ObservabilityCollector — typed as Any to avoid circular import
         agent_id: str | None = None,
         *,
-        record_prompts: bool = False,
+        record_prompts: bool | None = None,
         level: ObserveLevel = ObserveLevel.STANDARD,
+        record_tool_io: bool = True,
     ) -> None:
         super().__init__()
         self.collector = collector
         self.agent_id = agent_id
-        self.record_prompts = record_prompts
         self.level = level
+        #: Whether prompt / response text is recorded (resolved from
+        #: ``record_prompts`` and ``level``).
+        self.record_prompts: bool = (
+            level == ObserveLevel.FULL if record_prompts is None else record_prompts
+        )
+        self.record_tool_io = record_tool_io
 
         # --- Event notifier (set externally by build_agent) ---
         self._event_notifier: Any | None = None
@@ -71,6 +93,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         # --- Timing bookkeeping (run_id → start epoch) ---
         self._llm_starts: dict[UUID, float] = {}
         self._tool_starts: dict[UUID, float] = {}
+        self._tool_names: dict[UUID, str] = {}
         self._chain_starts: dict[UUID, float] = {}
 
         # --- Cumulative session accounting ---
@@ -101,6 +124,8 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
 
     def _record(self, event_type_value: str, **kwargs: Any) -> Any:
         """Record an event, lazily importing the enum to avoid circular deps."""
+        if self.level == ObserveLevel.OFF:
+            return None
         from .observability import TimelineEventType
 
         # Map string to enum member
@@ -111,6 +136,18 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
             evt = TimelineEventType.LLM_TURN
 
         return self.collector.record(evt, agent_id=self.agent_id, **kwargs)
+
+    @property
+    def _records_llm_turns(self) -> bool:
+        """``llm.start`` / ``llm.end`` are recorded at STANDARD and FULL."""
+        return self.level in (ObserveLevel.STANDARD, ObserveLevel.FULL)
+
+    @staticmethod
+    def _current_run() -> Any:
+        """The agent run being observed in this context, if any."""
+        from .observability import get_current_run
+
+        return get_current_run()
 
     # ------------------------------------------------------------------
     # LLM events
@@ -128,9 +165,12 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         self._llm_starts[run_id] = time.time()
         self._run_parents[run_id] = parent_run_id
         self.llm_call_count += 1
+        run = self._current_run()
+        if run is not None:
+            run.llm_calls += 1
 
-        if self.level == ObserveLevel.BASIC:
-            return  # Skip detailed LLM start events in BASIC mode
+        if not self._records_llm_turns:
+            return  # BASIC records no per-turn LLM events
 
         metadata: dict[str, Any] = {"run_id": str(run_id)}
 
@@ -212,12 +252,23 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         self.total_prompt_tokens += prompt_tok
         self.total_completion_tokens += completion_tok
         self.total_tokens += total_tok
+        run = self._current_run()
+        if run is not None:
+            run.prompt_tokens += prompt_tok
+            run.completion_tokens += completion_tok
+
+        if not self._records_llm_turns:
+            self._streaming_tokens.pop(run_id, None)
+            return
 
         metadata["prompt_tokens"] = prompt_tok
         metadata["completion_tokens"] = completion_tok
         metadata["total_tokens"] = total_tok
         if model_name:
             metadata["model"] = model_name
+
+        # --- Streamed tokens (FULL only accumulates them) ---
+        streamed = self._streaming_tokens.pop(run_id, None)
 
         # --- Response preview (when recording prompts) ---
         if self.record_prompts:
@@ -227,6 +278,8 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
                     if text:
                         metadata["response_preview"] = self._truncate(text)
                         break
+            if "response_preview" not in metadata and streamed:
+                metadata["response_preview"] = self._truncate("".join(streamed))
 
         # --- Tool calls in the response ---
         for gen_list in response.generations:
@@ -243,7 +296,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
                         ]
 
         # --- Streaming token summary ---
-        streamed = self._streaming_tokens.pop(run_id, None)
         if streamed:
             metadata["streamed_token_count"] = len(streamed)
 
@@ -265,6 +317,9 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         duration = time.time() - start if start else None
         self.error_count += 1
         self._streaming_tokens.pop(run_id, None)
+        run = self._current_run()
+        if run is not None:
+            run.errors += 1
 
         self._record(
             "llm.error",
@@ -296,18 +351,19 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         self._tool_starts[run_id] = time.time()
         self._run_parents[run_id] = parent_run_id
         self.tool_call_count += 1
+        run = self._current_run()
+        if run is not None:
+            run.tool_calls += 1
 
-        tool_name = serialized.get("name", "unknown")
+        tool_name = serialized.get("name") or kwargs.get("name") or "unknown"
+        self._tool_names[run_id] = tool_name
 
-        self._record(
-            "tool.call",
-            details=f"Calling tool: {tool_name}",
-            metadata={
-                "tool_name": tool_name,
-                "arguments": self._truncate(input_str),
-                "run_id": str(run_id),
-            },
-        )
+        metadata: dict[str, Any] = {"tool_name": tool_name, "run_id": str(run_id)}
+        if self.record_tool_io:
+            metadata["arguments"] = self._truncate(input_str)
+        else:
+            metadata["arguments_length"] = len(input_str)
+        self._record("tool.call", details=f"Calling tool: {tool_name}", metadata=metadata)
 
     def on_tool_end(
         self,
@@ -318,22 +374,31 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
     ) -> None:
         start = self._tool_starts.pop(run_id, None)
         duration = time.time() - start if start else None
-
-        # Extract tool name from kwargs if available
-        tool_name = kwargs.get("name", "unknown")
+        tool_name = self._tool_names.pop(run_id, None) or kwargs.get("name") or "unknown"
 
         # A tool invoked as a tool call returns a ToolMessage; record its
-        # content, and its status when the tool reported an error.
+        # content, and its status when the tool reported an error.  A tool
+        # that handles its own errors (``handle_tool_error``) returns
+        # status="error" instead of raising: that is a failed call, so it
+        # counts as an error here and in ``get_stats()``.
         status = None
         if isinstance(output, ToolMessage):
             status = output.status
             output = output.content
+        failed = status == "error"
+        if failed:
+            self.error_count += 1
+            run = self._current_run()
+            if run is not None:
+                run.errors += 1
 
-        metadata: dict[str, Any] = {
-            "result_preview": self._truncate(str(output)),
-            "run_id": str(run_id),
-        }
-        if status == "error":
+        result_text = str(output)
+        metadata: dict[str, Any] = {"run_id": str(run_id)}
+        if self.record_tool_io:
+            metadata["result_preview"] = self._truncate(result_text)
+        else:
+            metadata["result_length"] = len(result_text)
+        if failed:
             metadata["status"] = "error"
         if duration is not None:
             metadata["latency_ms"] = round(duration * 1000, 1)
@@ -342,7 +407,9 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
 
         self._record(
             "tool.result",
-            details=f"Tool completed: {tool_name}",
+            details=f"Tool reported an error: {tool_name}"
+            if failed
+            else f"Tool completed: {tool_name}",
             duration=duration,
             metadata=metadata,
         )
@@ -372,20 +439,31 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         start = self._tool_starts.pop(run_id, None)
         duration = time.time() - start if start else None
         self.error_count += 1
+        run = self._current_run()
+        if run is not None:
+            run.errors += 1
 
-        tool_name = kwargs.get("name", "unknown")
+        tool_name = self._tool_names.pop(run_id, None) or kwargs.get("name") or "unknown"
+        metadata: dict[str, Any] = {
+            "run_id": str(run_id),
+            "tool_name": tool_name,
+            "error_type": type(error).__name__,
+        }
+        if duration is not None:
+            metadata["latency_ms"] = round(duration * 1000, 1)
+        # The error message of a failed tool call usually echoes its input,
+        # so it follows the same switch as tool arguments and results.
+        if self.record_tool_io:
+            metadata["error"] = str(error)[:500]
+            if error.__traceback__ is not None:
+                metadata["traceback"] = self._truncate(
+                    "".join(traceback.format_exception(type(error), error, error.__traceback__))
+                )
         self._record(
             "tool.error",
-            details=f"Tool error: {type(error).__name__}: {str(error)[:200]}",
+            details=f"Tool error in {tool_name}: {type(error).__name__}",
             duration=duration,
-            metadata={
-                "run_id": str(run_id),
-                "error": str(error)[:500],
-                "error_type": type(error).__name__,
-                "traceback": self._truncate(
-                    "".join(traceback.format_exception(type(error), error, error.__traceback__))
-                ),
-            },
+            metadata=metadata,
         )
 
         # Emit tool.error event
@@ -419,8 +497,10 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         self._chain_starts[run_id] = time.time()
         self._run_parents[run_id] = parent_run_id
 
-        # Only record AGENT_INPUT for the top-level chain (not sub-chains)
-        if parent_run_id is not None:
+        # Only record AGENT_INPUT for the top-level chain (not sub-chains),
+        # and only when the handler is used on its own: a PromptiseAgent
+        # records agent.input / agent.output itself for every invocation.
+        if parent_run_id is not None or self._current_run() is not None:
             return
 
         input_text = ""
@@ -455,7 +535,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         duration = time.time() - start if start else None
 
         # Only record AGENT_OUTPUT for the top-level chain
-        if parent_run_id is not None:
+        if parent_run_id is not None or self._current_run() is not None:
             return
 
         metadata: dict[str, Any] = {
@@ -493,13 +573,13 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
     ) -> None:
         start = self._chain_starts.pop(run_id, None)
         duration = time.time() - start if start else None
+
+        if parent_run_id is not None or self._current_run() is not None:
+            return  # Only record top-level chain errors of standalone use
         self.error_count += 1
 
-        if parent_run_id is not None:
-            return  # Only record top-level chain errors
-
         self._record(
-            "tool.error",  # Reuse TOOL_ERROR for chain-level errors
+            "agent.error",
             details=f"Agent error: {type(error).__name__}: {str(error)[:200]}",
             duration=duration,
             metadata={
