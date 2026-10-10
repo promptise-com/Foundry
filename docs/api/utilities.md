@@ -100,6 +100,13 @@ Pause the agent before destructive actions and wait for explicit human approval.
       show_source: false
       heading_level: 4
 
+### approval_elicitation_callback
+
+::: promptise.approval.approval_elicitation_callback
+    options:
+      show_source: false
+      heading_level: 4
+
 ---
 
 ## Semantic Cache

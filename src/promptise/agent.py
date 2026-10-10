@@ -1919,6 +1919,18 @@ async def build_agent(
         conversation_max_messages: Maximum messages to keep per session
             when using the conversation store.  ``0`` = unlimited.
             Oldest messages are dropped when the limit is reached.
+        approval: Human-in-the-loop approval.  An
+            :class:`~promptise.approval.ApprovalPolicy` gates the agent's
+            own tool calls that match its patterns.  Whatever is given —
+            a policy, an :class:`~promptise.approval.ApprovalHandler`, or a
+            callable — also answers **server-side** approval gates: MCP
+            servers that ask the client to confirm a gated call through
+            MCP elicitation (``ElicitationApprover``, MCPcast's default)
+            reach this handler instead of being declined.  A bare handler
+            does only the latter.  Without ``approval`` the agent declares
+            no elicitation support and such servers deny the call.  See
+            :func:`~promptise.approval.approval_elicitation_callback` for
+            the mapping and its fail-closed rules.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -2035,6 +2047,17 @@ async def build_agent(
         else:
             _opt_config = ToolOptimizationConfig(level=OptimizationLevel.MINIMAL)
 
+    # ``approval`` is an ApprovalPolicy (gates the agent's own calls and
+    # answers server-side gates) or a bare handler (server-side gates only).
+    if approval is not None:
+        from .approval import ApprovalHandler, ApprovalPolicy
+
+        if not (isinstance(approval, (ApprovalPolicy, ApprovalHandler)) or callable(approval)):
+            raise TypeError(
+                "approval must be an ApprovalPolicy, an ApprovalHandler or a callable, "
+                f"got {type(approval).__name__}"
+            )
+
     # Only create MCP client if there are servers to connect to
     tools: list[BaseTool] = []
     _promptise_multi = None  # track for cleanup
@@ -2072,6 +2095,23 @@ async def build_agent(
                 return None
 
         clients: dict[str, MCPClient] = {}
+
+        # Server-side approval gates ask the client's human through MCP
+        # elicitation. Route those requests to the agent's approval handler;
+        # without one, no elicitation support is declared and the server
+        # denies the gated call (fail-closed).
+        def _elicitation_callback_for(sname: str) -> Any:
+            if approval is None:
+                return None
+            from .approval import approval_elicitation_callback
+
+            return approval_elicitation_callback(
+                approval,
+                server_name=sname,
+                in_flight=lambda: clients[sname].in_flight_calls,
+                event_notifier=events,
+            )
+
         for sname, spec in servers.items():
             if isinstance(spec, HTTPServerSpec):
                 clients[sname] = MCPClient(
@@ -2082,6 +2122,7 @@ async def build_agent(
                     if spec.bearer_token
                     else _identity_bearer_for(spec),
                     api_key=spec.api_key.get_secret_value() if spec.api_key else None,
+                    elicitation_callback=_elicitation_callback_for(sname),
                 )
             else:
                 # StdioServerSpec
@@ -2091,6 +2132,7 @@ async def build_agent(
                     args=spec.args,
                     env=spec.env,
                     cwd=spec.cwd,
+                    elicitation_callback=_elicitation_callback_for(sname),
                 )
 
         _promptise_multi = MCPMultiClient(clients)
@@ -2325,10 +2367,14 @@ async def build_agent(
     # ------------------------------------------------------------------
     # Wrap tools with approval gates if configured
     # ------------------------------------------------------------------
+    # (A bare handler only answers server-side gates; see the MCP clients above.)
     if approval is not None:
-        from .approval import wrap_tools_with_approval
+        from .approval import ApprovalPolicy, wrap_tools_with_approval
 
-        tools = wrap_tools_with_approval(tools, approval, event_notifier=events, agent_id=_obs_aid)
+        if isinstance(approval, ApprovalPolicy):
+            tools = wrap_tools_with_approval(
+                tools, approval, event_notifier=events, agent_id=_obs_aid
+            )
 
     graph = _build_graph(tools)
 

@@ -9,6 +9,7 @@ from .approval import (
     CallbackApprovalHandler,
     QueueApprovalHandler,
     WebhookApprovalHandler,
+    approval_elicitation_callback,
     verify_webhook_signature,
 )
 from .approval_classifier import (
@@ -248,6 +249,7 @@ __all__ = [
     "CallbackApprovalHandler",
     "WebhookApprovalHandler",
     "QueueApprovalHandler",
+    "approval_elicitation_callback",
     "verify_webhook_signature",
     "AutoApprovalClassifier",
     "ApprovalRule",

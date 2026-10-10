@@ -36,7 +36,7 @@ import secrets
 import time
 import typing
 from collections import OrderedDict
-from collections.abc import AsyncIterator, Callable, Hashable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from typing import Any, Literal, Protocol, runtime_checkable
@@ -64,6 +64,8 @@ __all__ = [
     "wrap_tools_with_approval",
     "verify_webhook_signature",
     "SIGNED_FIELDS",
+    "approval_elicitation_callback",
+    "CONFIRMATION_FIELDS",
 ]
 
 #: The :class:`ApprovalRequest` fields the webhook signature covers.
@@ -1224,3 +1226,311 @@ def wrap_tools_with_approval(
         len(tools),
     )
     return wrapped
+
+
+# ---------------------------------------------------------------------------
+# Server-side approval gates: answering MCP elicitation with a handler
+# ---------------------------------------------------------------------------
+
+#: Boolean field names read as "the reviewer approves" in an elicitation
+#: form.  A form answered through :func:`approval_elicitation_callback` must
+#: have no fields (a bare confirmation) or exactly one of these as its
+#: boolean decision field, with nothing else required.
+CONFIRMATION_FIELDS: tuple[str, ...] = (
+    "approve",
+    "approved",
+    "confirm",
+    "confirmed",
+    "accept",
+    "accepted",
+    "proceed",
+    "allow",
+)
+
+
+def _confirmation_content(schema: Any, reason: str | None) -> dict[str, Any] | None:
+    """The form content that answers a confirmation-shaped request "yes".
+
+    Returns ``None`` when *schema* is not a confirmation — the request asks
+    for input an approve/deny decision cannot supply, so it must be declined
+    rather than filled in.
+    """
+    if schema is None:
+        return {}
+    if not isinstance(schema, dict):
+        return None
+    properties = schema.get("properties") or {}
+    if not isinstance(properties, dict):
+        return None
+    if not properties:
+        return {}
+    decision_fields = [
+        name
+        for name, prop in properties.items()
+        if name in CONFIRMATION_FIELDS and isinstance(prop, dict) and prop.get("type") == "boolean"
+    ]
+    if len(decision_fields) != 1:
+        return None
+    decision_field = decision_fields[0]
+    required = set(schema.get("required") or [])
+    if required - {decision_field}:
+        return None
+    content: dict[str, Any] = {decision_field: True}
+    reason_prop = properties.get("reason")
+    if reason and isinstance(reason_prop, dict) and reason_prop.get("type") == "string":
+        content["reason"] = reason
+    return content
+
+
+def _caller_user_id() -> str | None:
+    """``user_id`` of the current :class:`~promptise.agent.CallerContext`, if any."""
+    try:
+        from .agent import get_current_caller
+    except ImportError:  # pragma: no cover - agent module always ships
+        return None
+    caller = get_current_caller()
+    return getattr(caller, "user_id", None) if caller is not None else None
+
+
+def approval_elicitation_callback(
+    handler: ApprovalPolicy | ApprovalHandler | Callable[..., Any],
+    *,
+    server_name: str | None = None,
+    in_flight: Callable[[], Sequence[Any]] | None = None,
+    timeout: float | None = None,
+    event_notifier: Any = None,
+) -> Callable[[Any, Any], Awaitable[Any]]:
+    """Build an MCP ``elicitation_callback`` that asks an approval handler.
+
+    Lets the human behind a Promptise client approve **server-side**
+    approval gates — e.g. ``ApprovalGateMiddleware`` with
+    ``ElicitationApprover`` on an MCPcast-generated server, which asks the
+    calling client to confirm a gated tool call through MCP elicitation.
+    ``build_agent(approval=...)`` installs one per server automatically;
+    use this directly with :class:`~promptise.mcp.client.MCPClient`::
+
+        client = MCPClient(
+            transport="stdio",
+            command="python",
+            args=["petstore-mcp/server.py"],
+            elicitation_callback=approval_elicitation_callback(
+                CallbackApprovalHandler(ask_human),
+                server_name="petstore",
+                in_flight=lambda: client.in_flight_calls,
+            ),
+        )
+
+    Each request becomes an :class:`ApprovalRequest`: ``context_summary``
+    carries the server's message, ``metadata`` the message, the requested
+    schema and the server name (``source="mcp_elicitation"``).  When exactly
+    one tool call is in flight on the connection, ``tool_name`` and
+    ``arguments`` are that call's — the arguments this client actually
+    sent — and the handler runs in the caller's context (so
+    ``get_current_caller()`` works and ``caller_user_id`` is set).  When no
+    call or several calls are in flight, the request cannot be tied to one,
+    so ``tool_name`` is ``""``, ``arguments`` is empty and
+    ``metadata["in_flight_tools"]`` lists the candidates; the reviewer
+    decides from the server's message alone.
+
+    The decision maps back as follows, failing closed at every step:
+
+    - approved → ``accept``, with the form's decision field set to ``True``
+      (and ``reason`` filled in when the form has one);
+    - denied → ``decline``;
+    - a timeout or a handler error → ``decline`` — never ``accept``, even
+      when the policy says ``on_timeout="allow"``: that setting governs the
+      agent's own gate, not one the server asked a human to clear;
+    - ``modified_arguments`` → ``decline`` (the server has already bound the
+      arguments; executing the originals after a reviewer changed them
+      would run something nobody approved);
+    - a request that is not a confirmation — URL mode, or a form whose
+      fields are not one boolean from :data:`CONFIRMATION_FIELDS` plus an
+      optional ``reason`` — is declined without asking the handler.
+
+    Args:
+        handler: An :class:`ApprovalPolicy` (its handler, ``timeout``,
+            ``include_arguments`` and ``redact_sensitive`` apply; its tool
+            patterns do not — the server decided the call needs approval),
+            an :class:`ApprovalHandler`, or a callable accepted by
+            :class:`CallbackApprovalHandler`.  An
+            :class:`~promptise.approval_classifier.AutoApprovalClassifier`
+            is bypassed in favour of its human ``fallback``: its auto-allow
+            rules were written for the agent's own gate, and must not clear
+            a gate the server put in front of a human.
+        server_name: Name shown to the reviewer and recorded in metadata.
+        in_flight: Returns the connection's in-flight calls — pass
+            ``lambda: client.in_flight_calls``.  Without it, requests are
+            never tied to a tool call.
+        timeout: Seconds to wait for the handler.  Defaults to the
+            policy's ``timeout``, or 300.
+        event_notifier: Optional :class:`~promptise.events.EventNotifier`;
+            ``approval.requested`` / ``approval.granted`` /
+            ``approval.denied`` are emitted with ``source="mcp_elicitation"``.
+
+    Returns:
+        An async ``(context, params) -> ElicitResult`` callable for
+        ``MCPClient(elicitation_callback=...)``.
+    """
+    policy = handler if isinstance(handler, ApprovalPolicy) else None
+    target: ApprovalHandler
+    if policy is not None:
+        target = policy.handler
+    elif isinstance(handler, ApprovalHandler):
+        target = handler
+    elif callable(handler):
+        target = CallbackApprovalHandler(handler)
+    else:
+        raise TypeError(
+            "handler must be an ApprovalPolicy, an ApprovalHandler or a callable, "
+            f"got {type(handler).__name__}"
+        )
+
+    from .approval_classifier import AutoApprovalClassifier
+
+    if isinstance(target, AutoApprovalClassifier):
+        target = target.fallback
+
+    if timeout is None:
+        timeout = policy.timeout if policy is not None else 300.0
+    if not (0 < timeout <= 86400):
+        raise ValueError(f"timeout must be in (0, 86400], got {timeout}")
+    effective_timeout: float = timeout
+    include_arguments = policy.include_arguments if policy is not None else True
+    where = f"Server {server_name!r}" if server_name else "The MCP server"
+
+    async def _callback(context: Any, params: Any) -> Any:
+        from mcp import types
+
+        decline = types.ElicitResult(action="decline")
+        message = str(getattr(params, "message", "") or "")
+        mode = getattr(params, "mode", None) or "form"
+        if mode != "form":
+            logger.warning(
+                "Approval: %s sent a %s-mode elicitation; an approval handler only "
+                "answers confirmation forms — declined",
+                where,
+                mode,
+            )
+            return decline
+        schema = getattr(params, "requestedSchema", None)
+        if _confirmation_content(schema, None) is None:
+            logger.warning(
+                "Approval: %s asked for input that is not a confirmation (%r) — declined",
+                where,
+                message,
+            )
+            return decline
+
+        calls = list(in_flight()) if in_flight is not None else []
+        call = calls[0] if len(calls) == 1 else None
+        # Run the handler and events in the caller's context when the request
+        # belongs to a known call: the elicitation arrives on the session's own
+        # task, where the agent's CallerContext is not set.
+        run_in_caller: Callable[..., Any] = (
+            call.context.run if call is not None else lambda fn, *a, **kw: fn(*a, **kw)
+        )
+
+        arguments: dict[str, Any] = {}
+        if call is not None and include_arguments:
+            arguments = (
+                await policy.redact_arguments(call.arguments)
+                if policy is not None
+                else dict(call.arguments)
+            )
+        request = ApprovalRequest(
+            request_id=secrets.token_hex(16),
+            tool_name=call.name if call is not None else "",
+            arguments=arguments,
+            caller_user_id=run_in_caller(_caller_user_id),
+            context_summary=f"{where} asks: {message}",
+            timeout=effective_timeout,
+            metadata={
+                "source": "mcp_elicitation",
+                "server": server_name,
+                "elicitation_message": message,
+                "requested_schema": schema,
+                "in_flight_tools": [c.name for c in calls],
+            },
+        )
+
+        def _emit(event_type: str, severity: str, data: dict[str, Any]) -> None:
+            if event_notifier is None:
+                return
+            from .events import emit_event
+
+            run_in_caller(
+                emit_event,
+                event_notifier,
+                event_type,
+                severity,
+                {
+                    "tool_name": request.tool_name,
+                    "request_id": request.request_id,
+                    "source": "mcp_elicitation",
+                    "server": server_name,
+                    **data,
+                },
+            )
+
+        logger.info(
+            "Approval: %s requests approval%s (request_id=%s)",
+            where,
+            f" for {request.tool_name}" if request.tool_name else "",
+            request.request_id,
+        )
+        _emit("approval.requested", "info", {"timeout": effective_timeout})
+
+        try:
+            task = run_in_caller(asyncio.ensure_future, target.request_approval(request))
+            decision = await asyncio.wait_for(task, timeout=effective_timeout)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Approval: no decision on %s's request within %.0fs (request_id=%s) — declined",
+                where,
+                effective_timeout,
+                request.request_id,
+            )
+            _emit("approval.denied", "warning", {"reason": "timeout"})
+            return decline
+        except Exception as exc:
+            logger.error(
+                "Approval: handler error on %s's request (%s: %s) — declined",
+                where,
+                type(exc).__name__,
+                exc,
+            )
+            _emit("approval.denied", "warning", {"reason": f"handler error: {type(exc).__name__}"})
+            return decline
+
+        if not isinstance(decision, ApprovalDecision) or not decision.approved:
+            reason = getattr(decision, "reason", None) or "denied by reviewer"
+            logger.info(
+                "Approval: DENIED %s's request (request_id=%s): %s",
+                where,
+                request.request_id,
+                reason,
+            )
+            _emit("approval.denied", "warning", {"reason": reason})
+            return decline
+        if decision.modified_arguments is not None:
+            logger.warning(
+                "Approval: reviewer modified the arguments of %s's request "
+                "(request_id=%s); a server-side gate cannot apply that — declined",
+                where,
+                request.request_id,
+            )
+            _emit("approval.denied", "warning", {"reason": "modified arguments"})
+            return decline
+
+        logger.info(
+            "Approval: APPROVED %s's request (request_id=%s, reviewer=%s)",
+            where,
+            request.request_id,
+            decision.reviewer_id or "unknown",
+        )
+        _emit("approval.granted", "info", {"reviewer": decision.reviewer_id})
+        return types.ElicitResult(
+            action="accept", content=_confirmation_content(schema, decision.reason)
+        )
+
+    return _callback

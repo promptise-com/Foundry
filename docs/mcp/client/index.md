@@ -126,7 +126,9 @@ async with MCPClient(
 | `command` | `str \| None` | `None` | Executable for stdio transport |
 | `args` | `list[str]` | `[]` | Arguments for the stdio command |
 | `env` | `dict[str, str]` | `{}` | Environment variables for the stdio process |
+| `cwd` | `str \| None` | `None` | Working directory for the stdio process |
 | `timeout` | `float` | `30.0` | HTTP request timeout in seconds |
+| `elicitation_callback` | SDK `ElicitationFnT \| None` | `None` | Answers the server's MCP elicitation requests; the elicitation capability is declared only when set. See [Answering elicitation](#answering-elicitation-server-side-approval-gates) |
 
 ### Fetching tokens
 
@@ -179,6 +181,70 @@ async with MCPClient(url="http://localhost:8080/mcp") as client:
     session = client.session  # mcp.client.session.ClientSession
     headers = client.headers  # Read-only copy of HTTP headers
 ```
+
+### Answering elicitation (server-side approval gates)
+
+A server can ask the human behind the client for input mid-call through MCP
+elicitation. The common case is a server-side
+[approval gate](../server/approval-gates.md): `ElicitationApprover` (the
+default on [MCPcast](../server/mcpcast.md#human-approval)-generated servers
+with `env-token`, `passthrough` or `none` auth) asks the client to confirm each
+gated tool call.
+
+By default `MCPClient` declares **no** elicitation support, so such a server
+denies the call with `APPROVAL_DENIED` and nothing runs. That is fail-closed and
+stays the behaviour until you pass `elicitation_callback`. The callback has the
+MCP SDK's signature, `async (context, params) -> ElicitResult | ErrorData`. To
+send the requests to a human through any
+[approval handler](../../core/approval.md), use
+`approval_elicitation_callback`:
+
+```python
+from promptise.approval import CallbackApprovalHandler, approval_elicitation_callback
+from promptise.mcp.client import MCPClient
+
+async def ask_human(request):
+    print(request.context_summary)                     # the server's own message
+    print(f"{request.tool_name}({request.arguments})") # the call this client sent
+    return input("Approve? [y/N] ").strip().lower() == "y"
+
+client = MCPClient(
+    transport="stdio",
+    command="python",
+    args=["petstore-mcp/server.py"],
+    env={"MCPCAST_UPSTREAM_TOKEN": "Bearer <your API token>"},
+    elicitation_callback=approval_elicitation_callback(
+        CallbackApprovalHandler(ask_human),
+        server_name="petstore",
+        in_flight=lambda: client.in_flight_calls,
+    ),
+)
+async with client:
+    result = await client.call_tool("add_pet", {"name": "Rex"})
+```
+
+`build_agent(approval=...)` does this for every server automatically (see
+[Server-side approval gates](../../core/approval.md#server-side-approval-gates)).
+`examples/mcp/approve_server_gates.py` runs both cases, with and without a
+handler, against a gated server and needs no LLM.
+
+A request carries no tool name on the wire, so the client relates it to a call
+itself. `client.in_flight_calls` lists the `call_tool` requests still awaiting a
+result (`InFlightToolCall`: `name`, `arguments` and the caller's `contextvars`
+snapshot). With exactly one call in flight, the approval request gets that
+call's tool name and arguments. Otherwise the reviewer decides from the
+server's message alone.
+
+What the client guarantees:
+
+- **No acceptance without a handler decision.** A callback that raises is answered with a JSON-RPC error, which a fail-closed server reads as a denial, and the session stays up.
+- **Only confirmations are answered.** `approval_elicitation_callback` accepts only an empty form or a form whose one decision field is a boolean from `CONFIRMATION_FIELDS` (`approve`, `confirm`, `proceed`, ...). URL-mode requests, and forms that ask for anything else, are declined without asking the handler.
+- **Elicitation is sequential per connection.** The MCP SDK handles server requests on the session's receive loop, so while a reviewer decides, other responses from that server wait. Keep handler timeouts below the server's approval timeout.
+
+`MCPMultiClient(clients, elicitation_callback=...)` installs a default callback
+on every client that has none of its own. The SDK callback does not say which
+server asked, so give each `MCPClient` its own callback when the handler needs
+the server name.
 
 ## MCPMultiClient
 
@@ -365,9 +431,11 @@ asyncio.run(main())
 | `MCPClient.fetch_token(url, client_id, secret)` | Static method | Acquire a JWT from a token endpoint |
 | `client.list_tools()` | Method | Discover all tools on the server |
 | `client.call_tool(name, arguments)` | Method | Call a tool and get a `CallToolResult` |
+| `client.in_flight_calls` | Property | `InFlightToolCall`s awaiting a result (for relating elicitation to a call) |
 | `client.session` | Property | Underlying MCP `ClientSession` |
 | `client.headers` | Property | Read-only copy of HTTP headers |
-| `MCPMultiClient(clients)` | Class | Multi-server aggregating client |
+| `MCPMultiClient(clients, elicitation_callback=None)` | Class | Multi-server aggregating client |
+| `approval_elicitation_callback(handler, ...)` | Function | Elicitation callback that asks an approval handler (`promptise.approval`) |
 | `multi.list_tools()` | Method | Discover tools from all servers |
 | `multi.call_tool(name, arguments)` | Method | Call a tool, auto-routed to the correct server |
 | `multi.tool_to_server` | Property | Tool name to server name mapping |
