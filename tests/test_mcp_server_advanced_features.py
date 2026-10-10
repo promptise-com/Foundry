@@ -510,16 +510,16 @@ class TestRedisCache:
         assert result == {"key": "value"}
 
     @pytest.mark.asyncio
-    async def test_set_serializes_and_calls_setex(self) -> None:
+    async def test_set_serializes_with_millisecond_ttl(self) -> None:
         cache, mock_client = self._make_cache_with_mock_client()
-        mock_client.setex = AsyncMock()
+        mock_client.set = AsyncMock()
         await cache.set("my_key", {"data": 123}, ttl=300)
-        mock_client.setex.assert_called_once()
-        call_args = mock_client.setex.call_args
+        mock_client.set.assert_called_once()
+        call_args = mock_client.set.call_args
         # Key should have prefix
         assert "promptise:" in call_args[0][0]
-        # TTL should be int(300) = 300
-        assert call_args[0][1] == 300
+        assert call_args[0][1] == '{"data": 123}'
+        assert call_args.kwargs["px"] == 300_000
 
     @pytest.mark.asyncio
     async def test_delete_calls_redis_delete(self) -> None:

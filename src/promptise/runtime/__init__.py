@@ -80,6 +80,7 @@ from .distributed import (
 
 # -- Exceptions --
 from .exceptions import (
+    BudgetExceededError,
     JournalError,
     ManifestError,
     ManifestValidationError,
@@ -206,6 +207,7 @@ __all__ = [
     "ConversationBuffer",
     # Exceptions
     "RuntimeBaseError",
+    "BudgetExceededError",
     "ProcessStateError",
     "ManifestError",
     "ManifestValidationError",

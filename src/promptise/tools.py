@@ -18,7 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Optional, Union, cast
 
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
 # Callback types for tracing tool calls
 OnBefore = Callable[[str, dict[str, Any]], None]
@@ -130,7 +130,7 @@ def _schema_to_annotation(
     t = prop.get("type")
 
     # Nested object with properties -> build a Pydantic model
-    if t == "object" and "properties" in prop:
+    if t == "object" and prop.get("properties"):
         return _jsonschema_to_pydantic(prop, model_name=name_hint, _defs=defs)
 
     # Array with structured items -> list[Model]
@@ -138,7 +138,7 @@ def _schema_to_annotation(
         items = prop.get("items", {})
         if items:
             items = _resolve_refs(items, defs)
-            if items.get("type") == "object" and "properties" in items:
+            if items.get("type") == "object" and items.get("properties"):
                 inner_model = _jsonschema_to_pydantic(
                     items,
                     model_name=f"{name_hint}_Item",
@@ -214,15 +214,13 @@ def _jsonschema_to_pydantic(
     required = set(schema.get("required", []) or [])
 
     if not props:
-        safe = _unique_name(model_name)
+        # A tool without parameters: an empty object schema. Free-form
+        # objects (``additionalProperties`` set) pass their keys through.
+        extra = schema.get("additionalProperties")
+        free_form = extra is True or isinstance(extra, dict)
         model = create_model(
-            safe,
-            **cast(
-                dict[str, Any],
-                {
-                    "payload": (dict, Field(None, description="Raw payload")),
-                },
-            ),
+            _unique_name(model_name),
+            __config__=ConfigDict(extra="allow") if free_form else None,
         )
         return cast(type[BaseModel], model)
 

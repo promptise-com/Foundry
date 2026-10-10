@@ -183,6 +183,12 @@ class RequestContext:
         meta: Raw HTTP headers (lower-cased names) of the request that
             carries this call — per request, not per MCP session.
         state: Arbitrary per-request state (middleware can read/write).
+            ``state["tool_def"]`` holds the definition being invoked (a
+            ``ToolDef``, ``ResourceDef`` or ``PromptDef``); a resource read
+            also sets ``state["resource_uri"]``.
+        request_type: What is being invoked: ``"tool"``, ``"resource"``
+            or ``"prompt"``.  Middleware runs for all three; branch on this
+            when a middleware only makes sense for one of them.
         logger: Pre-configured logger scoped to this request.
     """
 
@@ -193,6 +199,7 @@ class RequestContext:
     client: ClientContext = field(default_factory=ClientContext)
     meta: dict[str, Any] = field(default_factory=dict)
     state: dict[str, Any] = field(default_factory=dict)
+    request_type: str = "tool"
 
     @property
     def logger(self) -> logging.Logger:

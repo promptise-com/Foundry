@@ -2,7 +2,9 @@
 
 Provides a ``CancellationToken`` that tool handlers can check during
 long-running operations.  When the MCP client sends a cancellation
-notification, the token is marked as cancelled.
+notification, the token is marked as cancelled and the handler gets the
+server's ``cancel_grace_period`` to stop on its own before its task is
+cancelled.  ``MCPQueue`` sets a job's token when the job is cancelled.
 
 Example::
 

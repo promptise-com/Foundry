@@ -157,6 +157,8 @@ await runtime.restart_process("data-watcher")
 
 `start_all()` only starts processes in `CREATED`, `STOPPED`, or `FAILED` states. `stop_all()` skips processes that are already stopped.
 
+When the runtime has an `event_notifier`, it is shared by every process. A process that stops no longer shuts the shared notifier down; `stop_all()` drains it after the last process has stopped, so every `process.stopped` event is delivered before `stop_all()` returns.
+
 ### Context manager
 
 `AgentRuntime` supports `async with` for automatic cleanup. When the context exits, `stop_all()` is called:
@@ -227,7 +229,7 @@ all_procs = runtime.processes
 | `await load_manifest(path)` | Load a process from a `.agent` file |
 | `await load_directory(path)` | Load all `.agent` files from a directory |
 | `await start_all()` | Start all stopped/created processes |
-| `await stop_all()` | Stop all running processes |
+| `await stop_all()` | Stop all running processes, then drain the shared event notifier |
 | `await start_process(name)` | Start a single process |
 | `await stop_process(name)` | Stop a single process |
 | `await restart_process(name)` | Stop then start a process |

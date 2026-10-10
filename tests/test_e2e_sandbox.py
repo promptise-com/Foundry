@@ -30,7 +30,7 @@ class TestSandboxConfigDefaults:
     """Verify that default SandboxConfig uses secure, restrictive defaults."""
 
     def test_secure_defaults(self):
-        """Default config should be locked-down: restricted network, no sudo,
+        """Default config should be locked-down: no network, no sudo,
         read-only rootfs, moderate resource limits."""
         cfg = SandboxConfig()
 
@@ -38,18 +38,19 @@ class TestSandboxConfigDefaults:
         assert cfg.image == "python:3.11-slim"
         assert cfg.cpu_limit == 2
         assert cfg.memory_limit == "4G"
-        assert cfg.disk_limit == "10G"
-        assert cfg.network == NetworkMode.RESTRICTED
+        assert cfg.disk_limit == "1G"
+        assert cfg.pids_limit == 256
+        assert cfg.network == NetworkMode.NONE
         assert cfg.persistent is False
         assert cfg.timeout == 300
-        assert cfg.tools == ["python"]
         assert cfg.workdir == "/workspace"
         assert cfg.env == {}
         assert cfg.allow_sudo is False
         assert cfg.read_only_rootfs is True
         assert cfg.runtime is None
-        assert cfg.security_opt == []
-        assert cfg.cap_drop == []
+        assert not hasattr(cfg, "tools")
+        assert not hasattr(cfg, "security_opt")
+        assert not hasattr(cfg, "cap_drop")
 
 
 class TestSandboxConfigFromDict:
@@ -65,7 +66,7 @@ class TestSandboxConfigFromDict:
             "network": "full",
             "persistent": True,
             "timeout": 600,
-            "tools": ["python", "node", "rust"],
+            "pids_limit": 64,
             "workdir": "/app",
             "env": {"MY_VAR": "hello"},
             "allow_sudo": True,
@@ -79,7 +80,7 @@ class TestSandboxConfigFromDict:
         assert cfg.network == NetworkMode.FULL
         assert cfg.persistent is True
         assert cfg.timeout == 600
-        assert cfg.tools == ["python", "node", "rust"]
+        assert cfg.pids_limit == 64
         assert cfg.workdir == "/app"
         assert cfg.env == {"MY_VAR": "hello"}
         assert cfg.allow_sudo is True
@@ -298,7 +299,7 @@ class TestSandboxConfigSerializationRoundtrip:
             network=NetworkMode.FULL,
             persistent=True,
             timeout=120,
-            tools=["python", "node"],
+            pids_limit=128,
             workdir="/data",
             env={"FOO": "bar"},
             allow_sudo=True,
@@ -314,7 +315,7 @@ class TestSandboxConfigSerializationRoundtrip:
         assert restored.network == original.network
         assert restored.persistent == original.persistent
         assert restored.timeout == original.timeout
-        assert restored.tools == original.tools
+        assert restored.pids_limit == original.pids_limit
         assert restored.workdir == original.workdir
         assert restored.env == original.env
         assert restored.allow_sudo == original.allow_sudo

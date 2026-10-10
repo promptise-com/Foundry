@@ -168,6 +168,34 @@ class TestDescriptionTruncation:
         clean = result.replace("...", "").rstrip()
         assert " " not in clean or clean.endswith(" ") is False
 
+    SUSPEND = (
+        "Suspend a user so they can't sign in. Their data and memberships are kept "
+        "and can be restored. Use this, not delete_user, when someone leaves the company."
+    )
+
+    def test_ends_on_sentence_without_ellipsis(self):
+        # Used to produce "... can be restored...." (sentence dot + "...").
+        result = _truncate_description(self.SUSPEND, 100)
+        assert result == (
+            "Suspend a user so they can't sign in. Their data and memberships "
+            "are kept and can be restored."
+        )
+
+    def test_word_cut_when_sentence_would_waste_budget(self):
+        result = _truncate_description(self.SUSPEND, 150)
+        assert result.endswith("when someone leaves the...")
+        assert len(result) <= 150
+
+    def test_never_doubles_dots_or_ends_on_punctuation(self):
+        for n in range(10, len(self.SUSPEND)):
+            result = _truncate_description(self.SUSPEND, n)
+            assert len(result) <= n
+            assert "...." not in result and ",..." not in result
+
+    def test_abbreviation_is_not_a_sentence_end(self):
+        text = "Lists items, e.g. users or teams, with filters and paging support for large orgs."
+        assert not _truncate_description(text, 40).endswith("e.g.")
+
 
 # ======================================================================
 # TestSchemaMinification
@@ -316,7 +344,7 @@ class TestRequestMoreToolsTool:
         fallback = _RequestMoreToolsTool(tool_index=index)
 
         result = await fallback._arun()
-        assert "2 tools available" in result
+        assert "2 of 2 tools are now available" in result
         assert "alpha" in result
         assert "beta" in result
 
@@ -330,7 +358,7 @@ class TestRequestMoreToolsTool:
         tools = [_make_tool("x", "y")]
         index = ToolIndex(tools)
         fallback = _RequestMoreToolsTool(tool_index=index)
-        assert "not currently available" in fallback.description
+        assert "none of your current tools" in fallback.description
 
 
 # ======================================================================

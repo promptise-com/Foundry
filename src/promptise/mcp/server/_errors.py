@@ -1,13 +1,15 @@
 """Structured MCP errors that LLMs can understand.
 
-When raised inside a tool/resource/prompt handler, the error handling
-middleware converts these into ``CallToolResult`` with ``isError=True``
-and structured content that helps the LLM recover.
+When raised inside a tool handler, the server answers the call with a
+``CallToolResult`` that has ``isError=True`` and the structured error as its
+text content -- ``{"error": {"code", "message", ...}}`` -- which helps the
+LLM recover.
 """
 
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -124,11 +126,36 @@ class RateLimitError(MCPError):
     ) -> None:
         kwargs.setdefault("code", "RATE_LIMIT_EXCEEDED")
         kwargs.setdefault("retryable", True)
+        self.retry_after = retry_after
         if retry_after is not None:
             kwargs.setdefault("details", {})
-            kwargs["details"]["retry_after_seconds"] = retry_after
-            kwargs.setdefault("suggestion", f"Wait {retry_after:.0f} seconds before retrying")
+            kwargs["details"]["retry_after_seconds"] = round(retry_after, 3)
+            kwargs.setdefault("suggestion", f"Wait {_seconds(retry_after)} before retrying.")
         super().__init__(message, **kwargs)
+
+
+class ConcurrencyLimitError(RateLimitError):
+    """Raised when a tool (or the server) is already running its maximum
+    number of concurrent calls.
+
+    A subclass of :class:`RateLimitError` so existing ``except
+    RateLimitError`` code keeps working, but with its own code,
+    ``CONCURRENCY_LIMIT_EXCEEDED``: the caller is not over a quota, the
+    tool is busy, and a retry shortly afterwards is likely to succeed.
+    """
+
+    def __init__(self, message: str = "At capacity", **kwargs: Any) -> None:
+        kwargs.setdefault("code", "CONCURRENCY_LIMIT_EXCEEDED")
+        kwargs.setdefault(
+            "suggestion", "Other calls to this tool are in progress. Retry in a moment."
+        )
+        super().__init__(message, **kwargs)
+
+
+def _seconds(value: float) -> str:
+    """``0.3`` -> ``"1 second"``, ``42.2`` -> ``"43 seconds"`` (never "0 seconds")."""
+    n = max(1, math.ceil(value))
+    return f"{n} second" if n == 1 else f"{n} seconds"
 
 
 class ApprovalDeniedError(MCPError):

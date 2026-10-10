@@ -146,6 +146,40 @@ class TestGateCore:
         assert seen["meta"]["client_id"] == "agent-1"
         assert seen["meta"]["tenant_id"] == "acme"
 
+    @pytest.mark.asyncio
+    async def test_classifier_rules_see_hidden_arguments_and_annotations(self):
+        from promptise.approval import CallbackApprovalHandler
+        from promptise.approval_classifier import ApprovalRule, AutoApprovalClassifier
+
+        asked: list[ApprovalRequest] = []
+
+        async def human(request):
+            asked.append(request)
+            return ApprovalDecision(approved=True)
+
+        classifier = AutoApprovalClassifier(
+            deny_rules=[ApprovalRule(tool="refund", argument_contains='"order_id": "VIP-')],
+            fallback=CallbackApprovalHandler(human),
+        )
+        server = MCPServer(name="gated")
+        server.add_middleware(ApprovalGateMiddleware(classifier, include_arguments=False))
+
+        @server.tool(requires_approval=True, destructive_hint=True)
+        async def refund(order_id: str) -> str:
+            """Refund an order."""
+            return f"refunded {order_id}"
+
+        client = TestClient(server)
+        denied = await client.call_tool("refund", {"order_id": "VIP-1"})
+        assert "APPROVAL_DENIED" in denied[0].text
+        ok = await client.call_tool("refund", {"order_id": "o1"})
+        assert ok[0].text == "refunded o1"
+        # The human saw neither the arguments nor the raw copy
+        [request] = asked
+        assert request.arguments == {}
+        assert request.raw_arguments is None
+        assert request.tool_annotations == {"destructiveHint": True}
+
     def test_config_validation(self):
         with pytest.raises(ValueError, match="on_timeout"):
             ApprovalGateMiddleware(lambda r: True, on_timeout="shrug")

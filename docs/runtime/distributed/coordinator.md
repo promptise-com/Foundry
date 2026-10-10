@@ -1,6 +1,6 @@
 # Distributed Coordinator
 
-The `RuntimeCoordinator` is the central brain of a distributed agent runtime deployment. It tracks runtime nodes across the cluster, monitors their health with periodic checks, aggregates status information, and provides remote operations for starting, stopping, and injecting events into processes on remote nodes.
+The `RuntimeCoordinator` is the central brain of a distributed agent runtime deployment. It tracks runtime nodes across the cluster, monitors their health with periodic checks, aggregates status information, and provides remote operations for starting, stopping, and injecting events into processes on remote nodes. It does not move processes on its own: when a node fails, your code picks a healthy node (`healthy_nodes`) and starts the process there (`start_process_on_node`).
 
 ```python
 from promptise.runtime.distributed.coordinator import RuntimeCoordinator
@@ -8,6 +8,7 @@ from promptise.runtime.distributed.coordinator import RuntimeCoordinator
 async with RuntimeCoordinator(
     health_check_interval=15.0,
     node_timeout=45.0,
+    auth_token="cluster-token",  # bearer token for the nodes' RuntimeTransport
 ) as coordinator:
     coordinator.register_node("node-1", "http://host1:9100")
     coordinator.register_node("node-2", "http://host2:9100")
@@ -65,8 +66,13 @@ node2 = coordinator.register_node(
     "node-2",
     "http://host2:9100",
     metadata={"region": "us-east", "capacity": "high"},
+    auth_token="node-2-token",  # overrides the coordinator's auth_token
 )
 ```
+
+### Authentication
+
+Nodes that bind a non-loopback address must run `RuntimeTransport(auth_token=...)`. The coordinator sends `Authorization: Bearer <token>` on every request: the node's own `auth_token` from `register_node()`, or else the coordinator's `auth_token`. Tokens are never included in `NodeInfo.to_dict()` or `cluster_status()`.
 
 ### Unregistering nodes
 
@@ -146,7 +152,9 @@ health = await coordinator.check_health()
 # }
 ```
 
-Health checks make HTTP GET requests to each node's `/health` endpoint. Nodes that respond with status 200 are marked healthy; all others are marked unhealthy.
+Health checks make HTTP GET requests to each node's `/health` endpoint. Nodes that respond with status 200 are marked healthy. A node that has never answered, or has failed checks for longer than `node_timeout` since its last successful one, is marked unhealthy. A healthy node that misses a check within `node_timeout` stays healthy (its entry in the result carries `"missed_check": true` and the error), so one dropped request does not flap the cluster view.
+
+A failing health round is logged and the background monitor keeps running.
 
 ### Starting and stopping the monitor
 
@@ -197,6 +205,8 @@ node_status = await coordinator.get_node_status("node-1")
 
 ## Remote Operations
 
+Remote operations raise `RuntimeError` when the node answers with an error status (`401` wrong token, `404` unknown process, `500` failed start, ...), so a failure is never mistaken for success.
+
 ### Start a process on a remote node
 
 ```python
@@ -231,8 +241,8 @@ result = await coordinator.inject_event_on_node(
 
 | Method / Property | Description |
 |---|---|
-| `RuntimeCoordinator(health_check_interval, node_timeout)` | Create a coordinator |
-| `register_node(node_id, url, metadata)` | Register a runtime node |
+| `RuntimeCoordinator(health_check_interval, node_timeout, auth_token)` | Create a coordinator |
+| `register_node(node_id, url, metadata, *, auth_token)` | Register a runtime node |
 | `unregister_node(node_id)` | Remove a node |
 | `get_node(node_id)` | Get `NodeInfo` for a node |
 | `nodes` | Read-only dict of all nodes |
@@ -259,8 +269,8 @@ result = await coordinator.inject_event_on_node(
 !!! info "aiohttp shipped with base install"
     All HTTP-based operations (health checks, remote commands, status queries) use `aiohttp`, which is included in the base `pip install promptise`.
 
-!!! warning "No authentication"
-    The coordinator communicates with nodes over plain HTTP. In production, use a reverse proxy with TLS and authentication, or deploy within a private network.
+!!! warning "Plain HTTP"
+    The coordinator authenticates with bearer tokens but talks to nodes over plain HTTP unless the node URLs are `https://`. Across an untrusted network, put the nodes behind a TLS reverse proxy.
 
 !!! warning "Coordinator is a single point of failure"
     The coordinator itself is not replicated. For high availability, run the coordinator behind a load balancer or implement coordinator election.

@@ -103,16 +103,16 @@ The bridge is the whole trick. The generated `promptise_tools.py` turns each of 
 
 Two properties fall out of this that a bolt-on sandbox doesn't give you for free. First, there is **no silent fallback**: `build_agent(agent_pattern="code-action")` raises a clear error if a container can't be initialized, because running model code on the host would be exactly the thing you're avoiding. Second, your tools keep their protections — because each bridged call invokes the real `BaseTool` on the host, an approval gate (`build_agent(..., approval=...)`) still fires on a bridged call, and under the Agent Runtime your budget/health/audit hooks apply per call. Without the runtime, code-action enforces its own hard `max_tool_calls` cap per run (default 50) so a generated program can't loop a tool unbounded.
 
-You don't have to use code-action to get no-egress; it's just where it's the default. On the general sandbox path you cut the network explicitly. `NetworkMode.NONE` is one of three modes:
+You don't have to use code-action to get no-egress: `NONE` is the default for every sandbox, so plain `sandbox=True` gets it too. Spelling it out on the general path keeps the intent explicit and greppable. `NetworkMode.NONE` is one of three modes:
 
 | `NetworkMode` | What it allows |
 |---|---|
-| `NONE` | No network access whatsoever — the code-action default |
-| `RESTRICTED` | Limited network with DNS filtering (the general-sandbox default) |
+| `NONE` | No network access whatsoever — the default for every sandbox, code-action included |
+| `RESTRICTED` | DNS plus outbound TCP 80/443 only, enforced with iptables inside the container (opt-in; the sandbox refuses to start if the image has no `iptables`) |
 | `FULL` | Full unrestricted outbound |
 
 ```python
-# General sandbox path (any agent_pattern): cut egress by hand.
+# General sandbox path (any agent_pattern): no egress, spelled out explicitly.
 agent = await build_agent(
     servers={},
     model="openai:gpt-5-mini",
@@ -125,7 +125,7 @@ agent = await build_agent(
 )
 ```
 
-Cutting the network is the top layer; the sandbox stacks several more underneath it by default — read-only rootfs, ~40 dropped Linux capabilities, a seccomp syscall whitelist, and CPU/memory/time limits. Every knob, plus the optional `gvisor` backend for kernel-level isolation, is in the [sandbox reference](../../core/sandbox.md).
+Cutting the network is the top layer; the sandbox stacks several more underneath it by default — read-only rootfs, ~40 dropped Linux capabilities, Docker's default seccomp profile, `no-new-privileges`, and CPU/memory/process/time limits. Every knob, plus the optional `gvisor` backend for kernel-level isolation, is in the [sandbox reference](../../core/sandbox.md).
 
 ## Proving your agent's code can't phone home
 
@@ -149,15 +149,15 @@ It doesn't reach the outside world directly — the *host* does, on the program'
 
 ### Does cutting egress mean my agent can't call external APIs at all?
 
-The *program* can't, and that's the point for untrusted code. But any tool you register can — because the tool runs on the host, outside the sandbox, with whatever network access you gave the host process. So the pattern is: the sandbox is airtight, and controlled outbound access lives in your reviewed tools, where you can gate and audit it. If you genuinely need the code itself to have limited outbound reach, use `NetworkMode.RESTRICTED` (DNS-filtered) instead of `NONE`.
+The *program* can't, and that's the point for untrusted code. But any tool you register can — because the tool runs on the host, outside the sandbox, with whatever network access you gave the host process. So the pattern is: the sandbox is airtight, and controlled outbound access lives in your reviewed tools, where you can gate and audit it. If you genuinely need the code itself to have limited outbound reach, use `NetworkMode.RESTRICTED` (DNS plus HTTP/HTTPS only, enforced with iptables, so the image must include `iptables`) instead of `NONE`.
 
 ### How is this different from just running code in an isolated sandbox like e2b or smolagents?
 
-Those can isolate code, and smolagents even exposes tools inside its executor — so this isn't about a missing capability. The difference is the default pairing. Hosted sandboxes typically ship with internet on unless you restrict it, and framework sandboxes usually reach tools over a network channel, so `network="none"` breaks tool access. Promptise makes no-egress the **default** for code-action and gives the program a non-network tool bridge, so you don't trade isolation for usefulness.
+Those can isolate code, and smolagents even exposes tools inside its executor — so this isn't about a missing capability. The difference is the default pairing. Hosted sandboxes typically ship with internet on unless you restrict it, and framework sandboxes usually reach tools over a network channel, so `network="none"` breaks tool access. Promptise makes no-egress the **default** for code-action (and every other sandbox) and gives the program a non-network tool bridge, so you don't trade isolation for usefulness.
 
 ### What happens if Docker isn't available?
 
-`build_agent(agent_pattern="code-action")` raises a clear error. There is no silent fallback to running model-written code on the host, because that would reintroduce every reach cutting the network was meant to close.
+`build_agent(agent_pattern="code-action")` raises a clear error. There is no silent fallback to running model-written code on the host, because that would reintroduce every reach cutting the network was meant to close. The same holds for `sandbox=True` on any agent: if Docker is unavailable, `build_agent` raises instead of building the agent without its sandbox tools.
 
 ## Next steps
 

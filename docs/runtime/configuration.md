@@ -113,7 +113,7 @@ config = ProcessConfig(
 | `open_mode` | `OpenModeConfig` | defaults | Guardrails for open mode (ignored in strict) |
 | `servers` | `dict[str, Any]` | `{}` | MCP server specifications |
 | `triggers` | `list[TriggerConfig]` | `[]` | Trigger configurations |
-| `journal` | `JournalConfig` | defaults | Journal configuration |
+| `journal` | `JournalConfig` | off (`level="none"`) | Journal configuration; pass a `JournalConfig` to turn it on |
 | `context` | `ContextConfig` | defaults | AgentContext configuration |
 | `concurrency` | `int` | `1` | Max concurrent trigger invocations (1-100) |
 | `heartbeat_interval` | `float` | `10.0` | Heartbeat period in seconds |
@@ -121,7 +121,10 @@ config = ProcessConfig(
 | `max_lifetime` | `float` | `0.0` | Max process lifetime in seconds (0 = unlimited) |
 | `max_consecutive_failures` | `int` | `3` | Consecutive failures before FAILED state |
 | `restart_policy` | `str` | `"never"` | `"always"`, `"on_failure"`, or `"never"` |
-| `max_restarts` | `int` | `3` | Max restart attempts |
+| `max_restarts` | `int` | `3` | Max consecutive restart attempts (count resets after a successful invocation) |
+| `restart_backoff` | `float` | `1.0` | Seconds before the first restart; doubles per attempt, capped at 60 s |
+
+See [Restart Policies](processes.md#restart-policies) for how restarts behave.
 
 ---
 
@@ -223,11 +226,11 @@ TriggerConfig(type="sqs", custom_config={"queue_url": "https://sqs..."})
 
 ## JournalConfig
 
-Controls the durable audit log for process events.
+Controls the durable audit log for process events. A `ProcessConfig` has journaling **off** unless you set `journal=JournalConfig(...)` (or a `journal:` section in a manifest); a `JournalConfig` you create defaults to `level="checkpoint"`.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `level` | `str` | `"checkpoint"` | `"none"` (disabled), `"checkpoint"` (per cycle), `"full"` (every side effect) |
+| `level` | `str` | `"checkpoint"` | `"none"` (disabled), `"checkpoint"` (transitions, invocation results, checkpoints), `"full"` (also trigger events and tool calls/results) |
 | `backend` | `str` | `"file"` | `"file"` or `"memory"` |
 | `path` | `str` | `".promptise/journal"` | Base directory for journal files |
 
