@@ -929,7 +929,9 @@ class TestDotenv:
         )
         loader, _ = load_superagent_file(path)
         kwargs = loader.to_model_kwargs()
-        assert "api_key" not in kwargs and kwargs["temperature"] == 0
+        # The loader reads .env first (1.3.0), so the reference resolves to
+        # the file's value instead of the empty export.
+        assert kwargs.get("api_key") == "sk-from-dotenv" and kwargs["temperature"] == 0
         captured = {}
         monkeypatch.setattr(
             "langchain.chat_models.init_chat_model", lambda model, **kw: captured.update(kw)
