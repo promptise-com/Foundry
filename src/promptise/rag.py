@@ -219,7 +219,7 @@ class DocumentLoader:
                 for p in Path(self.path).rglob("*.md"):
                     docs.append(Document(
                         id=str(p.relative_to(self.path)),
-                        text=p.read_text(),
+                        text=p.read_text(encoding="utf-8"),
                         metadata={"source": str(p), "filename": p.name},
                     ))
                 return docs

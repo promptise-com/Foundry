@@ -145,7 +145,7 @@ class OpenAPIProvider:
 
         path = pathlib.Path(raw)
         if path.exists():
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
             if path.suffix in (".yaml", ".yml"):
                 try:
                     import yaml

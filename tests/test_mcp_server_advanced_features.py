@@ -425,6 +425,17 @@ class TestOpenAPIProvider:
         spec = provider._load_spec()
         assert spec["openapi"] == "3.0.0"
 
+    def test_load_spec_file_is_read_as_utf8(self, tmp_path) -> None:
+        """Not the platform encoding (cp1252 on Windows)."""
+        import json as json_mod
+
+        spec = {**self.MINIMAL_SPEC, "info": {"title": "Zürich — Büro API ✓", "version": "1"}}
+        spec_file = tmp_path / "api.json"
+        spec_file.write_bytes(json_mod.dumps(spec, ensure_ascii=False).encode("utf-8"))
+        assert (
+            OpenAPIProvider(str(spec_file))._load_spec()["info"]["title"] == "Zürich — Büro API ✓"
+        )
+
     def test_prefix_applied_to_tool_names(self) -> None:
         provider = OpenAPIProvider(self.MINIMAL_SPEC, prefix="testapi_")
         provider._spec = self.MINIMAL_SPEC
