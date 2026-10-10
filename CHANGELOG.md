@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.1 — 2026-10-10
+
+### Fixed
+
+- **MCP client: a rejected connection hung, then failed with a cancel-scope traceback** -- connecting to an HTTP server that answers the handshake with a 4xx (most often `401 Unauthorized` from a server built with `require_auth=True` when no or the wrong `api_key`/`bearer_token` is configured) left `MCPClient`, `MCPMultiClient` and `build_agent()` waiting, then crashed with `RuntimeError: Attempted to exit cancel scope in a different task`. Connecting now fails at once with a typed `MCPConnectionRejectedError` (a subclass of `MCPClientError`) carrying `status_code`, `reason`, `url` and `server_name`, and a message that names the server and says what to check: `Server 'orders' rejected the connection: 401 Unauthorized. Check the bearer_token/api_key configured for it.` The client now owns its transport in a task of its own, so other connection failures raise a readable `MCPClientError` too, never cancel the caller's task, and a client can be closed from any task. New example: `examples/mcp/client_auth_errors.py`.
+
+- **MCP server SDK: tool parameters lost their descriptions** -- `@server.tool()` resolved type hints without `include_extras`, so `Annotated[str, Field(description=..., ge=..., pattern=...)]` reached Pydantic as a bare `str`: the description and every constraint disappeared from `inputSchema` and were not enforced at call time. `Annotated` metadata is now kept, and a `Field(...)` used as the parameter default (`order_id: str = Field(description=...)`) works the same way (before, such a parameter silently became optional, with the `FieldInfo` object as its value). A parameter without a `Field` description takes it from the docstring: Google-style `Args:` / `Arguments:` / `Parameters:` entries and Sphinx `:param name:` fields are read, wrapped continuation lines are joined, and a `Field` description wins when both are given. Prompt arguments use the same parser, so their multi-line `Args:` entries are no longer cut after the first line.
+
+### Changed
+
+- **MCP server SDK: the description is the docstring's summary paragraph** -- tools, resources and prompts without `description=` used only the first docstring line, so a summary wrapped over two lines was cut mid-sentence. The description is now every line up to the first blank line, section header (`Args:`, `Returns:`, ...) or Sphinx field, joined with single spaces. Later paragraphs are still not sent: they are usually notes for maintainers, and the `Args:` section goes into the parameter schema. Pass `description=` for anything longer. Documented under [Describing parameters](https://docs.promptise.com/mcp/server/building-servers/#describing-parameters).
+
 ## 1.2.0 — 2026-10-10
 
 ### Added
