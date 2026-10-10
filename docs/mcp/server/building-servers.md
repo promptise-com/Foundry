@@ -336,12 +336,17 @@ server.run()
 # HTTP (Streamable HTTP) -- for remote agents and web clients
 server.run(transport="http", host="127.0.0.1", port=8080)
 
-# SSE (Server-Sent Events)
-server.run(transport="sse", host="0.0.0.0", port=9090)
+# SSE (Server-Sent Events, legacy)
+server.run(transport="sse", port=9090)
 
 # HTTP with live terminal dashboard
 server.run(transport="http", host="127.0.0.1", port=8080, dashboard=True)
+
+# Every interface (containers, other machines) -- name the public host
+server.run(transport="http", host="0.0.0.0", port=8080, allowed_hosts=["mcp.example.com"])
 ```
+
+HTTP and SSE bind `127.0.0.1` unless you pass `host`, and also serve `GET /health` and `GET /health/ready` for probes. To run under your own ASGI server (uvicorn flags, gunicorn workers), use `app = server.asgi_app(...)` instead of `run()`. See [Deployment](deployment.md) for binds, `Host`/`Origin` validation, CORS, probes and replicas.
 
 For async code, use `await server.run_async(...)` instead.
 
@@ -402,6 +407,7 @@ if __name__ == "__main__":
 | `server.add_middleware(mw)` | Method | Add middleware to the chain |
 | `server.include_router(router)` | Method | Merge a router into the server |
 | `server.run(transport, host, port)` | Method | Start the server (blocking) |
+| `server.asgi_app(transport, allowed_hosts, ...)` | Method | The server as an ASGI app for uvicorn / gunicorn |
 | `server.run_async(...)` | Method | Start the server (async) |
 | `ServerSettings` | Class | Base class for env-var settings |
 

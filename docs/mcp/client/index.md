@@ -127,6 +127,7 @@ async with MCPClient(
 | `args` | `list[str]` | `[]` | Arguments for the stdio command |
 | `env` | `dict[str, str]` | `{}` | Environment variables for the stdio process |
 | `timeout` | `float` | `30.0` | HTTP request timeout in seconds |
+| `auto_reconnect` | `bool` | `True` | Open a new session and retry once when an HTTP/SSE server has lost the session — see [Reconnecting after a server restart](#reconnecting-after-a-server-restart). Ignored for stdio |
 
 ### Fetching tokens
 
@@ -238,9 +239,38 @@ except MCPConnectionRejectedError as e:
     #  401 Unauthorized. Check the bearer_token/api_key configured for it."
 ```
 
-Through `MCPMultiClient` and `build_agent()` the message names the server instead (`Server 'orders' rejected the connection: 401 Unauthorized. ...`) and `e.server_name` is set. A `404` points you at the URL instead of the credentials. Retrying with the same configuration fails the same way, so fix the credentials or URL instead of retrying.
+Through `MCPMultiClient` and `build_agent()` the message names the server instead (`Server 'orders' rejected the connection: 401 Unauthorized. ...`) and `e.server_name` is set. A `404` — usually a URL without the `/mcp` path — points you at the URL instead of the credentials:
 
-Other connection failures (server down, connection refused) raise a plain `MCPClientError` such as `Failed to connect to http://localhost:8080/mcp (ConnectError: ...)`. If an established connection drops later, the next call raises `MCPClientError` (`Connection to ... was lost`). The failure never cancels the task that opened the client, because the client owns its transport in a task of its own. That also makes it safe to close a client from a different task than the one that opened it.
+```text
+Server at http://localhost:8080 rejected the connection: 404 Not Found.
+Check the URL (http://localhost:8080); Promptise servers serve MCP at /mcp.
+```
+
+Retrying with the same configuration fails the same way, so fix the credentials or URL instead of retrying.
+
+Other connection failures (server down, connection refused) raise a plain `MCPClientError` such as `Failed to connect to http://localhost:8080/mcp (ConnectError: ...)`. If an established connection drops during a call, that call raises `MCPClientError` (`Connection to ... was lost`) at once. The failure never cancels the task that opened the client, because the client owns its transport in a task of its own. That also makes it safe to close a client from a different task than the one that opened it.
+
+### Reconnecting after a server restart
+
+A Streamable HTTP server keeps its sessions in memory. After a restart or redeploy it answers the old `mcp-session-id` with `404`, and the MCP specification requires the client to start a new session. `MCPClient` does this transparently:
+
+1. A call answered `404` for its session opens a new session (`initialize`) and is retried **once**. The server refused the request without running it, so the retry cannot run a tool twice. Concurrent calls that hit the same lost session share one re-initialisation.
+2. A connection that drops **during** a call (the server died mid-request) is not retried — the tool may already have run — and that call raises `MCPClientError`. The next call opens a new session, so the client recovers as soon as the server is back.
+3. `MCPMultiClient` (and so every agent from `build_agent()`) then re-lists that server's tools, so routing follows the tools the new deployment serves.
+
+```python
+async with MCPClient(url="http://localhost:8080/mcp") as client:
+    await client.call_tool("check_stock", {"sku": "SKU-1"})
+    # ... the server is redeployed ...
+    await client.call_tool("check_stock", {"sku": "SKU-1"})  # new session, same result
+    print(client.session_generation)  # 2
+```
+
+`client.session_generation` counts the sessions the client has opened (`1` after connecting). Pass `auto_reconnect=False` to handle a lost session yourself; the call then raises `MCPClientError` saying the server no longer knows the session.
+
+If the retry is answered `404` as well, the request reached a process that does not hold the brand-new session either — typically several replicas or workers behind a load balancer without sticky sessions. The error says so; route each `mcp-session-id` to one process, or serve the app stateless (see [Deployment — Sessions, restarts and replicas](../server/deployment.md#sessions-restarts-and-replicas)).
+
+The legacy SSE transport has no session-level `404`: when its stream breaks, the call in progress fails and the next call opens a new session.
 
 ## MCPToolAdapter
 
@@ -365,7 +395,8 @@ asyncio.run(main())
 | `MCPClient.fetch_token(url, client_id, secret)` | Static method | Acquire a JWT from a token endpoint |
 | `client.list_tools()` | Method | Discover all tools on the server |
 | `client.call_tool(name, arguments)` | Method | Call a tool and get a `CallToolResult` |
-| `client.session` | Property | Underlying MCP `ClientSession` |
+| `client.session` | Property | Underlying MCP `ClientSession` (no automatic reconnect for calls made on it directly) |
+| `client.session_generation` | Property | Number of sessions opened; grows by one on each transparent re-initialisation |
 | `client.headers` | Property | Read-only copy of HTTP headers |
 | `MCPMultiClient(clients)` | Class | Multi-server aggregating client |
 | `multi.list_tools()` | Method | Discover tools from all servers |

@@ -107,7 +107,6 @@ from promptise.config import HTTPServerSpec
 
 spec = HTTPServerSpec(
     url="https://mcp.example.com/mcp",
-    transport="streamable-http",
     bearer_token="eyJhbGciOiJIUzI1NiIs...",
 )
 ```
@@ -127,9 +126,11 @@ spec = HTTPServerSpec(
 
 | Transport | When to Use |
 |---|---|
-| `"http"` | Default. Standard HTTP request/response. Works everywhere. |
-| `"streamable-http"` | Streaming HTTP for long-running tool calls that return incremental results. |
-| `"sse"` | Server-Sent Events. Useful when your server already exposes an SSE endpoint. |
+| `"http"` | Default. MCP Streamable HTTP — the current MCP transport, served by Promptise servers at `/mcp`. Responses to a request can stream (progress, incremental results) and the server can send notifications. |
+| `"streamable-http"` | An alias of `"http"`: the same Streamable HTTP client, accepted because other MCP tools spell the transport this way. |
+| `"sse"` | The legacy HTTP+SSE transport (an event stream at `/sse`, posts to `/messages/`). Use it only for servers that do not speak Streamable HTTP. |
+
+Point the URL at the MCP endpoint itself — `http://host:8080/mcp` for a Promptise server, not `http://host:8080`. A URL without the endpoint fails at connect time with `MCPConnectionRejectedError` (`404 Not Found`, with a hint to check the `/mcp` path).
 
 ### Authentication
 
@@ -190,7 +191,6 @@ agent = await build_agent(
         ),
         "search": HTTPServerSpec(
             url="https://search.example.com/mcp",
-            transport="streamable-http",
             bearer_token="eyJ...",
         ),
     },
