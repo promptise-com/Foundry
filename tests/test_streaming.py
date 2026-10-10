@@ -11,7 +11,9 @@ from promptise.streaming import (
     TokenEvent,
     ToolEndEvent,
     ToolStartEvent,
+    content_text,
     tool_display_name,
+    tool_error_summary,
     tool_summary,
 )
 
@@ -250,6 +252,51 @@ class TestToolSummary:
 
     def test_whitespace_only(self):
         assert tool_summary("   ") == "Done"
+
+
+# ---------------------------------------------------------------------------
+# tool_error_summary / content_text
+# ---------------------------------------------------------------------------
+
+
+class TestToolErrorSummary:
+    def test_mcp_tool_error_message(self):
+        text = json.dumps(
+            {"error": {"code": "TOOL_ERROR", "message": "No order A-9.", "retryable": False}},
+            indent=2,
+        )
+        assert tool_error_summary(text) == "No order A-9."
+
+    def test_long_message_truncated(self):
+        text = json.dumps({"error": {"message": "x" * 300}})
+        assert len(tool_error_summary(text)) == 120
+
+    def test_plain_text(self):
+        assert tool_error_summary("Error: Unknown tool 'x'") == "Error: Unknown tool 'x'"
+
+    def test_json_without_message(self):
+        assert tool_error_summary('{"error": "boom"}') == "error: boom"
+
+    def test_empty(self):
+        assert tool_error_summary("") == "Tool call failed"
+        assert tool_error_summary(None) == "Tool call failed"
+
+
+class TestContentText:
+    def test_string(self):
+        assert content_text("hi") == "hi"
+
+    def test_content_blocks(self):
+        blocks = [
+            {"type": "text", "text": "Hello "},
+            {"type": "tool_use", "id": "t1", "input": {}},
+            {"type": "text", "text": "world"},
+        ]
+        assert content_text(blocks) == "Hello world"
+
+    def test_none_and_other(self):
+        assert content_text(None) == ""
+        assert content_text(42) == ""
 
 
 # ---------------------------------------------------------------------------

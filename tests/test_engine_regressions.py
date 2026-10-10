@@ -376,6 +376,31 @@ class TestPromptRebuiltOnReentry:
         assert replies == ["apple", "banana"]
 
     @pytest.mark.asyncio
+    async def test_input_keys_are_fresh_on_reentry_when_streaming(self):
+        @node("bump")
+        async def bump(state: GraphState) -> NodeResult:
+            state.context["round"] = state.context.get("round", 0) + 1
+            state.context["note"] = ["apple", "banana"][state.context["round"] - 1]
+            return NodeResult(node_name="bump", next_node="speak")
+
+        @node("check")
+        async def check(state: GraphState) -> NodeResult:
+            done = state.context["round"] >= 2
+            return NodeResult(node_name="check", next_node="__end__" if done else "bump")
+
+        graph = PromptGraph("reentry", mode="static")
+        graph.add_node(bump)
+        graph.add_node(PromptNode("speak", input_keys=["note"], default_next="check"))
+        graph.add_node(check)
+        graph.set_entry("bump")
+
+        engine = PromptGraphEngine(graph=graph, model=ScriptedChat(_echo_note))
+        chunks = [c async for c in engine.astream({"messages": [HumanMessage(content="Say it.")]})]
+        replies = [m.content for m in chunks[-1]["messages"] if isinstance(m, AIMessage)]
+        assert replies == ["apple", "banana"]
+        assert engine.last_report.total_tokens == 30  # usage counted when streaming too
+
+    @pytest.mark.asyncio
     async def test_plan_and_reflections_are_fresh_on_reentry(self):
         seen: list[str] = []
 
@@ -701,6 +726,17 @@ class TestYamlRoundTrip:
         assert conditions[("act", "reflect")] is needs_retry
         assert conditions[("think", "act")](NodeResult(node_name="t", output={"ready": True}))
 
+    @pytest.mark.parametrize("compaction", [False, 3, None])
+    def test_compaction_settings_round_trip(self, compaction):
+        from promptise.engine import ContextCompaction
+
+        if compaction is None:
+            compaction = ContextCompaction(after_tool_results=4, max_tokens=8000)
+        node_ = PromptNode("n", context_scope="auto", compaction=compaction)
+        loaded = node_from_config(node_to_config(node_))
+        assert loaded.compaction == node_.compaction
+        assert node_to_config(loaded) == node_to_config(node_)
+
     def test_tools_are_stored_by_name_and_required_on_load(self, tmp_path):
         graph = PromptGraph.react(tools=[lookup])
         config = graph_to_config(graph)
@@ -883,6 +919,9 @@ class TestCodeActionTokens:
                     return CommandResult(0, "RESULT: 42\n", "")
                 return CommandResult(0, "", "")
 
+            async def write_file(self, path, content):
+                pass
+
             async def list_files(self, directory):
                 return []
 
@@ -905,3 +944,50 @@ class TestCodeActionTokens:
         )
         assert result.output == "42"
         assert (result.prompt_tokens, result.completion_tokens) == (11, 4)
+
+
+class TestLoopUntil:
+    @pytest.mark.asyncio
+    async def test_loop_until_max_iterations_exits_to_the_exit_node(self):
+        graph = PromptGraph("loop", mode="static")
+        graph.add_node(PromptNode("refine"))
+        graph.add_node(PromptNode("deliver", default_next="__end__"))
+        graph.set_entry("refine")
+        graph.loop_until("refine", "deliver", condition=lambda r: False, max_iterations=3)
+
+        engine = PromptGraphEngine(graph=graph, model=ScriptedChat(lambda m, t, s: "draft"))
+        await engine.ainvoke({"messages": [HumanMessage(content="go")]})
+        assert engine.last_report.nodes_visited == ["refine"] * 3 + ["deliver"]
+
+    def test_loop_budget_round_trips(self):
+        graph = PromptGraph("loop", mode="static")
+        graph.add_node(PromptNode("refine"))
+        graph.add_node(PromptNode("deliver", default_next="__end__"))
+        graph.set_entry("refine")
+        graph.loop_until("refine", "deliver", condition=needs_retry, max_iterations=4)
+
+        loaded = graph_from_config(graph_to_config(graph), refs=[needs_retry])
+        assert loaded.loop_limit("refine") == (4, "deliver")
+        assert graph.copy().loop_limit("refine") == (4, "deliver")
+
+
+class TestPerspective:
+    @pytest.mark.asyncio
+    async def test_builtin_perspective_frames_the_prompt(self):
+        from promptise.prompts import analyst
+
+        seen: list[str] = []
+
+        def reply(messages, tools, schema):
+            seen.append(_system_text(messages))
+            return AIMessage(content="ok")
+
+        node_ = PromptNode("n", instructions="Review the numbers.", perspective=analyst)
+        result = await node_.execute(
+            GraphState(messages=[HumanMessage(content="go")]),
+            {"_engine_model": ScriptedChat(reply)},
+        )
+        expected = analyst.apply("Review the numbers.", None)
+        assert expected != "Review the numbers."
+        assert expected in seen[0]
+        assert result.perspective_applied == type(analyst).__name__

@@ -6,7 +6,11 @@ execution, and production safety features.
 
 The engine exposes the standard agent interface:
 - ``ainvoke(input, config=config)`` → ``{"messages": [...]}``
+- ``astream(input, config=config)`` → ``{"messages": [...]}`` after every node
 - ``astream_events(input, config=config, version="v2")`` → event stream
+
+All three drive one traversal loop, so a streamed run executes exactly what
+``ainvoke()`` would: the same hooks, flags, model calls and tool calls.
 
 A run that ends on a failed node — a model call the provider rejected, a
 CRITICAL node error, a RETRYABLE node out of attempts — raises
@@ -38,7 +42,6 @@ from uuid import uuid4
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.tools import BaseTool
 
 from .base import BaseNode
 from .graph import PromptGraph
@@ -51,8 +54,8 @@ logger = logging.getLogger("promptise.engine")
 class GraphExecutionError(RuntimeError):
     """A graph run ended on a node failure the graph did not recover from.
 
-    Raised by :meth:`PromptGraphEngine.ainvoke` and, after its events, by
-    :meth:`PromptGraphEngine.astream_events`.  The provider exception (a
+    Raised by :meth:`PromptGraphEngine.ainvoke` and, after their output, by
+    :meth:`PromptGraphEngine.astream` and :meth:`PromptGraphEngine.astream_events`.  The provider exception (a
     rejected API key, a network failure…) is chained as ``__cause__`` when
     the node recorded one.  ``PromptiseAgent.ainvoke()`` lets it propagate,
     so a broken credential is an exception at the call site, never an
@@ -97,13 +100,16 @@ class PromptGraphEngine:
             node has used its budget, the engine does not run it again: it
             follows the node's ``"error"`` transition, else an ``__error__``
             node, else ends the run.
-        tools: Runtime tools for nodes created with ``inject_tools=True``
-            (``build_agent`` passes the tools it discovered from its MCP
-            servers). Injected alongside each node's own ``tools``.
         hooks: List of hook instances for interception.
         allow_self_modification: Allow the LLM to modify the graph
             via structured output ``_graph_action`` fields.
         max_mutations_per_run: Cap on graph mutations per run.
+        tools: Tools for nodes with ``inject_tools=True`` (``build_agent``
+            passes the MCP tools it discovered).  Tools set on the graph's
+            nodes are added to them.
+        compaction: :class:`~promptise.engine.compaction.ContextCompaction`
+            settings for nodes that compact (``context_scope="auto"`` /
+            ``"ledger"``) and set none of their own.
     """
 
     def __init__(
@@ -113,17 +119,19 @@ class PromptGraphEngine:
         *,
         max_iterations: int = 50,
         max_node_iterations: int = 25,
-        tools: list[BaseTool] | None = None,
         hooks: list[Any] | None = None,
         allow_self_modification: bool = True,
         max_mutations_per_run: int = 10,
         lightweight_model: BaseChatModel | None = None,
+        tools: list[Any] | None = None,
+        compaction: Any | None = None,
     ) -> None:
         self.graph = graph
+        self.tools = list(tools) if tools else []
+        self.compaction = compaction
         self.model = model
         self.max_iterations = max_iterations
         self.max_node_iterations = max_node_iterations
-        self.tools: list[BaseTool] = list(tools) if tools else []
         self.hooks = list(hooks) if hooks else []
         self.allow_self_modification = allow_self_modification
         self.max_mutations_per_run = max_mutations_per_run
@@ -131,7 +139,7 @@ class PromptGraphEngine:
         self._last_report: ExecutionReport | None = None
 
     # ──────────────────────────────────────────────────────────────────
-    # ainvoke — synchronous (full) execution
+    # Public entry points — all three drive the same traversal loop
     # ──────────────────────────────────────────────────────────────────
 
     async def ainvoke(
@@ -144,14 +152,170 @@ class PromptGraphEngine:
 
         Returns ``{"messages": [...]}`` matching the LangGraph contract.
         """
+        messages: list[Any] = list(input.get("messages", []))
+        async for _event, state in self._run(input, config, streaming=False):
+            messages = state.messages
+        return {"messages": messages}
+
+    async def astream(
+        self,
+        input: dict[str, Any],
+        config: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Run the graph, yielding the conversation after every node.
+
+        Each chunk is ``{"messages": [...]}`` -- the full message list once
+        a node has finished (LangGraph's ``stream_mode="values"``).  The
+        last chunk equals what :meth:`ainvoke` returns.  Nodes run exactly
+        as in :meth:`ainvoke`: one model call per step, tool calls in
+        parallel.  A run that ends on a failed node raises
+        :class:`GraphExecutionError` after its chunks.
+        """
+        async for event, state in self._run(input, config, streaming=True):
+            if event is None:
+                yield {"messages": list(state.messages)}
+
+    async def astream_events(
+        self,
+        input: dict[str, Any],
+        *,
+        config: dict[str, Any] | None = None,
+        version: str = "v2",
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Stream execution events matching LangGraph v2 format.
+
+        Yields event dicts consumed by ``PromptiseAgent.astream_with_tools()``:
+
+        - ``on_chat_model_stream`` -- one per model chunk; ``data["chunk"]``
+          is the ``AIMessageChunk``.
+        - ``on_tool_start`` / ``on_tool_end`` / ``on_tool_error`` -- one
+          start and one end per tool call, sharing a ``run_id``.
+          ``on_tool_end`` carries ``data["status"]`` (``"success"`` or
+          ``"error"`` when the tool reported an error, e.g. an MCP
+          ``ToolError``) and ``data["duration_ms"]``; ``on_tool_error``
+          means the tool raised.
+        - ``on_node_start``, ``on_node_end``, ``on_node_error`` (engine-specific).
+
+        Nodes stream through :meth:`BaseNode.stream` and run exactly once:
+        the events are a view of the same execution :meth:`ainvoke` does.
+        """
+        async for event, _state in self._run(input, config, streaming=True):
+            if event is not None:
+                yield event
+
+    # ──────────────────────────────────────────────────────────────────
+    # The traversal loop
+    # ──────────────────────────────────────────────────────────────────
+
+    def _prepare_config(self, config: dict[str, Any] | None) -> dict[str, Any]:
+        """Copy *config* and add the engine's model, hooks and tools."""
         config = dict(config) if config else {}
         config["_engine_model"] = self.model
         config["_max_iterations"] = self.max_iterations
         config["_engine_hooks"] = self.hooks
+        if self.compaction is not None and "_engine_compaction" not in config:
+            config["_engine_compaction"] = self.compaction
 
-        # Tools injected into ``inject_tools=True`` nodes
+        # Collect all tools from all nodes for runtime injection
         if "_engine_tools" not in config:
-            config["_engine_tools"] = self._runtime_tools()
+            all_tools: list = list(self.tools)
+            seen_names: set[str] = {t.name for t in all_tools}
+            for node_obj in self.graph.nodes.values():
+                for tool in getattr(node_obj, "tools", []) or []:
+                    if tool.name not in seen_names:
+                        all_tools.append(tool)
+                        seen_names.add(tool.name)
+            config["_engine_tools"] = all_tools
+        return config
+
+    async def _run_node(
+        self,
+        node: BaseNode,
+        state: GraphState,
+        config: dict[str, Any],
+        *,
+        streaming: bool,
+    ) -> AsyncIterator[dict[str, Any] | NodeResult]:
+        """Execute *node* once; yield its stream events, then its ``NodeResult``.
+
+        The result is always the last item.  With ``streaming=False`` the
+        node runs through ``execute()`` and only the result is yielded.
+        """
+        if not streaming:
+            try:
+                yield await node.execute(state, config)
+            except Exception as exc:
+                result = NodeResult(
+                    node_name=node.name,
+                    node_type=type(node).__name__.lower(),
+                    iteration=state.iteration,
+                )
+                record_failure(result, exc)
+                logger.error("Node %r execution failed: %s", node.name, exc)
+                yield result
+            return
+
+        result_opt: NodeResult | None = None
+        try:
+            async for event in node.stream(state, config):
+                if event.event == "on_node_end" and isinstance(
+                    event.data.get("result"), NodeResult
+                ):
+                    result_opt = event.data["result"]
+                    continue
+                if event.event in ("on_node_start", "on_node_end"):
+                    # The engine emits its own node boundaries.
+                    continue
+                yield {
+                    "event": event.event,
+                    "name": event.node_name,
+                    # Keep the node's run_id: it pairs a tool's start and end
+                    # events (and a model call's chunks).
+                    "run_id": str(event.data.get("run_id") or uuid4()),
+                    "data": event.data,
+                }
+        except Exception as exc:
+            logger.error("Streaming error in node %r: %s", node.name, exc)
+            result = NodeResult(
+                node_name=node.name,
+                node_type=type(node).__name__.lower(),
+                iteration=state.iteration,
+            )
+            record_failure(result, exc)
+            yield result
+            return
+
+        if result_opt is None:
+            # Re-running the node to get a result would repeat its model
+            # calls and side effects; a stream() without one is a bug in it.
+            result_opt = NodeResult(
+                node_name=node.name,
+                node_type=type(node).__name__.lower(),
+                iteration=state.iteration,
+                error=(
+                    f"{type(node).__name__}.stream() ended without an on_node_end "
+                    "event carrying the NodeResult under data['result']"
+                ),
+            )
+        yield result_opt
+
+    async def _run(
+        self,
+        input: dict[str, Any],
+        config: dict[str, Any] | None,
+        *,
+        streaming: bool,
+    ) -> AsyncIterator[tuple[dict[str, Any] | None, GraphState]]:
+        """Traverse the graph once.
+
+        Yields ``(event, state)`` pairs: stream events (only when
+        *streaming*), and ``(None, state)`` after every completed node.
+        Raises :class:`GraphExecutionError` at the end when the run ended
+        on a failed node.
+        """
+        config = self._prepare_config(config)
 
         run_start = time.monotonic()
         mutations_count = 0
@@ -199,6 +363,17 @@ class PromptGraphEngine:
                 continue
             state.visited.append(state.current_node)
 
+            if streaming:
+                yield (
+                    {
+                        "event": "on_node_start",
+                        "name": node.name,
+                        "run_id": str(uuid4()),
+                        "data": {"node_type": type(node).__name__},
+                    },
+                    state,
+                )
+
             # ── Pre-node hooks ──
             for hook in self.hooks:
                 if hasattr(hook, "pre_node"):
@@ -219,16 +394,12 @@ class PromptGraphEngine:
                 if node.has_flag(NodeFlag.RETRYABLE):
                     result = await self._execute_with_retry(node, state, config)
                 else:
-                    try:
-                        result = await node.execute(state, config)
-                    except Exception as exc:
-                        result = NodeResult(
-                            node_name=node.name,
-                            node_type=type(node).__name__.lower(),
-                            iteration=state.iteration,
-                        )
-                        record_failure(result, exc)
-                        logger.error("Node %r execution failed: %s", node.name, exc)
+                    result = NodeResult(node_name=node.name)
+                    async for item in self._run_node(node, state, config, streaming=streaming):
+                        if isinstance(item, NodeResult):
+                            result = item
+                        else:
+                            yield item, state
 
                 # ── Post-execute flag processing ──
                 await self._post_execute_flags(node, result, state, config)
@@ -241,15 +412,32 @@ class PromptGraphEngine:
             # run) — that is governance, not a failed node — or recover a
             # failed one by clearing ``error`` / setting ``error_recovered``.
             node_failed = bool(result.error) and not result.error_recovered
+            critical = node.has_flag(NodeFlag.CRITICAL) and bool(result.error)
+
+            if streaming and (node_failed or critical):
+                error_data: dict[str, Any] = {"error": result.error}
+                if critical:
+                    error_data["critical"] = True
+                yield (
+                    {
+                        "event": "on_node_error",
+                        "name": node.name,
+                        "run_id": str(uuid4()),
+                        "data": error_data,
+                    },
+                    state,
+                )
 
             # ── CRITICAL flag — abort on error ──
-            if node.has_flag(NodeFlag.CRITICAL) and result.error:
+            if critical:
                 logger.error(
                     "CRITICAL node %r failed — aborting graph: %s", node.name, result.error
                 )
                 state.node_history.append(result)
                 state.record_node_timing(node.name, result.duration_ms)
+                state.trim_messages()
                 last_failure = result
+                yield None, state
                 break
 
             # ── Runtime graph mutations ──
@@ -292,6 +480,21 @@ class PromptGraphEngine:
                 result if node_failed and result.error and not result.error_recovered else None
             )
 
+            if streaming:
+                yield (
+                    {
+                        "event": "on_node_end",
+                        "name": node.name,
+                        "run_id": str(uuid4()),
+                        "data": {
+                            "duration_ms": result.duration_ms,
+                            "tokens": result.total_tokens,
+                        },
+                    },
+                    state,
+                )
+            yield None, state
+
             # ── Resolve next node ──
             # If a hook forced __end__ (e.g. BudgetHook), respect it
             if state.current_node == "__end__":
@@ -325,206 +528,13 @@ class PromptGraphEngine:
         if last_failure is not None:
             # The run ended on a failure nothing recovered from: surface it.
             # Returning the messages here would hand the caller its own
-            # question back as the "answer".
+            # question back as the "answer"; a stream must not end as a
+            # silent stop either (consumers have seen on_node_error).
             raise GraphExecutionError(
                 live_graph.name,
                 last_failure.node_name,
                 last_failure.error or "unknown error",
                 report=self._last_report,
-            ) from failure_cause(last_failure)
-
-        return {"messages": state.messages}
-
-    # ──────────────────────────────────────────────────────────────────
-    # astream_events — streaming execution (LangGraph v2 compat)
-    # ──────────────────────────────────────────────────────────────────
-
-    async def astream_events(
-        self,
-        input: dict[str, Any],
-        *,
-        config: dict[str, Any] | None = None,
-        version: str = "v2",
-        **kwargs: Any,
-    ) -> AsyncIterator[dict[str, Any]]:
-        """Stream execution events matching LangGraph v2 format.
-
-        Yields event dicts consumed by ``PromptiseAgent.astream_with_tools()``:
-        - ``on_tool_start``, ``on_tool_end``, ``on_tool_error``
-        - ``on_chat_model_stream``
-        - ``on_node_start``, ``on_node_end`` (engine-specific)
-        """
-        config = dict(config) if config else {}
-        config["_engine_model"] = self.model
-        config["_max_iterations"] = self.max_iterations
-        config["_engine_hooks"] = self.hooks
-
-        # Tools injected into ``inject_tools=True`` nodes
-        if "_engine_tools" not in config:
-            config["_engine_tools"] = self._runtime_tools()
-
-        live_graph = self.graph.copy()
-        if not live_graph.entry:
-            return
-
-        state = GraphState(
-            messages=list(input.get("messages", [])),
-            current_node=live_graph.entry,
-            graph=live_graph,
-        )
-        last_failure: NodeResult | None = None
-        redirects = 0
-
-        while state.current_node != "__end__":
-            try:
-                node = live_graph.get_node(state.current_node)
-            except (KeyError, ValueError):
-                node = None
-            if node is None:
-                logger.error(
-                    "Node %r not found in graph %r — ending stream",
-                    state.current_node,
-                    live_graph.name,
-                )
-                break
-
-            # ── Per-node budget ──
-            if self._node_exhausted(node, state):
-                redirects += 1
-                if redirects > len(live_graph.nodes):
-                    break
-                state.current_node = self._handle_stuck_node(node, state, live_graph)
-                continue
-            state.visited.append(state.current_node)
-
-            # Yield node_start
-            yield {
-                "event": "on_node_start",
-                "name": node.name,
-                "run_id": str(uuid4()),
-                "data": {"node_type": type(node).__name__},
-            }
-
-            # ── Pre-execute flag processing ──
-            node_start = time.monotonic()
-            skip_result = await self._pre_execute_flags(node, state, config)
-
-            if skip_result is not None:
-                last_result = skip_result
-            else:
-                # Stream node events — initialize default to prevent AttributeError
-                last_result = NodeResult(
-                    node_name=node.name,
-                    node_type=type(node).__name__.lower(),
-                    iteration=state.iteration,
-                )
-
-                if node.has_flag(NodeFlag.RETRYABLE):
-                    # For retryable nodes, use execute (not stream) with retry
-                    last_result = await self._execute_with_retry(node, state, config)
-                else:
-                    streaming_failed = False
-                    try:
-                        async for event in node.stream(state, config):
-                            yield {
-                                "event": event.event,
-                                "name": event.node_name,
-                                "run_id": str(uuid4()),
-                                "data": event.data,
-                            }
-                            if event.event == "on_node_end" and "result" in event.data:
-                                last_result = event.data["result"]
-
-                    except Exception as exc:
-                        logger.error("Streaming error in node %r: %s", node.name, exc)
-                        last_result = NodeResult(
-                            node_name=node.name,
-                            node_type=type(node).__name__.lower(),
-                            iteration=state.iteration,
-                        )
-                        record_failure(last_result, exc)
-                        streaming_failed = True
-                        yield {
-                            "event": "on_node_error",
-                            "name": node.name,
-                            "run_id": str(uuid4()),
-                            "data": {"error": str(exc)},
-                        }
-
-                    # If streaming didn't produce a real result, execute normally
-                    if (
-                        not last_result.raw_output
-                        and not last_result.error
-                        and not streaming_failed
-                    ):
-                        try:
-                            last_result = await node.execute(state, config)
-                        except Exception as exc:
-                            last_result = NodeResult(
-                                node_name=node.name,
-                                node_type=type(node).__name__.lower(),
-                                iteration=state.iteration,
-                            )
-                            record_failure(last_result, exc)
-
-                # Post-execute flag processing (always runs — restores state)
-                await self._post_execute_flags(node, last_result, state, config)
-
-            duration_ms = (time.monotonic() - node_start) * 1000
-            last_result.duration_ms = duration_ms
-            last_failure = (
-                last_result if last_result.error and not last_result.error_recovered else None
-            )
-
-            # ── CRITICAL flag — abort on error ──
-            if node.has_flag(NodeFlag.CRITICAL) and last_result.error:
-                logger.error(
-                    "CRITICAL node %r failed — aborting graph: %s",
-                    node.name,
-                    last_result.error,
-                )
-                state.node_history.append(last_result)
-                state.record_node_timing(node.name, duration_ms)
-                state.trim_messages()
-                yield {
-                    "event": "on_node_error",
-                    "name": node.name,
-                    "run_id": str(uuid4()),
-                    "data": {"error": last_result.error, "critical": True},
-                }
-                break
-
-            # Yield node_end
-            yield {
-                "event": "on_node_end",
-                "name": node.name,
-                "run_id": str(uuid4()),
-                "data": {
-                    "duration_ms": duration_ms,
-                    "tokens": last_result.total_tokens,
-                },
-            }
-
-            # Update state
-            state.record_node_timing(node.name, duration_ms)
-            state.total_tokens += last_result.total_tokens
-            state.node_history.append(last_result)
-            state.trim_messages()
-
-            # Resolve next
-            state.current_node = self._resolve_transition(node, last_result, state, live_graph)
-
-            # Safety
-            state.iteration += 1
-            state.increment_node_iteration(node.name)
-            if state.iteration > self.max_iterations:
-                break
-
-        if last_failure is not None:
-            # Consumers have seen every event (including on_node_error);
-            # the run still failed, and that must not end as a silent stop.
-            raise GraphExecutionError(
-                live_graph.name, last_failure.node_name, last_failure.error or "unknown error"
             ) from failure_cause(last_failure)
 
     # ──────────────────────────────────────────────────────────────────
@@ -605,27 +615,17 @@ class PromptGraphEngine:
     # Error recovery
     # ──────────────────────────────────────────────────────────────────
 
-    def _runtime_tools(self) -> list[BaseTool]:
-        """The engine's tools plus every node's own tools, deduplicated by
-        name — what ``inject_tools=True`` nodes receive."""
-        all_tools: list[BaseTool] = []
-        seen: set[str] = set()
-        node_tools = (
-            tool for node in self.graph.nodes.values() for tool in getattr(node, "tools", []) or []
-        )
-        for tool in (*self.tools, *node_tools):
-            if tool.name not in seen:
-                all_tools.append(tool)
-                seen.add(tool.name)
-        return all_tools
-
     def _node_exhausted(self, node: BaseNode, state: GraphState) -> bool:
         """Whether *node* has used its execution budget for this run: the
-        lower of its own ``max_iterations`` and the engine's
-        ``max_node_iterations``."""
+        lowest of its own ``max_iterations``, the engine's
+        ``max_node_iterations`` and a ``loop_until(max_iterations=...)``."""
         limit = min(
             getattr(node, "max_iterations", self.max_node_iterations), self.max_node_iterations
         )
+        loop_limit = getattr(state.graph, "loop_limit", None)
+        loop = loop_limit(node.name) if loop_limit is not None else None
+        if loop is not None:
+            limit = min(limit, loop[0])
         if state.node_iterations.get(node.name, 0) < limit:
             return False
         logger.warning(
@@ -643,6 +643,13 @@ class PromptGraphEngine:
         graph: PromptGraph,
     ) -> str:
         """Route away from a node that has used its iteration budget."""
+        # A loop_until() loop exits to its exit node
+        loop_limit = getattr(graph, "loop_limit", None)
+        loop = loop_limit(node.name) if loop_limit is not None else None
+        if loop is not None:
+            logger.info("Loop node %r used its budget → exiting to %r", node.name, loop[1])
+            return loop[1]
+
         # Try error transition
         if "error" in node.transitions:
             logger.info("Stuck node %r → using error transition", node.name)
@@ -1023,5 +1030,5 @@ class PromptGraphEngine:
 
     @property
     def last_report(self) -> ExecutionReport | None:
-        """The execution report from the last ``ainvoke()`` call."""
+        """The execution report from the last run (``ainvoke()`` or a stream)."""
         return self._last_report

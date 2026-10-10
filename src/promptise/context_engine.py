@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass, field
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger("promptise.context_engine")
@@ -148,14 +149,20 @@ class ContextReport:
 # ---------------------------------------------------------------------------
 
 
-# Well-known model context windows
+# Well-known model context windows (input + output), as the providers list them.
+# build_agent prefers the chat model's own profile metadata when it has one.
 _MODEL_WINDOWS: dict[str, int] = {
     "gpt-4": 8_192,
     "gpt-4-turbo": 128_000,
     "gpt-4o": 128_000,
     "gpt-4o-mini": 128_000,
-    "gpt-5-mini": 128_000,
-    "gpt-5": 128_000,
+    "gpt-4.1": 1_047_576,
+    "gpt-4.1-mini": 1_047_576,
+    "gpt-4.1-nano": 1_047_576,
+    "gpt-5": 400_000,
+    "gpt-5-mini": 400_000,
+    "gpt-5-nano": 400_000,
+    "o4-mini": 200_000,
     "claude-3-haiku": 200_000,
     "claude-3-sonnet": 200_000,
     "claude-3-opus": 200_000,
@@ -164,9 +171,34 @@ _MODEL_WINDOWS: dict[str, int] = {
     "llama3": 8_192,
     "llama3-70b": 8_192,
     "gemini-2.0-flash": 1_048_576,
+    "gemini-2.5-flash": 1_048_576,
+    "gemini-2.5-pro": 1_048_576,
     "gemini-pro": 32_768,
     "mistral-large": 128_000,
 }
+
+
+# Models whose input is capped below window - output: the API rejects a
+# request whose input passes this, whatever the response reserve.
+_MODEL_MAX_INPUT: dict[str, int] = {
+    "gpt-5": 272_000,
+    "gpt-5-mini": 272_000,
+    "gpt-5-nano": 272_000,
+}
+
+
+def _lookup(table: dict[str, int], model: str | None) -> int | None:
+    """Exact, then longest-substring match of *model* (provider prefix stripped)."""
+    if not model:
+        return None
+    bare = model.split(":")[-1] if ":" in model else model
+    if bare in table:
+        return table[bare]
+    bare_lower = bare.lower()
+    for name in sorted(table.keys(), key=len, reverse=True):
+        if name in bare_lower:
+            return table[name]
+    return None
 
 
 def _detect_context_window(model: str | None) -> int:
@@ -174,23 +206,7 @@ def _detect_context_window(model: str | None) -> int:
 
     Falls back to 128K if model is unknown.
     """
-    if not model:
-        return 128_000
-
-    # Strip provider prefix (e.g., "openai:gpt-5-mini" → "gpt-5-mini")
-    bare = model.split(":")[-1] if ":" in model else model
-
-    # Exact match
-    if bare in _MODEL_WINDOWS:
-        return _MODEL_WINDOWS[bare]
-
-    # Partial match — longest name first to avoid "gpt-4" matching before "gpt-4-turbo"
-    bare_lower = bare.lower()
-    for name in sorted(_MODEL_WINDOWS.keys(), key=len, reverse=True):
-        if name in bare_lower:
-            return _MODEL_WINDOWS[name]
-
-    return 128_000  # Safe default
+    return _lookup(_MODEL_WINDOWS, model) or 128_000
 
 
 class ContextEngine:
@@ -226,9 +242,11 @@ class ContextEngine:
         auto_register_builtins: bool = True,
     ) -> None:
         self._model = model
+        self._window_explicit = bool(model_context_window)
         self._window = model_context_window or _detect_context_window(model)
+        self._max_input = None if self._window_explicit else _lookup(_MODEL_MAX_INPUT, model)
         self._response_reserve = response_reserve
-        self._budget = self._window - self._response_reserve
+        self._budget = self._compute_budget()
 
         # Tokenizer: try tiktoken (exact), fall back to estimation
         if tokenizer is not None:
@@ -253,6 +271,39 @@ class ContextEngine:
             self._budget,
             type(self._tokenizer).__name__,
         )
+
+    def _compute_budget(self) -> int:
+        budget = self._window - self._response_reserve
+        if self._max_input is not None:
+            budget = min(budget, self._max_input)
+        return budget
+
+    def _apply_model_profile(self, chat_model: Any) -> bool:
+        """Take the window from a chat model's profile metadata.
+
+        LangChain chat models carry a ``profile`` with ``max_input_tokens``
+        and ``max_output_tokens``.  Used unless ``model_context_window``
+        was passed explicitly.  Returns whether the limits changed.
+        """
+        if self._window_explicit:
+            return False
+        profile = getattr(chat_model, "profile", None)
+        if not isinstance(profile, Mapping):
+            return False
+        max_in = profile.get("max_input_tokens")
+        if not isinstance(max_in, int) or max_in <= 0:
+            return False
+        max_out = profile.get("max_output_tokens")
+        self._max_input = max_in
+        self._window = max_in + (max_out if isinstance(max_out, int) and max_out > 0 else 0)
+        self._budget = self._compute_budget()
+        logger.info(
+            "ContextEngine: window=%d, max input=%d from the model profile, budget=%d",
+            self._window,
+            max_in,
+            self._budget,
+        )
+        return True
 
     @staticmethod
     def _build_tokenizer(model: str | None) -> Tokenizer:
@@ -312,6 +363,11 @@ class ContextEngine:
     def window(self) -> int:
         """Model context window size."""
         return self._window
+
+    @property
+    def max_input_tokens(self) -> int | None:
+        """The model's input limit, when known (it caps :attr:`budget`)."""
+        return self._max_input
 
     @property
     def last_report(self) -> ContextReport | None:
@@ -392,7 +448,12 @@ class ContextEngine:
     # Assembly
     # ------------------------------------------------------------------
 
-    def assemble(self) -> list[dict[str, Any]]:
+    def assemble(
+        self,
+        content: Mapping[str, str] | None = None,
+        *,
+        budget_only: Collection[str] = (),
+    ) -> list[dict[str, Any]]:
         """Assemble all layers into a message array, respecting token budget.
 
         Returns a list of ``{"role": "system", "content": "..."}`` dicts
@@ -400,17 +461,38 @@ class ContextEngine:
 
         Layers with empty content are skipped.  When total tokens exceed
         the budget, lowest-priority non-required layers are trimmed first.
+        Assembly never changes the registered layers.
+
+        Args:
+            content: Content for this assembly only, by layer name.  It
+                overrides the stored content without changing it, so
+                concurrent assemblies do not interfere.
+            budget_only: Layers that count toward the budget and appear in
+                the report but are not returned as messages, because
+                something else sends them (``build_agent`` sends the
+                instructions and tool definitions itself).
 
         Returns:
             Ordered list of message dicts ready for LangGraph.
+
+        Raises:
+            KeyError: If *content* names a layer that is not registered.
         """
-        # Snapshot content before assembly (trimming mutates layers,
-        # but we restore after so the engine is reusable across calls)
-        _snapshots: dict[str, str] = {name: layer.content for name, layer in self._layers.items()}
+        overrides = dict(content or {})
+        unknown = [name for name in overrides if name not in self._layers]
+        if unknown:
+            raise KeyError(
+                f"Context layer(s) {unknown} not registered. Available: {list(self._layers.keys())}"
+            )
+        # Work on copies: trimming changes content, the registry never does.
+        working = [
+            replace(layer, content=overrides.get(name, layer.content))
+            for name, layer in self._layers.items()
+        ]
 
         # Collect non-empty layers
         active: list[tuple[ContextLayer, int]] = []  # (layer, tokens)
-        for layer in self._layers.values():
+        for layer in working:
             if not layer.content:
                 continue
             tokens = self._tokenizer.count(layer.content)
@@ -434,11 +516,14 @@ class ContextEngine:
         system_layers: list[tuple[ContextLayer, int]] = []
         conversation_layer: tuple[ContextLayer, int] | None = None
         user_layer: tuple[ContextLayer, int] | None = None
+        not_sent: list[ContextLayer] = []
 
         for layer, tokens in active:
             if not layer.content:
                 continue
-            if layer.name == "user_message":
+            if layer.name in budget_only:
+                not_sent.append(layer)
+            elif layer.name == "user_message":
                 user_layer = (layer, tokens)
             elif layer.name == "conversation":
                 conversation_layer = (layer, tokens)
@@ -448,9 +533,7 @@ class ContextEngine:
         messages: list[dict[str, Any]] = []
         layer_reports: list[dict[str, Any]] = []
 
-        # 1. System messages (already sorted by priority from active list)
-        for layer, tokens in system_layers:
-            messages.append({"role": "system", "content": layer.content})
+        def _report(layer: ContextLayer, sent: bool = True) -> None:
             layer_reports.append(
                 {
                     "name": layer.name,
@@ -458,36 +541,29 @@ class ContextEngine:
                     "tokens": self._tokenizer.count(layer.content),
                     "required": layer.required,
                     "trimmed": layer.name in trimmed_names,
+                    "sent": sent,
                 }
             )
+
+        for layer in not_sent:
+            _report(layer, sent=False)
+
+        # 1. System messages (already sorted by priority from active list)
+        for layer, _tokens in system_layers:
+            messages.append({"role": "system", "content": layer.content})
+            _report(layer)
 
         # 2. Conversation history (chronological order)
         if conversation_layer is not None:
-            layer, tokens = conversation_layer
+            layer, _tokens = conversation_layer
             messages.extend(self._parse_conversation(layer.content))
-            layer_reports.append(
-                {
-                    "name": layer.name,
-                    "priority": layer.priority,
-                    "tokens": self._tokenizer.count(layer.content),
-                    "required": layer.required,
-                    "trimmed": layer.name in trimmed_names,
-                }
-            )
+            _report(layer)
 
         # 3. User message ALWAYS last
         if user_layer is not None:
-            layer, tokens = user_layer
+            layer, _tokens = user_layer
             messages.append({"role": "user", "content": layer.content})
-            layer_reports.append(
-                {
-                    "name": layer.name,
-                    "priority": layer.priority,
-                    "tokens": self._tokenizer.count(layer.content),
-                    "required": layer.required,
-                    "trimmed": layer.name in trimmed_names,
-                }
-            )
+            _report(layer)
 
         # Store report
         self._last_report = ContextReport(
@@ -505,11 +581,6 @@ class ContextEngine:
             self._last_report.utilization * 100,
             len(trimmed_names),
         )
-
-        # Restore original content (trimming mutated layers in-place)
-        for name, original in _snapshots.items():
-            if name in self._layers:
-                self._layers[name].content = original
 
         return messages
 

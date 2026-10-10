@@ -17,7 +17,7 @@ nodes = await discovery.discover()
 # Transport: expose a node for remote management
 runtime = AgentRuntime()
 async with RuntimeTransport(runtime, port=9100) as transport:
-    # HTTP API now available at http://host:9100/
+    # HTTP API now available at http://127.0.0.1:9100/ (this machine only)
     ...
 ```
 
@@ -148,26 +148,47 @@ The `RuntimeTransport` exposes an `AgentRuntime` as an HTTP API for remote manag
 ### Creating a transport
 
 ```python
+import os
+
 from promptise.runtime import AgentRuntime
 from promptise.runtime.distributed.transport import RuntimeTransport
 
 runtime = AgentRuntime()
 transport = RuntimeTransport(
     runtime,
-    host="0.0.0.0",
+    host="0.0.0.0",                     # reachable from other machines
     port=9100,
     node_id="node-1",
+    auth_token=os.environ["PROMPTISE_NODE_TOKEN"],  # required off loopback
 )
 
 await transport.start()
-# HTTP API available at http://0.0.0.0:9100/
+# HTTP API available on port 9100 of every interface
 await transport.stop()
 ```
+
+The default `host` is `127.0.0.1` (this machine only). Pass `port=0` to let the OS pick a free port; `transport.port` reports it after `start()`.
+
+### Security
+
+The transport can start, stop and drive your agents, so it is locked down by default:
+
+| Rule | Behaviour |
+|---|---|
+| Bearer token | With `auth_token` set, every endpoint except `GET /health` requires `Authorization: Bearer <token>` (compared in constant time). Missing or wrong token: `401`. |
+| Public bind needs a token | `RuntimeTransport(host="0.0.0.0")` (or any non-loopback address) without `auth_token` raises `ValueError`. If an authenticating proxy or a private network you control already protects the port, opt out explicitly with `allow_unauthenticated=True` (a warning is logged at start). |
+| Loopback bind blocks browsers | On `127.0.0.1` / `localhost` / `::1`, a request whose `Host` header is not a loopback name gets `421` (DNS rebinding), and a request with an `Origin` header from a non-loopback origin gets `403`. A web page you visit cannot drive the local runtime. Non-browser clients (the coordinator, `curl`, scripts) send no `Origin` and are unaffected. |
+| Empty token | `auth_token=""` raises `ValueError`. |
+
+Use TLS (a reverse proxy) when the token crosses an untrusted network: the transport itself speaks plain HTTP.
+
+!!! warning "Changed in 1.3.0"
+    A non-loopback bind without `auth_token` used to log a warning and serve every endpoint unauthenticated. It now raises `ValueError` unless you pass `allow_unauthenticated=True`.
 
 ### Context manager
 
 ```python
-async with RuntimeTransport(runtime, port=9100) as transport:
+async with RuntimeTransport(runtime, port=9100, auth_token="node-token") as transport:
     # Server running
     ...
 # Server stopped automatically
@@ -271,7 +292,7 @@ Response (200):
 POST /processes/{name}/event
 ```
 
-Request body:
+Request body (a JSON object; `payload` and `metadata` must be objects when given and default to `{}`):
 
 ```json
 {
@@ -300,8 +321,11 @@ All endpoints return appropriate HTTP error codes:
 |---|---|
 | 200 | Success |
 | 202 | Accepted (async operations like event injection) |
-| 400 | Bad request (invalid JSON) |
+| 400 | Bad request (invalid JSON, body or `payload`/`metadata` not an object) |
+| 401 | Missing or wrong bearer token |
+| 403 | Cross-origin browser request (loopback bind) |
 | 404 | Process not found |
+| 421 | `Host` header is not a loopback name (loopback bind) |
 | 500 | Internal server error |
 
 ---
@@ -312,10 +336,14 @@ A complete distributed deployment:
 
 ```python
 import asyncio
+import os
+
 from promptise.runtime import AgentRuntime, ProcessConfig, TriggerConfig
 from promptise.runtime.distributed.transport import RuntimeTransport
 from promptise.runtime.distributed.coordinator import RuntimeCoordinator
 from promptise.runtime.distributed.discovery import RegistryDiscovery
+
+TOKEN = os.environ["PROMPTISE_NODE_TOKEN"]
 
 async def run_node(node_id: str, port: int):
     """Run a single runtime node."""
@@ -327,7 +355,7 @@ async def run_node(node_id: str, port: int):
     ))
     await runtime.start_all()
 
-    async with RuntimeTransport(runtime, port=port, node_id=node_id):
+    async with RuntimeTransport(runtime, port=port, node_id=node_id, auth_token=TOKEN):
         # Node is now discoverable and remotely manageable
         try:
             while True:
@@ -339,7 +367,7 @@ async def run_node(node_id: str, port: int):
 
 async def run_coordinator():
     """Run the cluster coordinator."""
-    async with RuntimeCoordinator() as coordinator:
+    async with RuntimeCoordinator(auth_token=TOKEN) as coordinator:
         coordinator.register_node("node-1", "http://localhost:9100")
         coordinator.register_node("node-2", "http://localhost:9101")
 
@@ -369,9 +397,9 @@ async def run_coordinator():
 
 | Method / Property | Description |
 |---|---|
-| `RuntimeTransport(runtime, host, port, node_id)` | Create a transport server |
+| `RuntimeTransport(runtime, host, port, node_id, auth_token, allow_unauthenticated)` | Create a transport server |
 | `node_id` | This node's unique identifier |
-| `port` | The port being listened on |
+| `port` | The port being listened on (the OS-assigned one after `start()` with `port=0`) |
 | `await start()` | Start the HTTP server |
 | `await stop()` | Stop the HTTP server |
 
@@ -388,8 +416,8 @@ async def run_coordinator():
 !!! info "aiohttp shipped with base install"
     The `RuntimeTransport` uses `aiohttp`, which is included in the base `pip install promptise`.
 
-!!! warning "No authentication on transport endpoints"
-    The HTTP API does not include authentication or authorization. In production, always deploy behind a reverse proxy with TLS, or within a private network with network-level access controls.
+!!! warning "One token per node, plain HTTP"
+    `auth_token` is a single shared secret with full control of the node, and the transport does not terminate TLS. In production, put nodes behind a TLS reverse proxy or on a private network, and give each node its own token (`RuntimeCoordinator.register_node(..., auth_token=...)`).
 
 !!! warning "RegistryDiscovery is in-process only"
     The `RegistryDiscovery` lives in memory within a single Python process. For multi-machine discovery, host it within the coordinator and expose registration/discovery via the coordinator's HTTP API.

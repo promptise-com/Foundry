@@ -284,12 +284,32 @@ Reasoning Graph Engine
    └── register_node_type()           Custom types for YAML
 ```
 
+## Streaming runs the same steps
+
+`PromptGraphEngine` has three entry points, and all three drive one traversal
+loop: the same hooks, flags, mutations and transitions, one model call per
+step, tool calls in parallel.
+
+| Method | Yields |
+|---|---|
+| `ainvoke(input)` | Nothing — returns `{"messages": [...]}` at the end |
+| `astream(input)` | `{"messages": [...]}` after every node; the last chunk equals `ainvoke()`'s result |
+| `astream_events(input)` | Events: `on_chat_model_stream` per model chunk, `on_tool_start` / `on_tool_end` / `on_tool_error` per tool call (a start and its end share a `run_id`), `on_node_start` / `on_node_end` / `on_node_error` |
+
+When streaming, the engine runs each node through `node.stream()`.
+`PromptNode.stream()` streams its one model call and runs the same pipeline as
+`execute()`; other nodes execute once and report their result. A node's stream
+must end with an `on_node_end` event carrying its `NodeResult` under
+`data["result"]` — a stream that ends without one fails the run rather than
+running the node a second time. `PromptGraphEngine.astream_events()` is what
+[`agent.astream_with_tools()`](streaming.md) consumes.
+
 ## Failures reach the caller
 
 A run that ends on a node whose own execution failed — a rejected API key, a
 provider outage, a `CRITICAL` node error, a `RETRYABLE` node out of retries —
-raises `GraphExecutionError` from `ainvoke()` (and from `astream_events()`
-after its events). The exception names the graph and node, carries the
+raises `GraphExecutionError` from `ainvoke()` (and from `astream()` and
+`astream_events()` after their output). The exception names the graph and node, carries the
 `ExecutionReport`, and chains the provider exception as `__cause__`;
 `PromptiseAgent.ainvoke()` lets it propagate. A failure the graph *recovers*
 from does not raise: an edge routes it to a handler node that succeeds, or a
@@ -299,6 +319,8 @@ never happens: an "answer" that silently echoes the question because the
 model call failed.
 
 ```python
+from langchain_core.messages import HumanMessage
+
 from promptise.engine import GraphExecutionError
 
 try:

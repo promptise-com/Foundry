@@ -19,7 +19,7 @@ server = MCPServer(name="weather-api")
 cache = InMemoryCache(max_size=500)
 
 @server.tool(read_only_hint=True)
-@cached(ttl=300, backend=cache)
+@cached(ttl=300, backend=cache, scope="shared")  # same answer for every caller
 async def get_weather(city: str, units: str = "metric") -> dict:
     """Get current weather for a city (cached for 5 minutes).
 
@@ -42,22 +42,73 @@ async def get_weather(city: str, units: str = "metric") -> dict:
     }
 ```
 
-**How cache keys work**: The key is `function_name + json.dumps(sorted_args)`. So `get_weather("London", "metric")` and `get_weather("London", "imperial")` are separate cache entries.
+**How cache keys work**: The key is the server, the function, the tool's arguments and the caller (see [Who shares a cached result](#who-shares-a-cached-result)). So `get_weather("London", "metric")` and `get_weather("London", "imperial")` are separate cache entries. Parameters the framework injects — `ctx: RequestContext`, `Depends(...)` values, `BackgroundTasks` — are not part of the key.
 
-**Custom key functions**: Override the default key generation when you need control:
+**Custom key functions**: Override how the arguments map to a key when you need control. The function receives every keyword argument the handler gets, and its key is still prefixed with the server and the scope, so it cannot widen sharing beyond `scope`:
 
 ```python
-def user_scoped_key(func_name: str, args: dict) -> str:
-    """Cache per user, ignoring pagination args."""
-    from promptise.mcp.server import get_context
-    ctx = get_context()
-    return f"{ctx.client_id}:{func_name}:{args.get('query', '')}"
+def ignore_page(func_name: str, args: dict) -> str:
+    """One entry per query, whatever the page."""
+    return f"{func_name}:{args.get('query', '')}"
 
 @server.tool()
-@cached(ttl=60, backend=cache, key_func=user_scoped_key)
+@cached(ttl=60, backend=cache, key_func=ignore_page)
 async def search_documents(query: str, page: int = 1) -> list[dict]:
-    """Search docs — cached per user, ignoring page number."""
+    """Search docs — cached per caller, ignoring page number."""
     return await doc_store.search(query, page=page)
+```
+
+### Who shares a cached result
+
+A tool's result often depends on who asks: the same `list_accounts()` call
+returns Acme's accounts to Acme and Globex's to Globex. Both `@cached` and
+`CacheMiddleware` therefore key every entry on the authenticated caller by
+default. The `scope` argument widens that, and you opt in explicitly:
+
+| `scope` | Entries shared by | Use for |
+|---------|-------------------|---------|
+| `"client"` *(default)* | The same principal: issuer, tenant and client id | Anything that depends on the caller. Always safe |
+| `"tenant"` | Every client of the same tenant | Tenant-wide data that is the same for every user in the tenant |
+| `"shared"` | Everyone | Data that is the same for every caller: public reference data, weather, exchange rates |
+
+```python
+@server.tool(auth=True)
+@cached(ttl=300)                       # per caller
+async def my_open_tickets(ctx: RequestContext) -> list[dict]:
+    return await db.tickets(owner=ctx.client.client_id)
+
+@server.tool(auth=True)
+@cached(ttl=300, scope="tenant")       # one entry per tenant
+async def org_holidays(ctx: RequestContext) -> list[str]:
+    return await db.holidays(org=ctx.client.tenant_id)
+```
+
+The scope comes from the request, not from the handler's parameters, so a
+handler that reads the caller with `get_context()` is isolated just like
+one that takes `ctx`. Unauthenticated callers all share the `anonymous`
+identity. Outside a request (a handler called directly in a test), nothing
+is shared with request traffic.
+
+### Request coalescing
+
+When an entry is cold or has just expired, a burst of identical calls would
+each go to the upstream service before the first result is stored. `@cached`
+prevents that stampede: identical calls that arrive while the first one is
+still running wait for its result instead of starting their own, so the burst
+costs one upstream call. If that call raises, the callers waiting on it get the
+same error, and nothing is cached: the next call tries again.
+
+"Identical" means the same cache key, so coalescing never shares a result
+between callers that the cache itself keeps apart: two tenants asking the same
+question at the same moment each get their own call. Coalescing works within
+one process; with a `RedisCache` shared by several replicas, each replica makes
+at most one upstream call per key. Pass `coalesce=False` to turn it off:
+
+```python
+@server.tool()
+@cached(ttl=30, coalesce=False)   # every cache miss calls upstream
+async def get_stock(sku: str) -> dict:
+    return await inventory.get(sku)
 ```
 
 ### `InMemoryCache`
@@ -68,14 +119,14 @@ In-process cache with TTL expiry and optional LRU eviction.
 from promptise.mcp.server import InMemoryCache
 
 cache = InMemoryCache(
-    max_size=1000,          # Evict oldest when full (0 = unlimited)
+    max_size=1000,          # Evict the least recently used entry when full (0 = unlimited)
     cleanup_interval=60.0,  # Background sweep for expired entries (seconds)
 )
 ```
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `max_size` | `0` | Maximum entries before LRU eviction (0 = unlimited) |
+| `max_size` | `0` | Maximum entries; when full, the entry read or written longest ago is evicted (0 = unlimited) |
 | `cleanup_interval` | `60.0` | Background cleanup interval in seconds |
 
 **Limitation**: `InMemoryCache` is per-process. If you run multiple workers (e.g., `uvicorn --workers 4`), each has its own cache. Use `RedisCache` for shared caching.
@@ -94,7 +145,7 @@ cache = RedisCache(
 )
 
 @server.tool()
-@cached(ttl=300, backend=cache)
+@cached(ttl=300, backend=cache, scope="shared")
 async def get_forecast(city: str, days: int = 5) -> dict:
     """5-day forecast — cached in Redis, shared across all server instances."""
     return await weather_api.forecast(city, days)
@@ -111,17 +162,44 @@ async def cleanup():
 | `prefix` | `"promptise:"` | Key namespace prefix |
 | `client` | `None` | Pre-configured `redis.asyncio.Redis` client |
 
-Requires `pip install redis`.
+TTLs are stored with millisecond precision, so a sub-second `ttl` (say
+`0.5`) works. Requires `pip install redis`.
 
 ### `CacheMiddleware`
 
 Apply caching to all tools server-wide (instead of per-tool with `@cached`):
 
 ```python
-from promptise.mcp.server import CacheMiddleware, InMemoryCache
+from promptise.mcp.server import AuthMiddleware, CacheMiddleware, InMemoryCache
 
 cache = InMemoryCache(max_size=200)
+server.add_middleware(AuthMiddleware(auth))          # identify the caller first
 server.add_middleware(CacheMiddleware(backend=cache, ttl=120))
+```
+
+Entries are keyed on the server, the tool, its arguments and the caller,
+with the same `scope` choices as `@cached` (default `"client"`).
+
+- **Add `AuthMiddleware` first.** Middleware runs in the order added. If
+  `CacheMiddleware` runs before the caller is identified, calls to
+  authenticated tools skip the cache (and a warning is logged once) rather
+  than share entries between callers.
+- **Guards run on cache hits.** A hit still evaluates the tool's guards, so
+  a cached result is never returned to a caller the tool would refuse.
+- **It caches every tool that doesn't opt out**: a second identical call
+  within the TTL returns the first result without running the handler.
+  Mark tools that change data, or must always be fresh, with
+  `@server.tool(cache=False)`. Tools annotated `destructive_hint=True` are
+  never cached. Alternatively, cache only the read tools with `@cached`.
+
+```python
+@server.tool(cache=False)                 # always runs
+async def create_order(sku: str, qty: int) -> dict:
+    return await orders.create(sku, qty)
+
+@server.tool(destructive_hint=True)       # never cached either
+async def cancel_order(order_id: str) -> dict:
+    return await orders.cancel(order_id)
 ```
 
 ### Custom cache backends
@@ -224,7 +302,10 @@ limiter = TokenBucketLimiter(
 | `rate_per_minute` | `60` | Sustained request rate |
 | `burst` | `None` | Max burst (defaults to `rate_per_minute`) |
 
-When a client exceeds the limit, the server returns a `RateLimitError` with `retryable=True` and a `retry_after` hint.
+When a client exceeds the limit, the server returns a `RateLimitError`: code
+`RATE_LIMIT_EXCEEDED`, `retryable=True`, `details.retry_after_seconds`, and a
+suggestion such as "Wait 2 seconds before retrying." (rounded up, never
+"0 seconds").
 
 ### Tiered rate limiting
 
@@ -283,7 +364,18 @@ async def ping() -> str:
     return "pong"
 ```
 
-When the limit is reached, additional calls receive a `RateLimitError` with `retryable=True`.
+When the limit is reached, additional calls are refused immediately (they don't
+queue) with a `ConcurrencyLimitError`: code `CONCURRENCY_LIMIT_EXCEEDED`,
+`retryable=True`. It is a subclass of `RateLimitError`, so existing
+`except RateLimitError` code still catches it, but the distinct code tells the
+agent the tool is busy rather than that it is over a quota: retrying in a
+moment is likely to work.
+
+The per-tool limiter is added automatically when any tool declares
+`max_concurrent`, both on the server and in `TestClient`. It goes just in
+front of the first `CircuitBreakerMiddleware`, so a burst that hits the limit
+never trips the breaker (the breaker doesn't count capacity refusals in any
+case; see [Resilience Patterns](resilience-patterns.md#what-counts-as-a-failure)).
 
 ---
 
@@ -293,25 +385,15 @@ When the limit is reached, additional calls receive a `RateLimitError` with `ret
 
 An external API hangs indefinitely. Without a timeout, the tool call blocks forever, consuming a concurrency slot and leaving the agent waiting.
 
-### `TimeoutMiddleware`
-
-Apply default timeouts to all tools:
-
-```python
-from promptise.mcp.server import TimeoutMiddleware
-
-server.add_middleware(TimeoutMiddleware(default_timeout=30.0))
-```
-
 ### Per-tool timeouts
 
-Override for specific tools:
+`@server.tool(timeout=...)` is enforced on its own; no middleware needed:
 
 ```python
 @server.tool(timeout=5.0)
 async def quick_lookup(key: str) -> dict:
     """Fast key-value lookup. Should complete in <1s; timeout at 5s."""
-    return await cache.get(key)
+    return await kv.get(key)
 
 @server.tool(timeout=120.0)
 async def run_analysis(dataset: str) -> dict:
@@ -319,7 +401,30 @@ async def run_analysis(dataset: str) -> dict:
     return await analytics.process(dataset)
 ```
 
-When a timeout fires, the tool call raises `asyncio.TimeoutError`, which the framework converts to a `ToolError` with `retryable=True`.
+The limit covers the tool's own run (its guards and handler), not middleware
+in front of it such as an approval gate waiting for a human. It applies to
+`async` tools: a synchronous handler blocks the event loop and can't be
+interrupted.
+
+When the limit is hit the call is cancelled and the agent receives a
+`TIMEOUT` error with `retryable=True` and a suggestion to retry later or
+continue without the tool. A timeout counts as a failure for the
+[circuit breaker](resilience-patterns.md#circuit-breaker): a dependency that
+keeps hanging gets paused.
+
+### `TimeoutMiddleware`
+
+Apply a default timeout to every tool:
+
+```python
+from promptise.mcp.server import TimeoutMiddleware
+
+server.add_middleware(TimeoutMiddleware(default_timeout=30.0))
+```
+
+A tool's own `timeout=` takes precedence over the default. Unlike the
+per-tool limit, the middleware times everything after it in the chain,
+including later middleware.
 
 ---
 
@@ -350,7 +455,7 @@ server.add_middleware(ConcurrencyLimiter(max_concurrent=100))       # 100 total
     max_concurrent=10,        # Only 10 concurrent DB queries
     read_only_hint=True,
 )
-@cached(ttl=300, backend=cache)
+@cached(ttl=300, backend=cache, scope="shared")  # the catalog is the same for everyone
 async def search_products(query: str, category: str = "all") -> list[dict]:
     """Search the product catalog.
 
@@ -365,16 +470,20 @@ async def search_products(query: str, category: str = "all") -> list[dict]:
 
 | Symbol | Type | Description |
 |--------|------|-------------|
-| `@cached(ttl, key_func, backend)` | Decorator | Cache tool results with TTL |
+| `@cached(ttl, key_func, backend, scope, coalesce)` | Decorator | Cache tool results with TTL, per caller by default; coalesces identical concurrent calls |
 | `InMemoryCache(max_size, cleanup_interval)` | Class | In-process LRU cache with expiry |
 | `RedisCache(url, prefix, client)` | Class | Redis-backed distributed cache |
-| `CacheMiddleware(backend, ttl)` | Class | Server-wide caching middleware |
+| `CacheMiddleware(backend, ttl, scope)` | Class | Server-wide caching middleware, per caller by default; skips `cache=False` and destructive tools |
+| `@server.tool(cache=False)` | Option | Opt a tool out of `CacheMiddleware` |
+| `CacheScope` | Type | `"client"`, `"tenant"` or `"shared"` |
 | `CacheBackend` | Protocol | Interface for custom cache backends |
 | `RateLimitMiddleware(limiter, per_tool)` | Class | Token-bucket rate limiting |
 | `TokenBucketLimiter(rate_per_minute, burst)` | Class | Token bucket rate limiter |
 | `ConcurrencyLimiter(max_concurrent)` | Class | Server-wide concurrency cap |
-| `PerToolConcurrencyLimiter` | Class | Per-tool concurrency limits (auto-inserted) |
-| `TimeoutMiddleware(default_timeout)` | Class | Per-call timeout enforcement |
+| `PerToolConcurrencyLimiter` | Class | Per-tool concurrency limits (auto-inserted outside any circuit breaker) |
+| `ConcurrencyLimitError` | Exception | `CONCURRENCY_LIMIT_EXCEEDED`; subclass of `RateLimitError` |
+| `@server.tool(timeout=...)` | Option | Per-tool timeout, enforced without middleware |
+| `TimeoutMiddleware(default_timeout)` | Class | Default timeout for every tool |
 
 ## What's Next
 

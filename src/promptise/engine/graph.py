@@ -157,6 +157,8 @@ class PromptGraph:
         self._edge_index_dirty = True
         self._entry: str | None = None
         self._cow_source: PromptGraph | None = None  # Copy-on-write parent
+        # loop_until() budgets: node name → (max_iterations, exit_to)
+        self._loop_limits: dict[str, tuple[int, str]] = {}
 
         # Add nodes if passed in constructor
         if nodes:
@@ -180,6 +182,7 @@ class PromptGraph:
     def remove_node(self, name: str) -> PromptGraph:
         """Remove a node and all edges referencing it."""
         self._nodes.pop(name, None)
+        self._loop_limits.pop(name, None)
         self._ensure_edges_owned()
         self._edges = [e for e in self._edges if e.from_node != name and e.to_node != name]
         self._edge_index_dirty = True
@@ -377,10 +380,23 @@ class PromptGraph:
         condition: Callable[[NodeResult], bool],
         max_iterations: int = 5,
     ) -> PromptGraph:
-        """Add a loop: node re-enters itself until condition, then exits."""
+        """Add a loop: node re-enters itself until condition, then exits.
+
+        The node runs at most *max_iterations* times in a run (fewer when
+        its own ``max_iterations`` is lower); once it has used them, the
+        engine exits to *exit_to* even though *condition* never held.
+        """
+        if max_iterations < 1:
+            raise ValueError("loop_until max_iterations must be at least 1")
         self.add_edge(node_name, exit_to, condition=condition, label="exit_loop", priority=10)
         self.add_edge(node_name, node_name, label="loop", priority=0)
+        self._loop_limits[node_name] = (max_iterations, exit_to)
         return self
+
+    def loop_limit(self, node_name: str) -> tuple[int, str] | None:
+        """``(max_iterations, exit_to)`` set by :meth:`loop_until` for
+        *node_name*, or ``None``."""
+        return self._loop_limits.get(node_name)
 
     # ── Factory: build from node pool ──────────────────────────────
 
@@ -496,6 +512,7 @@ class PromptGraph:
         new._edges = self._edges  # Shared — COW on first mutation
         new._cow_source = self
         new._entry = self._entry
+        new._loop_limits = dict(self._loop_limits)
         new._edge_index_dirty = True  # Rebuild on first use
         return new
 

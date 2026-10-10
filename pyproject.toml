@@ -80,13 +80,24 @@ all = [
   "mem0ai>=0.1.0",
   # Infrastructure
   "redis>=5.0.0",
-  "docker>=7.0.0",
+  "promptise[sandbox]",
   # Observability
   "opentelemetry-api>=1.20.0",
   "opentelemetry-sdk>=1.20.0",
   "opentelemetry-exporter-otlp>=1.20.0",
   "prometheus_client>=0.20.0",
 ]
+
+# pip install promptise[sandbox]
+# The Docker client for the code-execution sandbox (build_agent(sandbox=...)
+# and agent_pattern="code-action"). Docker itself must be installed and running.
+sandbox = ["docker>=7.0.0"]
+
+# pip install promptise[tool-optimization]
+# Semantic tool selection (optimize_tools="semantic"): local embeddings that
+# offer each model call only the relevant tools. Static optimization
+# ("minimal"/"standard") needs nothing extra. Also included in [all].
+tool-optimization = ["sentence-transformers>=2.2.0"]
 
 # pip install promptise[identity-aws]
 # AWS IAM federation via STS GetWebIdentityToken. Only needed for the

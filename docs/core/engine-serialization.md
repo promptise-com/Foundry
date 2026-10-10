@@ -5,7 +5,23 @@ Save and load graphs as YAML files or Python dicts. A saved graph loads back as 
 ## Save a Graph
 
 ```python
+from pydantic import BaseModel
+
+from promptise.engine import PromptGraph, PromptNode, ValidateNode
 from promptise.engine.serialization import save_graph
+
+
+class Verdict(BaseModel):
+    passes: bool
+    issues: list[str]
+
+
+graph = PromptGraph("checked-answer", mode="static")
+graph.add_node(PromptNode("answer", inject_tools=True, default_next="verify"))
+graph.add_node(ValidateNode(
+    "verify", output_schema=Verdict, on_pass="__end__", on_fail="answer", max_iterations=3,
+))
+graph.set_entry("answer")
 
 save_graph(graph, "my-agent.yaml")
 ```
@@ -35,6 +51,7 @@ The file may hold the graph at the top level or under a `graph` key.
 | Instructions, transitions, `default_next`, `max_iterations`, metadata | Plain data |
 | Every node type's own settings — `input_keys`, `output_key`, `inherit_context_from`, `context_scope`, `temperature`, `on_pass`/`on_fail`, `max_subgoals`, … | Plain data |
 | Flags (including `inject_tools`, `is_entry`, `is_terminal`) | `flags: [inject_tools, ...]` |
+| `compaction` (a `ContextCompaction`, or `True`/`False`/an `int`) | Its fields, e.g. `compaction: {after_tool_results: 3}` (a custom `count_tokens` as an import reference) |
 | Tools | Tool names, resolved from `tools=` on load |
 | `output_schema`, `preprocessor`, `postprocessor`, `transform`, `merge_fn`, `tool_selector`, a `LoopNode` condition | Import reference `"module:QualName"` |
 | `model_override` given as a string | The model id |
@@ -43,6 +60,7 @@ The file may hold the graph at the top level or under a `graph` key.
 | Graph name, `mode`, entry, edges | Plain data |
 | Edges from `on_tool_call`, `on_no_tool_call`, `on_output`, `on_error`, `on_confidence`, `on_guard_fail` | A `condition:` mapping |
 | Edges from `when(...)` / `loop_until(...)` with a module-level function | `condition: {ref: "module:function"}` |
+| `loop_until(..., max_iterations=...)` budgets | `loops: {refine: {max_iterations: 5, exit_to: deliver}}` |
 
 Values a node would get by default are left out, so a saved graph stays short and picks up improved defaults (for example a reasoning node's built-in instructions).
 
@@ -129,7 +147,7 @@ The built-in conditions are `EdgeCondition` objects (`from promptise.engine impo
 from promptise.engine.serialization import graph_from_config, graph_to_config
 
 config = graph_to_config(graph)                    # plain data, with "version": 2
-graph = graph_from_config(config, tools=agent.tools)
+graph = graph_from_config(config, tools=agent.tools, refs=[Verdict])
 ```
 
 `node_to_config(node)` and `node_from_config(config, tools=..., refs=..., allow_imports=...)` do the same for a single node.

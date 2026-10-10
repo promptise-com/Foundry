@@ -6,10 +6,11 @@ Supports the Promptise MCP Client with token-based authentication
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 
 class _BaseServer(BaseModel):
@@ -54,13 +55,25 @@ class HTTPServerSpec(_BaseServer):
         url: Full endpoint URL (e.g., ``http://127.0.0.1:8080/mcp``).
         transport: ``"http"``, ``"streamable-http"``, or ``"sse"``.
         headers: Extra HTTP headers sent on every request.
-        auth: Legacy auth hint.
+        auth: Deprecated and ignored — it was never sent to the server.
+            Setting it emits a ``FutureWarning``; use ``bearer_token`` or
+            ``api_key``.
         bearer_token: Pre-issued Bearer token.  When set, an
             ``Authorization: Bearer <token>`` header is created
             automatically.
         api_key: Pre-shared API key.  When set, an ``x-api-key``
             header is created automatically.  Use this for simple
             secret-based auth when JWT is overkill.
+        forward_caller_token: When ``True`` (default) and an invocation
+            carries a :class:`~promptise.CallerContext` with a
+            ``bearer_token``, this server's tools are called with
+            ``Authorization: Bearer <caller token>`` over a session
+            opened for that caller, so the server sees the user, not
+            whoever built the agent.  ``bearer_token`` (or the agent
+            identity) is still used for tool discovery and for calls
+            without a caller token.  Set ``False`` for a third-party
+            server that must not receive your users' tokens, or one that
+            should always see the agent's own credential.
 
     Example — Bearer token::
 
@@ -112,6 +125,29 @@ class HTTPServerSpec(_BaseServer):
         description="Pre-shared API key for simple secret-based authentication. "
         "Injected as an x-api-key header.",
     )
+
+    # Per-invocation identity: send the invoking user's token, not the agent's.
+    forward_caller_token: bool = Field(
+        default=True,
+        description="When an invocation carries a CallerContext with a "
+        "bearer_token, call this server's tools with that token (one session "
+        "per caller) instead of bearer_token / the agent identity. Set False "
+        "for servers outside your trust boundary, or whose credential is the "
+        "agent's own rather than the user's.",
+    )
+
+    @field_validator("auth")
+    @classmethod
+    def _warn_auth_ignored(cls, v: str | None) -> str | None:
+        if v is not None:
+            warnings.warn(
+                "HTTPServerSpec.auth is ignored (it is not sent to the server) and will be "
+                "removed. Use bearer_token= (sent as 'Authorization: Bearer <token>') or "
+                "api_key= (sent as 'x-api-key: <key>').",
+                FutureWarning,
+                stacklevel=2,
+            )
+        return v
 
 
 ServerSpec = StdioServerSpec | HTTPServerSpec

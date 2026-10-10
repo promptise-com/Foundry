@@ -71,7 +71,8 @@ agent = await build_agent(..., agent_pattern="deliberate")  # Think → Plan →
 agent = await build_agent(..., agent_pattern="debate")      # Proposer ↔ Critic → Judge
 
 # Prebuilt graphs that take your nodes
-agent = await build_agent(..., agent_pattern=PromptGraph.pipeline(a, b, c))  # Sequential chain
+steps = PromptGraph.pipeline(PromptNode("extract"), PromptNode("analyze"), PromptNode("report"))
+agent = await build_agent(..., agent_pattern=steps)  # Sequential chain
 
 # Custom graph
 agent = await build_agent(..., agent_pattern=my_graph)

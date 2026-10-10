@@ -61,6 +61,7 @@ _NODE = "node"  # a nested node
 _NODES = "nodes"  # a list (or name → node dict) of nested nodes
 _GRAPH = "graph"  # a nested graph
 _BRANCHES = "branches"  # FanOutNode's (node, overrides) pairs
+_COMPACTION = "compaction"  # a ContextCompaction, stored as its fields
 _UNSUPPORTED = "unsupported"  # Python objects with state — must be empty to save
 
 
@@ -101,6 +102,7 @@ _PROMPT_FIELDS = (
     _Field("inherit_context_from", _DATA),
     _Field("context_scope", _DATA),
     _Field("auto_ledger_after", _DATA),
+    _Field("compaction", _COMPACTION),
     _Field("preprocessor", _REF),
     _Field("postprocessor", _REF),
     _Field("include_observations", _DATA),
@@ -484,11 +486,27 @@ def _encode(field: _Field, value: Any, where: str) -> Any:
                 raise GraphSerializationError(f"{where}: branch overrides must be plain data")
             branches.append({"node": node_to_config(node), "overrides": _plain(overrides)})
         return branches
+    if kind == _COMPACTION:
+        return _compaction_to_config(value, where)
     # _UNSUPPORTED with a non-empty value
     raise GraphSerializationError(
         f"{where}: {type(value).__name__} objects can't be saved to YAML. "
         "Remove it before saving and set it in code after loading the graph."
     )
+
+
+def _compaction_to_config(value: Any, where: str) -> dict[str, Any]:
+    """A :class:`~promptise.engine.compaction.ContextCompaction` as its
+    fields; a custom ``count_tokens`` as an import reference."""
+    from dataclasses import fields
+
+    config: dict[str, Any] = {}
+    for f in fields(value):
+        v = getattr(value, f.name)
+        if v == f.default:
+            continue
+        config[f.name] = _ref_of(v, f"{where}.{f.name}") if f.name == "count_tokens" else v
+    return config
 
 
 def node_to_config(node: BaseNode) -> dict[str, Any]:
@@ -586,7 +604,7 @@ def _edge_to_config(edge: Any) -> dict[str, Any]:
 
 
 def _graph_body(graph: PromptGraph) -> dict[str, Any]:
-    return {
+    body: dict[str, Any] = {
         "name": graph.name,
         "mode": graph.mode,
         "entry": graph.entry,
@@ -596,6 +614,13 @@ def _graph_body(graph: PromptGraph) -> dict[str, Any]:
         },
         "edges": [_edge_to_config(edge) for edge in graph.edges],
     }
+    if graph._loop_limits:
+        # loop_until() budgets (the loop's edges are in "edges")
+        body["loops"] = {
+            name: {"max_iterations": limit, "exit_to": exit_to}
+            for name, (limit, exit_to) in graph._loop_limits.items()
+        }
+    return body
 
 
 def graph_to_config(graph: PromptGraph) -> dict[str, Any]:
@@ -632,13 +657,18 @@ class _Resolver:
         refs: Iterable[Any] | Mapping[str, Any] | None,
         allow_imports: bool,
     ) -> _Resolver:
-        tool_map = dict(tools) if isinstance(tools, Mapping) else {t.name: t for t in (tools or [])}
-        if isinstance(refs, Mapping):
-            ref_map = dict(refs)
+        tool_map: dict[str, Any] = {}
+        if isinstance(tools, Mapping):
+            tool_map.update(tools)
         else:
-            ref_map = {}
-            for obj in refs or []:
-                ref_map[f"{obj.__module__}:{obj.__qualname__}"] = obj
+            tool_items: list[Any] = list(tools or [])
+            tool_map.update((t.name, t) for t in tool_items)
+        ref_map: dict[str, Any] = {}
+        if isinstance(refs, Mapping):
+            ref_map.update(refs)
+        else:
+            ref_items: list[Any] = list(refs or [])
+            ref_map.update((f"{obj.__module__}:{obj.__qualname__}", obj) for obj in ref_items)
         return cls(tool_map, ref_map, allow_imports)
 
     def tool_list(self, names: Any, where: str) -> list[Any]:
@@ -699,11 +729,27 @@ def _decode(field: _Field, value: Any, where: str, resolver: _Resolver) -> Any:
         return [
             (_node_from_config(b["node"], resolver), dict(b.get("overrides") or {})) for b in value
         ]
+    if kind == _COMPACTION:
+        return None if value is None else _compaction_from_config(value, where, resolver)
     if _is_empty(value):
         return None
     raise GraphSerializationError(
         f"{where}: can't be loaded from YAML — set it in code after loading the graph."
     )
+
+
+def _compaction_from_config(value: Any, where: str, resolver: _Resolver) -> Any:
+    from .compaction import ContextCompaction
+
+    if not isinstance(value, dict):
+        raise GraphSerializationError(f"{where}: expected a mapping of ContextCompaction fields")
+    kwargs = dict(value)
+    if kwargs.get("count_tokens") is not None:
+        kwargs["count_tokens"] = resolver.ref(kwargs["count_tokens"], f"{where}.count_tokens")
+    try:
+        return ContextCompaction(**kwargs)
+    except TypeError as exc:
+        raise GraphSerializationError(f"{where}: {exc}") from exc
 
 
 def _node_from_config(config: Any, resolver: _Resolver) -> BaseNode:
@@ -803,6 +849,13 @@ def _graph_from_config(config: Any, resolver: _Resolver) -> PromptGraph:
             label=edge_config.get("label", ""),
             priority=edge_config.get("priority", 0),
         )
+
+    for name, loop in (config.get("loops") or {}).items():
+        if not isinstance(loop, dict) or set(loop) != {"max_iterations", "exit_to"}:
+            raise GraphSerializationError(
+                f"Loop {name!r}: expected {{max_iterations: ..., exit_to: ...}}"
+            )
+        graph._loop_limits[name] = (int(loop["max_iterations"]), str(loop["exit_to"]))
 
     entry = config.get("entry")
     if entry is not None:

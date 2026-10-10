@@ -71,6 +71,9 @@ graph LR
 Three stages with data flow between nodes:
 
 ```python
+from promptise.engine import PromptGraph, PromptNode
+from promptise.prompts import chain_of_thought
+
 graph = PromptGraph("researcher")
 
 # Stage 1: Search (has tools)
@@ -123,6 +126,7 @@ Add a guard node for quality control with retry:
 
 ```python
 from promptise.engine import PromptNode, GuardNode, PromptGraph
+from promptise.prompts.guards import ContentFilterGuard, LengthGuard
 
 graph = PromptGraph("quality-agent")
 
@@ -137,7 +141,7 @@ graph.add_node(PromptNode(
 graph.add_node(GuardNode(
     "review",
     guards=[
-        LengthGuard(min=500, max=3000),
+        LengthGuard(min_length=500, max_length=3000),
         ContentFilterGuard(required=["conclusion", "introduction"]),
     ],
     on_pass="__end__",
@@ -179,6 +183,7 @@ Search multiple sources simultaneously:
 
 ```python
 from promptise.engine import PromptNode, ParallelNode, PromptGraph
+from promptise.prompts import chain_of_thought, self_critique
 
 graph = PromptGraph("parallel-research")
 
@@ -227,6 +232,9 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from promptise.engine import PromptGraph, PromptNode
+from promptise.prompts import creative
+
 
 class Triage(BaseModel):
     route: Literal["simple_answer", "research", "code_task", "creative"]
@@ -248,7 +256,7 @@ graph.add_node(PromptNode(
 
 graph.add_node(PromptNode("deep_research", tools=search_tools, default_next="__end__"))
 graph.add_node(PromptNode("code_agent", tools=code_tools, default_next="__end__"))
-graph.add_node(PromptNode("creative_agent", strategy=creative, default_next="__end__"))
+graph.add_node(PromptNode("creative_agent", perspective=creative, default_next="__end__"))
 
 graph.set_entry("triage")
 ```
@@ -258,6 +266,9 @@ graph.set_entry("triage")
 Transform data before the LLM sees it:
 
 ```python
+from datetime import datetime
+
+
 async def load_customer_data(state, config):
     """Preprocessor: load customer data into context."""
     customer_id = state.context.get("customer_id")
@@ -365,17 +376,24 @@ print(graph.to_mermaid())
 ### Execution Report
 
 ```python
-result = await engine.ainvoke(input)
+result = await engine.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
 print(engine.last_report.summary())
 ```
 
 ### Step-by-Step Inspection
 
+A `post_node` hook sees every node's `NodeResult` as the run goes:
+
 ```python
-# Check node history after execution
-for nr in state.node_history:
-    print(f"{nr.node_name}: {nr.duration_ms:.0f}ms, tokens={nr.total_tokens}, "
-          f"tools={len(nr.tool_calls)}, next={nr.next_node}")
+class PrintSteps:
+    async def post_node(self, node, result, state):
+        print(f"{result.node_name}: {result.duration_ms:.0f}ms, tokens={result.total_tokens}, "
+              f"tools={len(result.tool_calls)}")
+        return result
+
+
+engine = PromptGraphEngine(graph=graph, model=model, hooks=[PrintSteps()])
+result = await engine.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
 ```
 
 ### Hooks for Debugging
@@ -457,7 +475,7 @@ engine = PromptGraphEngine(
     ],
 )
 
-result = await engine.ainvoke(input)
+result = await engine.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
 
 # Inspect per-node performance
 for node_name, stats in metrics.summary().items():
@@ -474,7 +492,7 @@ A run that ends on a failed node — a provider error, a CRITICAL node, a RETRYA
 from promptise.engine import GraphExecutionError
 
 try:
-    result = await agent.ainvoke({"messages": [...]})
+    result = await agent.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
 except GraphExecutionError as exc:
     print(f"Graph failed at {exc.node_name}: {exc.error}")
     report = exc.report

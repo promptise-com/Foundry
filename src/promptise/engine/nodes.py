@@ -29,17 +29,42 @@ from uuid import uuid4
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
-    HumanMessage,
     SystemMessage,
     ToolMessage,
+    message_chunk_to_message,
 )
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, ToolException
 from pydantic import BaseModel as PydanticBaseModel
 
 from .base import BaseNode
 from .state import GraphState, NodeEvent, NodeResult
+
+#: ``id`` of a leading :class:`SystemMessage` that carries the agent's
+#: per-turn prompt (e.g. a conversation flow's).  :class:`PromptNode`
+#: appends its own instructions and tool list to that message instead of
+#: adding a second system message.
+AGENT_PROMPT_MESSAGE_ID = "promptise-agent-prompt"
+
+
+def _is_agent_prompt(message: Any) -> bool:
+    return isinstance(message, SystemMessage) and message.id == AGENT_PROMPT_MESSAGE_ID
+
+
+def _place_node_prompt(messages: list[Any], node_sys_msg: SystemMessage) -> bool:
+    """Put a node's system message into *messages* (in place).
+
+    When *messages* starts with the agent's prompt, *node_sys_msg* already
+    carries it, so it replaces that message and the model gets one system
+    message.  Returns ``True`` in that case.
+    """
+    if messages and _is_agent_prompt(messages[0]):
+        messages[0] = node_sys_msg
+        return True
+    return False
+
 
 logger = logging.getLogger("promptise.engine")
 
@@ -49,6 +74,13 @@ logger = logging.getLogger("promptise.engine")
 # ``__cause__`` when the run ends on that failure.  It is deliberately not a
 # dataclass field: it never serializes, never compares, never prints.
 _FAILURE_CAUSE_ATTR = "_failure_cause"
+
+#: Run-config key for a tool selector: ``selector(candidates, state)`` returns
+#: the subset of a node's candidate tools to offer on its next model call. It
+#: runs before every LLM call, so the offered tools can change between steps of
+#: one run (``build_agent(optimize_tools="semantic")`` installs one). Tool calls
+#: still execute against all candidates.
+TOOL_SELECTOR_KEY = "_tool_selector"
 
 
 def record_failure(result: NodeResult, exc: BaseException, error: str | None = None) -> None:
@@ -169,6 +201,18 @@ class PromptNode(BaseNode):
         include_observations: Auto-inject recent tool results from state.
         include_plan: Auto-inject current plan/subgoals from state.
         include_reflections: Auto-inject past learnings from state.
+
+        context_scope: How much history the model sees: ``"full"``,
+            ``"auto"`` (full, compacting once the tool loop gets long),
+            ``"ledger"`` (always compacted) or ``"scoped"``.  See
+            :mod:`promptise.engine.compaction`.
+        auto_ledger_after: Tool results before an ``"auto"`` node compacts
+            (default 6).  Shorthand for
+            ``compaction=ContextCompaction(after_tool_results=...)``.
+        compaction: :class:`~promptise.engine.compaction.ContextCompaction`
+            settings for this node (or ``True`` / ``False`` / an ``int``).
+            Without it the node uses the settings ``build_agent`` passed,
+            else the defaults.
     """
 
     def __init__(
@@ -197,7 +241,8 @@ class PromptNode(BaseNode):
         output_key: str | None = None,
         inherit_context_from: str | None = None,
         context_scope: str = "full",
-        auto_ledger_after: int = 6,
+        auto_ledger_after: int | None = None,
+        compaction: Any | None = None,
         # Processing pipeline
         preprocessor: Callable | None = None,
         postprocessor: Callable | None = None,
@@ -246,7 +291,14 @@ class PromptNode(BaseNode):
         #     re-querying facts it already has.
         self.context_scope = context_scope
         # "auto" flips to ledger once this many tool results have accumulated.
-        self.auto_ledger_after = auto_ledger_after
+        self._auto_ledger_explicit = auto_ledger_after is not None
+        self.auto_ledger_after = auto_ledger_after if auto_ledger_after is not None else 6
+        # Node-level compaction settings; None defers to the engine's.
+        from .compaction import ContextCompaction
+
+        self.compaction: ContextCompaction | None = (
+            ContextCompaction.coerce(compaction) if compaction is not None else None
+        )
         # Pipeline
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
@@ -262,31 +314,14 @@ class PromptNode(BaseNode):
 
         return NodeFlag.INJECT_TOOLS in self.flags
 
-    def resolve_tools(self, config: dict[str, Any]) -> list[BaseTool]:
-        """The tools this node can call in a run.
-
-        The node's own ``tools``, plus — when ``inject_tools`` is set — the
-        engine's runtime tools (``config["_engine_tools"]``: the tools
-        ``build_agent`` discovered, or ``PromptGraphEngine(tools=...)``).
-        Deduplicated by name; the node's own tools win.
-        """
-        active_tools = list(self.tools)
-        if self.inject_tools:
-            existing_names = {t.name for t in active_tools}
-            for et in config.get("_engine_tools", []) or []:
-                if et.name not in existing_names:
-                    active_tools.append(et)
-                    existing_names.add(et.name)
-        return active_tools
-
     def _bind_model(
         self, model: Any, active_tools: list[BaseTool], config: dict[str, Any]
-    ) -> tuple[Any, bool, dict[str, BaseTool]]:
+    ) -> tuple[Any, bool]:
         """Bind tools and structured output to *model*, reusing the binding
         from an earlier execution of this node in the same run while the
         model and the tool set are unchanged.
 
-        Returns ``(model_to_use, structured_raw, tool_map)`` —
+        Returns ``(model_to_use, structured_raw)`` —
         ``structured_raw`` is ``True`` when structured output was requested
         with ``include_raw=True`` (so token usage survives parsing).
         """
@@ -302,7 +337,7 @@ class PromptNode(BaseNode):
             and cached["tool_names"] == tool_names
             and cached["output_schema"] is self.output_schema
         ):
-            return cached["model"], cached["structured_raw"], cached["tool_map"]
+            return cached["model"], cached["structured_raw"]
 
         model_to_use = model.bind_tools(active_tools) if active_tools else model
         structured_raw = False
@@ -323,27 +358,84 @@ class PromptNode(BaseNode):
                         exc,
                     )
 
-        tool_map = {t.name: t for t in active_tools}
         config[cache_key] = {
             "source": source,
             "tool_names": tool_names,
             "output_schema": self.output_schema,
             "model": model_to_use,
             "structured_raw": structured_raw,
-            "tool_map": tool_map,
         }
-        return model_to_use, structured_raw, tool_map
+        return model_to_use, structured_raw
 
-    def _effective_context_scope(self, state: GraphState) -> str:
+    def _compaction_settings(self, config: dict[str, Any] | None = None) -> Any:
+        """The :class:`ContextCompaction` settings this node runs with.
+
+        The node's own ``compaction`` wins, then the engine's (from
+        ``build_agent(context_compaction=...)``), then the defaults.  An
+        explicit ``auto_ledger_after`` overrides the threshold of the
+        engine's settings.
+        """
+        from dataclasses import replace
+
+        from .compaction import ContextCompaction
+
+        if self.compaction is not None:
+            return self.compaction
+        settings = (config or {}).get("_engine_compaction") or ContextCompaction()
+        if self._auto_ledger_explicit:
+            settings = replace(settings, after_tool_results=self.auto_ledger_after)
+        return settings
+
+    def _candidate_tools(self, config: dict[str, Any]) -> list[BaseTool]:
+        """The node's own tools plus, when flagged, the engine-injected ones."""
+        tools = list(self.tools)
+        if self.inject_tools:
+            names = {t.name for t in tools}
+            for et in config.get("_engine_tools", []):
+                if et.name not in names:
+                    tools.append(et)
+                    names.add(et.name)
+        return tools
+
+    def _offered_tools(
+        self, candidates: list[BaseTool], state: GraphState, config: dict[str, Any]
+    ) -> list[BaseTool]:
+        """Narrow *candidates* with the run's tool selector, if one is set."""
+        selector = config.get(TOOL_SELECTOR_KEY)
+        if selector is None or not candidates:
+            return candidates
+        try:
+            return list(selector(candidates, state))
+        except Exception as exc:
+            logger.warning(
+                "Tool selector failed in node %r, offering all tools: %s", self.name, exc
+            )
+            return candidates
+
+    def _effective_context_scope(
+        self, state: GraphState, config: dict[str, Any] | None = None
+    ) -> str:
         """Resolve ``context_scope``, expanding ``"auto"`` for the current state.
 
         ``"auto"`` stays ``"full"`` while the tool loop is short (no change to
         simple tasks) and switches to ``"ledger"`` once enough tool results have
-        accumulated, so deep tool loops stay bounded automatically.
+        accumulated, or once the transcript passes the token budget, so deep
+        tool loops stay bounded automatically.  With compaction disabled it
+        stays ``"full"``.
         """
         if self.context_scope != "auto":
             return self.context_scope
-        return "ledger" if len(state.observations) >= self.auto_ledger_after else "full"
+        settings = self._compaction_settings(config)
+        if not settings.enabled:
+            return "full"
+        if len(state.observations) >= settings.after_tool_results:
+            return "ledger"
+        if (
+            settings.max_tokens is not None
+            and settings.tokens(state.messages) > settings.max_tokens
+        ):
+            return "ledger"
+        return "full"
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Execute the full node pipeline:
@@ -356,8 +448,55 @@ class PromptNode(BaseNode):
         6. Guards (validate output)
         7. Write output to state.context[output_key]
         """
-        start = time.monotonic()
         result = NodeResult(node_name=self.name, node_type="prompt", iteration=state.iteration)
+        async for _event in self._pipeline(state, config, result, stream=False):
+            pass
+        return result
+
+    async def stream(self, state: GraphState, config: dict[str, Any]) -> AsyncIterator[NodeEvent]:
+        """Run the :meth:`execute` pipeline, streaming as it goes.
+
+        One model call per step, exactly as :meth:`execute`: the call is
+        streamed and its chunks are yielded as ``on_chat_model_stream``
+        events (``data["chunk"]``; all chunks of one call share
+        ``data["run_id"]``).  Each tool call yields ``on_tool_start`` and
+        then ``on_tool_end`` (``data["status"]`` is ``"error"`` when the
+        tool reported an error) or ``on_tool_error`` (the tool raised);
+        tool calls run in parallel, as in :meth:`execute`.  The last event
+        is ``on_node_end`` with the :class:`NodeResult` under
+        ``data["result"]``.
+
+        Nodes with ``output_schema`` call the model without streaming
+        (there are no text tokens to stream).  A subclass that overrides
+        :meth:`execute` but not this method streams through
+        :meth:`BaseNode.stream`, so its own logic is never bypassed.
+        """
+        if type(self).execute is not PromptNode.execute:
+            async for event in super().stream(state, config):
+                yield event
+            return
+
+        yield NodeEvent(event="on_node_start", node_name=self.name)
+        result = NodeResult(node_name=self.name, node_type="prompt", iteration=state.iteration)
+        async for event in self._pipeline(state, config, result, stream=True):
+            yield event
+        yield NodeEvent(event="on_node_end", node_name=self.name, data={"result": result})
+
+    async def _pipeline(
+        self,
+        state: GraphState,
+        config: dict[str, Any],
+        result: NodeResult,
+        *,
+        stream: bool,
+    ) -> AsyncIterator[NodeEvent]:
+        """The node pipeline behind :meth:`execute` and :meth:`stream`.
+
+        Fills *result* in place.  Yields tool events always, and model
+        chunks when *stream* is true (the model is then called with
+        ``astream()`` instead of ``ainvoke()``).
+        """
+        start = time.monotonic()
 
         # Resolve model — per-node override takes priority
         if self.model_override is not None:
@@ -374,12 +513,12 @@ class PromptNode(BaseNode):
                     # graph history and the on_node_error event payload.
                     label = model.spec if isinstance(model, Model) else repr(model)
                     record_failure(result, exc, f"Failed to initialize model {label}: {exc}")
-                    return result
+                    return
         else:
             model = config.get("_engine_model")
         if model is None:
             result.error = "No model available in config"
-            return result
+            return
 
         # ── 0. Run preprocessor ──
         if self.preprocessor:
@@ -399,12 +538,13 @@ class PromptNode(BaseNode):
         # parameter names, types, and descriptions — without this, the LLM
         # has to guess from tool names alone, which causes wrong parameters.
         # This is a major tool-accuracy improvement.
-        active_tools = self.resolve_tools(config)
         _has_tools = bool(self.tools or self.inject_tools)
+        candidate_tools = self._candidate_tools(config) if _has_tools else []
+        offered_tools = self._offered_tools(candidate_tools, state, config)
         if _has_tools:
-            if active_tools:
+            if offered_tools:
                 schema_lines = ["Available tools:"]
-                for t in active_tools:
+                for t in offered_tools:
                     desc = getattr(t, "description", "") or ""
                     # Extract parameter info from schema
                     params = ""
@@ -505,7 +645,7 @@ class PromptNode(BaseNode):
         # "error" key is the engine's recovery route for an exhausted node,
         # never a choice. Tool nodes route automatically on tool_calls.
         route_choices = [k for k in self.transitions if k != "error"]
-        if len(route_choices) > 1 and not active_tools:
+        if len(route_choices) > 1 and not candidate_tools:
             options = ", ".join(
                 f"{k} (finish)"
                 if self.transitions[k] == "__end__"
@@ -532,28 +672,44 @@ class PromptNode(BaseNode):
                     type(self.strategy).__name__,
                 )
 
-        # Apply perspective
-        if self.perspective and hasattr(self.perspective, "framing"):
-            system_parts.insert(0, self.perspective.framing)
-            result.perspective_applied = type(self.perspective).__name__
+        # Apply perspective: the Perspective protocol's apply(prompt, ctx)
+        # (analyst, critic, advisor, creative, perspective(...)), or an
+        # object with a ``framing`` string.
+        if self.perspective is not None:
+            if hasattr(self.perspective, "apply"):
+                framed = self.perspective.apply("\n\n".join(system_parts), None)
+                if framed is not None:
+                    system_parts = [framed]
+                    result.perspective_applied = type(self.perspective).__name__
+            elif hasattr(self.perspective, "framing"):
+                system_parts.insert(0, self.perspective.framing)
+                result.perspective_applied = type(self.perspective).__name__
 
         # Build messages with this node's system prompt. The prompt is
-        # rebuilt on every execution — on re-entry (a tool loop, or a loop
-        # back through the graph) its input_keys, plan, reflections and
-        # observations may have changed.
+        # rebuilt on every execution: on re-entry (a tool loop, or a loop back
+        # through the graph) its input_keys, plan, reflections, observations
+        # and offered tools may have changed.
         system_text = "\n\n".join(system_parts)
-        node_sys_msg = SystemMessage(content=system_text)
         messages = list(state.messages)
-        if messages and isinstance(messages[0], SystemMessage):
-            messages.insert(1, node_sys_msg)
+        if messages and _is_agent_prompt(messages[0]):
+            # One system message: the agent's prompt, then this node's.
+            agent_prompt = str(messages[0].content)
+            system_text = f"{agent_prompt}\n\n{system_text}" if system_text else agent_prompt
+            node_sys_msg = SystemMessage(content=system_text)
+            _place_node_prompt(messages, node_sys_msg)
         else:
-            messages.insert(0, node_sys_msg)
+            node_sys_msg = SystemMessage(content=system_text)
+            if messages and isinstance(messages[0], SystemMessage):
+                messages.insert(1, node_sys_msg)
+            else:
+                messages.insert(0, node_sys_msg)
 
-        # ── 2. Bind tools / structured output ──
+        # ── 2. Bind the offered tools / structured output ──
         # Binding is the costly part of a re-entry, so it is reused while the
-        # model and the tool set are unchanged (a LIGHTWEIGHT swap changes
-        # the model; runtime injection can change the tools).
-        model_to_use, structured_raw, tool_map = self._bind_model(model, active_tools, config)
+        # model and the offered tool set are unchanged (a LIGHTWEIGHT swap
+        # changes the model; the tool selector can change the tools).
+        active_tools = offered_tools
+        model_to_use, structured_raw = self._bind_model(model, active_tools, config)
 
         # ── 2b. Context scoping ──
         # When the node is context-scoped, replace the full transcript with a
@@ -563,66 +719,51 @@ class PromptNode(BaseNode):
         # produced by *other* stages are dropped, so token usage does not grow
         # super-linearly across a multi-stage reasoning graph. ``"auto"`` resolves
         # to "full" (short loops) or "ledger" (deep loops) based on the state.
-        _scope = self._effective_context_scope(state)
-        if _scope == "scoped":
-            first_human = next((m for m in state.messages if isinstance(m, HumanMessage)), None)
-            own_tool_loop: list[Any] = []
-            for m in reversed(state.messages):
-                if isinstance(m, ToolMessage) or (
-                    isinstance(m, AIMessage) and getattr(m, "tool_calls", None)
-                ):
-                    own_tool_loop.append(m)
-                else:
-                    break
-            own_tool_loop.reverse()
-            messages = [node_sys_msg]
-            if first_human is not None:
-                messages.append(first_human)
-            messages.extend(own_tool_loop)
+        _scope = self._effective_context_scope(state, config)
+        if _scope in ("scoped", "ledger"):
+            # Compaction (see promptise.engine.compaction): pinned input system
+            # messages, a note on earlier conversation, the CURRENT question,
+            # then for "ledger" the latest tool exchange verbatim plus a
+            # deduplicated ledger of older results (long ones cut to an
+            # excerpt); for "scoped" this node's own trailing tool loop.
+            from .compaction import build_compacted_view
 
-        elif _scope == "ledger":
-            # Tool-loop context lifecycle management. A long multi-tool task
-            # produces an ever-growing transcript of tool calls + results; the
-            # model loses track and re-queries the same facts many times. Here
-            # we replace that transcript with a compact, DEDUPLICATED "facts
-            # gathered" ledger built from ``state.observations`` (last value
-            # wins per tool+args), so context stays bounded and the model can
-            # see what it already knows and stop re-looking-it-up.
-            first_human = next((m for m in state.messages if isinstance(m, HumanMessage)), None)
-            facts: dict[str, str] = {}
-            for obs in state.observations:
-                key = f"{obs.get('tool', '?')}({obs.get('args', {})})"
-                facts[key] = str(obs.get("result", ""))
-            # Keep ONLY the most recent assistant turn + its tool results, so the
-            # model still sees its last action's outcome in-flow (without this it
-            # loses continuity and loops). Everything older is in the ledger.
-            last_exchange: list[Any] = []
-            for m in reversed(state.messages):
-                if isinstance(m, (SystemMessage, HumanMessage)):
-                    break
-                last_exchange.append(m)
-                if isinstance(m, AIMessage):
-                    break
-            last_exchange.reverse()
-            messages = [node_sys_msg]
-            if first_human is not None:
-                messages.append(first_human)
-            messages.extend(last_exchange)
-            # The ledger goes LAST — right before the model's turn — where it is
-            # most salient, so the model actually consults it before re-querying.
-            if facts:
-                messages.append(
-                    SystemMessage(
-                        content="Facts already gathered (do NOT call a tool to "
-                        "fetch any of these again):\n"
-                        + "\n".join(f"- {k} = {v}" for k, v in facts.items())
-                    )
-                )
+            messages = build_compacted_view(
+                state.messages,
+                question=state.turn_question,
+                head=state.turn_input,
+                settings=self._compaction_settings(config),
+                scoped=_scope == "scoped",
+            )
+            if _place_node_prompt(messages, node_sys_msg):
+                pass
+            elif messages and isinstance(messages[0], SystemMessage):
+                messages.insert(1, node_sys_msg)
+            else:
+                messages.insert(0, node_sys_msg)
 
         # ── 3. Call LLM ──
         llm_start = time.monotonic()
         try:
-            response = await model_to_use.ainvoke(messages, config=config)
+            if stream and self.output_schema is None:
+                # Stream the one model call of this step; the aggregated
+                # chunks are the same AIMessage ainvoke() would return.
+                llm_run_id = str(uuid4())
+                aggregate: Any = None
+                async for chunk in model_to_use.astream(messages, config=config):
+                    if getattr(chunk, "content", None):
+                        yield NodeEvent(
+                            event="on_chat_model_stream",
+                            node_name=self.name,
+                            data={"chunk": chunk, "run_id": llm_run_id},
+                        )
+                    aggregate = chunk if aggregate is None else aggregate + chunk
+                if isinstance(aggregate, AIMessageChunk):
+                    response = message_chunk_to_message(aggregate)
+                else:
+                    response = aggregate if aggregate is not None else AIMessage(content="")
+            else:
+                response = await model_to_use.ainvoke(messages, config=config)
             result.llm_duration_ms = (time.monotonic() - llm_start) * 1000
         except Exception as exc:
             # Recorded on the result for hooks/history; the engine raises
@@ -630,9 +771,12 @@ class PromptNode(BaseNode):
             # ends here, so a provider failure never becomes a silent "answer".
             record_failure(result, exc)
             result.duration_ms = (time.monotonic() - start) * 1000
-            return result
+            return
 
         # ── 4. Process response ──
+        # A message, or (with an output_schema) a dict / Pydantic model / the
+        # include_raw envelope.
+        response = cast(Any, response)
         if structured_raw and _is_raw_structured(response):
             # with_structured_output(include_raw=True): keep the raw message's
             # token usage, then continue with the parsed value.
@@ -642,14 +786,14 @@ class PromptNode(BaseNode):
             result.total_tokens = prompt_tokens + completion_tokens
             if response.get("parsed") is None and response.get("parsing_error") is not None:
                 parsing_error = response["parsing_error"]
-                exc = (
+                parse_exc = (
                     parsing_error
                     if isinstance(parsing_error, BaseException)
                     else ValueError(str(parsing_error))
                 )
-                record_failure(result, exc)
+                record_failure(result, parse_exc)
                 result.duration_ms = (time.monotonic() - start) * 1000
-                return result
+                return
             response = response["parsed"]
 
         if isinstance(response, AIMessage):
@@ -666,6 +810,9 @@ class PromptNode(BaseNode):
             # Handle tool calls
             tool_calls = getattr(response, "tool_calls", None) or []
             if tool_calls:
+                # Execute against every candidate, not just the offered ones:
+                # a tool the selector left out this step is still callable.
+                tool_map = {t.name: t for t in (candidate_tools or active_tools)}
                 tool_start = time.monotonic()
                 hooks = config.get("_engine_hooks", [])
 
@@ -677,8 +824,9 @@ class PromptNode(BaseNode):
                     # Ledger mode: serve a previously-gathered fact from cache
                     # instead of re-executing the same (tool, args). Deep tasks
                     # otherwise re-fetch identical facts dozens of times.
-                    if self._effective_context_scope(state) == "ledger":
-                        for obs in state.observations:
+                    if self._effective_context_scope(state, config) == "ledger":
+                        # Latest result wins, as in the ledger.
+                        for obs in reversed(state.observations):
                             if (
                                 obs.get("tool") == tool_name
                                 and obs.get("args") == tool_args
@@ -709,16 +857,43 @@ class PromptNode(BaseNode):
                         tc_record["success"] = False
                     else:
                         try:
-                            tool_result = await tool_map[tool_name].ainvoke(
-                                tool_args, config=config
+                            # Invoked as a tool call, a tool answers with a
+                            # ToolMessage whose status says whether it failed
+                            # (a tool that handles its ToolException).
+                            tool_output = await tool_map[tool_name].ainvoke(
+                                {
+                                    "type": "tool_call",
+                                    "name": tool_name,
+                                    "args": tool_args,
+                                    "id": tc.get("id") or str(uuid4()),
+                                },
+                                config=cast("RunnableConfig | None", config),
                             )
-                            content = str(tool_result) if tool_result is not None else ""
+                            failed = False
+                            if isinstance(tool_output, ToolMessage):
+                                failed = tool_output.status == "error"
+                                tool_output = tool_output.content
+                            if tool_output is None:
+                                content = ""
+                            elif isinstance(tool_output, str):
+                                content = tool_output
+                            else:
+                                content = str(tool_output)
                             tc_record["result"] = content
-                            tc_record["success"] = True
+                            tc_record["success"] = not failed
+                        except ToolException as exc:
+                            # The tool ran and reported an error -- an MCP
+                            # error result raises MCPToolError.  The model
+                            # sees the server's own text (its error envelope).
+                            text = getattr(exc, "text", None)
+                            content = text if isinstance(text, str) and text else str(exc)
+                            tc_record["result"] = content
+                            tc_record["success"] = False
                         except Exception as exc:
                             content = f"Error: {type(exc).__name__}: {exc}"
                             tc_record["result"] = content
                             tc_record["success"] = False
+                            tc_record["raised"] = True
 
                     # Post-tool hooks
                     for hook in hooks:
@@ -727,38 +902,90 @@ class PromptNode(BaseNode):
 
                     return tc_record, content
 
-                # Execute tools — parallel if 2+ independent calls,
-                # sequential if only 1 (avoid asyncio.gather overhead)
-                if len(tool_calls) >= 2:
-                    gathered = await asyncio.gather(
-                        *[_exec_one_tool(tc) for tc in tool_calls],
-                        return_exceptions=True,
+                async def _timed_tool(tc: dict) -> tuple[dict[str, Any], str, float]:
+                    """Run one tool call; never raises. Returns (record, content, ms)."""
+                    started = time.monotonic()
+                    try:
+                        tc_record, content = await _exec_one_tool(tc)
+                    except Exception as exc:  # a hook failed
+                        content = f"Error: {exc}"
+                        tc_record = {
+                            "name": tc.get("name", ""),
+                            "args": tc.get("args", {}),
+                            "result": content,
+                            "success": False,
+                            "raised": True,
+                        }
+                    return tc_record, content, (time.monotonic() - started) * 1000
+
+                def _tool_end_event(
+                    index: int, tc_record: dict[str, Any], content: str, ms: float
+                ) -> NodeEvent:
+                    data: dict[str, Any] = {
+                        "output": content,
+                        "run_id": tool_run_ids[index],
+                        "duration_ms": ms,
+                    }
+                    if tc_record.get("raised"):
+                        data["error"] = content
+                        return NodeEvent(
+                            event="on_tool_error", node_name=tc_record["name"], data=data
+                        )
+                    data["status"] = "success" if tc_record.get("success", True) else "error"
+                    return NodeEvent(event="on_tool_end", node_name=tc_record["name"], data=data)
+
+                tool_run_ids = [str(uuid4()) for _ in tool_calls]
+                for index, tc in enumerate(tool_calls):
+                    yield NodeEvent(
+                        event="on_tool_start",
+                        node_name=tc.get("name", ""),
+                        data={"input": tc.get("args", {}), "run_id": tool_run_ids[index]},
                     )
-                    tool_results_ordered: list[tuple[dict[str, Any], Any]] = []
-                    for i, res_or_exc in enumerate(gathered):
-                        if isinstance(res_or_exc, BaseException):
-                            tc = tool_calls[i]
-                            tc_rec = {
-                                "name": tc.get("name", ""),
-                                "args": tc.get("args", {}),
-                                "result": f"Error: {res_or_exc}",
-                                "success": False,
-                            }
-                            tool_results_ordered.append((tc_rec, tc_rec["result"]))
-                        else:
-                            tool_results_ordered.append(res_or_exc)
+
+                # Execute tools — parallel if 2+ calls (each end event is
+                # yielded as soon as that tool finishes), direct if only 1.
+                outcomes: list[tuple[dict[str, Any], str, float] | None] = [None] * len(tool_calls)
+                if len(tool_calls) == 1:
+                    outcome = await _timed_tool(tool_calls[0])
+                    outcomes[0] = outcome
+                    yield _tool_end_event(0, *outcome)
                 else:
-                    tool_results_ordered = [await _exec_one_tool(tool_calls[0])]
+                    tasks = {
+                        asyncio.ensure_future(_timed_tool(tc)): index
+                        for index, tc in enumerate(tool_calls)
+                    }
+                    try:
+                        pending = set(tasks)
+                        while pending:
+                            done, pending = await asyncio.wait(
+                                pending, return_when=asyncio.FIRST_COMPLETED
+                            )
+                            for task in sorted(done, key=tasks.__getitem__):
+                                index = tasks[task]
+                                outcome = task.result()
+                                outcomes[index] = outcome
+                                yield _tool_end_event(index, *outcome)
+                    finally:
+                        # A consumer that stops reading must not leave tools running.
+                        for task in tasks:
+                            task.cancel()
 
                 # Append results in original order (preserves tool_call_id alignment)
-                for i, (tc_record, content) in enumerate(tool_results_ordered):
+                for i, maybe_outcome in enumerate(outcomes):
+                    assert maybe_outcome is not None
+                    tc_record, content, _ms = maybe_outcome
+                    tc_record.pop("raised", None)
                     tc = tool_calls[i]
-                    tool_id = tc.get("id", str(uuid4()))
+                    tool_id = tc.get("id") or str(uuid4())
 
                     if not tc_record.get("success", True):
                         result.tool_calls_failed += 1
 
-                    tool_msg = ToolMessage(content=content, tool_call_id=tool_id)
+                    tool_msg = ToolMessage(
+                        content=content,
+                        tool_call_id=tool_id,
+                        status="success" if tc_record.get("success", True) else "error",
+                    )
                     state.messages.append(tool_msg)
                     result.messages_added.append(tool_msg)
                     result.tool_calls.append(tc_record)
@@ -846,130 +1073,6 @@ class PromptNode(BaseNode):
             state.context[f"{self.name}_output"] = result.output
 
         result.duration_ms = (time.monotonic() - start) * 1000
-        return result
-
-    async def stream(self, state: GraphState, config: dict[str, Any]) -> AsyncIterator[NodeEvent]:
-        """Stream LLM tokens and tool events."""
-        yield NodeEvent(event="on_node_start", node_name=self.name)
-
-        _model_opt = config.get("_engine_model")
-        if _model_opt is None:
-            yield NodeEvent(event="on_node_end", node_name=self.name, data={"error": "No model"})
-            return
-        model: BaseChatModel = _model_opt
-
-        # Build messages (same as execute but simplified for streaming)
-        system_parts = [self.instructions] if self.instructions else []
-        for block in self.blocks:
-            try:
-                rendered = block.render(None)
-                if rendered:
-                    system_parts.append(rendered)
-            except Exception:
-                pass
-
-        system_text = "\n\n".join(system_parts)
-        messages = list(state.messages)
-        if messages and isinstance(messages[0], SystemMessage):
-            messages[0] = SystemMessage(content=f"{messages[0].content}\n\n{system_text}")
-        else:
-            messages.insert(0, SystemMessage(content=system_text))
-
-        # Resolve tools (runtime injection if flagged) — same as execute()
-        active_tools = self.resolve_tools(config)
-
-        model_to_use = model.bind_tools(active_tools) if active_tools else model
-
-        # Stream LLM response
-        full_content = ""
-        tool_call_chunks: list[dict] = []
-        run_id = str(uuid4())
-
-        async for chunk in model_to_use.astream(
-            messages, config=cast("RunnableConfig | None", config)
-        ):
-            if hasattr(chunk, "content") and chunk.content:
-                _chunk_content = chunk.content
-                full_content += (
-                    _chunk_content if isinstance(_chunk_content, str) else str(_chunk_content)
-                )
-                yield NodeEvent(
-                    event="on_chat_model_stream",
-                    node_name=self.name,
-                    data={"chunk": chunk, "run_id": run_id},
-                )
-
-            # Accumulate tool call chunks
-            if hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks:
-                for tc in chunk.tool_call_chunks:
-                    # Merge partial tool calls
-                    if tc.get("index") is not None:
-                        idx = tc["index"]
-                        while len(tool_call_chunks) <= idx:
-                            tool_call_chunks.append({"name": "", "args": "", "id": ""})
-                        entry = tool_call_chunks[idx]
-                        entry["name"] += tc.get("name", "") or ""
-                        entry["args"] += tc.get("args", "") or ""
-                        entry["id"] = tc.get("id") or entry.get("id", "")
-
-        # Build final message
-        parsed_tool_calls = []
-        for tc in tool_call_chunks:
-            try:
-                args = json.loads(tc["args"]) if tc["args"] else {}
-            except (json.JSONDecodeError, TypeError):
-                args = {}
-            parsed_tool_calls.append(
-                {
-                    "name": tc["name"],
-                    "args": args,
-                    "id": tc.get("id", str(uuid4())),
-                }
-            )
-
-        response = AIMessage(content=full_content, tool_calls=parsed_tool_calls)
-        state.messages.append(response)
-
-        # Execute tool calls with events
-        if parsed_tool_calls:
-            tool_map = {t.name: t for t in active_tools}
-            for tc in parsed_tool_calls:
-                tc_run_id = str(uuid4())
-                tool_name = tc["name"]
-                tool_args = tc["args"]
-                tool_id = tc.get("id", "")
-
-                yield NodeEvent(
-                    event="on_tool_start",
-                    node_name=tool_name,
-                    data={"input": tool_args, "run_id": tc_run_id},
-                )
-
-                try:
-                    if tool_name in tool_map:
-                        result = await tool_map[tool_name].ainvoke(
-                            tool_args, config=cast("RunnableConfig | None", config)
-                        )
-                        content = str(result) if result is not None else ""
-                    else:
-                        content = f"Error: Unknown tool '{tool_name}'"
-
-                    yield NodeEvent(
-                        event="on_tool_end",
-                        node_name=tool_name,
-                        data={"output": content, "run_id": tc_run_id},
-                    )
-                except Exception as exc:
-                    content = f"Error: {type(exc).__name__}: {exc}"
-                    yield NodeEvent(
-                        event="on_tool_error",
-                        node_name=tool_name,
-                        data={"error": str(exc), "run_id": tc_run_id},
-                    )
-
-                state.messages.append(ToolMessage(content=content, tool_call_id=tool_id))
-
-        yield NodeEvent(event="on_node_end", node_name=self.name)
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> PromptNode:

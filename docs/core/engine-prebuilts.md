@@ -131,6 +131,13 @@ graph LR
 
 ```python
 agent = await build_agent(..., agent_pattern="code-action")  # sandbox auto-enabled
+
+# Tune the pattern from build_agent (unknown keys are rejected):
+agent = await build_agent(
+    ...,
+    agent_pattern="code-action",
+    code_action={"exec_timeout": 60, "max_repairs": 2, "max_tool_calls": 20},
+)
 ```
 
 ```python
@@ -373,7 +380,8 @@ agent = await build_agent(..., agent_pattern=graph)
 
 ```python
 PromptGraph.pipeline(
-    *nodes: BaseNode,        # Variadic: nodes to chain sequentially
+    PromptNode("extract"),   # Variadic: the nodes to chain, in order
+    PromptNode("summarize"),
 )
 ```
 

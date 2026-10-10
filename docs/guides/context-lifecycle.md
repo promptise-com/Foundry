@@ -6,10 +6,11 @@ transcript. On a deep task the model ends up re-reading a growing wall of its
 own past calls — it loses the thread, re-queries facts it already has, and pays
 for thousands of redundant tokens on every turn.
 
-Promptise gives you three opt-in levers to control exactly how much history a
-reasoning node sees, so context stays bounded as the work gets deep. This guide
-shows the problem, the three modes of `context_scope`, the two ready-made
-patterns built on them, and a decision table for picking the right one.
+Promptise bounds this for you: the default agent compacts a tool loop once it
+gets long, and you can tune or turn that off, or choose per node how much
+history it sees. This guide shows the problem, how compaction works, the modes
+of `context_scope`, the two ready-made patterns built on them, and a decision
+table for picking the right one.
 
 !!! info "Runnable example"
     Everything here is demonstrated end-to-end in
@@ -38,14 +39,16 @@ in the middle.
 ## The lever: `context_scope` on `PromptNode`
 
 Every [`PromptNode`](../core/engine-nodes.md#promptnode) accepts a
-`context_scope` argument controlling what it sees on each LLM call. It is fully
-opt-in — the default preserves today's behavior exactly.
+`context_scope` argument controlling what it sees on each LLM call. A node you
+create yourself defaults to `"full"`; the default ReAct agent that
+`build_agent()` builds uses `"auto"`.
 
 | Mode | What the node sees | Use it for |
 |------|--------------------|------------|
-| `"full"` *(default)* | The whole accumulated transcript | Short tasks, or when every prior message matters |
-| `"scoped"` | Its system prompt (with any inherited/distilled state) + the original task + **only its own in-progress tool loop** | Multi-stage reasoning graphs — drops the verbose output of *other* stages so tokens don't grow across stages |
-| `"ledger"` | System prompt + task + the **most recent** exchange + a compact **deduplicated "facts gathered" ledger** | Long single-node tool loops that gather many facts then aggregate |
+| `"full"` *(`PromptNode` default)* | The whole accumulated transcript | Short tasks, or when every prior message matters |
+| `"auto"` *(the ReAct default)* | `"full"` while the tool loop is short, then the compacted view once the run has 6 tool results (or passes a token budget) | The default: simple tasks are unchanged, deep tool loops stay bounded |
+| `"ledger"` | The compacted view on every call | Long single-node tool loops that gather many facts then aggregate |
+| `"scoped"` | Pinned messages + the current question + **only its own in-progress tool loop** | Multi-stage reasoning graphs: drops the verbose output of *other* stages so tokens don't grow across stages |
 
 ```python
 from promptise.engine import PromptNode
@@ -53,26 +56,84 @@ from promptise.engine import PromptNode
 # Multi-stage graph: each stage only sees its own working set.
 PromptNode("analyze", instructions="...", context_scope="scoped")
 
-# Deep tool loop: replace the growing transcript with a facts ledger.
+# Deep tool loop: compact from the first call.
 PromptNode("reason", inject_tools=True, context_scope="ledger")
 ```
 
-### How `"ledger"` works
+### How compaction works
 
-Instead of an ever-growing transcript, the node sees a compact ledger built
-from the tool results so far:
+Once a node compacts (`"ledger"`, or `"auto"` past its threshold), each model
+call gets a bounded view instead of the transcript:
 
-- One line per `tool(args) = result`, **last value wins** per `(tool, args)` —
-  duplicates collapse automatically.
-- The ledger is placed **last**, right before the model's turn, where it is
-  most salient, so the model consults it instead of re-calling a tool.
-- The most recent assistant turn and its tool results are kept *in-flow* so the
-  model doesn't lose continuity.
-- Tool execution is **cache-served**: a repeated `(tool, args)` call returns the
-  cached result instead of re-executing.
+1. **Pinned, always sent:** every system message in the input, such as
+   instructions you or the runtime added (`[Context State]`, mission, budget),
+   and the node's own system prompt.
+2. **Earlier conversation:** chat history before the current question (what
+   `agent.chat()` loads from the session) becomes a short note: the last 6
+   messages, 400 characters each.
+3. **The current question**, exactly as you passed it. A
+   `{"role": "user", ...}` dict, a `HumanMessage` and a `("user", ...)` tuple
+   all work: input messages are converted to LangChain messages first.
+4. **The latest exchange, verbatim:** the model's last tool call(s) and their
+   results, so it sees the outcome of its last action in flow. A parallel
+   batch is kept whole.
+5. **A ledger of older results**, last: one line per earlier `tool(args)`,
+   **last value wins** per `(tool, args)`. A result longer than 2,000
+   characters is cut to its first 2,000 with a note naming the call, so the
+   model can call it again for the full text. Results already shown in the
+   latest exchange are not repeated.
 
-See [Context scope](../core/engine-nodes.md#context-scope) for the full
-mechanism.
+In ledger mode a repeated `(tool, args)` call is **served from cache**
+instead of re-executing, so fetching a cut result in full again costs no tool
+call.
+
+!!! warning "No LLM summarization"
+    Compaction is deterministic: it cuts and drops, it never asks a model to
+    summarize, and it costs no extra calls. A fact in the part of an old result
+    that was cut is only back in view if the model calls the tool again. If your
+    tools return large results that must stay verbatim, raise
+    `keep_result_chars`, return leaner results (a summary tool instead of a raw
+    dump), or turn compaction off.
+
+### Tune it, or turn it off
+
+`build_agent(context_compaction=...)` sets compaction for the whole agent:
+
+```python
+from promptise import build_agent
+from promptise.engine import ContextCompaction
+
+# Never compact: the model always sees the full transcript.
+agent = await build_agent(..., context_compaction=False)
+
+# Compact after 10 tool results instead of 6.
+agent = await build_agent(..., context_compaction=10)
+
+# Full control.
+agent = await build_agent(
+    ...,
+    context_compaction=ContextCompaction(
+        after_tool_results=10,     # "auto" threshold
+        keep_result_chars=8_000,   # older results longer than this are cut
+        max_tokens=60_000,         # also compact past this many tokens, and
+                                   # shrink the ledger until the view fits
+        history_messages=6,        # earlier messages in the history note
+        history_chars=400,         # characters per earlier message
+    ),
+)
+```
+
+`False` keeps `"auto"` nodes on the full transcript; nodes you set to
+`"ledger"` or `"scoped"` keep that choice. A node's own
+`PromptNode(compaction=...)` wins over the agent's setting.
+
+With a [`ContextEngine`](../core/context-engine.md), the budget the engine has
+left after your instructions and tool definitions becomes `max_tokens`, so the
+engine keeps bounding the context on every call of the tool loop, not only the
+first.
+
+See [Context scope](../core/engine-nodes.md#context-scope) for the node-level
+reference.
 
 ## Two ready-made patterns
 
@@ -141,7 +202,8 @@ agent = await build_agent(
 
 | Situation | Reach for |
 |---|---|
-| Short Q&A, every message matters | Default `react` (`context_scope="full"`) |
+| Short Q&A, short tool loops | Default `react` (`context_scope="auto"`: full until the loop gets long) |
+| Every tool result must stay verbatim | `build_agent(..., context_compaction=False)` |
 | One question that's easy to get *subtly* wrong | `verify` |
 | A long tool chain over a dataset (gather → aggregate) | `managed` |
 | A multi-stage custom graph where stages pile up tokens | A custom graph with `context_scope="scoped"` on each stage |
@@ -174,8 +236,12 @@ the other's raw messages.
 
 - **Context is a resource to manage, not a side effect.** On deep tasks it is
   the deciding factor for cost, latency, and reliability.
-- **`context_scope` is opt-in and zero-regression** — `"full"` stays the
-  default; reach for `"scoped"` or `"ledger"` only where the chain gets long.
+- **The default agent compacts long tool loops** (`"auto"`): short tasks see
+  the full transcript; past 6 tool results the model sees the pinned messages,
+  the current question, its latest exchange and a ledger. Tune it with
+  `context_compaction`, or set it to `False`.
+- **Compaction never drops the question or your system messages**, and it
+  never summarizes with a model: older results are cut, not rewritten.
 - **`verify` is the accuracy lever; `managed` is the efficiency lever.** Be
   honest about which problem you have — they solve different ones.
 

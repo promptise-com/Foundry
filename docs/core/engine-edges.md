@@ -5,7 +5,12 @@ Edges define how the graph flows from one node to another. The engine resolves t
 ## Edge Dataclass
 
 ```python
-from promptise.engine import Edge
+from promptise.engine import Edge, NodeResult
+
+
+def my_fn(result: NodeResult) -> bool:
+    return result.error is None
+
 
 Edge(
     from_node="plan",       # Source node name
@@ -87,6 +92,8 @@ graph.loop_until("refine", "deliver",
 # Exit edge gets priority=10, loop edge gets priority=0
 ```
 
+`refine` runs at most `max_iterations` times in a run (fewer if its own `max_iterations` is lower). Once it has used them, the engine exits to `deliver` even though the condition never held.
+
 ### Low-level add_edge
 
 ```python
@@ -135,7 +142,7 @@ When multiple conditional edges exist from the same node, they are checked in **
 
 ```python
 # Exit condition checked first (priority 10)
-graph.when("refine", "deliver",
+graph.add_edge("refine", "deliver",
     condition=lambda r: r.output.get("done"),
     label="done", priority=10)
 

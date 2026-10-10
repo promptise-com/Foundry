@@ -215,7 +215,10 @@ agent = await build_agent(..., agent_pattern="deliberate")  # Think → Plan →
 agent = await build_agent(..., agent_pattern="debate")      # Proposer ↔ Critic → Judge
 
 # A pipeline chains your own nodes, so it is a graph rather than a name
-agent = await build_agent(..., agent_pattern=PromptGraph.pipeline(extract, analyze))
+from promptise.engine import PromptGraph, PromptNode
+
+steps = PromptGraph.pipeline(PromptNode("extract"), PromptNode("analyze"))
+agent = await build_agent(..., agent_pattern=steps)
 ```
 
 ## Add Production Features (4 minutes)
