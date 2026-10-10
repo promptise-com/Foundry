@@ -29,10 +29,8 @@ from rich.table import Table
 
 from .agent import build_agent
 from .config import HTTPServerSpec, ServerSpec, StdioServerSpec
-from .cross_agent import CrossAgent
 from .exceptions import SuperAgentError, SuperAgentValidationError
 from .models import ModelSetupError, load_dotenv_if_present
-from .superagent import load_superagent_file
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 console = Console()
@@ -140,13 +138,20 @@ def _merge_servers(stdios: list[str], https: list[str]) -> dict[str, ServerSpec]
         transport = cast(Literal["http", "streamable-http", "sse"], transport_str)
 
         headers = {k.split(".", 1)[1]: v for k, v in list(kv.items()) if k.startswith("header.")}
-        auth = kv.get("auth")
+        if "auth" in kv:
+            raise typer.BadParameter(
+                "auth= is not supported (it was never sent to the server); use "
+                "bearer_token=<token> or api_key=<key> (in --http block)"
+            )
 
-        http_spec: ServerSpec = HTTPServerSpec(
-            url=url,
-            transport=transport,
-            headers=headers,
-            auth=auth,
+        http_spec: ServerSpec = HTTPServerSpec.model_validate(
+            {
+                "url": url,
+                "transport": transport,
+                "headers": headers,
+                "bearer_token": kv.get("bearer_token"),
+                "api_key": kv.get("api_key"),
+            }
         )
         servers[name] = http_spec
 
@@ -192,7 +197,7 @@ def list_tools(
             "--http",
             help=(
                 'Block string: "name=... url=... [transport=http|streamable-http|sse] '
-                '[header.X=Y] [auth=...]". Repeatable.'
+                '[header.X=Y] [bearer_token=...] [api_key=...]". Repeatable.'
             ),
         ),
     ] = None,
@@ -261,7 +266,7 @@ def run(
             "--http",
             help=(
                 'Block string: "name=... url=... [transport=http|streamable-http|sse] '
-                '[header.X=Y] [auth=...]". Repeatable.'
+                '[header.X=Y] [bearer_token=...] [api_key=...]". Repeatable.'
             ),
         ),
     ] = None,
@@ -369,88 +374,81 @@ def agent(
 
     This command loads agent configuration from a .superagent file and
     optionally overrides specific settings via CLI flags. CLI flags always
-    take precedence over file configuration.
+    take precedence over file configuration (they apply to the top agent;
+    cross-agents keep their own files' settings).
+
+    Every agent under ``cross_agents:`` is built with its whole file, at any
+    depth, in the same event loop as the chat. When an agent's approval
+    handler is ``queue`` and you are at a terminal, each approval request is
+    asked here as a y/N question.
 
     Examples:
         promptise agent my_agent.superagent
         promptise agent my_agent.superagent --model-id "openai:gpt-4o"
         promptise agent my_agent.superagent --no-trace
     """
-    # Load configuration file
+    from .superagent import SuperAgentLoader, build_superagent
+
+    # Load configuration file (and every cross-agent file it references)
     try:
-        main_loader, cross_loaders = load_superagent_file(file, resolve_refs=True)
+        loader = SuperAgentLoader.from_file(file)
+        loader.resolve_env_vars()
+        loader.resolve_cross_agents(recursive=True)
     except SuperAgentValidationError as exc:
         console.print("[red]Configuration validation failed:[/red]")
         console.print(str(exc))
         raise typer.Exit(1)
     except SuperAgentError as exc:
-        console.print(f"[red]Failed to load configuration:[/red] {exc}")
+        console.print(f"[red]Failed to load configuration:[/red] {escape(str(exc))}")
         raise typer.Exit(1)
 
-    # Get base config
-    config = main_loader.to_agent_config()
-
-    # Apply CLI overrides
+    # Report CLI overrides
     if model_id:
-        config.model = model_id
         console.print(f"[yellow]Overriding model:[/yellow] {model_id}")
-
     if instructions:
-        config.instructions = instructions
         console.print("[yellow]Overriding instructions[/yellow]")
-
     if trace is not None:
-        config.trace = trace
         console.print(f"[yellow]Overriding trace:[/yellow] {trace}")
 
-    # Merge additional servers from CLI
+    # Additional servers from CLI
+    extra_servers: dict[str, ServerSpec] = {}
     if stdio or http:
         extra_servers = _merge_servers(stdio or [], http or [])
-        config.servers.update(extra_servers)
         console.print(f"[yellow]Added {len(extra_servers)} server(s) from CLI[/yellow]")
 
-    # Build cross-agent mapping
-    cross_agent_map: dict[str, CrossAgent] | None = None
-    if cross_loaders:
+    # Build and run the whole team in ONE event loop: MCP sessions (stdio
+    # servers above all) belong to the loop and task that opened them.
+    async def _chat() -> int:
+        """Build the team, then start an interactive chat session."""
+        try:
+            graph = await build_superagent(
+                loader,
+                model=model_id,
+                instructions=instructions,
+                trace=trace,
+                extra_servers=extra_servers,
+            )
+        except Exception as exc:
+            # One line, not a traceback: the cause (e.g. a stdio server that
+            # exits at startup) is in the message and the server's stderr.
+            console.print(
+                f"[red]Failed to start the agent:[/red] {escape(str(exc))}", soft_wrap=True
+            )
+            return 1
 
-        async def _build_cross_agents() -> dict[str, CrossAgent]:
-            """Build cross-agent graphs asynchronously."""
-            result: dict[str, CrossAgent] = {}
-            for name, loader in cross_loaders.items():
-                cross_config = loader.to_agent_config()
-                # Build the cross-agent graph
-                cross_graph = await build_agent(
-                    servers=cross_config.servers,
-                    model=cross_config.model,
-                    instructions=cross_config.instructions,
-                    trace_tools=cross_config.trace,
-                )
-                # Get description from schema
-                desc = ""
-                if loader.schema.cross_agents and name in loader.schema.cross_agents:
-                    desc = loader.schema.cross_agents[name].description
-                # PromptiseAgent is duck-typed as a Runnable (has ainvoke/astream);
-                # CrossAgent's type annotation is Runnable[Any, Any] for LangChain compat.
-                result[name] = CrossAgent(agent=cast("Any", cross_graph), description=desc)
-            return result
+        team = _count_cross_agents(loader)
+        if team:
+            console.print(f"[green]Loaded {team} cross-agent(s)[/green]")
 
-        cross_agent_map = asyncio.run(_build_cross_agents())
-        console.print(f"[green]Loaded {len(cross_agent_map)} cross-agent(s)[/green]")
-
-    # Run agent
-    async def _chat() -> None:
-        """Start interactive chat session."""
-        build_kwargs = config.to_build_kwargs()
-        if cross_agent_map:
-            build_kwargs["cross_agents"] = cross_agent_map
-        graph = await build_agent(**build_kwargs)
+        reader = _LineReader()
+        prompters = _start_approval_prompts(graph, reader)
 
         console.print(f"[bold]Promptise Foundry loaded from {file}. Type 'exit' to quit.[/bold]")
 
         try:
             while True:
                 try:
-                    user = input("> ").strip()
+                    user = (await reader.readline("> ")).strip()
                 except (EOFError, KeyboardInterrupt):
                     console.print("\nExiting.")
                     break
@@ -461,7 +459,7 @@ def agent(
                 try:
                     result = await graph.ainvoke({"messages": [{"role": "user", "content": user}]})
                 except Exception as exc:
-                    console.print(f"[red]Error during run:[/red] {exc}")
+                    console.print(f"[red]Error during run:[/red] {escape(str(exc))}")
                     continue
 
                 final_text = _extract_final_answer(result)
@@ -473,9 +471,144 @@ def agent(
                 if raw:
                     console.print(result)
         finally:
-            await graph.shutdown()  # same task that opened the MCP sessions
+            for task in prompters:
+                task.cancel()
+            await graph.shutdown()  # same task that opened the MCP sessions; whole team
+        return 0
 
-    asyncio.run(_chat())
+    try:
+        code = asyncio.run(_chat())
+    except KeyboardInterrupt:
+        console.print("\nExiting.")
+        code = 130
+    if code:
+        raise typer.Exit(code)
+
+
+def _count_cross_agents(loader: Any) -> int:
+    """Number of cross-agents under *loader*, at every depth."""
+    children = loader.cross_loaders or {}
+    return len(children) + sum(_count_cross_agents(c) for c in children.values())
+
+
+class _LineReader:
+    """The single reader of stdin, shared by the chat prompt and approval prompts.
+
+    Each line is read on a daemon thread (so exiting never waits for a line).
+    A read that its caller stopped waiting for — an approval that timed out —
+    stays pending and is handed to the next caller instead of starting a
+    second, competing read.
+    """
+
+    def __init__(self) -> None:
+        self._pending: asyncio.Future[str] | None = None
+
+    async def readline(self, prompt: str) -> str:
+        """Print *prompt* and return the next line. Raises EOFError at end of input."""
+        import threading
+
+        console.print(prompt, end="", markup=False, highlight=False)
+        if self._pending is None:
+            loop = asyncio.get_running_loop()
+            future: asyncio.Future[str] = loop.create_future()
+
+            def _fail(exc: BaseException) -> None:
+                if not future.done():
+                    future.set_exception(exc)
+
+            def _done(line: str) -> None:
+                if not future.done():
+                    future.set_result(line)
+
+            def _read() -> None:
+                try:
+                    line = input()
+                except BaseException as exc:  # EOFError, KeyboardInterrupt
+                    loop.call_soon_threadsafe(_fail, exc)
+                else:
+                    loop.call_soon_threadsafe(_done, line)
+
+            threading.Thread(target=_read, daemon=True).start()
+            self._pending = future
+        line = await asyncio.shield(self._pending)
+        self._pending = None
+        return line
+
+
+def _start_approval_prompts(agent: Any, reader: _LineReader) -> list[asyncio.Task[None]]:
+    """Answer ``queue`` approval requests of every agent in the team at the terminal."""
+    import sys
+
+    from .approval import QueueApprovalHandler
+
+    handlers: list[tuple[QueueApprovalHandler, float, str]] = []
+    pending = [agent]
+    while pending:
+        current = pending.pop()
+        pending.extend(getattr(current, "_owned_agents", []))
+        policy: Any = getattr(current, "_approval", None)
+        handler = getattr(policy, "handler", None)
+        if isinstance(handler, QueueApprovalHandler):
+            handlers.append((handler, policy.timeout, policy.on_timeout))
+    if not handlers:
+        return []
+
+    if not sys.stdin.isatty():
+        for _, timeout, on_timeout in handlers:
+            console.print(
+                "[yellow]approval.handler is 'queue' but input is not a terminal: approval "
+                f"requests cannot be answered here and time out after {timeout:g}s "
+                f"(on_timeout: {on_timeout}).[/yellow]"
+            )
+        return []
+
+    lock = asyncio.Lock()  # one question at a time across the team
+    return [
+        asyncio.ensure_future(_answer_approvals(handler, reader, lock))
+        for handler, _, _ in handlers
+    ]
+
+
+async def _answer_approvals(handler: Any, reader: _LineReader, lock: asyncio.Lock) -> None:
+    """Ask y/N for each request in *handler*'s queue until cancelled."""
+    import json
+    import time
+
+    from .approval import ApprovalDecision
+
+    while True:
+        request = await handler.request_queue.get()
+        async with lock:
+            remaining = request.timestamp + request.timeout - time.time()
+            if remaining <= 0:
+                continue
+            args = json.dumps(request.arguments, default=str)
+            console.print(
+                Panel(
+                    escape(f"{request.tool_name}({args})"),
+                    title=f"Approval needed — answer within {remaining:.0f}s",
+                    style="yellow",
+                )
+            )
+            answer = asyncio.ensure_future(reader.readline(f"Allow {request.tool_name}? [y/N] "))
+            done, _ = await asyncio.wait({answer}, timeout=remaining)
+            if not done:
+                answer.cancel()
+                console.print("\n[yellow]No answer in time: the request timed out.[/yellow]")
+                continue
+            try:
+                approved = answer.result().strip().lower() in {"y", "yes"}
+            except (EOFError, KeyboardInterrupt):
+                approved = False
+            decision = ApprovalDecision(
+                approved=approved,
+                reviewer_id="terminal",
+                reason=None if approved else "Denied at the terminal.",
+            )
+            try:
+                handler.submit_decision(request.request_id, decision)
+            except KeyError:
+                console.print("[yellow]Too late: the request already timed out.[/yellow]")
 
 
 @app.command()
@@ -488,6 +621,13 @@ def validate(
         bool,
         typer.Option("--check-env/--no-check-env", help="Check environment variables"),
     ] = True,
+    allow_missing_env: Annotated[
+        bool,
+        typer.Option(
+            "--allow-missing-env",
+            help="Report missing environment variables as a warning instead of failing",
+        ),
+    ] = False,
     check_refs: Annotated[
         bool,
         typer.Option("--check-refs/--no-check-refs", help="Validate cross-agent references"),
@@ -498,12 +638,18 @@ def validate(
     Performs dry-run validation without building the agent:
     - YAML syntax check
     - Schema validation
-    - Environment variable availability check (optional)
-    - Cross-agent reference validation (optional)
+    - Cross-agent reference validation, at every depth (optional)
+    - Environment variable availability check, for the file and every
+      cross-agent file (optional)
+
+    Exits 1 when anything fails, including a missing environment variable
+    (pass --allow-missing-env to only warn, or --no-check-env to skip the
+    check, e.g. in CI where the secrets are not set).
 
     Examples:
         promptise validate my_agent.superagent
         promptise validate my_agent.superagent --no-check-env
+        promptise validate my_agent.superagent --allow-missing-env
     """
     from .superagent import SuperAgentLoader
 
@@ -518,33 +664,51 @@ def validate(
         console.print(str(exc))
         raise typer.Exit(1)
     except SuperAgentError as exc:
-        console.print(f"[red]✗ Failed to load file:[/red] {exc}")
+        console.print(f"[red]✗ Failed to load file:[/red] {escape(str(exc))}")
         raise typer.Exit(1)
+
+    # Check cross-agent references (the whole tree, without resolving env vars)
+    loaders = [loader]
+    if check_refs and loader.schema.cross_agents:
+        try:
+            loader.resolve_cross_agents(recursive=True, resolve_env=False)
+        except SuperAgentError as exc:
+            console.print(f"[red]✗ Cross-agent reference error:[/red] {escape(str(exc))}")
+            raise typer.Exit(1)
+        stack = list((loader.cross_loaders or {}).values())
+        while stack:
+            child = stack.pop()
+            loaders.append(child)
+            stack.extend((child.cross_loaders or {}).values())
+        console.print(f"[green]✓[/green] All {len(loaders) - 1} cross-agent reference(s) valid")
 
     # Check environment variables
     if check_env:
-        missing = loader.validate_env_vars()
+        try:
+            missing = {str(ld.file_path): ld.validate_env_vars() for ld in loaders}
+        except SuperAgentError as exc:
+            console.print(f"[red]✗ {escape(str(exc))}[/red]")
+            raise typer.Exit(1)
+        missing = {path: names for path, names in missing.items() if names}
         if missing:
-            console.print("[yellow]⚠ Missing environment variables:[/yellow]")
-            for var in missing:
-                console.print(f"  - {var}")
+            colour, mark = ("yellow", "⚠") if allow_missing_env else ("red", "✗")
+            console.print(f"[{colour}]{mark} Missing environment variables:[/{colour}]")
+            for path, names in missing.items():
+                where = "" if path == str(loader.file_path) else f"  (in {path})"
+                for var in names:
+                    console.print(f"  - {var}{escape(where)}")
             console.print(
-                "[yellow]Note: Set these variables or use defaults "
-                "(${VAR:-default}) to resolve.[/yellow]"
+                f"[{colour}]Set these variables (or put them in .env), or use defaults "
+                "(${VAR:-default}).[/" + colour + "]"
             )
+            if not allow_missing_env:
+                console.print(
+                    "[dim]Pass --allow-missing-env to only warn, or --no-check-env "
+                    "to skip this check.[/dim]"
+                )
+                raise typer.Exit(1)
         else:
             console.print("[green]✓[/green] All environment variables available")
-
-    # Check cross-agent references
-    if check_refs and loader.schema.cross_agents:
-        try:
-            cross_loaders = loader.resolve_cross_agents(recursive=False)
-            console.print(
-                f"[green]✓[/green] All {len(cross_loaders)} cross-agent reference(s) valid"
-            )
-        except SuperAgentError as exc:
-            console.print(f"[red]✗ Cross-agent reference error:[/red] {exc}")
-            raise typer.Exit(1)
 
     console.print("[bold green]✓ Validation complete![/bold green]")
 
@@ -621,8 +785,10 @@ servers:
     type: http
     url: "https://api.example.com/mcp"
     transport: http
+    # Sent as "Authorization: Bearer <token>". For a pre-shared key use
+    # api_key: "${API_KEY}" instead (sent as "x-api-key: <key>").
+    bearer_token: "${API_TOKEN}"
     headers:
-      Authorization: "Bearer ${API_TOKEN}"
       Content-Type: "application/json"
 """,
         "stdio": """version: "1.0"
@@ -692,10 +858,9 @@ servers:
     type: http
     url: "https://api.example.com/mcp"
     transport: http
+    bearer_token: ${API_TOKEN}
     headers:
-      Authorization: "Bearer ${API_TOKEN}"
       X-Custom-Header: "value"
-    auth: ${AUTH_SECRET:-default_auth}
 
   # Local stdio server
   local_tools:
