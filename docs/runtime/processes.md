@@ -199,16 +199,22 @@ TriggerConfig(type="message", topic="alerts")
 | Field | Type | Applies to | Description |
 |---|---|---|---|
 | `type` | `str` | all | `"cron"`, `"webhook"`, `"file_watch"`, `"event"`, `"message"` |
-| `cron_expression` | `str` | cron | Cron schedule (e.g. `"*/5 * * * *"`) |
+| `cron_expression` | `str` | cron | Cron schedule (e.g. `"*/5 * * * *"`; 6th field = seconds) |
+| `cron_timezone` | `str \| None` | cron | IANA time zone (default UTC) |
 | `webhook_path` | `str` | webhook | URL path (default `"/webhook"`) |
 | `webhook_port` | `int` | webhook | Listen port (default `9090`) |
+| `webhook_host` | `str` | webhook | Bind address (default `"127.0.0.1"`) |
+| `hmac_secret` | `str \| None` | webhook | Signature secret (see [Webhook Trigger](triggers/event-webhook.md#authentication-hmac-signatures)) |
+| `signature_scheme` | `str` | webhook | `"generic"`, `"github"` or `"stripe"` |
+| `allowed_sources` | `list[str]` | webhook | Allowed client IPs / CIDRs |
 | `watch_path` | `str` | file_watch | Directory to watch |
 | `watch_patterns` | `list[str]` | file_watch | Glob patterns (default `["*"]`) |
-| `watch_events` | `list[str]` | file_watch | Events: `"created"`, `"modified"` |
+| `watch_events` | `list[str]` | file_watch | `"created"`, `"modified"`, `"deleted"`, `"moved"` (default first two) |
+| `watch_debounce_seconds` | `float` | file_watch | Merge window per file (default `0.5`) |
 | `event_type` | `str` | event | EventBus event type string |
 | `event_source` | `str \| None` | event | Optional source filter |
 | `topic` | `str` | message | MessageBroker topic |
-| `filter_expression` | `str \| None` | all | Pre-filter before LLM invocation |
+| `filter_expression` | `str \| Callable \| None` | all | Skip non-matching events before the agent runs |
 
 ### Trigger Class Constructors
 
@@ -222,10 +228,11 @@ from promptise.runtime.triggers.cron import CronTrigger
 trigger = CronTrigger(
     cron_expression="*/5 * * * *",   # Standard cron expression (required)
     trigger_id="my-cron",            # Optional unique ID (auto-generated if omitted)
+    timezone="Europe/Zurich",        # Optional IANA time zone (default: UTC)
 )
 ```
 
-Uses `croniter` for full cron support if installed; falls back to simple `*/N * * * *` parsing otherwise.
+Uses `croniter` (installed with promptise) for full cron support, including a sixth seconds field. Bad expressions raise `TriggerError` immediately.
 
 **`EventTrigger`**
 
@@ -262,7 +269,7 @@ trigger = FileWatchTrigger(
     patterns=["*.csv", "*.json"],    # Glob patterns to match (default: ["*"])
     events=["created", "modified"],  # Event types to react to (default: ["created", "modified"])
     recursive=True,                  # Watch subdirectories (default: True)
-    debounce_seconds=0.5,            # Debounce interval to avoid duplicates (default: 0.5)
+    debounce_seconds=0.5,            # Events for one file within this window merge into one (default: 0.5)
     poll_interval=1.0,               # Polling interval in seconds when watchdog unavailable (default: 1.0)
 )
 ```
@@ -277,11 +284,13 @@ from promptise.runtime.triggers.webhook import WebhookTrigger
 trigger = WebhookTrigger(
     path="/webhook",                 # URL path to listen on (default: "/webhook")
     port=9090,                       # TCP port to bind to (default: 9090)
-    host="0.0.0.0",                  # Host/IP to bind to (default: "0.0.0.0")
+    host="127.0.0.1",                # Host/IP to bind to (default: "127.0.0.1")
+    hmac_secret="...",               # Optional: require signed requests (401 otherwise)
+    signature_scheme="github",       # "generic" | "github" | "stripe"
 )
 ```
 
-Starts an `aiohttp` server. Includes a `/health` endpoint for liveness checks.
+Starts an `aiohttp` server. Includes a `/health` endpoint that returns 503 while the process can't accept events.
 
 All trigger classes expose the same lifecycle interface: `await trigger.start()`, `await trigger.stop()`, and `await trigger.wait_for_next()` (returns a `TriggerEvent`).
 

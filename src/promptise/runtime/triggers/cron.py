@@ -1,15 +1,22 @@
 """Cron-based trigger.
 
-Fires at scheduled intervals defined by a standard cron expression.
-Uses ``croniter`` if available, otherwise falls back to a simple
-interval parser for basic expressions like ``*/N * * * *``.
+Fires at scheduled intervals defined by a cron expression, evaluated with
+``croniter`` (installed with promptise).  Expressions have five fields, or
+six with a trailing **seconds** field for sub-minute schedules
+(``"* * * * * */10"`` = every 10 seconds).  Schedules are read in UTC
+unless a ``timezone`` is given.  If ``croniter`` is missing, a simple
+fallback handles ``*/N * * * *``, ``* * * * *`` and single-minute
+expressions.
+
+Expressions and time zones are validated when the trigger (or its
+:class:`~promptise.runtime.config.TriggerConfig`) is created.
 
 Example::
 
-    trigger = CronTrigger("*/5 * * * *")
+    trigger = CronTrigger("0 9 * * 1-5", timezone="Europe/Zurich")
     await trigger.start()
-    event = await trigger.wait_for_next()  # blocks up to 5 minutes
-    print(event.payload)  # {"scheduled_time": "2026-03-01T10:05:00+00:00"}
+    event = await trigger.wait_for_next()  # blocks until 09:00 Zurich time
+    print(event.payload)  # {"scheduled_time": "2026-03-02T09:00:00+01:00", ...}
 """
 
 from __future__ import annotations
@@ -17,7 +24,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from uuid import uuid4
 
 from ..exceptions import TriggerError
@@ -33,12 +40,47 @@ except ImportError:
     CRONITER_AVAILABLE = False
 
 
+def validate_cron_expression(expression: str) -> None:
+    """Raise :class:`TriggerError` unless *expression* is a usable cron expression.
+
+    With ``croniter`` installed this accepts 5 fields, or 6 with a trailing
+    seconds field.  Without it, only the fallback's simple forms pass.
+    """
+    if CRONITER_AVAILABLE:
+        fields = len(expression.split())
+        if fields not in (5, 6) or not croniter.is_valid(expression):
+            raise TriggerError(
+                f"Invalid cron expression: {expression!r} (expected 5 fields "
+                "'minute hour day month weekday', or 6 with a trailing seconds field)"
+            )
+        return
+    CronTrigger._simple_next_fire_for(expression, datetime.now(timezone.utc))
+
+
+def validate_timezone(name: str) -> tzinfo:
+    """Return the :class:`~zoneinfo.ZoneInfo` for *name* or raise :class:`TriggerError`."""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise TriggerError(
+            f"Unknown time zone {name!r} (use an IANA name such as 'Europe/Zurich'; "
+            "on Windows install the 'tzdata' package)"
+        ) from exc
+
+
 class CronTrigger:
     """Fires at scheduled intervals defined by a cron expression.
 
     Args:
-        cron_expression: Standard cron expression (e.g. ``*/5 * * * *``).
+        cron_expression: Cron expression (e.g. ``*/5 * * * *``), with an
+            optional sixth seconds field.
         trigger_id: Unique identifier (auto-generated if not provided).
+        timezone: IANA time zone the expression is read in (default UTC).
+
+    Raises:
+        TriggerError: If the expression or time zone is invalid.
     """
 
     def __init__(
@@ -46,7 +88,10 @@ class CronTrigger:
         cron_expression: str,
         *,
         trigger_id: str | None = None,
+        timezone: str | None = None,
     ) -> None:
+        validate_cron_expression(cron_expression)
+        self._tz: tzinfo | None = validate_timezone(timezone) if timezone else None
         self.trigger_id = trigger_id or f"cron-{uuid4().hex[:8]}"
         self._cron_expression = cron_expression
         self._running = False
@@ -103,19 +148,20 @@ class CronTrigger:
             payload={
                 "scheduled_time": next_fire.isoformat(),
                 "cron_expression": self._cron_expression,
+                "timezone": str(self._tz) if self._tz else "UTC",
             },
         )
 
     def _compute_next_fire(self) -> datetime:
-        """Calculate the next fire time from now."""
-        now = datetime.now(timezone.utc)
+        """Calculate the next fire time from now (in the trigger's time zone)."""
+        now = datetime.now(self._tz or timezone.utc)
 
         if CRONITER_AVAILABLE:
             try:
                 cron = croniter(self._cron_expression, now)
                 next_dt = cron.get_next(datetime)
                 if next_dt.tzinfo is None:
-                    next_dt = next_dt.replace(tzinfo=timezone.utc)
+                    next_dt = next_dt.replace(tzinfo=self._tz or timezone.utc)
                 return next_dt
             except (ValueError, KeyError) as exc:
                 raise TriggerError(f"Invalid cron expression: {self._cron_expression!r}") from exc
@@ -125,11 +171,13 @@ class CronTrigger:
 
     def _simple_next_fire(self, now: datetime) -> datetime:
         """Parse simple ``*/N * * * *`` expressions without croniter."""
-        parts = self._cron_expression.strip().split()
+        return self._simple_next_fire_for(self._cron_expression, now)
+
+    @staticmethod
+    def _simple_next_fire_for(expression: str, now: datetime) -> datetime:
+        parts = expression.strip().split()
         if len(parts) < 5:
-            raise TriggerError(
-                f"Invalid cron expression (need 5 fields): {self._cron_expression!r}"
-            )
+            raise TriggerError(f"Invalid cron expression (need 5 fields): {expression!r}")
 
         minute_field = parts[0]
         match = re.match(r"^\*/(\d+)$", minute_field)
@@ -154,7 +202,7 @@ class CronTrigger:
 
         raise TriggerError(
             f"Cannot parse cron expression without croniter: "
-            f"{self._cron_expression!r}. Install croniter for full support."
+            f"{expression!r}. Install croniter for full support."
         )
 
     def __repr__(self) -> str:

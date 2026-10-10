@@ -35,42 +35,22 @@ Example::
 from __future__ import annotations
 
 import hmac
-import ipaddress
 import json
 import logging
-import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from aiohttp import web
 
+from .._http_guard import LOOPBACK_ORIGIN as _LOOPBACK_ORIGIN
+from .._http_guard import host_name as _host_name
+from .._http_guard import is_loopback as _is_loopback
 from ..runtime import AgentRuntime
 
 logger = logging.getLogger(__name__)
 
 #: Endpoints that answer without a bearer token (liveness probes).
 _PUBLIC_PATHS = frozenset({"/health"})
-
-_LOOPBACK_ORIGIN = re.compile(r"^https?://(localhost|127(\.\d{1,3}){3}|\[::1\])(:\d+)?$", re.I)
-
-
-def _is_loopback(host: str) -> bool:
-    """True for a loopback bind address or host name."""
-    name = host.strip().strip("[]").lower()
-    if name == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(name).is_loopback
-    except ValueError:
-        return False
-
-
-def _host_name(host_header: str) -> str:
-    """The host part of a ``Host`` header (port removed, IPv6 brackets kept off)."""
-    value = host_header.strip()
-    if value.startswith("["):
-        return value[1:].split("]", 1)[0]
-    return value.rsplit(":", 1)[0] if value.count(":") == 1 else value
 
 
 class RuntimeTransport:
