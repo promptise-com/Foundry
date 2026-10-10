@@ -221,6 +221,27 @@ except MCPClientError as e:
     # "Unknown tool 'unknown_tool'. Call list_tools() first to discover tools."
 ```
 
+### Rejected connections
+
+When an HTTP server answers the `initialize` handshake with a 4xx status, connecting raises `MCPConnectionRejectedError` (a subclass of `MCPClientError`) immediately. The most common case is a server built with `require_auth=True` receiving no credentials, or the wrong ones:
+
+```python
+from promptise import MCPClient, MCPConnectionRejectedError
+
+try:
+    async with MCPClient(url="http://localhost:8080/mcp") as client:
+        tools = await client.list_tools()
+except MCPConnectionRejectedError as e:
+    print(e.status_code)  # 401
+    print(e)
+    # "Server at http://localhost:8080/mcp rejected the connection:
+    #  401 Unauthorized. Check the bearer_token/api_key configured for it."
+```
+
+Through `MCPMultiClient` and `build_agent()` the message names the server instead (`Server 'orders' rejected the connection: 401 Unauthorized. ...`) and `e.server_name` is set. A `404` points you at the URL instead of the credentials. Retrying with the same configuration fails the same way, so fix the credentials or URL instead of retrying.
+
+Other connection failures (server down, connection refused) raise a plain `MCPClientError` such as `Failed to connect to http://localhost:8080/mcp (ConnectError: ...)`. If an established connection drops later, the next call raises `MCPClientError` (`Connection to ... was lost`). The failure never cancels the task that opened the client, because the client owns its transport in a task of its own. That also makes it safe to close a client from a different task than the one that opened it.
+
 ## MCPToolAdapter
 
 Convert MCP tools into LangChain `BaseTool` instances for use with LangGraph or any LangChain-compatible agent.
@@ -355,6 +376,7 @@ asyncio.run(main())
 | `adapter.as_langchain_tools()` | Method | Convert MCP tools to `BaseTool` instances |
 | `adapter.list_tool_info()` | Method | Get tool metadata for introspection |
 | `MCPClientError` | Exception | Raised on client operation failures |
+| `MCPConnectionRejectedError` | Exception | The server refused the handshake with a 4xx (`status_code`, `reason`, `url`, `server_name`) |
 
 !!! tip "Persistent connections"
     `MCPClient` and `MCPMultiClient` maintain persistent connections for the lifetime of the context manager. Avoid creating a new client per tool call -- instead, keep the client alive for the duration of your agent session.

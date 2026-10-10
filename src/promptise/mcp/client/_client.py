@@ -8,6 +8,13 @@ async context manager that handles:
 - API key injection (simple pre-shared secret)
 - Custom header injection on every HTTP request
 - Proper session lifecycle (initialize → use → close)
+- Clear, typed errors when a server refuses the connection
+
+The transport and session live in a task owned by the client.  The MCP
+SDK's transports run their HTTP traffic in an anyio task group; owning
+that task group in a dedicated task means a transport failure (an HTTP
+401 during ``initialize``, a dropped connection) is entered, unwound and
+reported in one task, and never cancels the caller's task.
 
 The client **never** generates JWTs.  Tokens are obtained externally
 (from an Identity Provider or the server's built-in token endpoint)
@@ -18,7 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextlib import AbstractAsyncContextManager
+from contextlib import AsyncExitStack
 from typing import Any
 
 from mcp.client.session import ClientSession
@@ -29,6 +36,63 @@ logger = logging.getLogger(__name__)
 
 class MCPClientError(RuntimeError):
     """Raised when an MCP client operation fails."""
+
+
+class MCPConnectionRejectedError(MCPClientError):
+    """Raised when an HTTP MCP server rejects the session with a 4xx status.
+
+    Typically ``401``/``403`` (missing or wrong ``bearer_token``/``api_key``)
+    or ``404`` (wrong endpoint URL).  Retrying with the same configuration
+    will fail the same way.
+
+    Attributes:
+        status_code: The HTTP status the server answered ``initialize`` with.
+        reason: The HTTP reason phrase (e.g. ``"Unauthorized"``).
+        url: The endpoint that was contacted.
+        server_name: The server's name when connected through
+            :class:`~promptise.mcp.client.MCPMultiClient` or ``build_agent``.
+    """
+
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        reason: str,
+        url: str,
+        server_name: str | None = None,
+    ) -> None:
+        self.status_code = status_code
+        self.reason = reason
+        self.url = url
+        self.server_name = server_name
+        who = f"Server '{server_name}'" if server_name else f"Server at {url}"
+        status = f"{status_code} {reason}" if reason else str(status_code)
+        message = f"{who} rejected the connection: {status}."
+        if status_code in (401, 403):
+            message += " Check the bearer_token/api_key configured for it."
+        elif status_code == 404:
+            message += f" Check the URL ({url}); Promptise servers serve MCP at /mcp."
+        super().__init__(message)
+
+    def for_server(self, server_name: str) -> MCPConnectionRejectedError:
+        """Return a copy of this error that names *server_name*."""
+        return MCPConnectionRejectedError(
+            status_code=self.status_code,
+            reason=self.reason,
+            url=self.url,
+            server_name=server_name,
+        )
+
+
+def _leaf_exceptions(exc: BaseException) -> list[BaseException]:
+    """Flatten (possibly nested) exception groups into their leaf exceptions."""
+    nested = getattr(exc, "exceptions", None)
+    if isinstance(nested, (list, tuple)):
+        leaves: list[BaseException] = []
+        for inner in nested:
+            leaves.extend(_leaf_exceptions(inner))
+        return leaves
+    return [exc]
 
 
 class MCPClient:
@@ -115,10 +179,13 @@ class MCPClient:
         self._cwd = cwd
         self._timeout = timeout
 
-        # Session state (set on __aenter__)
+        # Session state (set on __aenter__).  The session is owned by
+        # ``_runner``; ``_closing`` asks it to shut down, and ``_failure``
+        # records why it ended if the connection dropped on its own.
         self._session: ClientSession | None = None
-        self._transport_ctx: AbstractAsyncContextManager[Any] | None = None
-        self._session_ctx: AbstractAsyncContextManager[ClientSession] | None = None
+        self._runner: asyncio.Task[None] | None = None
+        self._closing: asyncio.Event | None = None
+        self._failure: MCPClientError | None = None
 
         # Inject Bearer token as Authorization header
         if bearer_token:
@@ -195,76 +262,164 @@ class MCPClient:
     # ------------------------------------------------------------------
 
     async def __aenter__(self) -> MCPClient:
-        """Connect to the server and initialise the session."""
-        if self._transport in ("http", "streamable-http"):
-            await self._connect_http()
-        elif self._transport == "sse":
-            await self._connect_sse()
-        elif self._transport == "stdio":
-            await self._connect_stdio()
-        else:
-            raise MCPClientError(f"Unknown transport: {self._transport!r}")
+        """Connect to the server and initialise the session.
+
+        Raises:
+            MCPConnectionRejectedError: The HTTP server answered the
+                handshake with a 4xx status (e.g. 401 Unauthorized).
+            MCPClientError: Any other connection or handshake failure.
+        """
+        open_transport = self._transport_opener()
+        if self._runner is not None:
+            raise MCPClientError("MCPClient is already connected")
+
+        ready: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        self._closing = asyncio.Event()
+        self._failure = None
+        self._runner = asyncio.create_task(
+            self._run_session(open_transport, ready, self._closing),
+            name=f"promptise-mcp-client:{self._target}",
+        )
+        try:
+            await ready
+        except BaseException:
+            # Handshake failed (the runner has already unwound in its own
+            # task) or the caller was cancelled mid-handshake (stop it now).
+            self._runner.cancel()
+            await self._shutdown()
+            raise
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
         """Close the session and transport.
 
-        Suppresses ``CancelledError`` during cleanup — the MCP SDK's
-        Streamable HTTP transport may raise it when terminating sessions.
+        Cleanup is best-effort and never raises: the session is closed in
+        the task that opened it, so it is safe to call from any task.
+        """
+        await self._shutdown()
+
+    @property
+    def _target(self) -> str:
+        """Human-readable connection target for errors and logs."""
+        if self._transport == "stdio":
+            return " ".join([self._command or "", *self._args]).strip()
+        return self._url or ""
+
+    def _transport_opener(self) -> Any:
+        """Validate the configuration and return a transport factory.
+
+        The factory returns an async context manager yielding
+        ``(read_stream, write_stream, ...)``.  Validation happens here, in
+        the caller's task, so configuration errors raise immediately.
+        """
+        if self._transport in ("http", "streamable-http"):
+            if not self._url:
+                raise MCPClientError("url is required for HTTP transport")
+            from mcp.client.streamable_http import streamablehttp_client
+
+            return lambda: streamablehttp_client(
+                url=self._url,
+                headers=self._headers or None,
+                timeout=self._timeout,
+            )
+        if self._transport == "sse":
+            if not self._url:
+                raise MCPClientError("url is required for SSE transport")
+            from mcp.client.sse import sse_client
+
+            return lambda: sse_client(
+                url=self._url,
+                headers=self._headers or None,
+                timeout=self._timeout,
+            )
+        if self._transport == "stdio":
+            from mcp.client.stdio import stdio_client
+
+            params = self._stdio_params()
+            return lambda: stdio_client(params)
+        raise MCPClientError(f"Unknown transport: {self._transport!r}")
+
+    async def _run_session(
+        self,
+        open_transport: Any,
+        ready: asyncio.Future[None],
+        closing: asyncio.Event,
+    ) -> None:
+        """Own the transport and session for the lifetime of the connection.
+
+        Every anyio scope the SDK opens is entered and exited here, so a
+        failure inside the transport's task group cancels only this task.
+        The outcome of the handshake is reported through *ready*; setting
+        *closing* ends the session.
         """
         try:
-            if self._session_ctx is not None:
-                await self._session_ctx.__aexit__(*exc)
-        except BaseException:
-            logger.debug("Session cleanup error", exc_info=True)  # Session cleanup is best-effort
-        try:
-            if self._transport_ctx is not None:
-                await self._transport_ctx.__aexit__(*exc)
-        except BaseException:
-            logger.debug(
-                "Transport cleanup error", exc_info=True
-            )  # Transport cleanup is best-effort
+            async with AsyncExitStack() as stack:
+                streams = await stack.enter_async_context(open_transport())
+                session = await stack.enter_async_context(ClientSession(streams[0], streams[1]))
+                await session.initialize()
+                self._session = session
+                if not ready.done():
+                    ready.set_result(None)
+                await closing.wait()
+        except (Exception, asyncio.CancelledError) as exc:
+            if not ready.done():
+                ready.set_exception(self._connect_error(exc))
+            elif not closing.is_set():
+                self._failure = self._connect_error(exc, connected=True)
+                logger.warning("%s", self._failure)
+            else:
+                logger.debug("MCP session cleanup error", exc_info=True)
+        finally:
+            self._session = None
+            if not ready.done():
+                ready.set_exception(MCPClientError(f"Connection to {self._target} closed"))
+
+    def _connect_error(self, exc: BaseException, *, connected: bool = False) -> MCPClientError:
+        """Translate a transport failure into a typed, readable error."""
+        import httpx
+
+        leaves = _leaf_exceptions(exc)
+        for leaf in leaves:
+            if isinstance(leaf, httpx.HTTPStatusError):
+                response = leaf.response
+                if not connected and 400 <= response.status_code < 500:
+                    error: MCPClientError = MCPConnectionRejectedError(
+                        status_code=response.status_code,
+                        reason=response.reason_phrase,
+                        url=str(self._url),
+                    )
+                else:
+                    error = MCPClientError(
+                        f"Server at {self._target} answered HTTP "
+                        f"{response.status_code} {response.reason_phrase}".rstrip()
+                    )
+                error.__cause__ = leaf
+                return error
+        meaningful = [leaf for leaf in leaves if not isinstance(leaf, asyncio.CancelledError)]
+        cause = meaningful[0] if meaningful else exc
+        if isinstance(cause, MCPClientError):
+            return cause
+        detail = f"{type(cause).__name__}: {cause}" if str(cause) else type(cause).__name__
+        if connected:
+            error = MCPClientError(f"Connection to {self._target} was lost ({detail})")
+        else:
+            error = MCPClientError(f"Failed to connect to {self._target} ({detail})")
+        error.__cause__ = cause
+        return error
+
+    async def _shutdown(self) -> None:
+        """Ask the runner to close the session and wait for it to finish."""
+        runner, self._runner = self._runner, None
+        if runner is None:
+            return
+        if self._closing is not None:
+            self._closing.set()
+        done, _ = await asyncio.wait({runner}, timeout=self._timeout)
+        if not done:
+            logger.debug("MCP session did not close within %ss; cancelling", self._timeout)
+            runner.cancel()
+            await asyncio.wait({runner})
         self._session = None
-        self._session_ctx = None
-        self._transport_ctx = None
-
-    # ------------------------------------------------------------------
-    # Transport connection helpers
-    # ------------------------------------------------------------------
-
-    async def _connect_http(self) -> None:
-        if not self._url:
-            raise MCPClientError("url is required for HTTP transport")
-
-        from mcp.client.streamable_http import streamablehttp_client
-
-        self._transport_ctx = streamablehttp_client(
-            url=self._url,
-            headers=self._headers or None,
-            timeout=self._timeout,
-        )
-        read_stream, write_stream, _ = await self._transport_ctx.__aenter__()
-
-        self._session_ctx = ClientSession(read_stream, write_stream)
-        self._session = await self._session_ctx.__aenter__()
-        await self._session.initialize()
-
-    async def _connect_sse(self) -> None:
-        if not self._url:
-            raise MCPClientError("url is required for SSE transport")
-
-        from mcp.client.sse import sse_client
-
-        self._transport_ctx = sse_client(
-            url=self._url,
-            headers=self._headers or None,
-            timeout=self._timeout,
-        )
-        read_stream, write_stream = await self._transport_ctx.__aenter__()
-
-        self._session_ctx = ClientSession(read_stream, write_stream)
-        self._session = await self._session_ctx.__aenter__()
-        await self._session.initialize()
 
     def _stdio_params(self) -> Any:
         """Build the stdio launch parameters, including the working dir.
@@ -287,23 +442,14 @@ class MCPClient:
             cwd=self._cwd,
         )
 
-    async def _connect_stdio(self) -> None:
-        from mcp.client.stdio import stdio_client
-
-        params = self._stdio_params()
-        self._transport_ctx = stdio_client(params)
-        read_stream, write_stream = await self._transport_ctx.__aenter__()
-
-        self._session_ctx = ClientSession(read_stream, write_stream)
-        self._session = await self._session_ctx.__aenter__()
-        await self._session.initialize()
-
     # ------------------------------------------------------------------
     # MCP operations
     # ------------------------------------------------------------------
 
     def _require_session(self) -> ClientSession:
         if self._session is None:
+            if self._failure is not None:
+                raise self._failure
             raise MCPClientError("Not connected. Use 'async with MCPClient(...) as client:'")
         return self._session
 

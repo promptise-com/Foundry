@@ -90,7 +90,13 @@ from .guardrails import (
     SecurityFinding,
 )
 from .identity import AgentIdentity, IdentityError
-from .mcp.client import MCPClient, MCPClientError, MCPMultiClient, MCPToolAdapter
+from .mcp.client import (
+    MCPClient,
+    MCPClientError,
+    MCPConnectionRejectedError,
+    MCPMultiClient,
+    MCPToolAdapter,
+)
 from .memory import (
     ChromaProvider,
     InMemoryProvider,
@@ -198,6 +204,7 @@ __all__ = [
     # MCP Client
     "MCPClient",
     "MCPClientError",
+    "MCPConnectionRejectedError",
     "MCPMultiClient",
     "MCPToolAdapter",
     # Agent

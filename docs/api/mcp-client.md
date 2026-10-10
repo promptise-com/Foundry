@@ -16,6 +16,13 @@ Client libraries for connecting to MCP servers.
       show_source: false
       heading_level: 3
 
+## MCPConnectionRejectedError
+
+::: promptise.mcp.client.MCPConnectionRejectedError
+    options:
+      show_source: false
+      heading_level: 3
+
 ## MCPMultiClient
 
 ::: promptise.mcp.client.MCPMultiClient

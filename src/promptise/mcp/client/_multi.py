@@ -12,7 +12,7 @@ from typing import Any
 
 from mcp.types import CallToolResult, Tool
 
-from ._client import MCPClient, MCPClientError
+from ._client import MCPClient, MCPClientError, MCPConnectionRejectedError
 
 logger = logging.getLogger("promptise.mcp.client")
 
@@ -66,6 +66,8 @@ class MCPMultiClient:
                             prev_name,
                             exc_info=True,
                         )
+                if isinstance(exc, MCPConnectionRejectedError):
+                    raise exc.for_server(name) from exc.__cause__
                 raise MCPClientError(f"Failed to connect to server '{name}': {exc}") from exc
         self._connected = True
         return self
