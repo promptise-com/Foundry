@@ -186,7 +186,7 @@ class TestHTMLReport:
         returned = agent.generate_report(target, title="Shop <assistant> trace")
         assert returned == str(target)
         assert sorted(p.name for p in target.parent.iterdir()) == ["shop-report.html"]
-        page = target.read_text()
+        page = target.read_text(encoding="utf-8")
         assert "<title>Shop &lt;assistant&gt; trace</title>" in page
         assert '"Shop \\u003cassistant> trace"' in page
 
@@ -195,7 +195,7 @@ class TestHTMLReport:
         agent = _observed_agent()
         await agent.ainvoke(USER_MSG)
         path = agent.generate_report(tmp_path / "r.html")
-        page = Path(path).read_text()
+        page = Path(path).read_text(encoding="utf-8")
         data = json.loads(re.search(r"const data = (.*?);\nconst entries", page, re.S).group(1))
         stats = agent.get_stats()
         assert data["stats"]["total_tokens"] == stats["total_tokens"] == 17
@@ -217,7 +217,7 @@ class TestHTMLReport:
         )
         t = HTMLReportTransporter(title="t")
         t._collector = collector
-        page = t.write(tmp_path / "x.html").read_text()
+        page = t.write(tmp_path / "x.html").read_text(encoding="utf-8")
         script = page[page.index("<script>") : page.rindex("</script>")]
         assert "</script" not in script[len("<script>") :]
         assert "<img" not in page
@@ -779,7 +779,7 @@ class TestSecretRedaction:
         await agent.shutdown()
 
         recorded = json.dumps([e.to_dict() for e in agent.collector.get_timeline()])
-        exported = "".join(p.read_text() for p in tmp_path.iterdir())
+        exported = "".join(p.read_text(encoding="utf-8") for p in tmp_path.iterdir())
         for text in (recorded, exported):
             for secret in SECRETS:
                 assert secret not in text
