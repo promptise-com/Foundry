@@ -1211,7 +1211,14 @@ class _ApprovalToolWrapper(BaseTool):
                 self._emit(
                     "approval.requested",
                     "info",
-                    {"tool_name": tool_name, "request_id": request_id, "timeout": policy.timeout},
+                    {
+                        "tool_name": tool_name,
+                        "request_id": request_id,
+                        "timeout": policy.timeout,
+                        # The reviewer's redacted copy ({} when include_arguments=False),
+                        # never raw_arguments
+                        "arguments": request.arguments,
+                    },
                 )
                 decision = await asyncio.wait_for(
                     policy.handler.request_approval(request),

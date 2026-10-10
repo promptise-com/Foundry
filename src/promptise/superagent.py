@@ -777,6 +777,7 @@ class SuperAgentConfig:
                             min_severity=sc.get("min_severity"),
                             max_retries=sc.get("max_retries", 3),
                             redact_sensitive=sc.get("redact_sensitive", True),
+                            allow_private_networks=sc.get("allow_private_networks", False),
                         )
                     )
                 elif sink_type == "log":
@@ -787,7 +788,11 @@ class SuperAgentConfig:
                         )
                     )
             if sinks:
-                kwargs["events"] = EventNotifier(sinks=sinks)
+                kwargs["events"] = EventNotifier(
+                    sinks=sinks,
+                    shutdown_timeout=self.events.get("shutdown_timeout", 10.0),
+                    slow_tool_threshold=self.events.get("slow_tool_threshold", 5.0),
+                )
 
         # Adaptive strategy
         if self.adaptive is not None:

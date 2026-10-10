@@ -24,6 +24,28 @@ from urllib.parse import urlparse
 logger = logging.getLogger("promptise.server")
 
 
+def _is_private_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Whether *ip* is anything but a public unicast address.
+
+    Covers private, loopback, link-local (cloud metadata at
+    ``169.254.169.254``), reserved, unspecified (``0.0.0.0``), multicast and
+    shared/carrier-grade NAT space (``100.64.0.0/10``, where e.g. Alibaba
+    Cloud's metadata service lives), plus IPv4-mapped IPv6 forms of those.
+    """
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        return _is_private_ip(mapped)
+    return (
+        not ip.is_global
+        or ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_reserved
+        or ip.is_unspecified
+        or ip.is_multicast
+    )
+
+
 def _validate_url_not_private(
     url: str, *, hint: str = "Use base_url override for internal APIs."
 ) -> None:
@@ -53,7 +75,7 @@ def _validate_url_not_private(
 
     for _family, _type, _proto, _canonname, sockaddr in infos:
         ip = ipaddress.ip_address(sockaddr[0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+        if _is_private_ip(ip):
             raise ValueError(f"URL {url!r} resolves to private/internal IP {ip}. {hint}")
 
 
