@@ -7743,6 +7743,51 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mcpconnectionrejectederror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCPConnectionRejectedError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCPConnectionRejectedError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcp.client.MCPConnectionRejectedError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCPConnectionRejectedError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCPConnectionRejectedError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcp.client.MCPConnectionRejectedError.for_server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        for_server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mcpmulticlient" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9609,6 +9654,51 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mcpconnectionrejectederror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCPConnectionRejectedError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCPConnectionRejectedError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcp.client.MCPConnectionRejectedError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCPConnectionRejectedError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCPConnectionRejectedError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcp.client.MCPConnectionRejectedError.for_server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        for_server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mcpmulticlient" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10161,6 +10251,40 @@ async with MCPClient(
         <p>Connect to the server and initialise the session.</p>
 
 
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="promptise.mcp.client.MCPConnectionRejectedError (promptise.mcp.client._client.MCPConnectionRejectedError)" href="#promptise.mcp.client.MCPConnectionRejectedError">MCPConnectionRejectedError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The HTTP server answered the
+handshake with a 4xx status (e.g. 401 Unauthorized).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="promptise.mcp.client.MCPClientError (promptise.mcp.client._client.MCPClientError)" href="#promptise.mcp.client.MCPClientError">MCPClientError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Any other connection or handshake failure.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
     </div>
 
 </div>
@@ -10181,8 +10305,8 @@ async with MCPClient(
     <div class="doc doc-contents ">
 
         <p>Close the session and transport.</p>
-<p>Suppresses <code>CancelledError</code> during cleanup — the MCP SDK's
-Streamable HTTP transport may raise it when terminating sessions.</p>
+<p>Cleanup is best-effort and never raises: the session is closed in
+the task that opened it, so it is safe to call from any task.</p>
 
 
     </div>
@@ -10516,6 +10640,131 @@ has a built-in token issuer enabled via
 
 
 
+
+    </div>
+
+</div><h2 id="mcpconnectionrejectederror">MCPConnectionRejectedError<a class="headerlink" href="#mcpconnectionrejectederror" title="Link to this section">&para;</a></h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="promptise.mcp.client.MCPConnectionRejectedError" class="doc doc-heading">
+            <code>promptise.mcp.client.MCPConnectionRejectedError</code>
+
+
+<a href="#promptise.mcp.client.MCPConnectionRejectedError" class="headerlink" title="Link to this section">&para;</a></h3>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="promptise.mcp.client.MCPClientError (promptise.mcp.client._client.MCPClientError)" href="#promptise.mcp.client.MCPClientError">MCPClientError</a></code></p>
+
+
+
+        <p>Raised when an HTTP MCP server rejects the session with a 4xx status.</p>
+<p>Typically <code>401</code>/<code>403</code> (missing or wrong <code>bearer_token</code>/<code>api_key</code>)
+or <code>404</code> (wrong endpoint URL).  Retrying with the same configuration
+will fail the same way.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.mcp.client.MCPConnectionRejectedError.status_code">status_code</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The HTTP status the server answered <code>initialize</code> with.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.mcp.client.MCPConnectionRejectedError.reason">reason</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The HTTP reason phrase (e.g. <code>"Unauthorized"</code>).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.mcp.client.MCPConnectionRejectedError.url">url</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The endpoint that was contacted.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.mcp.client.MCPConnectionRejectedError.server_name">server_name</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The server's name when connected through
+:class:<code>~promptise.mcp.client.MCPMultiClient</code> or <code>build_agent</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="promptise.mcp.client.MCPConnectionRejectedError.for_server" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">for_server</span><span class="p">(</span><span class="n">server_name</span><span class="p">)</span></code>
+
+<a href="#promptise.mcp.client.MCPConnectionRejectedError.for_server" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return a copy of this error that names <em>server_name</em>.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
 
     </div>
 
@@ -11108,7 +11357,7 @@ token cost.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 13:44:26 UTC">2026-10-10</span>
   </span>
 
     
