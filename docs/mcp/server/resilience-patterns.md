@@ -54,13 +54,68 @@ stateDiagram-v2
 
 | State | Behavior |
 |-------|----------|
-| **Closed** | Normal operation. Failures increment a counter. |
+| **Closed** | Normal operation. Each [failure](#what-counts-as-a-failure) increments a counter; a success resets it. |
 | **Open** | All calls rejected immediately with `CircuitOpenError`. |
-| **Half-Open** | One probe call allowed through. Success → Closed. Failure → Open. |
+| **Half-Open** | Exactly one probe call is let through; calls arriving while it runs are rejected with `CircuitOpenError`. Success → Closed. Failure → Open for another `recovery_timeout`. A probe that ends without a verdict (the tool rejected bad input, or the call was cancelled) leaves the circuit half-open, and the next call probes. |
+
+State is per tool: one failing tool doesn't pause the others.
+
+### What counts as a failure
+
+A circuit breaker should pause a tool when the tool or what it depends on is
+unhealthy, not when one caller sends a bad request. By default only these
+count towards `failure_threshold`:
+
+- **Unexpected exceptions**: anything that isn't an `MCPError` (a crash, a
+  `ConnectionError`, an upstream SDK raising).
+- **Retryable `MCPError`s** that signal a transient failure: a `TIMEOUT`
+  (from `@server.tool(timeout=...)` or `TimeoutMiddleware`), or your own
+  `ToolError("Upstream unavailable", retryable=True)`.
+
+These never count:
+
+- A non-retryable `ToolError`: the tool worked and rejected this input
+  (`ToolError(f"No product {sku}")`).
+- Authentication and access denials, validation errors, approval denials.
+- Rate-limit and concurrency refusals (`RATE_LIMIT_EXCEEDED`,
+  `CONCURRENCY_LIMIT_EXCEEDED`), so a burst that hits `max_concurrent` doesn't
+  open the circuit.
+- `CircuitOpenError` itself.
+
+An error that doesn't count leaves the failure streak as it is. To decide
+differently, pass `is_failure`, a function from the exception to `bool`. The
+default is exported as `is_upstream_failure`, so you can extend it:
+
+```python
+from promptise.mcp.server import CircuitBreakerMiddleware, is_upstream_failure
+
+def is_failure(exc: BaseException) -> bool:
+    if isinstance(exc, PaymentDeclinedError):   # the customer's problem, not Stripe's
+        return False
+    return is_upstream_failure(exc)
+
+server.add_middleware(CircuitBreakerMiddleware(is_failure=is_failure))
+```
 
 ### Handling `CircuitOpenError`
 
-Agents receive a structured error when the circuit is open:
+With no extra code, a call rejected by an open circuit reaches the agent as a
+retryable error that says how long to wait:
+
+```json
+{
+  "error": {
+    "code": "CIRCUIT_OPEN",
+    "message": "Circuit open for tool 'charge_card'. Retry after 42.0s.",
+    "retryable": true,
+    "suggestion": "'charge_card' is paused after repeated failures. Wait about 42s before calling it again, or continue without it.",
+    "details": {"tool": "charge_card", "retry_after_seconds": 42.0}
+  }
+}
+```
+
+`CircuitOpenError` is an `MCPError` with `tool` and `retry_after` attributes.
+Register an exception handler to reshape it:
 
 ```python
 from promptise.mcp.server import CircuitOpenError
@@ -82,6 +137,7 @@ async def handle_circuit_open(ctx, exc):
 | `failure_threshold` | `5` | Consecutive failures before opening |
 | `recovery_timeout` | `60.0` | Seconds before probing recovery |
 | `excluded_tools` | `set()` | Tools exempt from circuit breaking |
+| `is_failure` | `is_upstream_failure` | `(exc) -> bool`: whether an exception counts towards opening the circuit |
 
 ### Programmatic control
 
@@ -137,10 +193,12 @@ This exposes two resources:
 
 | Resource URI | Purpose |
 |-------------|---------|
-| `health://live` | Liveness: is the server process running? |
-| `health://ready` | Readiness: are all required dependencies available? |
+| `health://liveness` | Liveness: is the server process running? |
+| `health://readiness` | Readiness: are all required dependencies available? |
 
-Agents or monitoring systems can read these resources to check server health.
+Agents and MCP clients can read these resources to check server health.
+
+Container and Kubernetes probes cannot speak MCP, so over HTTP and SSE the same checks back two plain routes: `GET /health` (liveness, always `200`) and `GET /health/ready` (`200` when every required check passes, `503` otherwise). They skip the auth gate and never include the text of an exception a check raised. See [Deployment — Health probes](deployment.md#health-probes).
 
 ---
 
@@ -239,7 +297,13 @@ async def create_employee(
     return {"id": emp_id, "name": name, "status": "created"}
 ```
 
-Background tasks run sequentially after the tool response is sent. If a task raises an exception, it's logged but remaining tasks still run.
+Background tasks start once the handler has returned, in a task of their own, so the client gets its response right away -- it never waits for the email. They run sequentially; if one raises, the error is logged (never sent to the client) and the remaining tasks still run.
+
+- **Request context:** `get_context()` still works inside a background task and returns the request that scheduled it.
+- **Dependencies:** dependencies with cleanup (`yield`) are closed when the call returns, before background tasks run. Pass background tasks plain values, not a request-scoped database session.
+- **Shutdown:** on graceful shutdown the server waits for background tasks still running (bounded by `shutdown_timeout`) before running your shutdown hooks.
+- **Not durable:** they live in the server process; a crash or restart drops them. Use [MCPQueue](queue.md) for work that must be tracked, retried or polled.
+- **Tests:** `TestClient` runs background tasks before `call_tool` returns, so a test can assert on their effects directly.
 
 ---
 
@@ -293,6 +357,17 @@ The handler receives the `RequestContext` and the exception. It returns a `ToolE
 
 **MRO-based matching**: If you register a handler for `ValueError` and throw a `SpecificValueError(ValueError)`, the `ValueError` handler catches it. The most specific handler in the MRO wins.
 
+**Structured errors**: an `MCPError` (`ToolError`, `RateLimitError`,
+`CircuitOpenError`, ...) is already a structured response, so it is only
+passed to a handler registered for its own class or another `MCPError`
+subclass, such as `@server.exception_handler(CircuitOpenError)`. A catch-all
+`@server.exception_handler(Exception)` doesn't swallow it.
+
+**Unhandled exceptions** reach the client as
+`{"code": "INTERNAL_ERROR", "message": "An internal error occurred."}`; the
+exception text (which may hold connection strings or file paths) goes to the
+server log only. `TestClient` returns the same response.
+
 ---
 
 ## Progress Reporting
@@ -334,6 +409,42 @@ Progress notifications are sent via MCP's `notifications/progress`. The client r
 
 If the client doesn't support progress (no `progressToken` in the request), the `report()` calls are silently ignored.
 
+### Receiving progress in a Promptise client or agent
+
+A client asks for progress per call. With `MCPClient`, pass a `progress_callback`; it is awaited for every notification the server sends for that call:
+
+```python
+from promptise.mcp.client import MCPClient
+
+async def on_progress(progress: float, total: float | None, message: str | None) -> None:
+    print(f"{progress}/{total}: {message}")
+
+async with MCPClient(url="http://localhost:8080/mcp") as client:
+    result = await client.call_tool(
+        "process_dataset",
+        {"dataset_url": "s3://bucket/sales.csv"},
+        progress_callback=on_progress,
+    )
+```
+
+`MCPMultiClient.call_tool()` takes the same argument. Agents get it through `build_agent`:
+
+```python
+from promptise import build_agent
+from promptise.config import HTTPServerSpec
+
+def on_tool_progress(tool_name: str, progress: float, total: float | None, message: str | None):
+    print(f"[{tool_name}] {progress}/{total} {message or ''}")
+
+agent = await build_agent(
+    servers={"pipeline": HTTPServerSpec(url="http://localhost:8080/mcp")},
+    model="openai:gpt-5-mini",
+    on_tool_progress=on_tool_progress,  # sync or async
+)
+```
+
+With `events=EventNotifier(...)`, each notification is also emitted as a `tool.progress` event (`data`: `tool_name`, `progress`, `total`, `message`), and `trace_tools=True` prints it. A client only sends a progress token when one of these is set, so servers don't send progress nobody reads.
+
 ---
 
 ## Cancellation
@@ -360,6 +471,18 @@ async def long_running_task(
         cancel.check()  # Raises CancelledError if cancelled
         results.extend(await process_chunk(chunk))
     return {"processed": len(results)}
+```
+
+When the client cancels the call (an MCP `notifications/cancelled` for its request id), the client is answered `Request cancelled` straight away, and the server:
+
+1. sets the token (`cancel.is_cancelled` is `True`, `cancel.reason` is `"Request cancelled by the client"` -- the MCP SDK doesn't pass on the client's own reason),
+2. gives the handler `cancel_grace_period` seconds (default 5) to stop on its own -- `cancel.check()` raises, `cancel.wait()` returns `True`,
+3. then cancels the handler's task if it is still running.
+
+Whatever the handler returns after the cancellation is discarded. Tools that don't take a `CancellationToken` are cancelled immediately, as before. Tune or disable the grace period per server:
+
+```python
+server = MCPServer(name="data-pipeline", cancel_grace_period=1.0)  # 0 = cancel the task right away
 ```
 
 You can also wait for cancellation with a timeout:
@@ -425,7 +548,8 @@ health.register_resources(server)
 | Symbol | Type | Description |
 |--------|------|-------------|
 | `CircuitBreakerMiddleware(...)` | Class | Circuit breaker for downstream protection |
-| `CircuitOpenError` | Exception | Raised when circuit is open |
+| `CircuitOpenError` | Exception | Raised when circuit is open; reaches the client as retryable `CIRCUIT_OPEN` with `retry_after_seconds` |
+| `is_upstream_failure(exc)` | Function | Default breaker failure classifier |
 | `CircuitState` | Enum | `CLOSED`, `OPEN`, `HALF_OPEN` |
 | `HealthCheck()` | Class | Health and readiness probe manager |
 | `WebhookMiddleware(url, events, ...)` | Class | Fire webhooks on tool events |

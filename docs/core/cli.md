@@ -276,7 +276,9 @@ Every place Promptise takes a model -- `build_agent(model=...)`, `.superagent` a
 # Every provider: prefixes and aliases, install status, which env vars are set
 promptise models list
 
-# What one string resolves to and what is missing to use it (exit 1 if not usable)
+# What one string resolves to and what is missing to use it (exit 1 if not usable).
+# Configuration only -- except that a local or keyless server (Ollama, a vLLM on
+# localhost) is checked for a listener, since it has no credential to check
 promptise models check azure:chat-prod
 
 # The same, plus a real one-token call to the model
@@ -291,10 +293,10 @@ promptise models env azure
 | Command | Description |
 |---|---|
 | `models list` | Table of every provider: the `provider=` name with its aliases, its route (`native` — the core integration — or `OpenAI-compatible`), whether its required env vars are `set` / `missing` / `none required`, and an example model string. Nothing needs installing for any row. |
-| `models check <provider:model> [--ping]` | Explains what the string resolves to (alias → canonical name), what the model part means for that provider (a deployment name on Azure, a model id elsewhere), the route it will use (the exact OpenAI-compatible URL, or the native integration), each env var with its state -- `set`, `set (from /path/.env)` when the `.env` file supplied it, `MISSING`, `MISSING (VAR is exported but empty — unset it or give it a value)`, `unset (optional)` -- and where to find its value, and the provider's notes. When the string is not usable, every problem is listed with its fix (`  - ...` lines, the same text `build_agent()` puts in its `ModelSetupError`). `--ping` additionally makes a real one-token call. |
+| `models check <provider:model> [--ping]` | Explains what the string resolves to (alias → canonical name), what the model part means for that provider (a deployment name on Azure, a model id elsewhere), the route it will use (the exact OpenAI-compatible URL with the endpoint, region and project filled in from the environment -- `http://localhost:11434/v1` for a default Ollama -- or the native integration), each env var with its state -- `set`, `set (from /path/.env)` when the `.env` file supplied it, `MISSING`, `MISSING (VAR is exported but empty — unset it or give it a value)`, `unset (optional)` -- and where to find its value, and the provider's notes. When the string is not usable, every problem is listed with its fix (`  - ...` lines, the same text `build_agent()` puts in its `ModelSetupError`). Otherwise it prints `Configuration OK` -- the settings are in place, which is not the same as a working model: nothing is called. For a keyless provider (Ollama) or an endpoint on this machine (`OPENAI_BASE_URL=http://localhost:8000/v1`) it also tries a TCP connection (1 s timeout, nothing is sent) and reports `Not reachable.` with what to try (`nothing is listening at http://localhost:11434 — is Ollama running? (ollama serve) ...`) when nothing answers. `--ping` additionally makes a real one-token call; when it fails, the provider's error is followed by a `→` line saying what it most likely means: nothing listening, a timeout, a rejected key (naming the variable), a model or deployment that does not exist (`ollama pull <model>` for Ollama), missing model access, an account out of credits, a rate limit or a provider outage. |
 | `models env <provider>` | Prints `export` lines for the provider's env vars with example values and a hint per line — paste them into `.env`. Any name or alias works (`azure`, `aoai`, `bedrock`). |
 
-**Exit codes.** `models check` exits with `1` when the string is not usable yet (a required env var unset, or `native=True` without its package) or when the `--ping` call fails -- so it works as a preflight step in CI and container entrypoints; `0` when usable. `models env` exits with `2` for an unknown provider. `models list` always exits `0`.
+**Exit codes.** `models check` exits with `1` when the string is not usable yet (a required env var unset, or `native=True` without its package), when a local or keyless server is not listening, or when the `--ping` call fails -- so it works as a preflight step in CI and container entrypoints; `0` when the configuration is complete (and, for a local server, something is listening). `models env` exits with `2` for an unknown provider. `models list` always exits `0`.
 
 With nothing configured, `promptise models check azure:chat-prod` prints:
 
@@ -314,6 +316,28 @@ Not usable yet.
   - put AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION in a .env file next to your script (loaded automatically; a variable already exported with a non-empty value wins, an empty one is filled from the file), export it, or pass it in code: Model(..., endpoint=, api_key=, api_version=) — see promptise models env azure
 $ echo $?
 1
+```
+
+On a machine where Ollama is not running, `promptise models check ollama:llama3.1` says so instead of passing:
+
+```text
+$ promptise models check ollama:llama3.1
+ollama:llama3.1 → ollama:llama3.1  (Ollama (local models))
+  model part: llama3.1 — a model you have pulled (`ollama pull llama3.1`)
+  route: OpenAI-compatible endpoint http://localhost:11434/v1 (core, nothing to install)
+  OLLAMA_HOST: unset (optional) — only if Ollama is not on the default http://localhost:11434
+  No API key. The model must support tool calling to drive MCP tools.
+Not reachable. The configuration is complete, but nothing is listening at http://localhost:11434 — is Ollama running? (ollama serve) If it runs on another host or port, set OLLAMA_HOST.
+$ echo $?
+1
+```
+
+and `--ping` against a server that is down names the cause after the error:
+
+```text
+Pinging… failed
+OpenAIConnectionError: Connection error.
+  → nothing is listening at http://localhost:11434 — is Ollama running? (ollama serve) If it runs on another host or port, set OLLAMA_HOST.
 ```
 
 A variable that is exported but empty (`export OPENAI_API_KEY=` left in a shell profile) is reported as such -- `OPENAI_API_KEY: MISSING (OPENAI_API_KEY is exported but empty — unset it or give it a value)` -- and one the `.env` file filled names the file: `OPENAI_API_KEY: set (from /home/me/project/.env)`.

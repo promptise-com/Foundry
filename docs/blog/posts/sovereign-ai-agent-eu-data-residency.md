@@ -177,7 +177,7 @@ Two channels use embeddings: semantic tool selection (`optimize_tools.embedding_
 
 ### Can the code sandbox exfiltrate data?
 
-Not when you set `sandbox.network: none`. That mode gives the container no network access whatsoever, so even agent-written code that tries to open a socket has no route off the host. `restricted` (DNS-filtered) and `full` exist for cases that genuinely need outbound calls, but a sovereign deployment should keep the sandbox at `none` and enforce it in CI. The [sandbox guide](../../core/sandbox.md) documents the network modes and the other isolation layers.
+Not when you set `sandbox.network: none`. That mode gives the container no network access whatsoever, so even agent-written code that tries to open a socket has no route off the host. `none` is also the default; `restricted` (DNS plus outbound HTTP/HTTPS only, enforced with iptables inside the container) and `full` exist for cases that genuinely need outbound calls, but a sovereign deployment should keep the sandbox at `none` and enforce it in CI. The [sandbox guide](../../core/sandbox.md) documents the network modes and the other isolation layers.
 
 ### Are the guardrail models really local, or do they call a moderation API?
 

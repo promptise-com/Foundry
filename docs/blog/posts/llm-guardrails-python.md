@@ -129,7 +129,7 @@ Together these give you a layered posture: block the obvious attacks at the door
 
 ## When a hosted moderation API is the better fit
 
-Promptise's scanner is designed for teams that need data to stay in-house and want one dependency instead of four. It is not the right tool for every situation. If you have no data-residency constraints, cannot run a ~260MB injection model or a GPU-friendly content-safety model, and would rather offload maintenance entirely, a hosted moderation API from your LLM provider may be simpler to operate — you trade local control for someone else keeping the model current. Likewise, if you only ever need a single check (say, toxicity on user comments) and nothing else, a purpose-built service can be lighter than a composable framework. The scanner earns its place when you need several risk classes covered consistently, on your own infrastructure, with per-detector control.
+Promptise's scanner is designed for teams that need data to stay in-house and want one dependency instead of four. It is not the right tool for every situation. If you have no data-residency constraints, cannot run a ~750 MB injection model or a GPU-friendly content-safety model, and would rather offload maintenance entirely, a hosted moderation API from your LLM provider may be simpler to operate — you trade local control for someone else keeping the model current. Likewise, if you only ever need a single check (say, toxicity on user comments) and nothing else, a purpose-built service can be lighter than a composable framework. The scanner earns its place when you need several risk classes covered consistently, on your own infrastructure, with per-detector control.
 
 ## Frequently asked questions
 

@@ -281,6 +281,13 @@ Composable middleware pipeline. Order matters: outermost first.
       show_source: false
       heading_level: 4
 
+### is_upstream_failure
+
+::: promptise.mcp.server.is_upstream_failure
+    options:
+      show_source: false
+      heading_level: 4
+
 ### CircuitState
 
 ::: promptise.mcp.server.CircuitState
@@ -445,6 +452,13 @@ Background task queue with priority, retry, progress, and cancellation.
 ### InMemoryQueueBackend
 
 ::: promptise.mcp.server.InMemoryQueueBackend
+    options:
+      show_source: false
+      heading_level: 4
+
+### QueueCaller
+
+::: promptise.mcp.server.QueueCaller
     options:
       show_source: false
       heading_level: 4
@@ -619,6 +633,13 @@ Generate MCP tools from OpenAPI specs automatically.
 ### RateLimitError
 
 ::: promptise.mcp.server.RateLimitError
+    options:
+      show_source: false
+      heading_level: 4
+
+### ConcurrencyLimitError
+
+::: promptise.mcp.server.ConcurrencyLimitError
     options:
       show_source: false
       heading_level: 4

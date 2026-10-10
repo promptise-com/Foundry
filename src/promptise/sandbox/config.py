@@ -2,36 +2,70 @@
 
 from __future__ import annotations
 
+import difflib
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class NetworkMode(str, Enum):
     """Network isolation modes for sandbox."""
 
-    NONE = "none"  # No network access
-    RESTRICTED = "restricted"  # Limited network with DNS filtering
+    NONE = "none"  # No network interface besides loopback
+    RESTRICTED = "restricted"  # Outbound DNS + TCP 80/443 only, enforced with iptables
     FULL = "full"  # Full network access
+
+
+# Keys that are not sandbox options but are easy to reach for. Each maps to
+# the hint shown in the validation error.
+_KEY_HINTS: dict[str, str] = {
+    "network_mode": 'use \'network\' ("none", "restricted" or "full")',
+    "tools": (
+        "the sandbox does not install tool ecosystems; pick an 'image' that "
+        "already contains them (for example 'node:22-slim')"
+    ),
+    "security_opt": "security options are fixed by the sandbox and cannot be overridden",
+    "cap_drop": "the sandbox always drops every capability it can; this is not configurable",
+}
+
+_SIZE_UNITS = {"K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
+
+
+def parse_size(size: str) -> int:
+    """Convert a size string such as ``"512M"`` or ``"4G"`` to bytes.
+
+    Args:
+        size: A positive integer followed by ``K``, ``M``, ``G`` or ``T``.
+
+    Returns:
+        The size in bytes.
+    """
+    return int(size[:-1]) * _SIZE_UNITS[size[-1]]
 
 
 class SandboxConfig(BaseModel):
     """Configuration for sandbox environment.
+
+    Unknown keys are rejected, so a misspelled option (``network_mode``
+    instead of ``network``) fails loudly instead of being ignored.
 
     Attributes:
         backend: Container backend to use (docker, gvisor)
         image: Base container image (default: python:3.11-slim)
         cpu_limit: Maximum CPU cores (default: 2)
         memory_limit: Maximum memory (default: "4G")
-        disk_limit: Maximum disk space (default: "10G")
-        network: Network isolation mode (default: "restricted")
-        persistent: Keep workspace between runs (default: False)
+        disk_limit: Size of the writable workspace (a tmpfs mounted at
+            ``workdir``; it counts toward ``memory_limit``) (default: "1G")
+        pids_limit: Maximum number of processes and threads (default: 256)
+        network: Network isolation mode (default: "none")
+        persistent: Keep the container running after the session ends (default: False)
         timeout: Max execution time in seconds (default: 300)
-        tools: Pre-installed tools to include (default: ["python"])
         workdir: Working directory inside container (default: "/workspace")
         env: Additional environment variables
         allow_sudo: Allow sudo access in container (default: False)
+        runtime: Docker runtime to run the container with (``"runsc"`` for gVisor)
+        read_only_rootfs: Mount the root filesystem read-only (default: True)
 
     Examples:
         >>> # Minimal config
@@ -43,28 +77,47 @@ class SandboxConfig(BaseModel):
         ...     cpu_limit=4,
         ...     memory_limit="8G",
         ...     network=NetworkMode.FULL,
-        ...     tools=["python", "node", "rust"]
         ... )
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     backend: Literal["docker", "gvisor"] = Field("docker", description="Container backend")
     image: str = Field("python:3.11-slim", description="Base container image")
     cpu_limit: int = Field(2, gt=0, le=32, description="Maximum CPU cores")
     memory_limit: str = Field("4G", description="Maximum memory (e.g., '4G', '512M')")
-    disk_limit: str = Field("10G", description="Maximum disk space (e.g., '10G', '1T')")
-    network: NetworkMode = Field(NetworkMode.RESTRICTED, description="Network isolation mode")
-    persistent: bool = Field(False, description="Keep workspace between runs")
+    disk_limit: str = Field("1G", description="Size of the writable workspace (e.g., '1G')")
+    pids_limit: int = Field(256, gt=0, le=65536, description="Maximum processes and threads")
+    network: NetworkMode = Field(NetworkMode.NONE, description="Network isolation mode")
+    persistent: bool = Field(False, description="Keep the container after the session ends")
     timeout: int = Field(300, gt=0, le=3600, description="Max execution time in seconds")
-    tools: list[str] = Field(default_factory=lambda: ["python"], description="Pre-installed tools")
     workdir: str = Field("/workspace", description="Working directory inside container")
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
     allow_sudo: bool = Field(False, description="Allow sudo access in container")
-
-    # Runtime options (managed internally)
-    runtime: str | None = Field(None, description="Container runtime (e.g., 'runsc' for gVisor)")
-    security_opt: list[str] = Field(default_factory=list, description="Security options")
-    cap_drop: list[str] = Field(default_factory=list, description="Capabilities to drop")
+    runtime: str | None = Field(None, description="Docker runtime (e.g., 'runsc' for gVisor)")
     read_only_rootfs: bool = Field(True, description="Read-only root filesystem")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_unknown_keys(cls, data: Any) -> Any:
+        """Reject unknown keys with a hint instead of silently ignoring them."""
+        if not isinstance(data, dict):
+            return data
+        unknown = [key for key in data if key not in cls.model_fields]
+        if not unknown:
+            return data
+        problems = []
+        for key in unknown:
+            hint = _KEY_HINTS.get(key)
+            if hint is None:
+                close = difflib.get_close_matches(str(key), list(cls.model_fields), n=1)
+                hint = f"did you mean '{close[0]}'?" if close else "not a sandbox option"
+            problems.append(f"'{key}': {hint}")
+        raise ValueError(
+            "Unknown sandbox option(s): "
+            + "; ".join(problems)
+            + f". Valid options: {', '.join(cls.model_fields)}"
+        )
 
     @field_validator("memory_limit", "disk_limit")
     @classmethod
@@ -72,19 +125,15 @@ class SandboxConfig(BaseModel):
         """Validate memory/disk size format."""
         if not v:
             raise ValueError("Size cannot be empty")
-
-        # Extract number and unit
-        units = {"K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
-        if v[-1] in units:
-            try:
-                size = int(v[:-1])
-                if size <= 0:
-                    raise ValueError("Size must be positive")
-                return v
-            except ValueError:
-                raise ValueError(f"Invalid size format: {v}")
-        else:
+        if v[-1] not in _SIZE_UNITS:
             raise ValueError(f"Size must end with K, M, G, or T: {v}")
+        try:
+            size = int(v[:-1])
+        except ValueError:
+            raise ValueError(f"Invalid size format: {v}") from None
+        if size <= 0:
+            raise ValueError(f"Size must be positive: {v}")
+        return v
 
     @classmethod
     def from_simple(cls, enabled: bool = True) -> SandboxConfig:
@@ -109,58 +158,12 @@ class SandboxConfig(BaseModel):
 
         Returns:
             SandboxConfig instance
+
+        Raises:
+            pydantic.ValidationError: If a key is unknown or a value is invalid.
         """
         return cls(**data)
 
-
-DEFAULT_APPARMOR_PROFILE = """#include <tunables/global>
-
-profile promptise-sandbox flags=(attach_disconnected,mediate_deleted) {
-  #include <abstractions/base>
-
-  # Allow network access
-  network inet tcp,
-  network inet udp,
-  network inet6 tcp,
-  network inet6 udp,
-
-  # File operations in workspace
-  /workspace/** rw,
-  /tmp/** rw,
-
-  # Read-only system files
-  /usr/** r,
-  /lib/** r,
-  /etc/** r,
-  /proc/** r,
-  /sys/** r,
-
-  # Python interpreter
-  /usr/bin/python* ix,
-  /usr/local/bin/python* ix,
-
-  # Node.js
-  /usr/bin/node ix,
-  /usr/local/bin/node ix,
-
-  # Common tools
-  /usr/bin/bash ix,
-  /bin/bash ix,
-  /usr/bin/sh ix,
-  /bin/sh ix,
-
-  # Deny dangerous operations
-  deny /sys/kernel/security/** w,
-  deny /proc/sys/kernel/** w,
-  deny /boot/** rw,
-  deny /dev/mem rw,
-  deny /dev/kmem rw,
-
-  # Deny access to host files
-  deny /home/** rw,
-  deny /root/** rw,
-}
-"""
 
 # Capabilities to drop (all except what's needed)
 DEFAULT_CAP_DROP = [

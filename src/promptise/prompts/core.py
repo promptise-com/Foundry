@@ -44,7 +44,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, get_type_hints
+from typing import Any, cast, get_type_hints
 
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -64,6 +64,11 @@ _Inspector = Any  # inspector.PromptInspector
 # ---------------------------------------------------------------------------
 # Output parsing helpers
 # ---------------------------------------------------------------------------
+
+
+def _guard_name(g: Any) -> str:
+    """Name a guard for traces: its ``name`` attribute or class name."""
+    return str(getattr(g, "name", None) or type(g).__name__)
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -145,7 +150,7 @@ def _parse_output(raw: str, return_type: type | None) -> Any:
 
         if isinstance(return_type, type) and issubclass(return_type, BaseModel):
             parsed = json.loads(_extract_json(raw))
-            return return_type.model_validate(parsed)
+            return cast(type[BaseModel], return_type).model_validate(parsed)
     except ImportError:
         pass
 
@@ -173,7 +178,7 @@ def _build_schema_instructions(return_type: type | None) -> str:
         from pydantic import BaseModel
 
         if isinstance(return_type, type) and issubclass(return_type, BaseModel):
-            schema = return_type.model_json_schema()
+            schema = cast(type[BaseModel], return_type).model_json_schema()
             schema_lines.append(f"```json\n{json.dumps(schema, indent=2)}\n```")
             return "\n".join(schema_lines)
     except ImportError:
@@ -247,13 +252,19 @@ class Prompt:
         *,
         model: str = "openai:gpt-5-mini",
         observe: bool = False,
+        description: str | None = None,
     ) -> None:
         self._fn = fn
         self._model = model
         self._observe = observe
         self._name = fn.__name__
-        self._template = (fn.__doc__ or "").strip()
+        # A docstring is indented like the code around it: clean it the way
+        # ``inspect.getdoc`` does, so a multi-line template does not send
+        # that indentation to the model.
+        self._template = inspect.cleandoc(fn.__doc__ or "")
         self._sig = inspect.signature(fn)
+        if description is not None:
+            self._description = description
 
         # Resolve return type
         try:
@@ -330,6 +341,12 @@ class Prompt:
         return self._template
 
     @property
+    def description(self) -> str | None:
+        """What the prompt is for (``@prompt(description=...)`` or a YAML file's
+        ``description``), or ``None``."""
+        return self._description
+
+    @property
     def return_type(self) -> type | None:
         """Declared return type."""
         return self._return_type
@@ -362,6 +379,10 @@ class Prompt:
         new._on_error = self._on_error
         new._observer = self._observer
         new.last_stats = None
+        # Metadata from @prompt(description=...) / the YAML loader, when set
+        for attr in ("_description", "_author", "_tags", "_version", "_argument_schemas"):
+            if attr in self.__dict__:
+                setattr(new, attr, self.__dict__[attr])
         return new
 
     def with_model(self, model: str) -> Prompt:
@@ -496,7 +517,11 @@ class Prompt:
         """Async render with context providers (no LLM call).
 
         Full pipeline: blocks → template → context providers → perspective →
-        strategy → constraints.
+        strategy → constraints.  When the prompt has an inspector, the
+        rendered text and block assembly are recorded as a trace.  Guards
+        don't run here: they check an LLM call's input and output, which
+        a render doesn't make (as agent ``instructions``, the agent runs
+        them on each turn).
 
         Args:
             ctx: Optional :class:`PromptContext`.
@@ -505,11 +530,14 @@ class Prompt:
         Returns:
             Rendered prompt text with all dynamic context injected.
         """
+        from .blocks import AssembledPrompt
+
         text = render_template(self._template, kwargs) if kwargs else self._template
         if ctx is None:
             ctx = self._build_context(kwargs)
 
         # Blocks assembly (Layer 1)
+        assembled = AssembledPrompt(text="")
         if self._blocks:
             from .blocks import BlockContext, PromptAssembler
 
@@ -543,6 +571,12 @@ class Prompt:
         schema_instr = _build_schema_instructions(self._return_type)
         if schema_instr:
             text = f"{text}\n\n{schema_instr}"
+
+        if self._inspector is not None:
+            trace = self._inspector.record_assembly(
+                assembled, prompt_name=self._name, model=self._model
+            )
+            trace.input_text = text
 
         return text
 
@@ -613,6 +647,9 @@ class Prompt:
             await self._run_hook(self._on_before, ctx)
 
             # 4.5. Blocks assembly (Layer 1)
+            from .blocks import AssembledPrompt
+
+            assembled = AssembledPrompt(text="")
             if self._blocks:
                 from .blocks import BlockContext, PromptAssembler
 
@@ -625,13 +662,14 @@ class Prompt:
                 if assembled.text:
                     text = f"{assembled.text}\n\n{text}"
 
-                # Record in inspector
-                if self._inspector is not None:
-                    self._inspector.record_assembly(
-                        assembled,
-                        prompt_name=self._name,
-                        model=self._model,
-                    )
+            # Record in inspector (completed after the LLM call)
+            trace = None
+            if self._inspector is not None:
+                trace = self._inspector.record_assembly(
+                    assembled,
+                    prompt_name=self._name,
+                    model=self._model,
+                )
 
             # 5. Context providers
             sections = await self._run_context_providers(ctx)
@@ -654,8 +692,17 @@ class Prompt:
                 text = f"{text}\n\n{schema_instr}"
 
             # 9. Input guards
+            if trace is not None:
+                trace.input_text = text
             for g in self._input_guards:
-                text = await g.check_input(text)
+                try:
+                    text = await g.check_input(text)
+                except Exception:
+                    if trace is not None and self._inspector is not None:
+                        self._inspector.record_guard(trace, _guard_name(g), passed=False)
+                    raise
+            if trace is not None and self._inspector is not None:
+                trace.input_text = text
 
             # 10. Call LLM
             llm = init_chat_model(self._model)
@@ -687,10 +734,19 @@ class Prompt:
 
             # 13. Output guards
             for g in self._output_guards:
-                result = await g.check_output(result)
+                try:
+                    result = await g.check_output(result)
+                except Exception:
+                    if trace is not None and self._inspector is not None:
+                        self._inspector.record_guard(trace, _guard_name(g), passed=False)
+                    raise
+                if trace is not None and self._inspector is not None:
+                    self._inspector.record_guard(trace, _guard_name(g), passed=True)
 
             # 14. Stats
             elapsed = (time.monotonic() - start) * 1000
+            if trace is not None and self._inspector is not None:
+                self._inspector.record_execution(trace, raw_output, elapsed)
             self.last_stats = PromptStats(
                 prompt_name=self._name,
                 model=self._model,
@@ -778,6 +834,7 @@ def prompt(
     *,
     observe: bool = False,
     inspect: _Inspector | None = None,
+    description: str | None = None,
 ) -> Callable[[Callable[..., Any]], Prompt]:
     """Decorator that turns a function into a :class:`Prompt`.
 
@@ -798,13 +855,15 @@ def prompt(
             ``"anthropic:claude-sonnet-4-20250514"``).
         observe: Enable observability recording.
         inspect: Optional :class:`PromptInspector` for assembly tracing.
+        description: What the prompt is for.  Shown to MCP clients when the
+            prompt is served with ``MCPServer.include_prompts()``.
 
     Returns:
         Decorator that produces a :class:`Prompt` instance.
     """
 
     def decorator(fn: Callable[..., Any]) -> Prompt:
-        p = Prompt(fn, model=model, observe=observe)
+        p = Prompt(fn, model=model, observe=observe, description=description)
         if inspect is not None:
             p._inspector = inspect
         return p

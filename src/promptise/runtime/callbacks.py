@@ -168,11 +168,11 @@ class RuntimeCallbackHandler(AsyncCallbackHandler):
         """Called when a tool finishes.  Journals the result (full level)."""
         if self._journal is not None:
             try:
-                text = str(getattr(output, "content", output)) if output is not None else ""
-                await self._journal(
-                    "tool_result",
-                    {"tool": kwargs.get("name", ""), "result": text[:2000]},
-                )
+                # A tool invoked as a tool call returns a ToolMessage.
+                content = getattr(output, "content", output)
+                text = str(content) if content is not None else ""
+                name = kwargs.get("name") or getattr(output, "name", None) or ""
+                await self._journal("tool_result", {"tool": name, "result": text[:2000]})
             except Exception as exc:
                 logger.debug("Journal tool result recording failed: %s", exc)
 

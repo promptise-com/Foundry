@@ -111,6 +111,13 @@ out, the call is denied with a clear reason — never silently allowed. The
 denial is logged at `WARNING` with the cause, so an unexpected "client
 declined" is diagnosable.
 
+Promptise's own clients answer through an approval handler.
+`build_agent(approval=...)` routes the request to the agent's handler, and
+`MCPClient(elicitation_callback=approval_elicitation_callback(handler))` does
+the same without an agent. Without one they declare no elicitation support, and
+the call is denied. See
+[Server-side approval gates](../../core/approval.md#server-side-approval-gates).
+
 ### Callbacks and existing handlers — bring your own channel
 
 The gate accepts any [`ApprovalHandler`](../../core/approval.md) — the same

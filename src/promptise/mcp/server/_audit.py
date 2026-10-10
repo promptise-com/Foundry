@@ -141,6 +141,13 @@ class AuditMiddleware:
             "duration_s": round(duration, 4),
         }
 
+        # Resource reads and prompt requests are audited too; say which.
+        request_type = getattr(ctx, "request_type", "tool")
+        if request_type != "tool":
+            entry["request_type"] = request_type
+            if ctx.state.get("resource_uri"):
+                entry["uri"] = ctx.state["resource_uri"]
+
         if error:
             entry["error"] = error
 

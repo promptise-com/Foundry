@@ -28,11 +28,11 @@ result = await analyze(
 
 ## Concepts
 
-PromptBlocks are typed, reusable components that compose into system prompts. Each block has a **priority** (1--10) that determines inclusion order. The `PromptAssembler` renders all blocks and includes them in priority order.
+PromptBlocks are typed, reusable components that compose into system prompts. The `PromptAssembler` renders the blocks and joins them **in the order you list them**. Each block also has a **priority** (1--10). Priority never reorders the prompt: it only decides which blocks are dropped first when you set a [token budget](#token-budgeting).
 
-Priority scale:
+Priority scale (higher survives a budget longer):
 
-- **10** = Always included (Identity)
+- **10** = Identity (the last to be dropped)
 - **9** = Critical rules (Rules)
 - **8** = Output specification (OutputFormat)
 - **6** = Runtime context (ContextSlot)
@@ -44,7 +44,7 @@ Priority scale:
 
 ### Identity
 
-Defines who the agent is. Always included (priority 10).
+Defines who the agent is. Priority 10, so it is the last block dropped under a token budget.
 
 ```python
 from promptise.prompts.blocks import Identity
@@ -114,10 +114,12 @@ assembler = PromptAssembler(
     slot,
 )
 
-# Fill at runtime -- returns a new assembler (immutable)
-filled = assembler.fill_slot("user_data", "Revenue: $2.3M, Growth: 15%")
-assembled = filled.assemble()
+# Fill at runtime -- updates this assembler and returns it, for chaining
+assembler.fill_slot("user_data", "Revenue: $2.3M, Growth: 15%")
+assembled = assembler.assemble()
 ```
+
+`PromptAssembler.fill_slot()` changes the assembler in place (like `add()` and `remove()`) and returns the same object. To keep an unfilled version, build a second assembler. `ContextSlot.fill()`, by contrast, returns a new block.
 
 ### Section
 
@@ -221,7 +223,22 @@ assembler = PromptAssembler(
 )
 
 assembled = assembler.assemble()
+print(assembled.included)
+# ['identity', 'rules', 'output_format', 'background', 'examples']  -- list order
 ```
+
+The prompt text follows the order of the blocks you pass, whatever their priority. Blocks that render to an empty string are left out.
+
+### Token Budgeting
+
+Pass `token_budget` (to the constructor or to `assemble()`) to cap the prompt's estimated size. When the blocks don't fit, the assembler drops the lowest-priority block first (and, among equal priorities, the one listed last) until the rest fit. The blocks that remain keep their list order.
+
+```python
+assembled = assembler.assemble(token_budget=300)
+print(assembled.excluded)   # e.g. ['background'] -- priority 3 went first
+```
+
+Token counts are estimates (about 1.3 tokens per word), not a tokenizer count. A [`ConversationFlow`](flows.md#token-budget) takes the same `token_budget`.
 
 ### AssembledPrompt
 
@@ -253,7 +270,9 @@ assembled = (
 | `add(block)` | Add a block, returns self |
 | `remove(name)` | Remove a block by name, returns self |
 | `fill_slot(name, content)` | Fill a `ContextSlot` by name, returns self |
-| `assemble(ctx=None)` | Build the final prompt, returns `AssembledPrompt` |
+| `assemble(ctx=None, *, token_budget=None)` | Build the final prompt, returns `AssembledPrompt` |
+
+All three builder methods change the assembler in place and return it, so a chain and separate calls behave the same.
 
 ## The `@blocks` Decorator
 

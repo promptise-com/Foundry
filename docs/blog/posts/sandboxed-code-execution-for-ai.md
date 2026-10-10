@@ -20,11 +20,11 @@ Plenty of frameworks advertise a sandbox and deliver a `subprocess.run()` with a
 
 Promptise Foundry's sandbox runs each execution inside an isolated Docker container and layers on the controls that a bare subprocess can't provide:
 
-- **Resource limits** — CPU, memory, disk, and wall-clock quotas so a runaway script can't starve the host.
-- **Network isolation** — no network, restricted (DNS-filtered), or full — chosen per agent.
+- **Resource limits** — CPU, memory, process-count, workspace-size, and wall-clock quotas so a runaway script can't starve the host.
+- **Network isolation** — no network (the default), restricted (DNS plus outbound HTTP/HTTPS only), or full — chosen per agent.
 - **Filesystem isolation** — read-only root filesystem with a single writable `/workspace`.
 - **Capability dropping** — most Linux capabilities removed, leaving only what user code needs.
-- **Security profiles** — a seccomp syscall whitelist plus AppArmor filesystem rules.
+- **Kernel hardening** — Docker's default seccomp profile plus `no-new-privileges`, so setuid binaries can't escalate.
 
 Each of these is a separate wall. The value is in stacking them, and in the defaults being safe before you configure anything. The full field-by-field reference lives in the [sandbox documentation](../../core/sandbox.md).
 
@@ -60,34 +60,34 @@ async def main():
 asyncio.run(main())
 ```
 
-The agent writes the script, executes it inside the container, and reads back only the output. The host filesystem, host network, and host process table are never in scope. Docker must be installed and running for this to work — that is the one hard prerequisite.
+The agent writes the script, executes it inside the container, and reads back only the output. The host filesystem, host network, and host process table are never in scope. Docker must be installed and running for this to work — that is the one hard prerequisite. `pip install "promptise[sandbox]"` pulls in the Docker client, and if Docker isn't reachable, `build_agent()` raises instead of quietly building an agent without sandbox tools.
 
-Need something tighter than the defaults? Pass a dict instead of a bool. This is where the `network_mode` control from the call-to-action comes in:
+Need something tighter than the defaults? Pass a dict instead of a bool. This is where the `network` control from the call-to-action comes in:
 
 ```python
 agent = await build_agent(
     model="openai:gpt-5-mini",
     sandbox={
-        "network_mode": "restricted",  # none | restricted | full
+        "network": "none",        # none (default) | restricted | full
+        "image": "node:22-slim",  # pick an image that already has the runtimes you need
         "memory_limit": "512M",
         "cpu_limit": 2,
         "timeout": 120,
-        "tools": ["python", "node"],
     },
 )
 ```
 
-`network_mode="restricted"` gives DNS-filtered egress for scripts that legitimately need to `pip install` or hit an allowed API, while `"none"` cuts the network entirely for code that should never phone home.
+`"none"`, the default, cuts the network entirely for code that should never phone home. `network="restricted"` allows only DNS and outbound TCP 80/443 — enough for scripts that legitimately need to `pip install` or call an HTTPS API — enforced with iptables inside the container. The image must ship `iptables` (the default `python:3.11-slim` does not); if it doesn't, the sandbox refuses to start rather than run with open egress. Unknown keys raise, so a typo like `network_mode` fails loudly instead of being ignored.
 
 ## The hardening layers a docker sandbox llm setup must include
 
 When you compare a "sandbox" claim across frameworks, these are the layers to check for. A Docker sandbox LLM integration that skips them is a container in name only.
 
-- **Seccomp whitelist.** The default profile permits only an explicit set of syscalls. Kernel module loading, raw device access, and privilege-escalation paths are blocked, not merely discouraged.
+- **Seccomp and no-new-privileges.** The container runs under Docker's default seccomp profile, which blocks roughly 44 dangerous syscalls such as `mount`, `reboot`, and `kexec_load`, and `no-new-privileges` stops setuid binaries from escalating.
 - **~40 dropped capabilities.** Dangerous Linux capabilities — `CAP_NET_ADMIN`, `CAP_SYS_ADMIN`, `CAP_SYS_PTRACE`, and dozens more — are removed. Only the minimal set to run user code remains.
 - **Read-only root filesystem.** `read_only_rootfs` is on by default. System paths are read-only; the agent can write to `/workspace` and `/tmp` and nowhere else, so it can't tamper with the runtime.
-- **No ambient network.** The default network mode is restricted, and `NetworkMode.NONE` removes the interface. There is no implicit path off the box.
-- **AppArmor filesystem rules.** `/home`, `/root`, `/dev/mem`, and `/proc/sys/kernel` are denied outright, independent of what the code tries.
+- **No ambient network.** The default network mode is `NetworkMode.NONE` — no interface besides loopback. `restricted` and `full` are explicit opt-ins, so there is no implicit path off the box.
+- **Process, size, and time caps.** `pids_limit` (default 256) stops fork bombs, the writable `/workspace` is a size-capped tmpfs (`disk_limit`, default `1G`), and a command that hits its timeout is killed inside the container rather than left running.
 
 If you need kernel-level isolation on top of the container boundary — the strongest option for genuinely untrusted, multi-source code — switch to the gVisor runtime. gVisor intercepts syscalls in a user-space kernel, shrinking the host attack surface further:
 
@@ -148,11 +148,11 @@ For the common case — your own agent generating your own code that you nonethe
 
 ### Do I need Docker installed to use the sandbox?
 
-Yes. The default backend talks to the Docker daemon to create isolated containers, so Docker must be installed and running on the host. The optional gVisor backend additionally needs `runsc` installed. Without a container runtime, enable trusted execution paths instead of the sandbox.
+Yes. The default backend talks to the Docker daemon to create isolated containers, so Docker must be installed and running on the host. The optional gVisor backend additionally needs `runsc` installed. Install the client with `pip install "promptise[sandbox]"`. If you pass `sandbox=True` and Docker isn't reachable, `build_agent()` raises rather than building an agent without sandbox tools. Without a container runtime, enable trusted execution paths instead of the sandbox.
 
 ### What happens to network access inside the sandbox?
 
-By default the network is restricted (DNS-filtered egress). Set `network_mode="none"` (or `NetworkMode.NONE`) to remove network access entirely for code that should never reach out, or `"full"` when a script genuinely needs open access. Inbound connections to the container are never exposed.
+By default the network is `none` (`NetworkMode.NONE`) — no access at all beyond loopback. Set `network="restricted"` to allow only DNS and outbound HTTP/HTTPS, enforced with iptables inside the container (the image must include `iptables`, or the sandbox refuses to start), or `"full"` when a script genuinely needs open access. Inbound connections to the container are never exposed.
 
 ### Is gVisor required, or is plain Docker enough?
 
@@ -160,4 +160,4 @@ Plain Docker with the default seccomp profile, dropped capabilities, and read-on
 
 ## Next steps
 
-Set `sandbox=True` (or `sandbox={"network_mode": "restricted"}`) on `build_agent()` and start running generated code with no blast radius. From there, walk the [Quick Start](../../getting-started/quickstart.md) to stand up your first agent, then read the [sandbox reference](../../core/sandbox.md) to tune resource limits, network mode, and the gVisor runtime for your threat model.
+Set `sandbox=True` (or `sandbox={"network": "none", "timeout": 120}`) on `build_agent()` and start running generated code with no blast radius. From there, walk the [Quick Start](../../getting-started/quickstart.md) to stand up your first agent, then read the [sandbox reference](../../core/sandbox.md) to tune resource limits, network mode, and the gVisor runtime for your threat model.

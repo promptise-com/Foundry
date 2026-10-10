@@ -47,7 +47,7 @@ agent = await build_agent(model="openai:gpt-5-mini", servers=srv, cache=Semantic
 → [Semantic Cache](../core/cache.md)
 
 ### Add security guardrails
-Block prompt injection on input; redact PII/credentials on output. Models run locally.
+Block prompt injection on input; redact PII/credentials on output. Models run locally (needs `promptise[all]`; without the model the guardrails block every message rather than pass it unchecked).
 ```python
 agent = await build_agent(model="openai:gpt-5-mini", servers=srv, guardrails=True)
 ```
