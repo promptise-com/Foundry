@@ -83,8 +83,8 @@ Every detector runs locally — no document text is sent to a third-party classi
 
 The second boundary handles the messy-input case. When you build an intelligent document processing llm pipeline that lets the agent write and run parsing code, that code must never touch your host directly. Set `sandbox=True` and Promptise auto-injects five sandbox tools (execute code, read/write file, list files, install package) that run inside a hardened Docker container:
 
-- **seccomp syscall filtering** and roughly 40 dropped Linux capabilities
-- a **read-only root filesystem** and CPU/memory/time resource limits
+- **seccomp syscall filtering** (Docker's default profile), `no-new-privileges`, and roughly 40 dropped Linux capabilities
+- a **read-only root filesystem** and CPU/memory/process/time resource limits
 - **network isolation** — `none` by default, so exfiltration over the wire is off the table
 - path-traversal and shell-injection prevention on the file tools
 
@@ -155,4 +155,4 @@ Yes. `PromptiseSecurityScanner` is composable — you pass exactly the detectors
 
 ## Next steps
 
-`pip install promptise`, enable the security scanner, and run your first documents through the sandboxed pipeline. Start with the [Quick Start](../../getting-started/quickstart.md) to get an agent running in a few minutes, then browse the [What you can build gallery](../../resources/showcase.md) for the next document-processing pattern to add.
+`pip install "promptise[sandbox]"` (the extra brings the Docker client), enable the security scanner, and run your first documents through the sandboxed pipeline. Start with the [Quick Start](../../getting-started/quickstart.md) to get an agent running in a few minutes, then browse the [What you can build gallery](../../resources/showcase.md) for the next document-processing pattern to add.

@@ -110,10 +110,10 @@ The handler implements these LangChain callback methods:
 | Method | When fired | What it records |
 |--------|------------|-----------------|
 | `on_tool_start` | Tool invocation begins | Tool name, arguments, starts timer |
-| `on_tool_end` | Tool invocation completes | Result preview, latency — or a `tool.error` when the output is a `ToolMessage` with `status="error"` |
+| `on_tool_end` | Tool invocation completes | Result preview, latency; a `ToolMessage` with `status="error"` gets `status: "error"` and counts as an error |
 | `on_tool_error` | Tool invocation fails | Tool name, error type, message, traceback, latency |
 
-A failed MCP tool call (the server answered with `isError: true`, e.g. a `ToolError`) raises a `ToolException` from the Promptise tool adapter, so it arrives here as `on_tool_error` and is recorded as `tool.error`.
+A failed MCP tool call (the server answered with `isError: true`, e.g. a `ToolError`) raises `MCPToolError` (a `ToolException`) from the Promptise tool adapter, so it arrives here as `on_tool_error` and is recorded as `tool.error`.
 
 #### Chain (agent-level) events
 

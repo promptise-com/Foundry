@@ -20,10 +20,18 @@ State diagram::
 from __future__ import annotations
 
 import asyncio
+import inspect
+import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+#: Callback invoked after every successful transition (sync or async).
+TransitionListener = Callable[["ProcessTransition"], "Awaitable[None] | None"]
 
 
 class ProcessState(str, Enum):
@@ -143,6 +151,21 @@ class ProcessLifecycle:
         self._state = initial
         self._history: list[ProcessTransition] = []
         self._lock = asyncio.Lock()
+        self._listeners: list[TransitionListener] = []
+
+    def add_listener(self, listener: TransitionListener) -> None:
+        """Register a callback invoked after every successful transition.
+
+        Listeners run in registration order, outside the state lock, so
+        they may inspect :attr:`state` (and even trigger further
+        transitions).  A listener that raises is logged and skipped; it
+        never undoes the transition.
+
+        Args:
+            listener: Sync or async callable receiving the
+                :class:`ProcessTransition`.
+        """
+        self._listeners.append(listener)
 
     @property
     def state(self) -> ProcessState:
@@ -190,7 +213,19 @@ class ProcessLifecycle:
             )
             self._state = target
             self._history.append(transition)
-            return transition
+
+        for listener in list(self._listeners):
+            try:
+                result = listener(transition)
+                if inspect.isawaitable(result):
+                    await result
+            except Exception:
+                logger.exception(
+                    "Lifecycle listener failed for %s -> %s",
+                    transition.from_state.value,
+                    transition.to_state.value,
+                )
+        return transition
 
     def snapshot(self) -> dict[str, Any]:
         """Serializable snapshot of current state and full history."""

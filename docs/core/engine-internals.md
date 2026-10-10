@@ -379,7 +379,7 @@ All hooks are wrapped in try/except — a failing hook never crashes the graph. 
 graph TD
     subgraph "Iteration Guards"
         S1["max_iterations (default 50)"] --> |exceeded| S1R["Force graph end"]
-        S2["max_node_iterations (default 25)"] --> |exceeded| S2R["_handle_stuck_node()"]
+        S2["node budget: min(node.max_iterations, max_node_iterations)"] --> |"used up — node not run again"| S2R["_handle_stuck_node()"]
         S2R --> |"error transition exists"| S2A["Follow error edge"]
         S2R --> |"__error__ node exists"| S2B["Go to error handler"]
         S2R --> |"nothing"| S2C["Force __end__"]

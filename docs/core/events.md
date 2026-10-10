@@ -26,7 +26,7 @@ agent = await build_agent(
 
 ## Event Taxonomy
 
-20 event types across 9 categories:
+21 event types across 9 categories:
 
 | Category | Event Type | Severity | When it fires |
 |----------|-----------|----------|---------------|
@@ -36,6 +36,7 @@ agent = await build_agent(
 | | `invocation.timeout` | error | Invocation exceeded `max_invocation_time` |
 | **Tools** | `tool.error` | error | A tool call fails |
 | | `tool.slow` | warning | Tool call exceeds latency threshold (default 5s) |
+| | `tool.progress` | info | An MCP tool reports progress (`data`: `tool_name`, `progress`, `total`, `message`) |
 | **Guardrails** | `guardrail.blocked` | warning | Input blocked by guardrails |
 | | `guardrail.redacted` | info | Output had PII/credentials redacted |
 | **Budget** | `budget.exceeded` | critical | Budget limit reached |
@@ -48,7 +49,8 @@ agent = await build_agent(
 | **Health** | `health.anomaly` | warning | Behavioral anomaly detected |
 | **Process** | `process.started` | info | Agent process started |
 | | `process.stopped` | info | Agent process stopped |
-| | `process.failed` | critical | Agent process entered FAILED state |
+| | `process.failed` | critical | Agent process entered FAILED state (failed start, or `max_consecutive_failures` reached) |
+| | `process.restarted` | warning | Restart policy is restarting the process (`attempt`, `max_restarts`, `reason`) |
 | **Cache** | `cache.purged` | info | User cache purged (GDPR) |
 
 ---

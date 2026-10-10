@@ -81,6 +81,8 @@ async def report_prompt(metric: str) -> str:
     return f"Analyze the trend for {metric} over the last 30 days."
 ```
 
+URIs and prompt names are not prefixed. The router's `auth`, `guards`, `middleware` and `tags` apply to its resources and prompts exactly as they do to its tools.
+
 ### Mounting routers on the server
 
 ```python
@@ -156,6 +158,8 @@ async def track_calls(ctx, call_next):
     print(f"{ctx.tool_name} took {elapsed:.3f}s")
     return result
 ```
+
+The chain runs for tool calls, resource reads and prompt requests alike. `ctx.request_type` says which (`"tool"`, `"resource"` or `"prompt"`), `ctx.tool_name` holds the tool, resource or prompt name, and a resource read sets `ctx.state["resource_uri"]`. Branch on `ctx.request_type` in a middleware that only makes sense for tools.
 
 ### Built-in middleware
 

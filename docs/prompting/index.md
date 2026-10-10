@@ -65,15 +65,21 @@ async def summarize(text: str) -> str:
 # Standalone call
 result = await summarize("Long article text here...")
 
-# Agent integration -- prompt auto-evolves on each invocation
+# Agent integration -- the prompt is re-rendered on each invocation
 from promptise import build_agent
-agent = build_agent(instructions=summarize)
+from promptise.config import HTTPServerSpec
+
+agent = await build_agent(
+    model="openai:gpt-5-mini",
+    servers={"tools": HTTPServerSpec(url="http://localhost:8080/mcp")},
+    instructions=summarize,
+)
 ```
 
 **Dual-mode operation:**
 
 - **Standalone** -- `await my_prompt("input")` calls the LLM directly with the full pipeline: template, context, perspective, strategy, constraints, guards, LLM call, parse, output guards.
-- **Agent-integrated** -- `build_agent(instructions=my_prompt)` uses `render_async()` to build dynamic system prompts on every agent invocation.
+- **Agent-integrated** -- `build_agent(instructions=my_prompt)` uses `render_async()` to build dynamic system prompts on every agent invocation. The prompt's [guards](guards.md) check each user message (input guards) and each reply (output guards), and its [inspector](inspector.md) records each render.
 
 ### Runtime Composition
 

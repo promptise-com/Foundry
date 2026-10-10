@@ -180,6 +180,63 @@ class TestInMemoryProvider:
         results = await p.search("python")
         assert len(results) == 1
 
+    @pytest.mark.asyncio
+    async def test_keyword_search_matches_sentence_queries(self) -> None:
+        """A natural-language query found nothing with substring search."""
+        p = InMemoryProvider()
+        await p.add("book_room: room IDs look like ZRH-04.")
+        await p.add("The cafeteria opens at noon.")
+        results = await p.search("Book room 4 in Zurich, please")
+        assert [r.content for r in results] == ["book_room: room IDs look like ZRH-04."]
+
+    @pytest.mark.asyncio
+    async def test_whole_query_match_ranks_first(self) -> None:
+        p = InMemoryProvider()
+        await p.add("error budgets are tracked weekly")
+        await p.add("the pipeline error rate was 5%")
+        results = await p.search("error rate")
+        assert results[0].content == "the pipeline error rate was 5%"
+        assert results[0].score >= 0.5 > results[1].score
+
+    @pytest.mark.asyncio
+    async def test_stop_words_alone_match_nothing(self) -> None:
+        p = InMemoryProvider()
+        await p.add("Python is great")
+        assert await p.search("what is the") == []
+
+    @pytest.mark.asyncio
+    async def test_list_entries_filters_by_metadata_and_owner(self) -> None:
+        p = InMemoryProvider(scope=MemoryScope.PER_USER)
+        await p.add("a", metadata={"type": "x"}, user_id="u1")
+        await p.add("b", metadata={"type": "y"}, user_id="u1")
+        await p.add("c", metadata={"type": "x"}, user_id="u2")
+        rows = await p.list_entries(user_id="u1", metadata={"type": "x"})
+        assert [r.content for r in rows] == ["a"]
+
+
+class TestAdaptiveEntriesAreNotMemories:
+    def test_scoped_and_legacy_entries_are_excluded_from_memory_context(self) -> None:
+        from promptise.memory import _ADAPTIVE_SCOPE_META_KEY, _format_memory_context
+
+        results = [
+            MemoryResult(content="User prefers dark mode", score=0.9, memory_id="1"),
+            MemoryResult(
+                content="Tool 'book_room' failed: Room '4' not found\nArguments: {...}",
+                score=0.9,
+                memory_id="2",
+                metadata={_ADAPTIVE_SCOPE_META_KEY: "user:acme::alice", "type": "failure_log"},
+            ),
+            MemoryResult(  # written by <= 1.2.1, no scope tag
+                content="Use ZRH ids",
+                score=0.9,
+                memory_id="3",
+                metadata={"type": "strategy", "confidence": 0.8},
+            ),
+        ]
+        context = _format_memory_context(results)
+        assert "dark mode" in context
+        assert "book_room" not in context and "ZRH" not in context
+
 
 # ---------------------------------------------------------------------------
 # MemoryAgent — auto-injection

@@ -54,6 +54,21 @@ from ._errors import ApprovalDeniedError
 logger = logging.getLogger("promptise.server.approval")
 
 
+def _annotation_hints(tool_def: Any) -> dict[str, Any]:
+    """A tool's annotations in MCP's wire names, for ``ApprovalRequest.tool_annotations``."""
+    annotations = getattr(tool_def, "annotations", None)
+    if annotations is None:
+        return {}
+    hints = {
+        "title": annotations.title,
+        "readOnlyHint": annotations.read_only_hint,
+        "destructiveHint": annotations.destructive_hint,
+        "idempotentHint": annotations.idempotent_hint,
+        "openWorldHint": annotations.open_world_hint,
+    }
+    return {key: value for key, value in hints.items() if value is not None}
+
+
 class ApprovalGateMiddleware:
     """Enforces human approval on tools declared with ``requires_approval=True``.
 
@@ -131,9 +146,8 @@ class ApprovalGateMiddleware:
 
     def _build_request(self, ctx: RequestContext) -> ApprovalRequest:
         client = getattr(ctx, "client", None)
-        arguments: dict[str, Any] = {}
-        if self._include_arguments:
-            arguments = dict(ctx.state.get("_tool_arguments") or {})
+        raw_arguments = dict(ctx.state.get("_tool_arguments") or {})
+        arguments: dict[str, Any] = dict(raw_arguments) if self._include_arguments else {}
         return ApprovalRequest(
             request_id=secrets.token_hex(16),
             tool_name=ctx.tool_name,
@@ -150,6 +164,11 @@ class ApprovalGateMiddleware:
                 "subject": getattr(client, "subject", None),
                 "issuer": getattr(client, "issuer", None),
             },
+            tool_annotations=_annotation_hints(ctx.state.get("tool_def")),
+            # In-process only (never serialized): lets an
+            # ``AutoApprovalClassifier`` handler match its rules even with
+            # ``include_arguments=False``.
+            raw_arguments=raw_arguments,
         )
 
     async def __call__(self, ctx: RequestContext, call_next: Callable[..., Any]) -> Any:

@@ -44,9 +44,13 @@ class ConversationBuffer:
 
     Args:
         max_messages: Maximum messages to retain.  Oldest are evicted.
+            ``0`` means unlimited.
+        enabled: ``False`` turns the buffer off: nothing is retained, so
+            each invocation starts without history.
     """
 
     max_messages: int = 100
+    enabled: bool = True
     _messages: deque[dict[str, Any]] = field(
         default_factory=lambda: deque(),
         repr=False,
@@ -136,7 +140,10 @@ class ConversationBuffer:
     # ------------------------------------------------------------------
 
     def _evict_if_needed(self) -> None:
-        """Remove oldest messages if over capacity."""
+        """Remove oldest messages if over capacity (all of them when disabled)."""
+        if not self.enabled:
+            self._messages.clear()
+            return
         while self.max_messages > 0 and len(self._messages) > self.max_messages:
             self._messages.popleft()
 
@@ -148,6 +155,7 @@ class ConversationBuffer:
         """
         return {
             "max_messages": self.max_messages,
+            "enabled": self.enabled,
             "messages": list(self._messages),
         }
 
@@ -161,7 +169,10 @@ class ConversationBuffer:
         Returns:
             Restored :class:`ConversationBuffer` instance.
         """
-        buf = cls(max_messages=data.get("max_messages", 100))
+        buf = cls(
+            max_messages=data.get("max_messages", 100),
+            enabled=data.get("enabled", True),
+        )
         buf._messages = deque(data.get("messages", []))
         return buf
 

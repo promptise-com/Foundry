@@ -1093,7 +1093,7 @@ class OTLPTransporter(BaseTransporter):
                 entry,
                 **{"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": tool},
             )
-            self._finish(span, entry, error=etype == "tool.error")
+            self._finish(span, entry, error=etype == "tool.error" or meta.get("status") == "error")
             return
 
         # Anything else: an event on the run it belongs to, or its own span.

@@ -8,7 +8,7 @@ invocation — the agent sees relevant context without explicit tool calls.
 
 Adapters:
 
-* :class:`InMemoryProvider` — substring search, no persistence.  Testing only.
+* :class:`InMemoryProvider` — keyword search, no persistence.  Testing only.
 * :class:`Mem0Provider` — wraps ``mem0`` (``pip install mem0ai``).
   Vector + optional graph search with hybrid retrieval.
 * :class:`ChromaProvider` — wraps ``chromadb`` (``pip install chromadb``).
@@ -57,6 +57,96 @@ logger = logging.getLogger("promptise.memory")
 # Metadata key used to tag stored entries with their owning user. Chosen to be
 # unlikely to collide with user-supplied metadata keys.
 _USER_ID_META_KEY = "_promptise_user_id"
+
+# Metadata key that marks an entry as adaptive-strategy bookkeeping (failure
+# logs, lessons, counters) and names the strategy scope it belongs to.
+_ADAPTIVE_SCOPE_META_KEY = "_promptise_adaptive_scope"
+
+# Entry types the adaptive strategy system stored before entries carried
+# ``_ADAPTIVE_SCOPE_META_KEY`` (Promptise <= 1.2.1).
+_LEGACY_ADAPTIVE_TYPES = frozenset({"failure_log", "strategy"})
+
+
+def is_adaptive_entry(metadata: dict[str, Any] | None) -> bool:
+    """Whether a memory entry is adaptive-strategy bookkeeping, not a memory.
+
+    Failure logs and lessons share the agent's memory provider but are
+    injected (scoped) by :mod:`promptise.strategy`, never as recalled
+    memory: a failure log holds raw tool error text and arguments.
+    Entries written by Promptise <= 1.2.1 carry no scope tag and are
+    recognised by their ``type`` and ``confidence``.
+    """
+    if not metadata:
+        return False
+    if _ADAPTIVE_SCOPE_META_KEY in metadata:
+        return True
+    return metadata.get("type") in _LEGACY_ADAPTIVE_TYPES and "confidence" in metadata
+
+
+def _metadata_matches(metadata: dict[str, Any], wanted: dict[str, Any] | None) -> bool:
+    """Exact-match filter used by the ``list_entries`` implementations."""
+    if not wanted:
+        return True
+    return all(metadata.get(k) == v for k, v in wanted.items())
+
+
+_TERM_RE = re.compile(r"[a-z0-9]+")
+_STOP_WORDS = frozenset(
+    [
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "can",
+        "do",
+        "for",
+        "from",
+        "has",
+        "have",
+        "how",
+        "i",
+        "if",
+        "in",
+        "is",
+        "it",
+        "its",
+        "me",
+        "my",
+        "no",
+        "not",
+        "of",
+        "on",
+        "or",
+        "our",
+        "so",
+        "that",
+        "the",
+        "their",
+        "then",
+        "this",
+        "to",
+        "was",
+        "we",
+        "what",
+        "when",
+        "with",
+        "you",
+        "your",
+    ]
+)
+
+
+def _search_terms(text: str) -> set[str]:
+    """Lower-case word terms of ``text`` used by :class:`InMemoryProvider` search."""
+    return {
+        t
+        for t in _TERM_RE.findall(text.lower())
+        if t not in _STOP_WORDS and (len(t) > 1 or t.isdigit())
+    }
 
 
 class MemoryScope(str, Enum):
@@ -213,10 +303,13 @@ class MemoryProvider(Protocol):
 
 
 class InMemoryProvider:
-    """Substring-search memory provider for testing.
+    """Keyword-search memory provider for testing.
 
-    Stores entries in a dictionary.  Search uses case-insensitive substring
-    matching — **not** suitable for production.
+    Stores entries in a dictionary.  Search ranks entries that contain the
+    whole query first, then entries by the share of the query's words they
+    contain (case-insensitive, common stop words ignored).  Entries that
+    share no word with the query are not returned.  There are no
+    embeddings, so synonyms do not match — **not** suitable for production.
 
     Args:
         max_entries: Maximum stored entries.  When exceeded, oldest entries
@@ -263,26 +356,56 @@ class InMemoryProvider:
         user_id: str | None = None,
     ) -> list[MemoryResult]:
         owner = self._require_user(user_id, "search")
-        query_lower = query.lower()
+        query_lower = query.strip().lower()
+        query_terms = _search_terms(query)
         scored: list[MemoryResult] = []
         for mid, (content, meta, _ts, entry_owner) in self._store.items():
             # Per-user scope: skip entries owned by someone else.
             if owner is not None and entry_owner != owner:
                 continue
             content_lower = content.lower()
-            if query_lower in content_lower:
-                # Simple relevance: shorter content that matches = higher score
-                score = len(query_lower) / max(len(content_lower), 1)
-                scored.append(
-                    MemoryResult(
-                        content=content,
-                        score=min(score, 1.0),
-                        memory_id=mid,
-                        metadata=meta,
-                    )
-                )
+            if query_lower and query_lower in content_lower:
+                # Whole query found: 0.5-1.0, shorter matching content ranks higher.
+                score = 0.5 + 0.5 * len(query_lower) / max(len(content_lower), 1)
+            elif query_terms:
+                # Otherwise: the share of the query's words the entry contains, below 0.5.
+                shared = query_terms & _search_terms(content)
+                if not shared:
+                    continue
+                score = 0.49 * len(shared) / len(query_terms)
+            else:
+                continue
+            scored.append(
+                MemoryResult(content=content, score=min(score, 1.0), memory_id=mid, metadata=meta)
+            )
         scored.sort(key=lambda r: r.score, reverse=True)
         return scored[:limit]
+
+    async def list_entries(
+        self,
+        *,
+        user_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        limit: int = 1000,
+    ) -> list[MemoryResult]:
+        """List stored entries whose metadata matches ``metadata`` exactly.
+
+        Unlike :meth:`search` this does not rank by relevance; it is how
+        callers enumerate entries they tagged (the adaptive strategy system
+        uses it to count failures and cap stored lessons).  Scoping follows
+        :meth:`search`.  Entries are returned oldest first, ``score=1.0``.
+        """
+        owner = self._require_user(user_id, "list_entries")
+        rows = sorted(self._store.items(), key=lambda item: item[1][2])
+        out: list[MemoryResult] = []
+        for mid, (content, meta, _ts, entry_owner) in rows:
+            if owner is not None and entry_owner != owner:
+                continue
+            if _metadata_matches(meta, metadata):
+                out.append(MemoryResult(content=content, score=1.0, memory_id=mid, metadata=meta))
+                if len(out) >= limit:
+                    break
+        return out
 
     async def add(
         self,
@@ -566,6 +689,53 @@ class Mem0Provider:
                 exc_info=True,
             )
             return False
+
+    async def list_entries(
+        self,
+        *,
+        user_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        limit: int = 1000,
+    ) -> list[MemoryResult]:
+        """List the user's entries whose metadata matches ``metadata`` exactly.
+
+        Uses Mem0's ``get_all`` (up to ``limit`` entries, in the API form
+        the installed release accepts -- see :meth:`search`) and filters
+        client-side.  See :meth:`InMemoryProvider.list_entries`.
+        """
+        self._check_closed()
+        effective_user = self._effective_user(user_id, "list_entries")
+        kwargs = self._entity_kwargs(effective_user, limit)
+
+        loop = asyncio.get_running_loop()
+        try:
+            raw = await loop.run_in_executor(None, lambda: self._client.get_all(**kwargs))
+            entries = _mem0_entries(raw, "get_all")
+        except Exception:
+            logger.warning("Mem0Provider.list_entries failed", exc_info=True)
+            return []
+        out: list[MemoryResult] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            meta = {k: v for k, v in entry.items() if k not in ("memory", "text", "score", "id")}
+            # Mem0 nests the metadata given to ``add`` under "metadata".
+            nested = meta.pop("metadata", None)
+            if isinstance(nested, dict):
+                meta = {**meta, **nested}
+            if not _metadata_matches(meta, metadata):
+                continue
+            out.append(
+                MemoryResult(
+                    content=str(entry.get("memory", entry.get("text", ""))),
+                    score=1.0,
+                    memory_id=str(entry.get("id", "")),
+                    metadata=meta,
+                )
+            )
+            if len(out) >= limit:
+                break
+        return out
 
     async def purge_user(self, user_id: str) -> int:
         """Delete every Mem0 entry owned by ``user_id``.
@@ -902,6 +1072,43 @@ class ChromaProvider:
             )
             return False
 
+    async def list_entries(
+        self,
+        *,
+        user_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        limit: int = 1000,
+    ) -> list[MemoryResult]:
+        """List entries whose metadata matches ``metadata`` exactly.
+
+        Runs a ChromaDB ``get(where=...)``; see
+        :meth:`InMemoryProvider.list_entries`.  Order is ChromaDB's.
+        """
+        self._check_closed()
+        owner = self._require_user(user_id, "list_entries")
+        conditions = [{k: v} for k, v in (metadata or {}).items()]
+        if owner is not None:
+            conditions.append({_USER_ID_META_KEY: owner})
+        get_kwargs: dict[str, Any] = {"limit": limit, "include": ["documents", "metadatas"]}
+        if len(conditions) == 1:
+            get_kwargs["where"] = conditions[0]
+        elif conditions:
+            get_kwargs["where"] = {"$and": conditions}
+        loop = asyncio.get_running_loop()
+        raw = await loop.run_in_executor(None, lambda: self._collection.get(**get_kwargs))
+        ids = (raw or {}).get("ids") or []
+        documents = (raw or {}).get("documents") or []
+        metadatas = (raw or {}).get("metadatas") or []
+        return [
+            MemoryResult(
+                content=documents[i] if i < len(documents) else "",
+                score=1.0,
+                memory_id=mid,
+                metadata=(metadatas[i] if i < len(metadatas) else None) or {},
+            )
+            for i, mid in enumerate(ids)
+        ]
+
     async def purge_user(self, user_id: str) -> int:
         """Delete every Chroma entry owned by ``user_id``.
 
@@ -1038,6 +1245,8 @@ def _format_memory_context(results: list[MemoryResult]) -> str:
     """
     lines = []
     for r in results:
+        if is_adaptive_entry(getattr(r, "metadata", None)):
+            continue  # injected (scoped) by promptise.strategy, never as memory
         safe = sanitize_memory_content(r.content)
         if safe:
             lines.append(f"- {safe}")

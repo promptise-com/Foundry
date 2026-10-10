@@ -142,13 +142,20 @@ class HTTPServerConfig(BaseModel):
         url: Full endpoint URL (supports ${ENV_VAR}).
         transport: Transport protocol ("http", "streamable-http", "sse").
         headers: Optional HTTP headers (values support ${ENV_VAR}).
-        auth: Optional auth token (supports ${ENV_VAR}).
+        bearer_token: Token sent as ``Authorization: Bearer <token>``
+            (supports ${ENV_VAR}).
+        api_key: Pre-shared key sent as ``x-api-key: <key>``
+            (supports ${ENV_VAR}).
+        audience: Resource audience for a credential minted from the
+            agent's ``identity:`` (used when no ``bearer_token`` is set).
+
+    The old ``auth:`` field is rejected: it was never sent to the server.
 
     Examples:
         >>> server = HTTPServerConfig(
         ...     type="http",
         ...     url="http://127.0.0.1:8000/mcp",
-        ...     headers={"Authorization": "Bearer ${API_TOKEN}"}
+        ...     api_key="${INCIDENTS_API_KEY}",
         ... )
     """
 
@@ -162,7 +169,27 @@ class HTTPServerConfig(BaseModel):
     headers: dict[str, str] = Field(
         default_factory=dict, description="HTTP headers (values support ${ENV_VAR})"
     )
-    auth: str | None = Field(None, description="Auth token (supports ${ENV_VAR})")
+    bearer_token: str | None = Field(
+        None, description="Sent as 'Authorization: Bearer <token>' (supports ${ENV_VAR})"
+    )
+    api_key: str | None = Field(
+        None, description="Sent as 'x-api-key: <key>' (supports ${ENV_VAR})"
+    )
+    audience: str | None = Field(
+        None, description="Audience of the identity credential presented to this server"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_auth(cls, data: Any) -> Any:
+        """Reject ``auth:``, which earlier versions accepted but never sent."""
+        if isinstance(data, dict) and "auth" in data:
+            raise ValueError(
+                "'auth' is not supported: it was never sent to the server. "
+                "Use 'bearer_token:' (sent as 'Authorization: Bearer <token>') or "
+                "'api_key:' (sent as 'x-api-key: <key>'), e.g. api_key: \"${MY_API_KEY}\""
+            )
+        return data
 
 
 class StdioServerConfig(BaseModel):
@@ -223,6 +250,8 @@ class CrossAgentConfig(BaseModel):
     Attributes:
         file: Path to referenced .superagent file (relative to current file).
         description: Human-readable description for tool discovery.
+        timeout: Seconds to wait for this agent's answer (overrides the
+            file's ``delegation_timeout``).
 
     Examples:
         >>> config = CrossAgentConfig(
@@ -235,6 +264,7 @@ class CrossAgentConfig(BaseModel):
 
     file: str = Field(..., description="Path to .superagent file")
     description: str = Field("", description="Agent description for tool discovery")
+    timeout: float | None = Field(None, gt=0, description="Seconds to wait for this agent's answer")
 
 
 # =============================================================================
@@ -276,11 +306,11 @@ class SandboxConfigSection(BaseModel):
         image: Base container image.
         cpu_limit: Maximum CPU cores.
         memory_limit: Maximum memory (e.g., "4G").
-        disk_limit: Maximum disk space (e.g., "10G").
+        disk_limit: Size of the writable workspace (e.g., "1G").
+        pids_limit: Maximum number of processes and threads.
         network: Network isolation mode (none, restricted, full).
-        persistent: Keep workspace between runs.
+        persistent: Keep the container after the session ends.
         timeout: Max execution time in seconds.
-        tools: Pre-installed tools list.
         workdir: Working directory inside container.
         env: Additional environment variables.
         allow_sudo: Allow sudo access in container.
@@ -299,13 +329,13 @@ class SandboxConfigSection(BaseModel):
     image: str = Field("python:3.11-slim", description="Base container image")
     cpu_limit: int = Field(2, gt=0, le=32, description="Maximum CPU cores")
     memory_limit: str = Field("4G", description="Maximum memory")
-    disk_limit: str = Field("10G", description="Maximum disk space")
+    disk_limit: str = Field("1G", description="Size of the writable workspace")
+    pids_limit: int = Field(256, gt=0, le=65536, description="Maximum processes and threads")
     network: Literal["none", "restricted", "full"] = Field(
-        "restricted", description="Network isolation mode"
+        "none", description="Network isolation mode"
     )
-    persistent: bool = Field(False, description="Keep workspace between runs")
+    persistent: bool = Field(False, description="Keep the container after the session ends")
     timeout: int = Field(300, gt=0, le=3600, description="Max execution time in seconds")
-    tools: list[str] = Field(default_factory=lambda: ["python"], description="Pre-installed tools")
     workdir: str = Field("/workspace", description="Working directory")
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
     allow_sudo: bool = Field(False, description="Allow sudo access")
@@ -442,12 +472,26 @@ class ApprovalSection(BaseModel):
 
     Attributes:
         tools: Glob patterns for tool names requiring approval.
-        handler: Handler type — ``"webhook"``, ``"callback"``, or ``"queue"``.
+        handler: Handler type — ``"webhook"`` or ``"queue"``. ``"callback"``
+            is rejected: a callback is a Python function, so pass
+            ``ApprovalPolicy(handler=CallbackApprovalHandler(fn))`` to
+            ``build_agent()`` instead.
         webhook_url: Webhook URL (required when handler is ``"webhook"``).
+        webhook_secret: HMAC secret the webhook handler signs requests with
+            (supports ${ENV_VAR}). Without it a random per-process secret is
+            used, which your approval service cannot verify.
         timeout: Seconds to wait for approval decision.
         on_timeout: Action when timeout expires — ``"deny"`` or ``"allow"``.
         max_pending: Maximum concurrent pending approvals.
         redact_sensitive: Redact PII/credentials in approval requests.
+        max_retries_after_deny: Denials of one tool (per ``deny_scope``,
+            within ``deny_window``) after which the reviewer is not asked.
+        deny_window: Seconds a denial counts towards the limit.
+        deny_scope: ``"session"``, ``"user"`` or ``"agent"``.
+        sequential: Ask for one approval at a time per invocation.
+        context_messages: Conversation messages in ``context_summary``.
+        webhook_allow_private_networks: Allow ``webhook_url`` on a
+            private network (``WebhookApprovalHandler(allow_private_networks=True)``).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -457,11 +501,41 @@ class ApprovalSection(BaseModel):
         "webhook", description="Approval handler type"
     )
     webhook_url: str | None = Field(None, description="Webhook URL for approval requests")
+    webhook_secret: str | None = Field(
+        None, description="HMAC signing secret for webhook requests (supports ${ENV_VAR})"
+    )
     timeout: float = Field(300, gt=0, le=86400, description="Approval timeout in seconds")
     on_timeout: Literal["deny", "allow"] = Field("deny", description="Action on timeout")
     max_pending: int = Field(10, gt=0, description="Max concurrent pending approvals")
     redact_sensitive: bool = Field(True, description="Redact PII/credentials in requests")
     max_retries_after_deny: int = Field(3, gt=0, description="Max retries after denial")
+    deny_window: float = Field(600, gt=0, description="Seconds a denial counts towards the limit")
+    deny_scope: Literal["session", "user", "agent"] = Field(
+        "session", description="Whose denials count together"
+    )
+    sequential: bool = Field(False, description="Ask for one approval at a time per invocation")
+    context_messages: int = Field(
+        3, ge=0, description="Conversation messages included in context_summary"
+    )
+    webhook_allow_private_networks: bool = Field(
+        False, description="Allow webhook_url to point at a private network"
+    )
+
+    @model_validator(mode="after")
+    def check_handler(self) -> ApprovalSection:
+        """Reject handler settings that cannot be built from a file."""
+        if self.handler == "callback":
+            raise ValueError(
+                "handler 'callback' needs a Python function, which a .superagent file "
+                "cannot provide. Use handler: webhook (with webhook_url) or handler: "
+                "queue, or build the agent in Python with "
+                "approval=ApprovalPolicy(handler=CallbackApprovalHandler(fn))"
+            )
+        if self.handler == "webhook" and not self.webhook_url:
+            raise ValueError("webhook_url is required when handler is 'webhook'")
+        if self.handler != "webhook" and self.webhook_secret:
+            raise ValueError("webhook_secret applies only to handler 'webhook'")
+        return self
 
 
 class EventSinkConfig(BaseModel):
@@ -506,6 +580,26 @@ class AdaptiveSection(BaseModel):
     strategy_ttl: int = Field(0, ge=0, description="Strategy expiry in seconds (0 = never)")
     failure_retention: int = Field(50, gt=0, description="Max raw failure logs to keep")
     verify_human_feedback: bool = Field(True, description="LLM-as-judge on corrections")
+    feedback_rate_limit: int = Field(10, ge=0, description="Max corrections per hour per sender")
+    scope: Literal["per_user", "per_tenant", "per_session", "shared"] = Field(
+        "per_user",
+        description="Who shares failures and lessons (derived from the CallerContext)",
+    )
+    confidence_half_life: float = Field(
+        0.0, ge=0, description="Seconds for a synthesized lesson's confidence to halve (0 = off)"
+    )
+    min_confidence: float = Field(
+        0.3, ge=0.0, le=1.0, description="Lessons below this confidence are dropped"
+    )
+    allowed_tools: list[str] | None = Field(
+        None, description="Only learn from failures of these tools (None = all)"
+    )
+    review_lessons: bool = Field(
+        False, description="Hold synthesized lessons as pending until approved"
+    )
+    learn_from_approval_denials: bool = Field(
+        True, description="Store approval denial reasons as human corrections"
+    )
 
 
 class GuardrailsSection(BaseModel):
@@ -728,7 +822,8 @@ class SuperAgentSchema(BaseModel):
     at least one of servers, cross_agents, or sandbox is configured.
 
     Attributes:
-        version: Schema version (currently "1.0").
+        version: Schema version. Optional; ``"1.0"`` (the only version) is
+            the default.
         agent: Agent-level configuration (model, instructions, trace).
         servers: Named MCP server configurations.
         cross_agents: Optional cross-agent references.
@@ -820,6 +915,22 @@ class SuperAgentSchema(BaseModel):
         0,
         ge=0,
         description="Max seconds per invocation (0 = unlimited).",
+    )
+    max_delegation_depth: int = Field(
+        3,
+        ge=1,
+        description=(
+            "Most nested cross-agent delegations one request may make (this agent → peer → peer …)."
+        ),
+    )
+    delegation_timeout: float | None = Field(
+        None,
+        gt=0,
+        description="Seconds to wait for a cross-agent's answer (per-agent 'timeout' wins).",
+    )
+    include_broadcast: bool = Field(
+        False,
+        description="Also give the agent a broadcast_to_agents tool for its cross_agents.",
     )
 
     @model_validator(mode="after")

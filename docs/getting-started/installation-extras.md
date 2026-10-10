@@ -40,9 +40,15 @@ Adds the heavy dependencies that unlock everything optional. Recommended for pro
 |---|---|---|
 | **Vector memory** | `chromadb`, `mem0ai` | `ChromaProvider`, `Mem0Provider` |
 | **Embeddings** | `sentence-transformers`, `numpy` | Semantic tool optimization, `SemanticCache` |
-| **ML guardrails** | `transformers` | DeBERTa prompt-injection + GLiNER NER |
+| **ML guardrails** | `transformers` | DeBERTa prompt-injection detection (`InjectionDetector`, `guardrails=True`). GLiNER NER (`NERDetector`) needs `pip install gliner` on top |
 | **Infrastructure** | `redis`, `docker` | `RedisConversationStore`, `RedisCache`, Docker sandbox |
 | **Observability** | `opentelemetry-*`, `prometheus_client` | OTel tracing, Prometheus `/metrics` |
+
+### `pip install "promptise[sandbox]"`
+
+Only the Docker client, for the code-execution sandbox (`build_agent(sandbox=...)`
+and `agent_pattern="code-action"`) without the rest of `[all]`. Docker itself must
+be installed and running. See [Sandbox](../core/sandbox.md).
 
 ## Contributors
 

@@ -39,14 +39,14 @@ So the accurate delta is not "competitors can't cut tool tokens." It is that red
 
 Promptise exposes [tool optimization levels](../../core/tool-optimization.md) as a single ladder — `optimize_tools` — with four rungs. Three of them are pure static minification with no per-query variance; only the top rung adds semantic selection.
 
-| Level | How you set it | Static minify | Strip nested descriptions | Max schema depth | Per-query selection | Est. savings |
+| Level | How you set it | Static minify | Strip nested descriptions | Max schema depth | Per-query selection | Measured savings (90 flat tools) |
 |---|---|---|---|---|---|---|
 | **NONE** | unset / `False` | — | — | — | — | 0% (baseline) |
-| **MINIMAL** | `True` or `"minimal"` | Yes (desc ≤ 200 chars) | No | No limit | No | ~40% |
-| **STANDARD** | `"standard"` | Yes (desc ≤ 150 chars) | Yes | 3 | No | ~55% |
-| **SEMANTIC** | `"semantic"` | Yes (desc ≤ 100 chars) | Yes | 2 | Yes (top-K 8) | ~85% |
+| **MINIMAL** | `True` or `"minimal"` | Yes (desc ≤ 200 chars) | No | No limit | No | 14% |
+| **STANDARD** | `"standard"` | Yes (desc ≤ 150 chars) | Yes | 3 | No | 14% |
+| **SEMANTIC** | `"semantic"` | Yes (desc ≤ 100 chars) | Yes | 2 | Yes (top-K 8) | 90% |
 
-The savings figures are estimates for a typical 20–50 tool set. The point of the table is the middle two columns: MINIMAL and STANDARD cut ~40–55% of tool-definition tokens **deterministically**. Every call presents the same tools, with the same minified schemas. No embedding runs. Nothing about the request changes what the model can call — only how many tokens each tool's definition costs. SEMANTIC keeps all of that minification *and* adds top-K selection on top, with a `request_more_tools` fallback so the agent can self-recover if the search missed something. It is the option you reach for when per-query variance is acceptable and you want the deepest cut.
+The savings were measured on one server: 90 tools with flat schemas (string parameters, one-line parameter descriptions, short tool descriptions). The static levels save more when your schemas carry long parameter descriptions, long tool descriptions or deep nesting, and less when they don't; STANDARD only pulls ahead of MINIMAL on nested schemas. The point of the table is the middle columns: MINIMAL and STANDARD cut tool-definition tokens **deterministically**. Every call presents the same tools, with the same minified schemas. No embedding runs. Nothing about the request changes what the model can call — only how many tokens each tool's definition costs. SEMANTIC keeps all of that minification *and* adds top-K selection on top, with a `request_more_tools` fallback so the agent can self-recover if the search missed something. It is the option you reach for when per-query variance is acceptable and you want the deepest cut.
 
 ## Cut schema tokens deterministically, no per-query variance (runnable)
 
@@ -118,7 +118,7 @@ Yes, and it is actually the cleanest air-gapped option in the ladder. The static
 
 ### How much does STANDARD actually save versus SEMANTIC?
 
-STANDARD trims roughly 55% of tool-definition tokens deterministically; SEMANTIC reaches ~85% by additionally sending only the top-K relevant tools per query. The extra ~30 points from SEMANTIC come at the cost of a per-query embedding pass and a tool set that varies request to request. The recommended path is to set STANDARD, measure your real payload, and only adopt semantic selection if the deterministic cut leaves you short.
+It depends on your schemas. On a 90-tool server with flat schemas, STANDARD trimmed 14% of tool-definition tokens deterministically; SEMANTIC cut 90% by additionally sending only the top-K relevant tools per model call. The extra points from SEMANTIC come at the cost of a per-query embedding pass and a tool set that varies request to request. The recommended path is to set STANDARD, measure your real payload, and only adopt semantic selection if the deterministic cut leaves you short.
 
 ### How is this different from LangGraph's langgraph-bigtool?
 

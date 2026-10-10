@@ -414,7 +414,7 @@ class TestToolErrors:
         assert err.metadata["error"] == "Unknown SKU X."
         assert c.get_stats()["error_count"] == 1
 
-    def test_error_tool_message_is_recorded_as_error(self) -> None:
+    def test_error_tool_message_counts_as_an_error(self) -> None:
         """A tool with handle_tool_error returns ToolMessage(status="error")."""
         c = ObservabilityCollector()
         h = PromptiseCallbackHandler(c)
@@ -425,7 +425,12 @@ class TestToolErrors:
             run_id=rid,
             name="lookup",
         )
-        assert [e.event_type.value for e in c.get_timeline()] == ["tool.call", "tool.error"]
+        # Recorded as the tool's result, flagged as an error and counted as one.
+        [_, result] = c.get_timeline()
+        assert result.event_type == TimelineEventType.TOOL_RESULT
+        assert result.metadata["status"] == "error"
+        assert result.metadata["tool_name"] == "lookup"
+        assert h.error_count == 1
         assert c.get_stats()["error_count"] == 1
 
     @pytest.mark.asyncio

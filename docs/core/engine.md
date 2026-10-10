@@ -91,7 +91,7 @@ agent = await build_agent(..., agent_pattern="react")       # Default tool-calli
 agent = await build_agent(..., agent_pattern="verify")      # Plan → Solve → Self-check (1 turn)
 agent = await build_agent(..., agent_pattern="managed")     # Tool loop with facts-ledger context
 agent = await build_agent(..., agent_pattern="code-action") # Writes ONE sandboxed program (1 turn)
-agent = await build_agent(..., agent_pattern="peoatr")      # Plan → Act → Think → Reflect
+agent = await build_agent(..., agent_pattern="peoatr")      # Plan → Act → Think → Reflect → Answer
 agent = await build_agent(..., agent_pattern="research")    # Search → Verify → Synthesize
 agent = await build_agent(..., agent_pattern="autonomous")  # Agent builds own path
 agent = await build_agent(..., agent_pattern="deliberate")  # Think → Plan → Act → Observe → Reflect
@@ -172,7 +172,7 @@ Reasoning Graph Engine
 │  └─ Dynamic (LLM-directed)
 │     └── output.route                LLM names next node at runtime
 │
-├─ Flags (16 typed) ─────────────────────────────────────────────
+├─ Flags (18 typed) ─────────────────────────────────────────────
 │  │
 │  ├─ Execution Control
 │  │  ├── ENTRY / TERMINAL            Graph start and end markers
@@ -248,7 +248,7 @@ Reasoning Graph Engine
 │  │  └── code-action                 Writes ONE sandboxed program (1 turn)
 │  │
 │  ├─ Structured Reasoning
-│  │  ├── peoatr                      Plan → Act → Think → Reflect
+│  │  ├── peoatr                      Plan → Act → Think → Reflect → Answer
 │  │  ├── deliberate                  Think → Plan → Act → Observe → Reflect
 │  │  └── research                    Search → Verify → Synthesize
 │  │
@@ -284,12 +284,32 @@ Reasoning Graph Engine
    └── register_node_type()           Custom types for YAML
 ```
 
+## Streaming runs the same steps
+
+`PromptGraphEngine` has three entry points, and all three drive one traversal
+loop: the same hooks, flags, mutations and transitions, one model call per
+step, tool calls in parallel.
+
+| Method | Yields |
+|---|---|
+| `ainvoke(input)` | Nothing — returns `{"messages": [...]}` at the end |
+| `astream(input)` | `{"messages": [...]}` after every node; the last chunk equals `ainvoke()`'s result |
+| `astream_events(input)` | Events: `on_chat_model_stream` per model chunk, `on_tool_start` / `on_tool_end` / `on_tool_error` per tool call (a start and its end share a `run_id`), `on_node_start` / `on_node_end` / `on_node_error` |
+
+When streaming, the engine runs each node through `node.stream()`.
+`PromptNode.stream()` streams its one model call and runs the same pipeline as
+`execute()`; other nodes execute once and report their result. A node's stream
+must end with an `on_node_end` event carrying its `NodeResult` under
+`data["result"]` — a stream that ends without one fails the run rather than
+running the node a second time. `PromptGraphEngine.astream_events()` is what
+[`agent.astream_with_tools()`](streaming.md) consumes.
+
 ## Failures reach the caller
 
 A run that ends on a node whose own execution failed — a rejected API key, a
 provider outage, a `CRITICAL` node error, a `RETRYABLE` node out of retries —
-raises `GraphExecutionError` from `ainvoke()` (and from `astream_events()`
-after its events). The exception names the graph and node, carries the
+raises `GraphExecutionError` from `ainvoke()` (and from `astream()` and
+`astream_events()` after their output). The exception names the graph and node, carries the
 `ExecutionReport`, and chains the provider exception as `__cause__`;
 `PromptiseAgent.ainvoke()` lets it propagate. A failure the graph *recovers*
 from does not raise: an edge routes it to a handler node that succeeds, or a
@@ -299,6 +319,8 @@ never happens: an "answer" that silently echoes the question because the
 model call failed.
 
 ```python
+from langchain_core.messages import HumanMessage
+
 from promptise.engine import GraphExecutionError
 
 try:
@@ -345,7 +367,7 @@ The LLM can modify the graph during execution — add nodes, skip to nodes, chan
 
 - [Nodes](engine-nodes.md) — All 20 node types with full parameter reference
 - [Edges & Transitions](engine-edges.md) — 10 edge helpers, transition resolution, LLM routing
-- [Node Flags](engine-flags.md) — 16 typed flags controlling execution, caching, error handling
+- [Node Flags](engine-flags.md) — 18 typed flags controlling execution, caching, error handling
 - [Processors](engine-processors.md) — Pre/post processors for data transformation
 - [Runtime Tool Injection](engine-tools.md) — How MCP tools flow into nodes
 - [Hooks & Observability](engine-hooks.md) — 5 hooks, execution reports, per-node metrics

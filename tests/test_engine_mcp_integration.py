@@ -163,8 +163,8 @@ class TestPrebuiltPatterns:
     def test_peoatr_graph(self):
         g = build_peoatr_graph()
         assert g.entry is not None
-        assert len(g.nodes) == 4
-        for name in ["plan", "act", "think", "reflect"]:
+        assert len(g.nodes) == 5
+        for name in ["plan", "act", "think", "reflect", "answer"]:
             assert name in g.nodes, f"Missing node: {name}"
 
     def test_research_graph(self):

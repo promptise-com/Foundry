@@ -256,7 +256,11 @@ class TestTenantGuards:
         assert await guard.check(self._ctx("acme")) is True
         assert await guard.check(self._ctx("initech")) is False
         assert await guard.check(self._ctx(None)) is False
-        assert "(none)" in guard.describe_denial(self._ctx(None))
+        assert "presented none" in guard.describe_denial(self._ctx(None))
+        # A refused tenant is never told which tenants are allowed.
+        denial = guard.describe_denial(self._ctx("initech"))
+        assert "initech" in denial
+        assert "acme" not in denial and "globex" not in denial
 
 
 class TestRequireTenantServer:

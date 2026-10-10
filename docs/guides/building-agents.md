@@ -247,7 +247,7 @@ agent = await build_agent(
     servers=servers,
     model="openai:gpt-5-mini",
     sandbox={
-        "network_mode": "restricted",  # "none", "restricted", "full"
+        "network": "none",  # the default; "restricted" or "full" to open it
         "memory_limit": "512M",
         "cpu_limit": 2,
         "timeout": 120,
@@ -259,21 +259,26 @@ When sandbox is enabled, 5 tools are automatically injected into the agent:
 
 | Tool | Description |
 |------|-------------|
-| `execute_code` | Run Python code in the sandbox |
-| `read_file` | Read a file from the sandbox workspace |
-| `write_file` | Write a file to the sandbox workspace |
-| `list_files` | List files in the sandbox workspace |
-| `install_package` | Install a pip package in the sandbox |
+| `sandbox_exec` | Run a shell command in the sandbox |
+| `sandbox_read_file` | Read a file from the sandbox workspace |
+| `sandbox_write_file` | Write a file to the sandbox workspace |
+| `sandbox_list_files` | List files in the sandbox workspace |
+| `sandbox_install_package` | Install a package (pip, npm, cargo, go) into the workspace |
 
 Security layers applied automatically:
 
 - **Docker isolation** -- code runs in a container, not on your host
-- **Seccomp filtering** -- blocks dangerous syscalls
-- **Capability dropping** -- removes ~40 Linux capabilities
-- **Read-only rootfs** -- only the workspace directory is writable
-- **Resource limits** -- CPU, memory, and time constraints
-- **Network isolation** -- configurable per agent (none/restricted/full)
+- **Seccomp filtering** -- Docker's default seccomp profile blocks dangerous syscalls
+- **Capability dropping** -- removes ~40 Linux capabilities; `no-new-privileges` is always set
+- **Read-only rootfs** -- only the size-capped workspace and `/tmp` are writable
+- **Resource limits** -- CPU, memory, process count and time; timed-out commands are killed
+- **Network isolation** -- no network unless you set `network` to `"restricted"` or `"full"`
 - **Optional gVisor** -- userspace kernel for additional isolation
+
+Unknown keys raise an error, and if the sandbox cannot start (Docker not
+running, `pip install "promptise[sandbox]"` missing, gVisor not installed),
+`build_agent` raises instead of building an agent without it. See
+[Sandbox](../core/sandbox.md) for every option.
 
 ---
 
@@ -360,9 +365,7 @@ observability:
   output_dir: ./reports
 
 sandbox:
-  enabled: true
-  network_mode: restricted
-  memory_limit: 1G
+  memory_limit: 1G   # network stays "none" unless set
 
 cross_agents:
   researcher:
@@ -519,7 +522,7 @@ async def main():
             transporters=[TransporterType.HTML, TransporterType.STRUCTURED_LOG],
             output_dir="./reports",
         ),
-        sandbox={"network_mode": "restricted", "memory_limit": "1G"},
+        sandbox={"memory_limit": "1G"},  # network stays "none" unless set
         cross_agents={
             "researcher": CrossAgent(
                 url="http://research-agent:8001",
@@ -603,7 +606,7 @@ agent = await build_agent(
 )
 ```
 
-10 built-in patterns: `react` (default), `verify`, `managed`, `code-action`, `peoatr`, `research`, `autonomous`, `deliberate`, `debate`, `pipeline`. See [Reasoning Patterns](../core/agents/reasoning-patterns.md).
+Pattern names: `react` (default), `verify`, `managed`, `code-action`, `peoatr`, `research`, `autonomous`, `deliberate`, `debate` — any other string raises `ValueError`. For a sequential chain pass `agent_pattern=PromptGraph.pipeline(node_a, node_b)`. See [Reasoning Patterns](../core/agents/reasoning-patterns.md).
 
 ---
 

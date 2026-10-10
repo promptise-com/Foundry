@@ -901,6 +901,11 @@ class ObservabilityCollector:
                 TimelineEventType.TOOL_ERROR,
                 TimelineEventType.AGENT_ERROR,
                 TimelineEventType.TASK_FAILED,
+            ) or (
+                # A tool that reported an error instead of raising
+                # (ToolMessage with status="error").
+                e.event_type == TimelineEventType.TOOL_RESULT
+                and e.metadata.get("status") == "error"
             ):
                 error_count += 1
 

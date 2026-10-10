@@ -30,13 +30,10 @@ from typing import Any
 from uuid import UUID
 
 from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.messages import ToolMessage
 from langchain_core.outputs import LLMResult
 
 from .observability_config import ObserveLevel
-
-
-class _ToolReportedError(Exception):
-    """A tool call that returned an error result instead of raising."""
 
 
 class PromptiseCallbackHandler(BaseCallbackHandler):
@@ -92,10 +89,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         # --- Event notifier (set externally by build_agent) ---
         self._event_notifier: Any | None = None
         self._slow_tool_threshold_ms: float = 5000.0
-
-        # --- Failure collection for adaptive strategy ---
-        self._current_failures: list[dict[str, Any]] = []
-        self._last_tool_inputs: dict[str, str] = {}  # run_id → input preview
 
         # --- Timing bookkeeping (run_id → start epoch) ---
         self._llm_starts: dict[UUID, float] = {}
@@ -361,8 +354,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         run = self._current_run()
         if run is not None:
             run.tool_calls += 1
-        # Track input for adaptive strategy failure collection
-        self._last_tool_inputs[str(run_id)] = self._truncate(input_str, 200)
 
         tool_name = serialized.get("name") or kwargs.get("name") or "unknown"
         self._tool_names[run_id] = tool_name
@@ -385,23 +376,30 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         duration = time.time() - start if start else None
         tool_name = self._tool_names.pop(run_id, None) or kwargs.get("name") or "unknown"
 
-        # A tool that handles its own errors (``handle_tool_error``) returns a
-        # ToolMessage with status="error" instead of raising: that is a
-        # failed call, not a result.
-        if getattr(output, "status", None) == "error":
-            self._tool_names[run_id] = tool_name
-            if start is not None:
-                self._tool_starts[run_id] = start
-            content = getattr(output, "content", output)
-            self.on_tool_error(_ToolReportedError(str(content)), run_id=run_id, **kwargs)
-            return
+        # A tool invoked as a tool call returns a ToolMessage; record its
+        # content, and its status when the tool reported an error.  A tool
+        # that handles its own errors (``handle_tool_error``) returns
+        # status="error" instead of raising: that is a failed call, so it
+        # counts as an error here and in ``get_stats()``.
+        status = None
+        if isinstance(output, ToolMessage):
+            status = output.status
+            output = output.content
+        failed = status == "error"
+        if failed:
+            self.error_count += 1
+            run = self._current_run()
+            if run is not None:
+                run.errors += 1
 
-        result_text = str(getattr(output, "content", output))
+        result_text = str(output)
         metadata: dict[str, Any] = {"run_id": str(run_id)}
         if self.record_tool_io:
             metadata["result_preview"] = self._truncate(result_text)
         else:
             metadata["result_length"] = len(result_text)
+        if failed:
+            metadata["status"] = "error"
         if duration is not None:
             metadata["latency_ms"] = round(duration * 1000, 1)
         if tool_name != "unknown":
@@ -409,7 +407,9 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
 
         self._record(
             "tool.result",
-            details=f"Tool completed: {tool_name}",
+            details=f"Tool reported an error: {tool_name}"
+            if failed
+            else f"Tool completed: {tool_name}",
             duration=duration,
             metadata=metadata,
         )
@@ -480,17 +480,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
                     "error_type": type(error).__name__,
                 },
             )
-
-        # Collect failure for adaptive strategy
-        self._current_failures.append(
-            {
-                "tool_name": tool_name,
-                "error_type": type(error).__name__,
-                "error_message": str(error)[:500],
-                "args_preview": self._last_tool_inputs.pop(str(run_id), ""),
-                "timestamp": time.time(),
-            }
-        )
 
     # ------------------------------------------------------------------
     # Chain (agent-level) events

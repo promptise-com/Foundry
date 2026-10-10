@@ -304,6 +304,24 @@ class TestMem0Flow:
         assert [e["user_id"] for e in memory._client.store.entries.values()] == ["bob"]
 
     @pytest.mark.asyncio
+    async def test_list_entries_uses_the_api_of_the_installed_generation(
+        self, fake_mem0: type
+    ) -> None:
+        """The adaptive strategy lists its lessons with list_entries().
+
+        Its first version called ``get_all(user_id=...)`` and retried with
+        ``filters=`` on ``TypeError``, but mem0ai 2.x raises ``ValueError``,
+        so every list came back empty.
+        """
+        memory = Mem0Provider(scope=MemoryScope.PER_USER)
+        await memory.add("prefer the EU endpoint", user_id="mara", metadata={"type": "strategy"})
+        await memory.add("likes tea", user_id="mara")
+        await memory.add("bob's lesson", user_id="bob", metadata={"type": "strategy"})
+        entries = await memory.list_entries(user_id="mara", metadata={"type": "strategy"})
+        assert [e.content for e in entries] == ["prefer the EU endpoint"]
+        assert entries[0].metadata["type"] == "strategy"
+
+    @pytest.mark.asyncio
     async def test_search_errors_propagate(self, fake_mem0: type, caplog) -> None:
         """An incompatible client or a broken store must not look like 'no memories'."""
         memory = Mem0Provider(user_id="u1")

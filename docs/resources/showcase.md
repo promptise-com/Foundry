@@ -472,31 +472,40 @@ With the Prompt Engineering module, you treat prompts as software — typed, ver
 A customer onboarding chatbot needs different behavior at each stage: friendly greeting first, then structured data collection, then confirmation. Each phase uses different rules, different examples, and a different tone.
 
 ```python
-from promptise.prompts import prompt, ConversationFlow, Phase
-from promptise.prompts.blocks import Identity, Rules, OutputFormat, Examples
+from promptise.prompts.blocks import Identity, OutputFormat, Rules, Section
+from promptise.prompts.flows import ConversationFlow, TurnContext, phase
 
-onboarding = ConversationFlow(phases=[
-    Phase(
-        name="greeting",
-        blocks=[Identity("Friendly onboarding assistant"), Rules(["Be warm and welcoming"])],
-        initial=True,
-    ),
-    Phase(
-        name="collection",
+
+class OnboardingFlow(ConversationFlow):
+    base_blocks = [Identity("Onboarding assistant for Acme")]
+
+    @phase("greeting", initial=True, blocks=[Rules(["Be warm and welcoming"])])
+    async def greeting(self, ctx: TurnContext) -> None:
+        if ctx.turn >= 1:  # after the first exchange, start collecting data
+            ctx.transition("collection")
+
+    @phase(
+        "collection",
         blocks=[
-            Identity("Structured data collector"),
             Rules(["Ask one question at a time", "Validate each answer"]),
-            OutputFormat("JSON with field: {current_question, validated_answers}"),
+            OutputFormat(format="json", instructions="Fields: current_question, validated_answers"),
         ],
-    ),
-    Phase(
-        name="confirmation",
-        blocks=[
-            Identity("Confirmation specialist"),
-            Rules(["Summarize all collected data", "Ask for final confirmation"]),
-        ],
-    ),
-])
+    )
+    async def collection(self, ctx: TurnContext) -> None:
+        if "confirm" in ctx.history[-1]["content"].lower():
+            ctx.transition("confirmation")
+
+    @phase(
+        "confirmation",
+        blocks=[Section("confirm", "Summarize all collected data and ask for final confirmation.")],
+    )
+    async def confirmation(self, ctx: TurnContext) -> None:
+        pass
+
+
+# Each chat session gets its own copy of the flow.
+agent = await build_agent(model="openai:gpt-5-mini", servers=servers, flow=OnboardingFlow())
+reply = await agent.chat("Hi, I'd like to sign up.", session_id=session_id, user_id=user_id)
 ```
 
 ---
@@ -536,10 +545,8 @@ Your agent handles conversations that grow to 200+ messages. Without management,
 from promptise import build_agent, ContextEngine
 
 engine = ContextEngine(model_context_window=128_000, response_reserve=4_000)
-engine.register_layer("identity", priority=10, required=True)
-engine.register_layer("rules", priority=9, required=True)
-engine.register_layer("conversation", priority=1, trim_strategy="conversation")
-engine.register_layer("user_message", priority=10, required=True)
+# identity, user_message and conversation (oldest pairs trimmed first) are built in.
+engine.add_layer("rules", priority=9, required=True, content="Never share account data.")
 
 agent = await build_agent(
     model="openai:gpt-5-mini",
