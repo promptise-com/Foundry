@@ -13,10 +13,12 @@ Two preset configurations are provided for common environments:
 
 from __future__ import annotations
 
+import ipaddress
+from collections.abc import Callable
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
 # ---------------------------------------------------------------------------
 # Execution modes
@@ -99,38 +101,104 @@ class OpenModeConfig(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+#: Filesystem events a ``file_watch`` trigger can react to.
+FILE_WATCH_EVENTS = ("created", "modified", "deleted", "moved")
+
+#: Default signature header per webhook signature scheme.
+SIGNATURE_HEADERS = {
+    "generic": "X-Webhook-Signature",
+    "github": "X-Hub-Signature-256",
+    "stripe": "Stripe-Signature",
+}
+
+
 class TriggerConfig(BaseModel):
     """Configuration for a single trigger.
 
     Each trigger ``type`` requires a different subset of fields.  The
     :meth:`_validate_trigger_fields` model validator enforces this for
-    built-in types.  Custom trigger types use the ``custom_config`` dict.
+    built-in types, and rejects bad cron expressions, time zones, filter
+    expressions and source ranges when the config is created rather than
+    when the process first runs.  Custom trigger types use the
+    ``custom_config`` dict.  Unknown keys are rejected, so a misspelt
+    option fails loudly instead of being ignored.
 
     Attributes:
         type: Trigger type (built-in or custom-registered via
             :func:`~promptise.runtime.triggers.register_trigger_type`).
-        cron_expression: Cron expression (``cron`` type only).
+        cron_expression: Cron expression (``cron`` type only).  Five
+            fields, or six with a trailing seconds field
+            (``"* * * * * */10"`` fires every 10 seconds).
+        cron_timezone: IANA time zone the cron expression is read in
+            (``cron`` only).  ``None`` means UTC.
         webhook_path: URL path for the webhook endpoint (``webhook`` only).
         webhook_port: Listening port (``webhook`` only).
+        webhook_host: Interface to bind (``webhook`` only).  Defaults to
+            ``127.0.0.1`` (loopback); use ``0.0.0.0`` to accept requests
+            from other machines.
+        hmac_secret: Shared secret for request signatures (``webhook``
+            only).  When set, unsigned or wrongly signed requests get 401.
+        signature_scheme: How the signature is computed and sent:
+            ``generic`` (``X-Webhook-Signature: sha256=<hex>``), ``github``
+            (``X-Hub-Signature-256: sha256=<hex>``) or ``stripe``
+            (``Stripe-Signature: t=<ts>,v1=<hex>`` over ``"<ts>.<body>"``).
+        signature_header: Header carrying the signature.  Defaults to the
+            scheme's standard header.
+        signature_tolerance: Max age in seconds of a timestamped
+            (``stripe``) signature, to stop replays.
+        allowed_sources: Client IPs or CIDR ranges allowed to call the
+            webhook (empty = any).  Others get 403.
         watch_path: Directory to watch (``file_watch`` only).
         watch_patterns: Glob patterns (``file_watch`` only).
-        watch_events: Filesystem events to react to (``file_watch`` only).
+        watch_events: Filesystem events to react to (``file_watch`` only):
+            any of ``created``, ``modified``, ``deleted``, ``moved``.
+        watch_debounce_seconds: Window in which events for the same file
+            are merged into one (``file_watch`` only).
         event_type: EventBus event type string (``event`` only).
         event_source: Optional source filter (``event`` only).
         topic: MessageBroker topic (``message`` only).
         custom_config: Additional key-value configuration for custom
             trigger types.
-        filter_expression: Cheap pre-filter (all types, optional).
+        filter_expression: Cheap pre-filter evaluated before the agent
+            runs (all types, optional).  Either a safe expression string
+            such as ``"payload['action'] == 'opened'"`` (see
+            :mod:`promptise.runtime.triggers.filters`) or a callable that
+            takes the :class:`~promptise.runtime.triggers.base.TriggerEvent`
+            and returns a bool.  Events that don't match are skipped.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     type: str = Field(..., description="Trigger type (built-in or custom-registered)")
 
     # -- Cron --
     cron_expression: str | None = Field(None, description="Cron expression (e.g. '*/5 * * * *')")
+    cron_timezone: str | None = Field(
+        None, description="IANA time zone for the cron schedule (None = UTC)"
+    )
 
     # -- Webhook --
     webhook_path: str = Field("/webhook", description="Webhook URL path")
     webhook_port: int = Field(9090, gt=1024, le=65535, description="Webhook listen port")
+    webhook_host: str = Field(
+        "127.0.0.1", description="Interface to bind the webhook server to (0.0.0.0 = all)"
+    )
+    hmac_secret: SecretStr | None = Field(
+        None, description="Shared secret for webhook request signatures"
+    )
+    signature_scheme: Literal["generic", "github", "stripe"] = Field(
+        "generic", description="Webhook signature format"
+    )
+    signature_header: str | None = Field(
+        None, description="Header carrying the signature (default: the scheme's header)"
+    )
+    signature_tolerance: int = Field(
+        300, gt=0, description="Max age in seconds of a timestamped (stripe) signature"
+    )
+    allowed_sources: list[str] = Field(
+        default_factory=list,
+        description="Client IPs / CIDR ranges allowed to call the webhook (empty = any)",
+    )
 
     # -- File watch --
     watch_path: str | None = Field(None, description="Directory to watch for changes")
@@ -140,7 +208,10 @@ class TriggerConfig(BaseModel):
     )
     watch_events: list[str] = Field(
         default_factory=lambda: ["created", "modified"],
-        description="Filesystem events to react to",
+        description="Filesystem events to react to (created, modified, deleted, moved)",
+    )
+    watch_debounce_seconds: float = Field(
+        0.5, ge=0, description="Window in which events for one file are merged"
     )
 
     # -- Event --
@@ -157,23 +228,108 @@ class TriggerConfig(BaseModel):
     )
 
     # -- Common --
-    filter_expression: str | None = Field(
+    filter_expression: str | Callable[..., Any] | None = Field(
         None,
-        description="Cheap filter expression evaluated before LLM invocation",
+        description=(
+            "Filter evaluated before the agent runs: a safe expression string "
+            "or a callable taking the TriggerEvent"
+        ),
     )
 
     @model_validator(mode="after")
     def _validate_trigger_fields(self) -> TriggerConfig:
-        """Enforce that type-specific required fields are provided."""
-        if self.type == "cron" and not self.cron_expression:
-            raise ValueError("Cron trigger requires 'cron_expression'")
-        if self.type == "file_watch" and not self.watch_path:
-            raise ValueError("File watch trigger requires 'watch_path'")
+        """Enforce type-specific required fields and validate values early."""
+        if self.type == "cron":
+            if not self.cron_expression:
+                raise ValueError("Cron trigger requires 'cron_expression'")
+            from .exceptions import TriggerError
+            from .triggers.cron import validate_cron_expression, validate_timezone
+
+            try:
+                validate_cron_expression(self.cron_expression)
+                if self.cron_timezone is not None:
+                    validate_timezone(self.cron_timezone)
+            except TriggerError as exc:
+                raise ValueError(str(exc)) from exc
+        if self.type == "file_watch":
+            if not self.watch_path:
+                raise ValueError("File watch trigger requires 'watch_path'")
+            if not self.watch_events:
+                raise ValueError("File watch trigger requires at least one entry in 'watch_events'")
+            unknown = sorted(set(self.watch_events) - set(FILE_WATCH_EVENTS))
+            if unknown:
+                raise ValueError(
+                    f"Unknown watch_events {unknown}; choose from {list(FILE_WATCH_EVENTS)}"
+                )
         if self.type == "event" and not self.event_type:
             raise ValueError("Event trigger requires 'event_type'")
         if self.type == "message" and not self.topic:
             raise ValueError("Message trigger requires 'topic'")
+        if self.hmac_secret is None and (
+            self.signature_scheme != "generic" or self.signature_header is not None
+        ):
+            raise ValueError("'signature_scheme' and 'signature_header' require 'hmac_secret'")
+        if self.hmac_secret is not None:
+            secret = self.hmac_secret.get_secret_value()
+            if not secret:
+                raise ValueError("'hmac_secret' is empty")
+            if secret == "**********":
+                # What model_dump(mode="json") / RuntimeConfig.to_dict() write
+                # in place of the secret: serialised configs don't carry it.
+                raise ValueError(
+                    "'hmac_secret' is the masked placeholder from a serialised config; "
+                    "pass the real secret (for example via ${ENV_VAR} in a manifest)"
+                )
+        for source in self.allowed_sources:
+            try:
+                ipaddress.ip_network(source, strict=False)
+            except ValueError as exc:
+                raise ValueError(f"Invalid entry in 'allowed_sources': {source!r}") from exc
+        if isinstance(self.filter_expression, str):
+            from .triggers.filters import validate_filter_expression
+
+            validate_filter_expression(self.filter_expression)
         return self
+
+    @property
+    def effective_signature_header(self) -> str:
+        """The header the webhook reads the signature from."""
+        return self.signature_header or SIGNATURE_HEADERS[self.signature_scheme]
+
+
+class TriggerDeliveryConfig(BaseModel):
+    """How a process handles trigger events that can't be processed.
+
+    Attributes:
+        max_retries: Extra attempts for an event whose agent run raised.
+            ``0`` (default) never retries.  A retry re-runs the whole agent
+            turn, so tools with side effects may run twice — only enable
+            it when those tools are idempotent or gated by approval.
+        retry_backoff: Delay in seconds before the first retry; doubles
+            with each further attempt.
+        retry_backoff_max: Upper bound for the retry delay.
+        dead_letter_size: How many undeliverable events to keep in
+            :attr:`AgentProcess.dead_letters` (oldest dropped first).
+        scan_payloads: Run a prompt-injection scan on each trigger payload
+            before the agent sees it.  Flagged events are dead-lettered
+            instead of run.  Uses ``ProcessConfig.guardrails`` when it is a
+            scanner, otherwise an injection-only
+            :class:`~promptise.guardrails.PromptiseSecurityScanner` (needs
+            ``transformers``; the model loads when the process starts).
+        max_payload_chars: Longest payload rendering placed in the prompt;
+            longer payloads are truncated with a marker.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_retries: int = Field(0, ge=0, le=10, description="Retries for a failed agent run")
+    retry_backoff: float = Field(2.0, gt=0, description="First retry delay in seconds")
+    retry_backoff_max: float = Field(60.0, gt=0, description="Max retry delay in seconds")
+    dead_letter_size: int = Field(100, ge=0, description="Undeliverable events kept")
+    scan_payloads: bool = Field(False, description="Prompt-injection scan on trigger payloads")
+    max_payload_chars: int = Field(
+        20_000, ge=200, description="Max characters of payload placed in the prompt"
+    )
 
 
 class JournalConfig(BaseModel):
@@ -207,7 +363,9 @@ class ContextConfig(BaseModel):
         memory_persist_directory: Persist directory for ChromaDB.
         memory_user_id: User ID for Mem0 scoping.
         conversation_max_messages: Max messages in conversation buffer
-            (short-term memory).
+            (short-term memory).  ``0`` means **unlimited**, not disabled.
+        conversation_history: Set to ``False`` to turn short-term memory
+            off, so every run sees only the current trigger event.
         file_mounts: Mapping of logical name → filesystem path.
         env_prefix: Only expose environment variables with this prefix.
         initial_state: Pre-populated key-value state.
@@ -236,7 +394,11 @@ class ContextConfig(BaseModel):
     conversation_max_messages: int = Field(
         100,
         ge=0,
-        description="Max messages in conversation buffer (0 = disabled)",
+        description="Max messages in conversation buffer (0 = unlimited)",
+    )
+    conversation_history: bool = Field(
+        True,
+        description="Carry short-term conversation history between runs (False = each run starts fresh)",
     )
 
     # -- Environment --
@@ -438,7 +600,17 @@ class ProcessConfig(BaseModel):
         max_consecutive_failures: Consecutive failures before FAILED state.
         restart_policy: When to restart a failed process.
         max_restarts: Max restart attempts (for ``on_failure`` / ``always``).
+        trigger_delivery: Retries, dead-letter list and payload scanning
+            for trigger events.
+        guardrails, observe, cache, optimize_tools, adaptive,
+        max_invocation_time: Passed through to
+            :func:`~promptise.agent.build_agent` when the agent is built.
+
+    Unknown keys are rejected, so a misspelt option fails loudly instead
+    of being ignored.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     model: str = Field("openai:gpt-5-mini", description="LLM model ID")
     instructions: str | None = Field(None, description="System prompt")
@@ -517,6 +689,25 @@ class ProcessConfig(BaseModel):
         ),
     )
 
+    # -- Trigger delivery (retries, dead letters, payload scanning) --
+    trigger_delivery: TriggerDeliveryConfig = Field(
+        default_factory=TriggerDeliveryConfig,
+        description="Retries, dead-letter list and payload scanning for trigger events",
+    )
+
+    # -- Agent capabilities passed through to build_agent() (opt-in) --
+    guardrails: Any | None = Field(
+        None,
+        description="PromptiseSecurityScanner (or any check_input/check_output guard)",
+    )
+    observe: Any | None = Field(None, description="Observability: True or an ObservabilityConfig")
+    cache: Any | None = Field(None, description="SemanticCache instance for LLM responses")
+    optimize_tools: Any | None = Field(None, description="Semantic tool-selection settings")
+    adaptive: Any | None = Field(None, description="Adaptive strategy settings")
+    max_invocation_time: float = Field(
+        0, ge=0, description="Per-invocation timeout in seconds (0 = none)"
+    )
+
 
 class DistributedConfig(BaseModel):
     """Distributed runtime coordination configuration.
@@ -559,7 +750,11 @@ class RuntimeConfig(BaseModel):
     )
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to a JSON-compatible dict."""
+        """Serialize to a JSON-compatible dict.
+
+        Secrets (``TriggerConfig.hmac_secret``) are written as
+        ``"**********"``; supply them again when loading the dict.
+        """
         return self.model_dump(mode="json")
 
     @classmethod

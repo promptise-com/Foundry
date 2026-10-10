@@ -60,6 +60,7 @@ from .config import (
     SecretScopeConfig,
     ToolCostAnnotation,
     TriggerConfig,
+    TriggerDeliveryConfig,
 )
 
 # -- Context --
@@ -163,6 +164,7 @@ __all__ = [
     "ExecutionMode",
     "OpenModeConfig",
     "TriggerConfig",
+    "TriggerDeliveryConfig",
     "JournalConfig",
     "ContextConfig",
     "ProcessConfig",

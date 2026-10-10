@@ -10,7 +10,7 @@ await trigger.start()
 
 event = await trigger.wait_for_next()  # Blocks up to 5 minutes
 print(event.payload)
-# {"scheduled_time": "2026-03-04T10:05:00+00:00", "cron_expression": "*/5 * * * *"}
+# {"scheduled_time": "2026-03-04T10:05:00+00:00", "cron_expression": "*/5 * * * *", "timezone": "UTC"}
 
 await trigger.stop()
 ```
@@ -21,10 +21,11 @@ await trigger.stop()
 
 The `CronTrigger` calculates the next fire time from the current moment, sleeps until that time, and then produces a `TriggerEvent`. This cycle repeats for as long as the trigger is active.
 
-Two cron expression backends are supported:
+Expressions are evaluated with **`croniter`**, which ships with `pip install promptise`: ranges, lists, steps, day-of-week names and an optional seconds field all work. If `croniter` has been removed from the environment, a built-in fallback handles only `*/N * * * *`, `* * * * *` and single-minute expressions like `30 * * * *`.
 
-- **`croniter`** (recommended) -- full cron expression support including complex schedules, day-of-week, ranges, and lists. Install with `pip install croniter`.
-- **Built-in fallback** -- handles simple expressions like `*/N * * * *` (every N minutes), `* * * * *` (every minute), and specific-minute expressions like `30 * * * *`. No extra dependency required.
+**Schedules run in UTC** unless you set a time zone (see [Time zones](#time-zones)). `0 9 * * 1-5` therefore means 09:00 UTC on weekdays by default, which is 10:00 or 11:00 in Zurich depending on daylight saving time.
+
+The expression (and time zone) is validated when the `TriggerConfig` or `CronTrigger` is created. A bad expression raises a `ValidationError` / `TriggerError` straight away, so a process with a broken schedule never starts.
 
 ---
 
@@ -40,9 +41,20 @@ config = ProcessConfig(
     instructions="Check data pipelines every 5 minutes.",
     triggers=[
         TriggerConfig(type="cron", cron_expression="*/5 * * * *"),
+        # 09:00 Zurich time on weekdays, DST-aware
+        TriggerConfig(
+            type="cron",
+            cron_expression="0 9 * * 1-5",
+            cron_timezone="Europe/Zurich",
+        ),
     ],
 )
 ```
+
+| Field | Default | Description |
+|---|---|---|
+| `cron_expression` | required | 5-field cron expression, or 6 fields with a trailing seconds field |
+| `cron_timezone` | `None` (UTC) | IANA time zone name the expression is read in |
 
 ### Direct instantiation
 
@@ -58,6 +70,12 @@ trigger = CronTrigger("0 * * * *")
 # Every day at 9:00 AM
 trigger = CronTrigger("0 9 * * *")
 
+# Every day at 9:00 AM New York time
+trigger = CronTrigger("0 9 * * *", timezone="America/New_York")
+
+# Every 10 seconds (sixth field = seconds)
+trigger = CronTrigger("* * * * * */10")
+
 # Custom trigger ID
 trigger = CronTrigger("*/10 * * * *", trigger_id="pipeline-check")
 ```
@@ -66,7 +84,7 @@ trigger = CronTrigger("*/10 * * * *", trigger_id="pipeline-check")
 
 ## Cron Expression Reference
 
-Standard 5-field cron format:
+Standard 5-field cron format, with an optional sixth field for seconds:
 
 ```
 ┌───────────── minute (0-59)
@@ -74,8 +92,9 @@ Standard 5-field cron format:
 │ │ ┌───────────── day of month (1-31)
 │ │ │ ┌───────────── month (1-12)
 │ │ │ │ ┌───────────── day of week (0-7, 0 and 7 are Sunday)
-│ │ │ │ │
-* * * * *
+│ │ │ │ │ ┌───────────── second (0-59, optional, croniter's convention: last)
+│ │ │ │ │ │
+* * * * * *
 ```
 
 Common patterns:
@@ -90,9 +109,18 @@ Common patterns:
 | `0 9 * * 1` | Every Monday at 9:00 AM |
 | `0 0 1 * *` | First day of every month |
 | `* * * * *` | Every minute |
+| `* * * * * */10` | Every 10 seconds |
+| `* * * * * 30` | Every minute at second 30 |
 
-!!! tip "Install croniter for full support"
-    The built-in fallback only supports `*/N * * * *`, `* * * * *`, and single-minute expressions. For anything more complex, install `croniter`: `pip install croniter`.
+## Time zones
+
+By default the expression is evaluated in **UTC**. Set `cron_timezone` (or `timezone=` on `CronTrigger`) to an IANA name to schedule in local time:
+
+```python
+TriggerConfig(type="cron", cron_expression="0 9 * * 1-5", cron_timezone="Europe/Zurich")
+```
+
+Daylight-saving changes are handled by `croniter`: the trigger fires at 09:00 local time all year, and `scheduled_time` in the payload carries the local offset (`2026-03-02T09:00:00+01:00`). On Windows, install the `tzdata` package so time-zone names resolve.
 
 ---
 
@@ -115,7 +143,8 @@ This design allows `stop()` to immediately unblock a waiting trigger rather than
 ```python
 {
     "scheduled_time": "2026-03-04T10:05:00+00:00",
-    "cron_expression": "*/5 * * * *"
+    "cron_expression": "*/5 * * * *",
+    "timezone": "UTC"
 }
 ```
 
@@ -147,7 +176,7 @@ await trigger.stop()
 
 | Method / Property | Description |
 |---|---|
-| `CronTrigger(cron_expression, trigger_id)` | Create a cron trigger |
+| `CronTrigger(cron_expression, *, trigger_id, timezone)` | Create a cron trigger (raises `TriggerError` on a bad expression or time zone) |
 | `trigger_id` | Unique identifier (auto-generated: `cron-XXXXXXXX`) |
 | `await start()` | Mark the trigger as active |
 | `await stop()` | Stop and unblock any waiters |
@@ -157,17 +186,17 @@ await trigger.stop()
 
 ## Tips and Gotchas
 
-!!! tip "Use croniter for production"
-    The built-in fallback is convenient for quick starts, but `croniter` handles edge cases (DST transitions, month boundaries, etc.) correctly. Always use it in production.
-
 !!! tip "Sub-minute scheduling"
-    If you need sub-minute intervals, consider using a webhook trigger with an external scheduler.
+    Add a sixth field for seconds: `* * * * * */10` fires every 10 seconds. Each firing is a full agent run, so keep an eye on cost.
+
+!!! warning "UTC unless told otherwise"
+    `0 9 * * *` is 09:00 **UTC**, not server-local time. Set `cron_timezone` when the schedule follows office hours.
 
 !!! warning "Clock drift"
-    The trigger computes the next fire time relative to `datetime.now(UTC)`. On systems with significant clock drift, scheduled times may shift. Use NTP synchronization in production.
+    The trigger computes the next fire time from the system clock. On systems with significant clock drift, scheduled times may shift. Use NTP synchronization in production.
 
-!!! warning "Cron expression validation"
-    Invalid expressions raise `TriggerError` at the first `wait_for_next()` call, not at construction time. Validate manifests with `promptise runtime validate` to catch errors early.
+!!! info "Validated up front"
+    Invalid expressions and unknown time zones are rejected when the config is created, so `promptise runtime validate` and process start-up both catch them; a running process never ends up retrying a broken schedule.
 
 ---
 
