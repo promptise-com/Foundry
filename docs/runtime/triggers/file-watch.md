@@ -13,7 +13,8 @@ await trigger.start()
 
 event = await trigger.wait_for_next()
 print(event.payload)
-# {"path": "/data/inbox/new_data.csv", "filename": "new_data.csv", "event_type": "created"}
+# {"path": "/data/inbox/new_data.csv", "filename": "new_data.csv",
+#  "event_type": "created", "event_types": ["created", "modified"]}
 
 await trigger.stop()
 ```
@@ -26,7 +27,7 @@ The `FileWatchTrigger` bridges the filesystem and the agent runtime. When files 
 
 Two backends are supported:
 
-- **Watchdog** (recommended) -- uses native OS filesystem notifications (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows). Install with `pip install watchdog`.
+- **Watchdog** (default) -- uses native OS filesystem notifications (inotify on Linux, FSEvents on macOS, ReadDirectoryChangesW on Windows). `watchdog` ships with `pip install promptise`.
 - **Polling fallback** -- scans the directory at regular intervals, comparing file modification times. Works everywhere but uses more CPU and has higher latency.
 
 ---
@@ -47,10 +48,21 @@ config = ProcessConfig(
             watch_path="/data/inbox",
             watch_patterns=["*.csv", "*.json"],
             watch_events=["created", "modified"],
+            watch_debounce_seconds=0.5,
         ),
     ],
 )
 ```
+
+| Field | Default | Description |
+|---|---|---|
+| `watch_path` | required | Directory to monitor |
+| `watch_patterns` | `["*"]` | Glob patterns matched against the filename |
+| `watch_events` | `["created", "modified"]` | Which (merged) events run the agent: any of `created`, `modified`, `deleted`, `moved` |
+| `watch_debounce_seconds` | `0.5` | Window in which events for the same file are merged into one |
+| `filter_expression` | `None` | Extra filter on the event (see [Filtering](index.md#filtering-events-before-the-agent-runs)) |
+
+Unknown event names in `watch_events` are rejected when the config is created.
 
 ### Direct instantiation
 
@@ -71,9 +83,9 @@ trigger = FileWatchTrigger(
 |---|---|---|---|
 | `watch_path` | `str` | required | Directory to monitor |
 | `patterns` | `list[str]` | `["*"]` | Glob patterns to match filenames |
-| `events` | `list[str]` | `["created", "modified"]` | Filesystem events to react to |
+| `events` | `list[str]` | `["created", "modified"]` | Merged events that fire the trigger |
 | `recursive` | `bool` | `True` | Watch subdirectories |
-| `debounce_seconds` | `float` | `0.5` | Debounce interval to avoid duplicate events |
+| `debounce_seconds` | `float` | `0.5` | Window in which events for one file are merged |
 | `poll_interval` | `float` | `1.0` | Polling interval in seconds (fallback only) |
 
 ---
@@ -87,7 +99,9 @@ trigger = FileWatchTrigger(
 | `deleted` | A file was removed |
 | `moved` | A file was moved or renamed (watchdog backend only) |
 
-Configure which events to react to via the `events` parameter or `watch_events` in `TriggerConfig`.
+Configure which events to react to via the `events` parameter or `watch_events` in `TriggerConfig`. The check runs on the **merged** event for each file (see [Debouncing](#debouncing)), so `watch_events=["deleted"]` fires only when a file is gone, never for a new or changed one.
+
+Editors and many tools save atomically: they write a temporary file and rename it over the target. Depending on the platform that shows up as `moved` (to the target name) rather than `modified`. Add `"moved"` to `watch_events` if you need to catch those saves.
 
 ---
 
@@ -119,7 +133,8 @@ When the trigger fires, the `TriggerEvent.payload` contains:
 |---|---|
 | `path` | Full filesystem path of the changed file |
 | `filename` | Just the filename (basename) |
-| `event_type` | `"created"`, `"modified"`, `"deleted"`, or `"moved"` |
+| `event_type` | The merged change: `"created"`, `"modified"`, `"deleted"`, or `"moved"` |
+| `event_types` | The raw events merged into this one, in arrival order (e.g. `["created", "modified"]`) |
 
 The `metadata` includes:
 
@@ -137,6 +152,7 @@ print(event.payload)
 #     "path": "/data/inbox/report_2026.csv",
 #     "filename": "report_2026.csv",
 #     "event_type": "created",
+#     "event_types": ["created", "modified"],
 # }
 print(event.metadata)
 # {
@@ -149,17 +165,28 @@ print(event.metadata)
 
 ## Debouncing
 
-Many filesystem operations generate multiple events for a single logical change (e.g., a file write triggers both `created` and `modified`). The `debounce_seconds` parameter suppresses duplicate events for the same file and event type within the debounce window.
+The operating system often reports one logical change as several events: writing a new file usually produces `created` **and** `modified`, and copying a large file can produce several `modified`. Without merging, the agent would run once per raw event.
+
+The trigger therefore collects every event for the same path during a `debounce_seconds` window (starting with the first event) and then emits **one** trigger event describing the net change:
+
+| What happened in the window | `event_type` |
+|---|---|
+| File no longer exists | `deleted` (nothing at all if it was also created in the window) |
+| File was created (or deleted and recreated) | `created` |
+| File was moved/renamed into place | `moved` |
+| Anything else | `modified` |
+
+That merged type is then checked against `events` / `watch_events`. One `write_text()` to a new file therefore runs the agent once, with `event_type="created"` and `event_types=["created", "modified"]`.
 
 ```python
-# Suppress duplicates within 1 second
+# Merge everything that happens to a file within 1 second
 trigger = FileWatchTrigger(
     watch_path="/data/inbox",
     debounce_seconds=1.0,
 )
 ```
 
-The deduplication cache is garbage-collected automatically.
+A larger window coalesces tools that write in several steps; the trade-off is that events arrive that much later.
 
 ---
 
@@ -236,7 +263,7 @@ When `stop()` is called:
 
 | Method / Property | Description |
 |---|---|
-| `FileWatchTrigger(watch_path, patterns, events, recursive, debounce_seconds, poll_interval)` | Create a file watch trigger |
+| `FileWatchTrigger(watch_path, patterns, events, recursive, debounce_seconds, poll_interval)` | Create a file watch trigger (raises `ValueError` on unknown event names) |
 | `trigger_id` | Unique identifier: `file_watch-{path}` |
 | `await start()` | Start watching (creates directory if needed) |
 | `await stop()` | Stop watching and release resources |
@@ -253,7 +280,7 @@ When `stop()` is called:
     Use specific glob patterns to avoid processing temporary files, swap files, and other noise. For example, `["*.csv"]` is better than `["*"]` for a data ingestion pipeline.
 
 !!! tip "Increase debounce for noisy directories"
-    Some tools write files in multiple steps (create, write, flush). Increase `debounce_seconds` to 1.0 or higher to coalesce these into a single event.
+    Some tools write files in multiple steps (create, write, flush) spread over more than half a second. Increase `debounce_seconds` to 1.0 or higher so they still merge into a single event.
 
 !!! warning "Recursive watching can be expensive"
     Watching a large directory tree recursively may consume significant resources, especially with the polling backend. Monitor the queue size and consider watching specific subdirectories instead.
@@ -263,6 +290,9 @@ When `stop()` is called:
 
 !!! warning "Queue overflow"
     The file watch queue has a capacity of 1000 events. In directories with very high file churn, events may be dropped. Consider increasing `debounce_seconds` or narrowing `patterns` to reduce event volume.
+
+!!! warning "File contents are untrusted input"
+    The trigger passes only the path and file name, but an agent that then reads the file reads whatever someone dropped into the folder. Treat that content like a webhook body: gate side-effecting tools with approval (see [Trigger payloads are untrusted input](index.md#trigger-payloads-are-untrusted-input)).
 
 ---
 

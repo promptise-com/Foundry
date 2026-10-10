@@ -94,8 +94,12 @@ class PromptGraphEngine:
         graph: The graph to traverse.
         model: LangChain ``BaseChatModel`` for LLM calls.
         max_iterations: Maximum total node executions per run.
-        max_node_iterations: Maximum times a single node can execute
-            (prevents infinite tool-calling loops).
+        max_node_iterations: Engine-wide ceiling on how many times a single
+            node can execute in one run (each tool-loop round counts). A
+            node's own ``max_iterations`` applies when it is lower. When a
+            node has used its budget, the engine does not run it again: it
+            follows the node's ``"error"`` transition, else an ``__error__``
+            node, else ends the run.
         hooks: List of hook instances for interception.
         allow_self_modification: Allow the LLM to modify the graph
             via structured output ``_graph_action`` fields.
@@ -335,6 +339,7 @@ class PromptGraphEngine:
         # decides: a failure the graph routed to a handler node that then
         # succeeded is recovery, not failure.
         last_failure: NodeResult | None = None
+        redirects = 0
 
         while state.current_node != "__end__":
             try:
@@ -348,6 +353,14 @@ class PromptGraphEngine:
                     live_graph.name,
                 )
                 break
+
+            # ── Per-node budget ──
+            if self._node_exhausted(node, state):
+                redirects += 1
+                if redirects > len(live_graph.nodes):
+                    break  # recovery routes lead only to exhausted nodes
+                state.current_node = self._handle_stuck_node(node, state, live_graph)
+                continue
             state.visited.append(state.current_node)
 
             if streaming:
@@ -491,19 +504,13 @@ class PromptGraphEngine:
 
             # ── Safety checks ──
             state.iteration += 1
-            node_count = state.increment_node_iteration(node.name)
+            state.increment_node_iteration(node.name)
 
             if state.iteration > self.max_iterations:
                 logger.warning(
                     "Max iterations (%d) reached in graph %r", self.max_iterations, live_graph.name
                 )
                 break
-
-            if node_count > self.max_node_iterations:
-                logger.warning(
-                    "Node %r exceeded max iterations (%d)", node.name, self.max_node_iterations
-                )
-                state.current_node = self._handle_stuck_node(node, state, live_graph)
 
         # ── Build report ──
         self._last_report = ExecutionReport(
@@ -561,12 +568,17 @@ class PromptGraphEngine:
             return result.next_node
 
         # 3. LLM-directed routing: if the output contains a _next or route
-        #    field that names a valid node, go there directly.
-        #    This makes every PromptNode a dynamic router.
+        #    field that names one of the node's transition keys, or a valid
+        #    node, go there directly. This makes every PromptNode a dynamic
+        #    router (a reflect node's {"route": "replan"} follows its
+        #    "replan" transition).
         if isinstance(result.output, dict):
             for route_key in ("_next", "route", "next_step", "goto"):
                 target = result.output.get(route_key)
                 if isinstance(target, str):
+                    if target in node.transitions:
+                        result.transition_reason = f"LLM routed via output.{route_key}={target!r}"
+                        return node.transitions[target]
                     if target == "__end__" or graph.has_node(target):
                         result.transition_reason = f"LLM routed via output.{route_key}={target!r}"
                         return target
@@ -603,13 +615,41 @@ class PromptGraphEngine:
     # Error recovery
     # ──────────────────────────────────────────────────────────────────
 
+    def _node_exhausted(self, node: BaseNode, state: GraphState) -> bool:
+        """Whether *node* has used its execution budget for this run: the
+        lowest of its own ``max_iterations``, the engine's
+        ``max_node_iterations`` and a ``loop_until(max_iterations=...)``."""
+        limit = min(
+            getattr(node, "max_iterations", self.max_node_iterations), self.max_node_iterations
+        )
+        loop_limit = getattr(state.graph, "loop_limit", None)
+        loop = loop_limit(node.name) if loop_limit is not None else None
+        if loop is not None:
+            limit = min(limit, loop[0])
+        if state.node_iterations.get(node.name, 0) < limit:
+            return False
+        logger.warning(
+            "Node %r reached its iteration limit (%d) in graph %r — not running it again",
+            node.name,
+            limit,
+            state.graph.name if state.graph is not None else "?",
+        )
+        return True
+
     def _handle_stuck_node(
         self,
         node: BaseNode,
         state: GraphState,
         graph: PromptGraph,
     ) -> str:
-        """Recover when a node exceeds its iteration limit."""
+        """Route away from a node that has used its iteration budget."""
+        # A loop_until() loop exits to its exit node
+        loop_limit = getattr(graph, "loop_limit", None)
+        loop = loop_limit(node.name) if loop_limit is not None else None
+        if loop is not None:
+            logger.info("Loop node %r used its budget → exiting to %r", node.name, loop[1])
+            return loop[1]
+
         # Try error transition
         if "error" in node.transitions:
             logger.info("Stuck node %r → using error transition", node.name)

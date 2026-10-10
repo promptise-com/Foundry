@@ -30,12 +30,14 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
+    BaseMessage,
     SystemMessage,
     ToolMessage,
     message_chunk_to_message,
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, ToolException
+from pydantic import BaseModel as PydanticBaseModel
 
 from .base import BaseNode
 from .state import GraphState, NodeEvent, NodeResult
@@ -101,6 +103,36 @@ def failure_cause(result: NodeResult) -> BaseException | None:
     recorded without one (a node that set ``error`` itself)."""
     cause = getattr(result, _FAILURE_CAUSE_ATTR, None)
     return cause if isinstance(cause, BaseException) else None
+
+
+def token_usage(message: Any) -> tuple[int, int]:
+    """``(input_tokens, output_tokens)`` from a message's ``usage_metadata``.
+
+    LangChain's ``usage_metadata`` is a ``TypedDict`` (a plain dict at
+    runtime); attribute-style objects are accepted too. ``(0, 0)`` when the
+    provider reported no usage.
+    """
+    usage = getattr(message, "usage_metadata", None)
+    if not usage:
+        return 0, 0
+    if isinstance(usage, dict):
+        input_tokens, output_tokens = usage.get("input_tokens"), usage.get("output_tokens")
+    else:
+        input_tokens = getattr(usage, "input_tokens", 0)
+        output_tokens = getattr(usage, "output_tokens", 0)
+    return int(input_tokens or 0), int(output_tokens or 0)
+
+
+def _is_raw_structured(response: Any) -> bool:
+    """Whether *response* is ``with_structured_output(include_raw=True)``'s
+    ``{"raw": AIMessage, "parsed": ..., "parsing_error": ...}`` envelope."""
+    return (
+        isinstance(response, dict)
+        and set(response) <= {"raw", "parsed", "parsing_error"}
+        and "raw" in response
+        and "parsed" in response
+        and isinstance(response["raw"], BaseMessage)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +314,59 @@ class PromptNode(BaseNode):
 
         return NodeFlag.INJECT_TOOLS in self.flags
 
+    def _bind_model(
+        self, model: Any, active_tools: list[BaseTool], config: dict[str, Any]
+    ) -> tuple[Any, bool]:
+        """Bind tools and structured output to *model*, reusing the binding
+        from an earlier execution of this node in the same run while the
+        model and the tool set are unchanged.
+
+        Returns ``(model_to_use, structured_raw)`` —
+        ``structured_raw`` is ``True`` when structured output was requested
+        with ``include_raw=True`` (so token usage survives parsing).
+        """
+        cache_key = f"_node_cache_{self.name}"
+        tool_names = tuple(t.name for t in active_tools)
+        # A string/Model override resolves to a new object every execution;
+        # key the binding on the override itself.
+        source = self.model_override if self.model_override is not None else model
+        cached = config.get(cache_key)
+        if (
+            cached is not None
+            and cached["source"] is source
+            and cached["tool_names"] == tool_names
+            and cached["output_schema"] is self.output_schema
+        ):
+            return cached["model"], cached["structured_raw"]
+
+        model_to_use = model.bind_tools(active_tools) if active_tools else model
+        structured_raw = False
+        if self.output_schema and hasattr(model_to_use, "with_structured_output"):
+            try:
+                model_to_use = model_to_use.with_structured_output(
+                    self.output_schema, include_raw=True
+                )
+                structured_raw = True
+            except Exception:
+                try:
+                    model_to_use = model_to_use.with_structured_output(self.output_schema)
+                except Exception as exc:
+                    logger.warning(
+                        "Node %r: model does not support structured output (%s) — "
+                        "output_schema ignored",
+                        self.name,
+                        exc,
+                    )
+
+        config[cache_key] = {
+            "source": source,
+            "tool_names": tool_names,
+            "output_schema": self.output_schema,
+            "model": model_to_use,
+            "structured_raw": structured_raw,
+        }
+        return model_to_use, structured_raw
+
     def _compaction_settings(self, config: dict[str, Any] | None = None) -> Any:
         """The :class:`ContextCompaction` settings this node runs with.
 
@@ -456,16 +541,10 @@ class PromptNode(BaseNode):
         _has_tools = bool(self.tools or self.inject_tools)
         candidate_tools = self._candidate_tools(config) if _has_tools else []
         offered_tools = self._offered_tools(candidate_tools, state, config)
-        offered_names = tuple(t.name for t in offered_tools)
         if _has_tools:
-            _all_tools = offered_tools
-            if _all_tools:
+            if offered_tools:
                 schema_lines = ["Available tools:"]
-                seen_tool_names: set[str] = set()
-                for t in _all_tools:
-                    if t.name in seen_tool_names:
-                        continue
-                    seen_tool_names.add(t.name)
+                for t in offered_tools:
                     desc = getattr(t, "description", "") or ""
                     # Extract parameter info from schema
                     params = ""
@@ -559,31 +638,26 @@ class PromptNode(BaseNode):
             ]
             system_parts.append("Past learnings:\n" + "\n".join(ref_lines))
 
-        # Inject available transitions so the LLM can route dynamically.
-        # Only do this when there is a genuine CHOICE — i.e. the node has
-        # explicit transitions to two or more distinct targets. A node that
-        # only has a single linear default_next has nothing to route, so
-        # telling the model to "choose the next step" is noise that a weaker
-        # model can latch onto and emit as its answer.
-        if self.transitions:
-            route_options = list(self.transitions.values())
-            if self.default_next:
-                route_options.append(self.default_next)
-            # Deduplicate while preserving order; "__end__" is not a step the
-            # model should be told to pick.
-            seen: set[str] = set()
-            unique_routes = []
-            for r in route_options:
-                if r not in seen and r != "__end__":
-                    seen.add(r)
-                    unique_routes.append(r)
-            if len(unique_routes) > 1 and not self.tools:
-                # Only show routing instructions for non-tool nodes with a
-                # real branch (tool nodes route automatically on tool_calls).
-                system_parts.append(
-                    "Available next steps: " + ", ".join(unique_routes) + "\n"
-                    "Set the 'route' field in your response to choose which step to take next."
-                )
+        # Tell the LLM which routes it can pick — only when there is a genuine
+        # CHOICE (two or more transition keys). A node with a single linear
+        # default_next has nothing to route, and "choose the next step" is
+        # noise a weaker model can latch onto and emit as its answer. The
+        # "error" key is the engine's recovery route for an exhausted node,
+        # never a choice. Tool nodes route automatically on tool_calls.
+        route_choices = [k for k in self.transitions if k != "error"]
+        if len(route_choices) > 1 and not candidate_tools:
+            options = ", ".join(
+                f"{k} (finish)"
+                if self.transitions[k] == "__end__"
+                else f"{k} (→ {self.transitions[k]})"
+                for k in route_choices
+            )
+            system_parts.append(
+                f"Available next steps: {options}\n"
+                "Set the 'route' field in your response to one of: "
+                + ", ".join(route_choices)
+                + "."
+            )
 
         # Apply strategy wrapping
         if self.strategy and hasattr(self.strategy, "wrap"):
@@ -598,78 +672,44 @@ class PromptNode(BaseNode):
                     type(self.strategy).__name__,
                 )
 
-        # Apply perspective
-        if self.perspective and hasattr(self.perspective, "framing"):
-            system_parts.insert(0, self.perspective.framing)
-            result.perspective_applied = type(self.perspective).__name__
+        # Apply perspective: the Perspective protocol's apply(prompt, ctx)
+        # (analyst, critic, advisor, creative, perspective(...)), or an
+        # object with a ``framing`` string.
+        if self.perspective is not None:
+            if hasattr(self.perspective, "apply"):
+                framed = self.perspective.apply("\n\n".join(system_parts), None)
+                if framed is not None:
+                    system_parts = [framed]
+                    result.perspective_applied = type(self.perspective).__name__
+            elif hasattr(self.perspective, "framing"):
+                system_parts.insert(0, self.perspective.framing)
+                result.perspective_applied = type(self.perspective).__name__
 
-        # Build messages with system prompt.
-        # On tool-loop re-entries (same node called again after tool execution),
-        # reuse the cached system message and model binding from config to avoid
-        # redundant string assembly, marker scanning, and tool resolution.
-        _cache_key = f"_node_cache_{self.name}"
-        _cached = config.get(_cache_key)
-        if _cached is not None and _cached.get("tool_names") != offered_names:
-            # The tool selector offers a different set this step: rebuild the
-            # system prompt's tool listing and the model binding.
-            _cached = None
-
-        if _cached is not None:
-            # Fast path: reuse cached system message + model binding
-            node_sys_msg = _cached["sys_msg"]
-            model_to_use = _cached["model"]
-            active_tools = _cached["tools"]
-            # Build messages: insert our SystemMessage as on the first call.
-            # (It is never in state.messages, so nothing there to replace;
-            # replacing overwrote the input's second system message.)
-            messages = list(state.messages)
-            if _place_node_prompt(messages, node_sys_msg):
-                pass
-            elif messages and isinstance(messages[0], SystemMessage):
+        # Build messages with this node's system prompt. The prompt is
+        # rebuilt on every execution: on re-entry (a tool loop, or a loop back
+        # through the graph) its input_keys, plan, reflections, observations
+        # and offered tools may have changed.
+        system_text = "\n\n".join(system_parts)
+        messages = list(state.messages)
+        if messages and _is_agent_prompt(messages[0]):
+            # One system message: the agent's prompt, then this node's.
+            agent_prompt = str(messages[0].content)
+            system_text = f"{agent_prompt}\n\n{system_text}" if system_text else agent_prompt
+            node_sys_msg = SystemMessage(content=system_text)
+            _place_node_prompt(messages, node_sys_msg)
+        else:
+            node_sys_msg = SystemMessage(content=system_text)
+            if messages and isinstance(messages[0], SystemMessage):
                 messages.insert(1, node_sys_msg)
             else:
                 messages.insert(0, node_sys_msg)
-        else:
-            # First call for this node — build system prompt and cache it
-            system_text = "\n\n".join(system_parts)
-            messages = list(state.messages)
-            if messages and _is_agent_prompt(messages[0]):
-                # One system message: the agent's prompt, then this node's.
-                agent_prompt = str(messages[0].content)
-                system_text = f"{agent_prompt}\n\n{system_text}" if system_text else agent_prompt
-                node_sys_msg = SystemMessage(content=system_text)
-                _place_node_prompt(messages, node_sys_msg)
-            else:
-                node_sys_msg = SystemMessage(content=system_text)
-                if messages and isinstance(messages[0], SystemMessage):
-                    messages.insert(1, node_sys_msg)
-                else:
-                    messages.insert(0, node_sys_msg)
 
-            # ── 2. Resolve tools (runtime injection + selection) ──
-            active_tools = offered_tools
-
-            if active_tools:
-                model_to_use = model.bind_tools(active_tools)
-            else:
-                model_to_use = model
-
-            # Apply structured output if schema set
-            if self.output_schema and hasattr(model_to_use, "with_structured_output"):
-                try:
-                    model_to_use = model_to_use.with_structured_output(self.output_schema)
-                except Exception:
-                    pass
-
-            # Cache for tool-loop re-entries
-            config[_cache_key] = {
-                "sys_msg": node_sys_msg,
-                "model": model_to_use,
-                "tools": active_tools,
-                "tool_names": offered_names,
-            }
-
-        # Structured output is already applied in the cached model_to_use
+        # ── 2. Bind the offered tools / structured output ──
+        # Binding is the costly part of a re-entry, so it is reused while the
+        # model and the offered tool set are unchanged (a LIGHTWEIGHT swap
+        # changes the model; the tool selector can change the tools).
+        active_tools = offered_tools
+        model_to_use, structured_raw = self._bind_model(model, active_tools, config)
 
         # ── 2b. Context scoping ──
         # When the node is context-scoped, replace the full transcript with a
@@ -734,6 +774,28 @@ class PromptNode(BaseNode):
             return
 
         # ── 4. Process response ──
+        # A message, or (with an output_schema) a dict / Pydantic model / the
+        # include_raw envelope.
+        response = cast(Any, response)
+        if structured_raw and _is_raw_structured(response):
+            # with_structured_output(include_raw=True): keep the raw message's
+            # token usage, then continue with the parsed value.
+            prompt_tokens, completion_tokens = token_usage(response["raw"])
+            result.prompt_tokens = prompt_tokens
+            result.completion_tokens = completion_tokens
+            result.total_tokens = prompt_tokens + completion_tokens
+            if response.get("parsed") is None and response.get("parsing_error") is not None:
+                parsing_error = response["parsing_error"]
+                parse_exc = (
+                    parsing_error
+                    if isinstance(parsing_error, BaseException)
+                    else ValueError(str(parsing_error))
+                )
+                record_failure(result, parse_exc)
+                result.duration_ms = (time.monotonic() - start) * 1000
+                return
+            response = response["parsed"]
+
         if isinstance(response, AIMessage):
             # AIMessage.content is str | list[...] in LangChain's typing; coerce to str.
             _content = response.content
@@ -741,12 +803,9 @@ class PromptNode(BaseNode):
             result.messages_added.append(response)
             state.messages.append(response)
 
-            # Extract token usage if available
-            usage = getattr(response, "usage_metadata", None)
-            if usage:
-                result.prompt_tokens = getattr(usage, "input_tokens", 0)
-                result.completion_tokens = getattr(usage, "output_tokens", 0)
-                result.total_tokens = result.prompt_tokens + result.completion_tokens
+            # Token usage (LangChain's usage_metadata is a dict)
+            result.prompt_tokens, result.completion_tokens = token_usage(response)
+            result.total_tokens = result.prompt_tokens + result.completion_tokens
 
             # Handle tool calls
             tool_calls = getattr(response, "tool_calls", None) or []
@@ -947,6 +1006,12 @@ class PromptNode(BaseNode):
             # Structured output (from with_structured_output)
             result.output = response
             result.raw_output = json.dumps(response, default=str)
+        elif isinstance(response, PydanticBaseModel):
+            # A Pydantic output_schema: stored as a plain dict, like a
+            # TypedDict/JSON-schema output, so transitions, edge conditions,
+            # input_keys and the reasoning nodes' routing read it the same way.
+            result.output = response.model_dump()
+            result.raw_output = response.model_dump_json()
         else:
             # Pydantic model or other
             result.output = response

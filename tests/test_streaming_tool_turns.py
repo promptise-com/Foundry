@@ -915,17 +915,22 @@ class TestCallbacksWithToolMessages:
         assert entry.metadata["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_runtime_health_records_the_content(self):
+    async def test_runtime_journal_records_the_content(self):
         from unittest.mock import AsyncMock
 
         from promptise.runtime.callbacks import RuntimeCallbackHandler
 
         health = AsyncMock()
-        handler = RuntimeCallbackHandler(health=health)
+        journal = AsyncMock()
+        handler = RuntimeCallbackHandler(health=health, journal=journal)
 
-        await handler.on_tool_end(ToolMessage(content="shipped", tool_call_id="c1"))
+        await handler.on_tool_end(
+            ToolMessage(content="shipped", tool_call_id="c1", name="ship_order")
+        )
 
-        health.record_response.assert_awaited_once_with("shipped")
+        journal.assert_awaited_once_with("tool_result", {"tool": "ship_order", "result": "shipped"})
+        # Tool output is not an agent reply: health only sees the agent's answers.
+        health.record_response.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
