@@ -450,9 +450,11 @@ class TestRagToTool:
         result = await tool.ainvoke({"query": "hello"})
         import json
 
-        # Should be valid JSON
+        # Should be valid JSON: an untrusted-data notice plus the results
         parsed = json.loads(result)
-        assert isinstance(parsed, list)
+        assert "untrusted" in parsed["notice"]
+        assert isinstance(parsed["results"], list)
+        assert parsed["results"][0]["text"] == "hello world"
 
 
 # ---------------------------------------------------------------------------
