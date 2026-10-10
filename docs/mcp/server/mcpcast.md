@@ -330,7 +330,16 @@ post-conditions enforced in `check_postconditions()`:
   collapsed tool, the floor is the most severe class among its operations;
 - adjusted parameters exist on the tool's operations; a hidden parameter that
   any route requires carries a default; examples use only visible parameters;
-- deprecated operations are dropped.
+- deprecated operations are dropped;
+- **descriptions name only tools that exist.** A tool or parameter description
+  may not name a tool the generated server will not have: a tool the safety
+  profile excludes (the model wrote `delete_pet`, then `--profile standard`
+  removed it), an operation that was dropped, or one merged into another tool
+  (`get_pet_by_id` when `find_pets` serves it). A candidate is any snake_case
+  word with an underscore that is the name of a proposed tool or the
+  snake_case form of an `operationId` in the spec, and is neither an exposed
+  tool nor a parameter name. The violation names each offending tool, why it
+  is missing, and the tools that may be named instead.
 
 !!! warning "Risk is never downgraded"
     A hallucinating model cannot turn a `DELETE` into a "read". The
@@ -342,7 +351,13 @@ post-conditions enforced in `check_postconditions()`:
 A proposal that violates a post-condition (or is not parseable JSON) is sent
 back to the model with the violations as feedback, up to `max_attempts` (3).
 After that the run **fails loudly** with `MCPcastError` (exit 1) and suggests
-`--no-curate` — it never falls back to a silently different plan. Operations
+`--no-curate` — it never falls back to a silently different plan. The one
+exception is a dangling tool reference: if the last attempt is otherwise valid
+but a description still names a tool that does not exist, the sentence naming
+it is removed (a description left empty falls back to the spec's) rather than
+failing the run — the tool surface is unchanged, and a hint to the agent is not
+worth discarding a curated design over. The sentence is removed whole, so check
+what remains in the review. Operations
 the model never mentions are dropped with the reason `not selected by
 curation`. A tool without an example gets one generated from its required
 visible parameters; a tool without tags inherits the union of its operations'
@@ -678,6 +693,39 @@ auth mode:
 |---|---|---|---|
 | `elicitation` | `passthrough`, `env-token`, `none` | The human behind the *calling* client, via MCP elicitation (`ElicitationApprover`) — confirm your own action | **Fail-closed:** without a live MCP session that supports elicitation the call returns `APPROVAL_DENIED` and the upstream request never happens |
 | `pending` | `api-key` | A *different* human **of the same tenant** holding the `approver` role, through the generated `approvals_list` / `approvals_decide` tools — four-eyes review; a caller can never approve their own request. The store is one `PendingApprover` for the whole server; what is scoped to the tenant is *visibility* (reviewers list and decide only their own tenant's calls) and *capacity* (`MCPCAST_MAX_PENDING_PER_TENANT` bounds what one tenant may hold, across all of its API keys, inside the server-wide `MCPCAST_MAX_PENDING`; `MCPCAST_MAX_PENDING_PER_CLIENT` bounds one key) | Denied when `MCPCAST_APPROVAL_TIMEOUT` elapses, or at once when a capacity cap is reached |
+
+With `elicitation`, the calling client has to support MCP elicitation, or the
+gated call is denied. A client that supports it shows the server's prompt to
+its user. A Promptise agent hands it to the agent's approval handler: pass `approval=` to `build_agent()`. With no handler the agent
+declares no elicitation support, so `add_pet` and every other gated tool come
+back `APPROVAL_DENIED`:
+
+```python
+from promptise import build_agent, CallbackApprovalHandler, StdioServerSpec
+
+async def ask_human(request):
+    print(request.context_summary)  # Server 'petstore' asks: Approval required: call tool 'add_pet' ...
+    return input("Approve? [y/N] ").strip().lower() == "y"
+
+agent = await build_agent(
+    model="openai:gpt-5-mini",
+    servers={
+        "petstore": StdioServerSpec(
+            command="python",
+            args=["petstore-mcp/server.py"],
+            env={"MCPCAST_UPSTREAM_TOKEN": "Bearer <your API token>"},
+        )
+    },
+    approval=CallbackApprovalHandler(ask_human),
+)
+```
+
+The handler sees the server's message and, when the call can be identified,
+the tool name and the arguments the agent sent. Only an explicit approval
+releases the call. A denial, a timeout or a handler error declines, and the
+upstream request never happens. See
+[Server-side approval gates](../../core/approval.md#server-side-approval-gates)
+for the full mapping and security model.
 
 `pending` needs identified callers, so it is only available with
 `--auth api-key` — under `passthrough`, `env-token` or `none` the server does

@@ -506,7 +506,7 @@ class TestMiddleware:
         # Second call should be rejected because max_concurrent=1
         r2 = await client.call_tool("blocking", {})
         parsed = json.loads(r2[0].text)
-        assert parsed["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+        assert parsed["error"]["code"] == "CONCURRENCY_LIMIT_EXCEEDED"
 
         # Release the first task
         barrier.set()
@@ -714,7 +714,9 @@ class TestExceptionHandling:
         result = await client.call_tool("crash", {})
         parsed = json.loads(result[0].text)
         assert parsed["error"]["code"] == "INTERNAL_ERROR"
-        assert "unexpected crash" in parsed["error"]["message"]
+        # Same as the live server: the exception text stays in the log
+        assert "unexpected crash" not in parsed["error"]["message"]
+        assert parsed["error"]["message"] == "An internal error occurred."
 
 
 # =====================================================================

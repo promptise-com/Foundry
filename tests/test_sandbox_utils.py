@@ -59,7 +59,7 @@ class TestSandboxContainerManagerInit:
         with patch("promptise.sandbox.utils.docker", None):
             from promptise.sandbox.utils import SandboxContainerManager
 
-            with pytest.raises(RuntimeError, match="Docker Python client not installed"):
+            with pytest.raises(RuntimeError, match=r"promptise\[sandbox\]"):
                 SandboxContainerManager()
 
     def test_init_with_docker_available(self) -> None:

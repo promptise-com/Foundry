@@ -55,7 +55,7 @@ It would be dishonest to claim other frameworks can't sandbox code — they can,
 - **CrewAI** runs tool code in a Docker-based interpreter and offers a `safe` code-execution mode. Also real. Worth flagging separately: CrewAI enables anonymous telemetry by default, which is an outbound flow you opt out of via an environment variable before a sovereign deployment.
 - **Hugging Face smolagents** supports a Docker sandbox or the E2B *cloud* sandbox — the latter being a hosted service, a non-starter in an air gap unless you deliberately pick the local backend.
 
-So the sandbox itself is table stakes, and this checklist won't pretend otherwise. The honest delta is threefold. First, **default hardening**: these executors isolate a process, but a no-network posture plus seccomp, ~40 dropped capabilities, and a read-only rootfs as the *default* — rather than flags you assemble — is where the postures diverge. Second, **the audit chain**: a Docker executor gives you isolation, not a tamper-evident record of what ran; regulated teams add a separate audit tool and re-certify the seam. Third, **integration**: none of these bundles a network-isolated hardened sandbox *plus* an HMAC-chained audit log *plus* an on-device injection/PII/credential scanner into one offline-capable, certifiable unit. The accurate framing is not "competitors lack a sandbox" — it is that a `regulated industry on-prem AI agent` otherwise stitches sandbox, audit, and moderation from separate parts and re-verifies the joins on every dependency bump. Promptise's edge is structural: the three arrive pre-integrated and air-gap-capable, so you audit one stack once.
+So the sandbox itself is table stakes, and this checklist won't pretend otherwise. The honest delta is threefold. First, **default hardening**: these executors isolate a process, but a no-network posture plus ~40 dropped capabilities, `no-new-privileges`, and a read-only rootfs as the *default* — rather than flags you assemble — is where the postures diverge. Second, **the audit chain**: a Docker executor gives you isolation, not a tamper-evident record of what ran; regulated teams add a separate audit tool and re-certify the seam. Third, **integration**: none of these bundles a network-isolated hardened sandbox *plus* an HMAC-chained audit log *plus* an on-device injection/PII/credential scanner into one offline-capable, certifiable unit. The accurate framing is not "competitors lack a sandbox" — it is that a `regulated industry on-prem AI agent` otherwise stitches sandbox, audit, and moderation from separate parts and re-verifies the joins on every dependency bump. Promptise's edge is structural: the three arrive pre-integrated and air-gap-capable, so you audit one stack once.
 
 ## One stack: local guardrails, no-network sandbox, chained audit
 
@@ -95,7 +95,7 @@ async def main():
         instructions="You are an on-prem analyst. Assume no internet access.",
         guardrails=scanner,
         sandbox={
-            "network_mode": "none",  # NetworkMode.NONE — executed code cannot reach the network
+            "network": "none",  # NetworkMode.NONE (the default) — executed code cannot reach the network
             "memory_limit": "512M",
             "cpu_limit": 2,
             "timeout": 120,
@@ -139,7 +139,7 @@ Read those two blocks as one certifiable unit. The `guardrails` scanner runs a l
 "Runs offline" is a claim you hand an auditor, not a vibe. Each checklist item has a specific thing you prove.
 
 - **Models never fetch.** `scanner.warmup()` forces every model to load from disk at startup, so a missing or misplaced artifact fails immediately and loudly instead of on the first user request. Pre-load steps for each weight are in the [guardrails reference](../../core/guardrails.md) under *Local models (air-gapped / offline)*.
-- **Code cannot reach the network.** `network_mode: "none"` maps to `NetworkMode.NONE`, so executed code physically cannot open a connection. The [sandbox reference](../../core/sandbox.md) also documents the seccomp filter, the ~40 dropped capabilities, and the read-only rootfs that harden the container beyond just the network cut; a locked-down host can go further with the gVisor `runsc` runtime.
+- **Code cannot reach the network.** `network: "none"` maps to `NetworkMode.NONE` (also the default, but pin it so the config documents the intent), so executed code physically cannot open a connection. The [sandbox reference](../../core/sandbox.md) also documents the seccomp filter, the ~40 dropped capabilities, and the read-only rootfs that harden the container beyond just the network cut; a locked-down host can go further with the gVisor `runsc` runtime.
 - **The audit chain is intact.** Call `verify_chain()` to confirm no entry was altered, deleted, or reordered — it recomputes every HMAC from the stored `prev_hash` and returns `False` on any break:
 
 ```python

@@ -102,9 +102,13 @@ class TestClient:
         # Parity with the live server, which auto-inserts declared per-tool
         # rate-limit enforcement at build time. One persistent instance per
         # TestClient so token buckets accumulate across calls like production.
+        from ._concurrency import PerToolConcurrencyLimiter
         from ._rate_limit import DeclaredRateLimitMiddleware
 
         self._declared_rate_limiter = DeclaredRateLimitMiddleware()
+        # Likewise for @server.tool(max_concurrent=...): one limiter shared by
+        # every call through this client, so concurrent calls see one limit.
+        self._per_tool_limiter = PerToolConcurrencyLimiter()
 
     # ------------------------------------------------------------------
     # Tool operations
@@ -218,6 +222,12 @@ class TestClient:
 
             # 3) Build middleware chain: server-level + router-level
             all_mw = list(self._server._middlewares)
+            # Enforce a declared @server.tool(max_concurrent=...) like the live
+            # server: auto-inserted outside any circuit breaker
+            if tdef.max_concurrent:
+                from ._concurrency import insert_per_tool_limiter
+
+                insert_per_tool_limiter(all_mw, self._per_tool_limiter)
             # Enforce a declared @server.tool(rate_limit=...) exactly like the
             # live server (auto-inserted, guard against a user-installed copy)
             if tdef.rate_limit:
@@ -245,6 +255,11 @@ class TestClient:
 
                 effective_handler = _guarded
 
+            if tdef.timeout:
+                from ._middleware import with_tool_timeout
+
+                effective_handler = with_tool_timeout(effective_handler, tdef.timeout, name)
+
             if all_mw:
                 chain = MiddlewareChain(all_mw)
                 result = await chain.run(ctx, effective_handler, arguments)
@@ -262,7 +277,11 @@ class TestClient:
             return serialised
 
         except MCPError as exc:
-            return [TextContent(type="text", text=exc.to_text())]
+            # A handler registered for this MCPError subclass may reshape it
+            mapped = None
+            if hasattr(self._server, "_exception_handlers"):
+                mapped = await self._server._exception_handlers.handle(ctx, exc)
+            return [TextContent(type="text", text=(mapped or exc).to_text())]
         except Exception as exc:
             # Try custom exception handlers first
             if hasattr(self._server, "_exception_handlers"):
@@ -270,12 +289,14 @@ class TestClient:
                 if mapped is not None:
                     return [TextContent(type="text", text=mapped.to_text())]
 
+            # Same generic message as the live server — the exception text
+            # (DB URLs, file paths, ...) goes to the log, never the client.
             logger.exception("Unhandled error in tool '%s'", name)
             err_text = json.dumps(
                 {
                     "error": {
                         "code": "INTERNAL_ERROR",
-                        "message": str(exc),
+                        "message": "An internal error occurred.",
                         "retryable": False,
                     }
                 }
@@ -285,10 +306,35 @@ class TestClient:
             await di_resolver.cleanup()
             clear_context()
 
-    async def list_tools(self) -> list[Tool]:
-        """List all registered tools (including annotations)."""
+    def _request_meta(self, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        """Transport headers, then client meta, then per-call headers."""
+        from ._context import get_request_headers
+
+        return {**dict(get_request_headers()), **dict(self._meta), **(headers or {})}
+
+    async def list_tools(self, *, headers: dict[str, str] | None = None) -> list[Tool]:
+        """List the registered tools (including annotations).
+
+        With ``MCPServer(hide_unauthorized_tools=True)`` only the tools the
+        client's credentials may call are listed, as on the live server.
+
+        Args:
+            headers: Simulated HTTP headers, merged over the client meta.
+        """
+        if getattr(self._server, "_require_tenant", False):
+            self._server._apply_require_tenant()
+        tdefs = self._server._tool_registry.list_all()
+        if getattr(self._server, "_hide_unauthorized_tools", False):
+            from ._visibility import visible_tools
+
+            tdefs = await visible_tools(
+                tdefs,
+                self._server._middlewares,
+                server_name=self._server.name,
+                meta=self._request_meta(headers),
+            )
         tools: list[Tool] = []
-        for tdef in self._server._tool_registry.list_all():
+        for tdef in tdefs:
             mcp_annotations = None
             if tdef.annotations is not None:
                 mcp_annotations = MCPToolAnnotations(
@@ -322,10 +368,22 @@ class TestClient:
             except ValueError:
                 pass  # already registered
 
-    def _meta_for(self, headers: dict[str, str] | None) -> dict[str, Any]:
-        from ._context import get_request_headers
+    async def _visible(
+        self, definitions: list[Any], kind: str, headers: dict[str, str] | None
+    ) -> list[Any]:
+        """Parity with the live server's ``hide_unauthorized_tools`` filtering."""
+        if not getattr(self._server, "_hide_unauthorized_tools", False):
+            return definitions
+        from ._visibility import visible_tools
 
-        return {**dict(get_request_headers()), **dict(self._meta), **(headers or {})}
+        self._server._apply_require_tenant()
+        return await visible_tools(
+            definitions,
+            self._server._middlewares,
+            server_name=self._server.name,
+            meta=self._request_meta(headers),
+            request_type=kind,
+        )
 
     def _declared_limits_for(self, definition: Any) -> list[Any]:
         """Parity with the live server's auto-inserted declared rate limits."""
@@ -374,7 +432,7 @@ class TestClient:
             contents = await _dispatch.read_resource(
                 self._server,
                 uri,
-                meta=self._meta_for(headers),
+                meta=self._request_meta(headers),
                 extra_middleware=self._declared_limits_for(definition),
             )
         except MCPError as exc:
@@ -436,9 +494,14 @@ class TestClient:
             return base64.b64decode(first.blob)
         return first.text
 
-    async def list_resources(self) -> list[Resource]:
-        """List all registered static resources (including ``docs://manifest``)."""
+    async def list_resources(self, *, headers: dict[str, str] | None = None) -> list[Resource]:
+        """List the registered static resources (including ``docs://manifest``).
+
+        With ``MCPServer(hide_unauthorized_tools=True)`` only the resources
+        the client's credentials may read are listed, as on the live server.
+        """
         self._ensure_manifest()
+        rdefs = await self._visible(self._server._resource_registry.list_all(), "resource", headers)
         return [
             Resource(
                 uri=rdef.uri,  # type: ignore[arg-type]
@@ -446,11 +509,16 @@ class TestClient:
                 description=rdef.description,
                 mimeType=rdef.mime_type,
             )
-            for rdef in self._server._resource_registry.list_all()
+            for rdef in rdefs
         ]
 
-    async def list_resource_templates(self) -> list[ResourceTemplate]:
-        """List all registered resource templates."""
+    async def list_resource_templates(
+        self, *, headers: dict[str, str] | None = None
+    ) -> list[ResourceTemplate]:
+        """List the registered resource templates (filtered like :meth:`list_resources`)."""
+        rdefs = await self._visible(
+            self._server._resource_registry.list_templates(), "resource", headers
+        )
         return [
             ResourceTemplate(
                 uriTemplate=rdef.uri,
@@ -458,7 +526,7 @@ class TestClient:
                 description=rdef.description,
                 mimeType=rdef.mime_type,
             )
-            for rdef in self._server._resource_registry.list_templates()
+            for rdef in rdefs
         ]
 
     # ------------------------------------------------------------------
@@ -494,7 +562,7 @@ class TestClient:
                 self._server,
                 name,
                 arguments,
-                meta=self._meta_for(headers),
+                meta=self._request_meta(headers),
                 extra_middleware=self._declared_limits_for(definition),
             )
         except MCPError as exc:
@@ -502,10 +570,11 @@ class TestClient:
                 raise ValueError(str(exc)) from exc
             raise
 
-    async def list_prompts(self) -> list[Any]:
-        """List all registered prompts."""
+    async def list_prompts(self, *, headers: dict[str, str] | None = None) -> list[Any]:
+        """List the registered prompts (filtered like :meth:`list_resources`)."""
         from mcp.types import Prompt as MCPPrompt
 
+        pdefs = await self._visible(self._server._prompt_registry.list_all(), "prompt", headers)
         return [
             MCPPrompt(
                 name=pdef.name,
@@ -519,7 +588,7 @@ class TestClient:
                     for a in pdef.arguments
                 ],
             )
-            for pdef in self._server._prompt_registry.list_all()
+            for pdef in pdefs
         ]
 
 

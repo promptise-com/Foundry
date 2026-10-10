@@ -682,7 +682,9 @@ string you passed) — see [Observability](../observability.md).
 pass a fake: a LangChain `FakeListChatModel`, or a `MagicMock` with
 `ainvoke`/`bind_tools` as the framework's own tests do
 (`tests/test_engine_execution.py`). `promptise models check <model>` (no
-`--ping`) is the CI preflight — it verifies configuration without a call.
+`--ping`) is the CI preflight — it verifies configuration without a model
+call (for a keyless or `localhost` server it also checks that something is
+listening).
 
 ## Troubleshooting
 
@@ -694,6 +696,8 @@ pass a fake: a LangChain `FakeListChatModel`, or a `MagicMock` with
 | `Unable to infer model provider for model='…'` | A bare model name LangChain cannot classify | Add `provider=` / the prefix |
 | `… has no 'deployment' setting` | `deployment` given for a provider other than Azure OpenAI | Put the name in `model` |
 | `DeploymentNotFound` / HTTP 404 from Azure | `deployment` is not the name in Foundry → Deployments, or the endpoint is another resource | Copy the *Name* column, not the *Model* column |
+| `Not reachable. … nothing is listening at http://localhost:11434` (from `models check`) or `Connection error` on `--ping` | Ollama (or your local server) is not running, or listens elsewhere | `ollama serve`; for another host or port set `OLLAMA_HOST` / `endpoint=` |
+| HTTP 404 `model … not found` from Ollama | The model is not pulled on that Ollama | `ollama pull <model>` |
 | HTTP 401 / `invalid_api_key` on `--ping` | Wrong key or a key from another resource | Regenerate in the portal; check `endpoint` and key belong together |
 | `tool calling is not supported` / tools ignored | A small or old model (many local ones) | Pick a tool-capable model; `--ping` succeeding does not prove tool support |
 

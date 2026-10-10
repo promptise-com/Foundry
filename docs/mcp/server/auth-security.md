@@ -71,11 +71,28 @@ Validates HS256 JWT tokens from request metadata. Verified tokens are cached in 
 from promptise.mcp.server import JWTAuth
 
 jwt_auth = JWTAuth(
-    secret="my-secret-key",   # Shared secret for HS256 verification
-    meta_key="authorization", # Key in request metadata (default)
-    cache_size=256,           # Max cached tokens (0 to disable)
+    secret="my-secret-key",               # Shared secret for HS256 verification
+    audience="api://crm",                 # Required "aud" (a string or a list)
+    issuer="https://auth.example.com",    # Required "iss"
+    meta_key="authorization",             # Key in request metadata (default)
+    cache_size=256,                       # Max cached tokens (0 to disable)
 )
 ```
+
+Every token must be signed with `secret`, carry an `exp` in the future, and
+not have an `nbf` in the future. `audience` and `issuer` are optional; when
+set, they are checked too:
+
+- **`audience`**: the token's `aud` (a string or a list) must include one of
+  the configured values. A token without `aud` is rejected. Set it whenever
+  the secret is shared by more than one service, so a token minted for one
+  of them is refused by the others.
+- **`issuer`**: the token's `iss` must equal it exactly. A token without
+  `iss` is rejected.
+
+`create_token()` adds the (first) configured audience and the issuer when
+the payload does not set them, so test tokens verify against the same
+provider.
 
 Clients send tokens via the `Authorization: Bearer <token>` header. The provider strips the `Bearer ` prefix automatically.
 
@@ -162,7 +179,7 @@ auth = AsymmetricJWTAuth(
 )
 ```
 
-`AsymmetricJWTAuth` uses the same interface as `JWTAuth` — it works with `AuthMiddleware`, guards, and `ctx.client_id`. Requires the `PyJWT` and `cryptography` packages (optional dependencies).
+`AsymmetricJWTAuth` uses the same interface as `JWTAuth` — it works with `AuthMiddleware`, guards, and `ctx.client_id`. It takes the same `audience` and `issuer` arguments. Set `audience` for IdP-issued tokens: without it, a token that carries an `aud` claim is rejected. Requires the `PyJWT` and `cryptography` packages (optional dependencies).
 
 ### JwksAuth
 
@@ -651,11 +668,11 @@ See [CallerContext: Agent to MCP Identity](../../guides/multi-user-identity.md) 
 
 | Symbol | Type | Description |
 |---|---|---|
-| `JWTAuth(secret, meta_key, cache_size)` | Class | HS256 JWT authentication provider |
+| `JWTAuth(secret, audience, issuer, meta_key, cache_size)` | Class | HS256 JWT authentication provider |
 | `JWTAuth.create_token(payload, expires_in)` | Method | Create a signed JWT (testing utility) |
 | `JWTAuth.verify_token(token)` | Method | Check token validity without context |
 | `APIKeyAuth(keys, header)` | Class | Pre-shared API key authentication (simple or rich format) |
-| `AsymmetricJWTAuth(public_key, algorithm)` | Class | RS256/ES256 asymmetric JWT authentication |
+| `AsymmetricJWTAuth(public_key, algorithm, audience, issuer)` | Class | RS256/ES256 asymmetric JWT authentication |
 | `AuthMiddleware(provider, on_authenticate)` | Class | Middleware that enforces auth and populates `ClientContext` |
 | `ClientContext` | Dataclass | Structured client info: identity, roles, scopes, JWT claims, IP, user-agent |
 | `ToolResponse(content, metadata)` | Dataclass | Response wrapper with metadata for audit/observability |

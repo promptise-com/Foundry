@@ -21,20 +21,33 @@ Example::
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from typing import Any
 
 
-def build_manifest(server: Any) -> dict[str, Any]:
+def build_manifest(
+    server: Any,
+    tools: Iterable[Any] | None = None,
+    *,
+    resources: Iterable[Any] | None = None,
+    resource_templates: Iterable[Any] | None = None,
+    prompts: Iterable[Any] | None = None,
+) -> dict[str, Any]:
     """Build a JSON-serialisable manifest from a server's registrations.
 
     Args:
         server: An ``MCPServer`` instance.
+        tools: The tool definitions to describe (default: every registered
+            tool).
+        resources: The static resources to describe (default: all).
+        resource_templates: The resource templates to describe (default: all).
+        prompts: The prompts to describe (default: all).
 
     Returns:
         A dict with ``server``, ``tools``, ``resources``, ``prompts`` sections.
     """
-    tools: list[dict[str, Any]] = []
-    for tdef in server._tool_registry.list_all():
+    tool_infos: list[dict[str, Any]] = []
+    for tdef in server._tool_registry.list_all() if tools is None else tools:
         tool_info: dict[str, Any] = {
             "name": tdef.name,
             "description": tdef.description,
@@ -52,11 +65,11 @@ def build_manifest(server: Any) -> dict[str, Any]:
             tool_info["rate_limit"] = tdef.rate_limit
         if tdef.timeout:
             tool_info["timeout"] = tdef.timeout
-        tools.append(tool_info)
+        tool_infos.append(tool_info)
 
-    resources: list[dict[str, Any]] = []
-    for rdef in server._resource_registry.list_all():
-        resources.append(
+    resource_infos: list[dict[str, Any]] = []
+    for rdef in server._resource_registry.list_all() if resources is None else resources:
+        resource_infos.append(
             {
                 "uri": rdef.uri,
                 "name": rdef.name,
@@ -67,7 +80,11 @@ def build_manifest(server: Any) -> dict[str, Any]:
         )
 
     templates: list[dict[str, Any]] = []
-    for rdef in server._resource_registry.list_templates():
+    for rdef in (
+        server._resource_registry.list_templates()
+        if resource_templates is None
+        else resource_templates
+    ):
         templates.append(
             {
                 "uri_template": rdef.uri,
@@ -78,9 +95,9 @@ def build_manifest(server: Any) -> dict[str, Any]:
             }
         )
 
-    prompts: list[dict[str, Any]] = []
-    for pdef in server._prompt_registry.list_all():
-        prompts.append(
+    prompt_infos: list[dict[str, Any]] = []
+    for pdef in server._prompt_registry.list_all() if prompts is None else prompts:
+        prompt_infos.append(
             {
                 "name": pdef.name,
                 "description": pdef.description,
@@ -95,10 +112,10 @@ def build_manifest(server: Any) -> dict[str, Any]:
             "version": server.version,
             "instructions": server.instructions,
         },
-        "tools": tools,
-        "resources": resources,
+        "tools": tool_infos,
+        "resources": resource_infos,
         "resource_templates": templates,
-        "prompts": prompts,
+        "prompts": prompt_infos,
     }
 
 
@@ -132,7 +149,32 @@ def register_manifest(server: Any) -> None:
     from ._decorators import build_resource_def
 
     async def manifest_handler() -> str:
-        return json.dumps(build_manifest(server), indent=2, default=str)
+        if not getattr(server, "_hide_unauthorized_tools", False):
+            return json.dumps(build_manifest(server), indent=2, default=str)
+        # Same per-caller view as tools/list, resources/list and prompts/list.
+        from ._context import get_context
+        from ._visibility import visible_tools
+
+        ctx = get_context()
+
+        async def visible(definitions: list[Any], kind: str) -> list[Any]:
+            return await visible_tools(
+                definitions,
+                server._middlewares,
+                server_name=server.name,
+                meta=ctx.meta,
+                request_type=kind,
+            )
+
+        registry = server._resource_registry
+        manifest = build_manifest(
+            server,
+            await visible(server._tool_registry.list_all(), "tool"),
+            resources=await visible(registry.list_all(), "resource"),
+            resource_templates=await visible(registry.list_templates(), "resource"),
+            prompts=await visible(server._prompt_registry.list_all(), "prompt"),
+        )
+        return json.dumps(manifest, indent=2, default=str)
 
     res_def = build_resource_def(
         manifest_handler,

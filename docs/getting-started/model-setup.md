@@ -63,14 +63,19 @@ self-hosted endpoints, failover, per-node models — is
     environment. Every word is explained in
     [Models & Providers → In code: Model](../core/agents/models.md#in-code-model).
 
-**3. Check again, then ping.** `--ping` makes a real one-token call:
+**3. Check again, then ping.** Without `--ping` the check covers configuration
+only — the key is set, not that it works. `--ping` makes a real one-token call:
 
 ```text
 $ promptise models check openai:gpt-5-mini --ping
 …
-Usable.
+Configuration OK.
 Pinging… ok — replied 'ok'
 ```
+
+For a local model (Ollama, or an `endpoint=` on `localhost`) the check also
+connects to the server and fails with `nothing is listening at
+http://localhost:11434 — is Ollama running?` when it is down.
 
 ## Every provider at a glance
 

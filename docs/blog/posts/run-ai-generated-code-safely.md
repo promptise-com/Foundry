@@ -79,7 +79,7 @@ async def main():
     agent = await build_agent(
         model="openai:gpt-5-mini",
         servers={},                       # or your MCP servers
-        agent_pattern="code-action",      # sandbox auto-enabled; network="none" forced
+        agent_pattern="code-action",      # sandbox auto-enabled; network="none" auto-set
         extra_tools=[list_orders, get_order],
     )
     result = await agent.ainvoke({"messages": [{"role": "user", "content":
@@ -94,7 +94,7 @@ The model writes one program: list the ids, look each up, filter to `EU`, sum. E
 
 ## Harden the box — and the second kind of model code
 
-The default profile is already locked down — read-only rootfs, roughly 40 dropped Linux capabilities, a seccomp syscall whitelist, resource limits, and no network. For untrusted or multi-tenant input, tighten two knobs. Cut the network outright and move to kernel-level isolation:
+The default profile is already locked down — read-only rootfs, roughly 40 dropped Linux capabilities, Docker's default seccomp profile, resource limits, and no network. For untrusted or multi-tenant input, tighten two knobs. Cut the network outright and move to kernel-level isolation:
 
 ```python
 agent = await build_agent(
@@ -114,7 +114,7 @@ There is also a *second* kind of model-written code worth naming, because it use
 
 ### What is the safest way to run AI-generated code?
 
-Run it in a hardened container, cut the network, and — the part most stacks miss — keep every tool the code calls under the same governance as the rest of your agent. In Promptise that is one argument: `agent_pattern="code-action"` provisions a Docker sandbox with a read-only rootfs, ~40 dropped capabilities, a seccomp whitelist, resource limits, and `network="none"`, while routing each in-sandbox tool call back through the real host-side tool so approval gates, audit, and budget hooks still apply.
+Run it in a hardened container, cut the network, and — the part most stacks miss — keep every tool the code calls under the same governance as the rest of your agent. In Promptise that is one argument: `agent_pattern="code-action"` provisions a Docker sandbox with a read-only rootfs, ~40 dropped capabilities, Docker's default seccomp profile, resource limits, and `network="none"`, while routing each in-sandbox tool call back through the real host-side tool so approval gates, audit, and budget hooks still apply.
 
 ### How is this different from e2b, Riza, or Modal?
 

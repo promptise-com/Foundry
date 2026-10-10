@@ -47,7 +47,8 @@ transport.  Every tool call goes through:
 7. **Result serialisation** -- the return value is converted to MCP
    `TextContent` list.
 8. **Background tasks** -- any `BackgroundTasks` scheduled during the call are
-   executed.
+   executed before `call_tool` returns, so tests can assert on their effects.
+   (A running server sends the response first and runs them afterwards.)
 9. **Error handling** -- `MCPError` subclasses are serialised to structured JSON.
 
 ### Creating a TestClient

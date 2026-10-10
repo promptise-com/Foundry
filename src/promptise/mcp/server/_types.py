@@ -118,6 +118,7 @@ class ToolDef:
     annotations: ToolAnnotations | None = None
     max_concurrent: int | None = None
     requires_approval: bool = False
+    cache: bool = True
 
 
 @dataclass(frozen=True)

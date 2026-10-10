@@ -675,7 +675,21 @@ class TestManifestAndIncludePrompts:
 # 3 + 9. MCPClient / MCPMultiClient methods and agent tools (live HTTP)
 # =====================================================================
 
-PORTS = iter(range(8520, 8530))
+# Local test servers stay inside the reserved range 8520-8529.
+_TEST_PORTS = range(8520, 8530)
+
+
+def _free_test_port() -> int:
+    import socket
+
+    for port in _TEST_PORTS:
+        with socket.socket() as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            return port
+    raise RuntimeError("no free port in 8520-8529 for the test MCP server")
 
 
 @asynccontextmanager
@@ -689,7 +703,7 @@ async def _serve(server: MCPServer, monkeypatch: pytest.MonkeyPatch) -> AsyncIte
             instances.append(self)
 
     monkeypatch.setattr(uvicorn, "Server", _Recording)
-    port = next(PORTS)
+    port = _free_test_port()
     task = asyncio.ensure_future(server.run_async(transport="http", host="127.0.0.1", port=port))
     try:
         for _ in range(400):
@@ -825,3 +839,227 @@ class TestLiveClient:
             async with MCPMultiClient({"s": MCPClient(url=url)}) as multi:
                 tools = await make_resource_tools(multi, taken={"read_resource"})
         assert {t.name for t in tools} == {"list_resources", "mcp_read_resource"}
+
+
+# =====================================================================
+# Agent tools send the invoking caller's token (forward_caller_token)
+# =====================================================================
+
+
+def _jwt_role_server() -> tuple[MCPServer, Any]:
+    from promptise.mcp.server import JWTAuth
+
+    jwt = JWTAuth(secret="resources-prompts-test-secret")
+    server = MCPServer(name="hr")
+    server.add_middleware(AuthMiddleware(jwt))
+
+    @server.resource("hr://payroll", roles=["hr"])
+    async def payroll() -> dict:
+        return {"total": 1000}
+
+    @server.prompt(roles=["hr"])
+    async def dismissal(name: str) -> str:
+        return f"Draft a dismissal letter for {name}"
+
+    @server.tool()
+    async def ping() -> str:
+        return "pong"
+
+    return server, jwt
+
+
+class _ReadThenAnswer:
+    """Fake chat model: calls one tool once, then answers with its result."""
+
+    @staticmethod
+    def make(tool: str, args: dict[str, Any]) -> Any:
+        from langchain_core.language_models.chat_models import BaseChatModel
+        from langchain_core.messages import AIMessage, ToolMessage
+        from langchain_core.outputs import ChatGeneration, ChatResult
+
+        class _Model(BaseChatModel):
+            @property
+            def _llm_type(self) -> str:
+                return "read-then-answer"
+
+            def bind_tools(self, tools: Any, **kwargs: Any) -> Any:
+                return self
+
+            def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+                results = [m for m in messages if isinstance(m, ToolMessage)]
+                if results:
+                    message = AIMessage(content=str(results[-1].content))
+                else:
+                    message = AIMessage(
+                        content="", tool_calls=[{"name": tool, "args": args, "id": "c1"}]
+                    )
+                return ChatResult(generations=[ChatGeneration(message=message)])
+
+        return _Model()
+
+
+class TestAgentToolsForwardCallerToken:
+    async def _answer(self, agent: Any, caller: Any) -> str:
+        result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "go"}]}, caller=caller
+        )
+        return str(result["messages"][-1].content)
+
+    async def test_role_guarded_resource_judged_by_the_caller(self, monkeypatch):
+        from promptise import CallerContext
+        from promptise.agent import build_agent
+        from promptise.config import HTTPServerSpec
+
+        server, jwt = _jwt_role_server()
+        # The agent's own credential HAS the role: a caller without it must
+        # still be denied, so the read cannot be using the agent's identity.
+        agent_token = jwt.create_token({"sub": "hr-agent", "roles": ["hr"]})
+        clerk = CallerContext(
+            user_id="clerk", bearer_token=jwt.create_token({"sub": "clerk", "roles": ["staff"]})
+        )
+        manager = CallerContext(
+            user_id="manager", bearer_token=jwt.create_token({"sub": "manager", "roles": ["hr"]})
+        )
+
+        async with _serve(server, monkeypatch) as url:
+            agent = await build_agent(
+                model=_ReadThenAnswer.make("read_resource", {"uri": "hr://payroll"}),
+                servers={"hr": HTTPServerSpec(url=url, bearer_token=agent_token)},
+                expose_resources=True,
+            )
+            try:
+                denied = await self._answer(agent, clerk)
+                allowed = await self._answer(agent, manager)
+            finally:
+                await agent.shutdown()
+
+        assert denied.startswith("Error:")
+        assert "1000" not in denied
+        assert json.loads(allowed) == {"total": 1000}
+
+    async def test_role_guarded_prompt_judged_by_the_caller(self, monkeypatch):
+        from promptise import CallerContext
+        from promptise.agent import build_agent
+        from promptise.config import HTTPServerSpec
+
+        server, jwt = _jwt_role_server()
+        agent_token = jwt.create_token({"sub": "hr-agent", "roles": ["hr"]})
+        clerk = CallerContext(
+            user_id="clerk", bearer_token=jwt.create_token({"sub": "clerk", "roles": ["staff"]})
+        )
+        manager = CallerContext(
+            user_id="manager", bearer_token=jwt.create_token({"sub": "manager", "roles": ["hr"]})
+        )
+        model = _ReadThenAnswer.make(
+            "get_prompt", {"name": "dismissal", "arguments": {"name": "Bob"}}
+        )
+        async with _serve(server, monkeypatch) as url:
+            agent = await build_agent(
+                model=model,
+                servers={"hr": HTTPServerSpec(url=url, bearer_token=agent_token)},
+                expose_prompts=True,
+            )
+            try:
+                denied = await self._answer(agent, clerk)
+                allowed = await self._answer(agent, manager)
+            finally:
+                await agent.shutdown()
+
+        assert denied.startswith("Error:")
+        assert allowed == "Draft a dismissal letter for Bob"
+
+    async def test_multi_client_reads_as_bearer_token(self, monkeypatch):
+        server, jwt = _jwt_role_server()
+        agent_token = jwt.create_token({"sub": "hr-agent", "roles": ["hr"]})
+        clerk_token = jwt.create_token({"sub": "clerk", "roles": ["staff"]})
+        async with _serve(server, monkeypatch) as url:
+            async with MCPMultiClient({"hr": MCPClient(url=url, bearer_token=agent_token)}) as m:
+                ok = await m.read_resource("hr://payroll")
+                assert json.loads(ok.contents[0].text) == {"total": 1000}
+                with pytest.raises(MCPClientError):
+                    await m.read_resource("hr://payroll", bearer_token=clerk_token)
+                with pytest.raises(MCPClientError):
+                    await m.get_prompt("dismissal", {"name": "x"}, bearer_token=clerk_token)
+
+
+# =====================================================================
+# hide_unauthorized_tools filters resources, templates and prompts
+# =====================================================================
+
+
+def _hidden_server() -> MCPServer:
+    server = MCPServer(name="s", hide_unauthorized_tools=True)
+    server.add_middleware(AuthMiddleware(APIKeyAuth(keys=KEYS)))
+
+    @server.resource("public://info")
+    def info() -> str:
+        return "i"
+
+    @server.resource("secrets://payroll", roles=["admin"])
+    def payroll() -> str:
+        return "p"
+
+    @server.resource_template("secrets://employees/{emp_id}", roles=["admin"])
+    def employee(emp_id: str) -> str:
+        return emp_id
+
+    @server.resource_template("public://pages/{slug}")
+    def page(slug: str) -> str:
+        return slug
+
+    @server.prompt()
+    def hello() -> str:
+        return "hi"
+
+    @server.prompt(roles=["admin"])
+    def fire() -> str:
+        return "fire"
+
+    return server
+
+
+class TestHideUnauthorized:
+    async def test_test_client_filters_per_caller(self):
+        server = _hidden_server()
+        user = TestClient(server, meta={"x-api-key": "sk-user"})
+        admin = TestClient(server, meta={"x-api-key": "sk-admin"})
+        anonymous = TestClient(server)
+
+        user_uris = {str(r.uri) for r in await user.list_resources()}
+        assert "secrets://payroll" not in user_uris and "public://info" in user_uris
+        assert "secrets://payroll" in {str(r.uri) for r in await admin.list_resources()}
+        assert "secrets://payroll" not in {str(r.uri) for r in await anonymous.list_resources()}
+
+        assert {t.uriTemplate for t in await user.list_resource_templates()} == {
+            "public://pages/{slug}"
+        }
+        assert {t.uriTemplate for t in await admin.list_resource_templates()} == {
+            "public://pages/{slug}",
+            "secrets://employees/{emp_id}",
+        }
+        assert {p.name for p in await user.list_prompts()} == {"hello"}
+        assert {p.name for p in await admin.list_prompts()} == {"hello", "fire"}
+
+        manifest = json.loads(await user.read_resource("docs://manifest"))
+        assert "secrets://payroll" not in {r["uri"] for r in manifest["resources"]}
+        assert {p["name"] for p in manifest["prompts"]} == {"hello"}
+
+    async def test_live_server_filters_per_caller(self, monkeypatch):
+        async with _serve(_hidden_server(), monkeypatch) as url:
+            async with MCPClient(url=url, api_key="sk-user") as user:
+                uris = {str(r.uri) for r in await user.list_resources()}
+                templates = {t.uriTemplate for t in await user.list_resource_templates()}
+                prompts = {p.name for p in await user.list_prompts()}
+            async with MCPClient(url=url, api_key="sk-admin") as admin:
+                admin_uris = {str(r.uri) for r in await admin.list_resources()}
+                admin_prompts = {p.name for p in await admin.list_prompts()}
+        assert "secrets://payroll" not in uris and "public://info" in uris
+        assert templates == {"public://pages/{slug}"}
+        assert prompts == {"hello"}
+        assert "secrets://payroll" in admin_uris
+        assert admin_prompts == {"hello", "fire"}
+
+    async def test_without_hiding_everything_is_listed(self):
+        client = TestClient(_guarded_server(), meta={"x-api-key": "sk-user"})
+        assert "secrets://payroll" in {str(r.uri) for r in await client.list_resources()}
+        assert "fire" in {p.name for p in await client.list_prompts()}

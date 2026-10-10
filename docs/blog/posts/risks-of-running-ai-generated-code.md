@@ -85,10 +85,10 @@ The same `os.environ`, `glob`, and `urllib` reaches from earlier now land agains
 
 - **Read-only rootfs** — the container's root filesystem is mounted read-only; only `/workspace` and `/tmp` are writable, so the model's code cannot overwrite system files or persist a foothold.
 - **Capability dropping** — roughly 40 Linux capabilities are stripped (`CAP_SYS_ADMIN`, `CAP_NET_ADMIN`, `CAP_SYS_PTRACE`, and the rest), so even code that tries privileged operations has nothing to hold onto.
-- **Seccomp syscall filtering** — a whitelist profile permits only the syscalls user code legitimately needs and blocks the dangerous ones (kernel module loading, raw device access, privilege escalation).
-- **Resource limits** — CPU, memory, and an execution timeout mean a runaway or fork-bomb program is killed, not left spinning against your host.
+- **Seccomp syscall filtering** — Docker's default seccomp profile blocks roughly 44 dangerous syscalls (`mount`, `reboot`, `kexec_load`, kernel module loading), and `no-new-privileges` stops setuid binaries from escalating.
+- **Resource limits** — CPU, memory, a process cap, and an execution timeout mean a runaway or fork-bomb program is stopped — a timed-out command is killed inside the container — not left spinning against your host.
 
-Reach 2 collapses because the container has its own environment, not your process's secret block. Reach 3 collapses the moment you cut the network — which you can do explicitly, and which the code-action pattern does automatically. Every knob (backend, `network`, `memory_limit`, `cpu_limit`, `timeout`, gVisor runtime) is documented layer by layer in the [sandbox reference](../../core/sandbox.md).
+Reach 2 collapses because the container has its own environment, not your process's secret block. Reach 3 collapses the moment you cut the network — which `sandbox=True` already does, because `network="none"` is the default for every sandbox. Every knob (backend, `network`, `memory_limit`, `cpu_limit`, `timeout`, gVisor runtime) is documented layer by layer in the [sandbox reference](../../core/sandbox.md).
 
 ## Mapping the blast radius to the layer that closes it
 
@@ -98,11 +98,11 @@ The point of a threat model is that each reach maps to a specific control. Here 
 |---|---|
 | Read/write host files (`open`, `shutil`, path traversal) | Read-only rootfs; only `/workspace` + `/tmp` writable; no host mount |
 | Harvest `os.environ` secrets | Fresh container environment — your process's secret block is not present |
-| Outbound exfiltration / SSRF to metadata endpoint | `network="none"` (or DNS-filtered `restricted`); no route off the box |
-| Privileged syscalls / escape attempts | ~40 dropped capabilities + seccomp whitelist; optional gVisor kernel |
-| Runaway / fork-bomb | CPU, memory, and timeout limits kill the process |
+| Outbound exfiltration / SSRF to metadata endpoint | `network="none"` (the default); no route off the box |
+| Privileged syscalls / escape attempts | ~40 dropped capabilities + `no-new-privileges` + Docker's default seccomp profile; optional gVisor kernel |
+| Runaway / fork-bomb | CPU, memory, PID, and timeout limits; timed-out commands are killed |
 
-To harden further, pass a dict instead of `True` and cut the network outright:
+To harden further, pass a dict instead of `True`, pin the network explicitly, and tighten the limits:
 
 ```python
 agent = await build_agent(
@@ -135,7 +135,7 @@ You can, and the day nothing goes wrong you'll never know how close you were. Fo
 
 ### How is a "code interpreter agent isolated" differently in Promptise?
 
-The isolation is structural rather than a bolt-on. Selecting `sandbox=True` (or the code-action pattern, which forces it) provisions a Docker container with a read-only rootfs, ~40 dropped capabilities, a seccomp whitelist, resource limits, and a configurable network mode — before any model code runs. The agent's five code tools operate against that container, so there is no in-process code path to fall back to.
+The isolation is structural rather than a bolt-on. Selecting `sandbox=True` (or the code-action pattern, which forces it) provisions a Docker container with a read-only rootfs, ~40 dropped capabilities, Docker's default seccomp profile, resource limits, and a network mode that defaults to none — before any model code runs. The agent's five code tools operate against that container, so there is no in-process code path to fall back to.
 
 ## Next steps
 

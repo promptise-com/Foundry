@@ -190,11 +190,46 @@ class TimeoutMiddleware:
         try:
             return await asyncio.wait_for(call_next(ctx), timeout=timeout)
         except asyncio.TimeoutError:
-            from ._errors import ToolError
+            raise tool_timeout_error(ctx.tool_name, timeout) from None
 
-            raise ToolError(
-                f"Tool '{ctx.tool_name}' timed out after {timeout}s",
-                code="TIMEOUT",
-                retryable=True,
-                suggestion=f"The operation exceeded the {timeout}s limit. Try with simpler input.",
-            )
+
+def tool_timeout_error(tool_name: str, timeout: float) -> Any:
+    """The retryable ``TIMEOUT`` error for a call that ran past *timeout*."""
+    from ._errors import ToolError
+
+    return ToolError(
+        f"Tool '{tool_name}' timed out after {timeout}s",
+        code="TIMEOUT",
+        retryable=True,
+        suggestion=(
+            f"The tool did not finish within {timeout}s. It may depend on a slow "
+            "or unavailable service: retry later, or continue without it."
+        ),
+    )
+
+
+def with_tool_timeout(
+    handler: Callable[..., Any], timeout: float, tool_name: str
+) -> Callable[..., Any]:
+    """Bound *handler* by a ``@server.tool(timeout=...)`` limit.
+
+    Applied by the server (and ``TestClient``) to every tool that declares
+    a timeout, with or without :class:`TimeoutMiddleware`.  Only the tool's
+    own run is timed — not middleware in front of it, such as an approval
+    gate waiting for a human.  A synchronous handler blocks the event loop
+    and cannot be interrupted, so the limit only applies to ``async`` tools.
+    """
+
+    async def _timed(**kwargs: Any) -> Any:
+        async def _run() -> Any:
+            result = handler(**kwargs)
+            if asyncio.iscoroutine(result):
+                result = await result
+            return result
+
+        try:
+            return await asyncio.wait_for(_run(), timeout=timeout)
+        except asyncio.TimeoutError:
+            raise tool_timeout_error(tool_name, timeout) from None
+
+    return _timed

@@ -29,6 +29,12 @@ class ToolRegistry:
     def get(self, name: str) -> ToolDef | None:
         return self._tools.get(name)
 
+    def replace(self, tool_def: ToolDef) -> None:
+        """Swap in an updated definition for an already-registered tool."""
+        if tool_def.name not in self._tools:
+            raise KeyError(f"Tool '{tool_def.name}' is not registered")
+        self._tools[tool_def.name] = tool_def
+
     def list_all(self) -> list[ToolDef]:
         return list(self._tools.values())
 

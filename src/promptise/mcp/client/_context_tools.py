@@ -6,13 +6,20 @@ They let the model pull what the connected MCP servers publish besides
 tools: documents and data (resources) and ready-made instructions
 (prompts).  The catalogue is discovered once at build time and written
 into the tool descriptions; ``list_resources`` re-reads it on demand.
+
+Reads and prompt requests carry the invoking caller's identity exactly
+like MCP tool calls: for a server with ``forward_caller_token``, the
+caller's bearer token is sent over that caller's own session (see
+:meth:`MCPMultiClient.read_resource`), so the server's ``roles=`` and
+guards judge the user, never the agent.  The catalogue itself is listed
+once at build time with the agent's credentials, as tools are discovered.
 """
 
 from __future__ import annotations
 
 import contextlib
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool
@@ -66,6 +73,30 @@ def _unique_name(name: str, taken: set[str]) -> str:
         alt,
     )
     return alt
+
+
+ForwardTo = bool | Collection[str]
+
+
+def _caller_token_for(server: str, forward_caller_token: ForwardTo) -> str | None:
+    """The invoking caller's bearer token, when *server* should receive it.
+
+    Same rule as MCP tool calls (``_PromptiseMCPTool``): ``True`` forwards
+    to every server, a collection to the named ones.  Without a caller
+    token the server's configured credentials are used, as for tools.
+    """
+    if isinstance(forward_caller_token, bool):
+        forward = forward_caller_token
+    elif isinstance(forward_caller_token, str):
+        forward = server == forward_caller_token
+    else:
+        forward = server in forward_caller_token
+    if not forward:
+        return None
+    from ...agent import get_current_caller
+
+    caller = get_current_caller()
+    return caller.bearer_token if caller is not None and caller.bearer_token else None
 
 
 def _line(text: str | None) -> str:
@@ -160,6 +191,7 @@ async def make_resource_tools(
     on_before: OnBefore | None = None,
     on_after: OnAfter | None = None,
     on_error: OnError | None = None,
+    forward_caller_token: ForwardTo = False,
 ) -> list[BaseTool]:
     """Build ``list_resources`` and ``read_resource`` over *multi*.
 
@@ -169,6 +201,8 @@ async def make_resource_tools(
         multi: A connected multi-client.
         taken: Names of the tools the agent already has (a generated tool
             is renamed ``mcp_<name>`` on a clash).
+        forward_caller_token: Servers (``True``: all) that receive the
+            invoking caller's bearer token, as for MCP tool calls.
     """
     lines = await _resource_catalogue(multi)
     if not lines:
@@ -183,7 +217,9 @@ async def make_resource_tools(
         return "\n".join(await _resource_catalogue(multi)) or "No resources available."
 
     async def _read(uri: str, server: str | None = None) -> str:
-        return _resource_text(await multi.read_resource(uri, server=server))
+        target = server or await multi.server_for_resource(uri)
+        token = _caller_token_for(target, forward_caller_token)
+        return _resource_text(await multi.read_resource(uri, server=target, bearer_token=token))
 
     read_name = _unique_name("read_resource", taken)
     hooks: dict[str, Any] = {"on_before": on_before, "on_after": on_after, "on_error": on_error}
@@ -217,6 +253,7 @@ async def make_prompt_tools(
     on_before: OnBefore | None = None,
     on_after: OnAfter | None = None,
     on_error: OnError | None = None,
+    forward_caller_token: ForwardTo = False,
 ) -> list[BaseTool]:
     """Build ``get_prompt`` over *multi*.
 
@@ -225,6 +262,8 @@ async def make_prompt_tools(
     Args:
         multi: A connected multi-client.
         taken: Names of the tools the agent already has.
+        forward_caller_token: Servers (``True``: all) that receive the
+            invoking caller's bearer token, as for MCP tool calls.
     """
     prompts = await multi.list_prompts()
     if not prompts:
@@ -249,7 +288,11 @@ async def make_prompt_tools(
     async def _get(
         name: str, arguments: dict[str, Any] | None = None, server: str | None = None
     ) -> str:
-        return _prompt_text(await multi.get_prompt(name, arguments or {}, server=server))
+        target = server or await multi.server_for_prompt(name)
+        token = _caller_token_for(target, forward_caller_token)
+        return _prompt_text(
+            await multi.get_prompt(name, arguments or {}, server=target, bearer_token=token)
+        )
 
     tool_name = _unique_name("get_prompt", taken)
     return [

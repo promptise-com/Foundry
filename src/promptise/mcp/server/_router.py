@@ -97,6 +97,8 @@ class MCPRouter:
         max_concurrent: int | None = None,
         # Server-side human-in-the-loop approval
         requires_approval: bool = False,
+        # Opt out of CacheMiddleware
+        cache: bool = True,
     ) -> Callable[..., Any]:
         """Register a tool (same signature as ``MCPServer.tool()``)."""
         all_guards = list(guards or [])
@@ -142,6 +144,7 @@ class MCPRouter:
                 annotations=annotations,
                 max_concurrent=max_concurrent,
                 requires_approval=requires_approval,
+                cache=cache,
             )
             self._tool_registry.register(tool_def)
             excluded = _excluded_params(func)

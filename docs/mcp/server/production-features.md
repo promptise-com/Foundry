@@ -43,8 +43,17 @@ async def expensive_query(query: str) -> dict:
     """Run an expensive query (cached for 5 minutes)."""
     return await db.search(query)
 
-server.run(transport="http", host="0.0.0.0", port=8080, dashboard=True)
+# Listen on every interface (the default is 127.0.0.1) and name the public host
+server.run(
+    transport="http",
+    host="0.0.0.0",
+    port=8080,
+    allowed_hosts=["mcp.example.com"],
+    dashboard=True,
+)
 ```
+
+`run()` binds `127.0.0.1` unless you pass `host`, so a server is reachable from the same machine only until you choose otherwise. Bind `0.0.0.0` deliberately — in a container, or behind a load balancer — together with `AuthMiddleware` (or an authenticating gateway) and `allowed_hosts`; a non-loopback bind without them logs a warning at startup. See [Deployment](deployment.md#host-and-origin-validation).
 
 ## Feature Guide
 

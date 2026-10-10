@@ -164,26 +164,39 @@ request id), and grants proceed to a normal audited call.
 The server enforces isolation for *tools*. On the **agent** side, the same
 `tenant_id` isolates memory, cache, and conversations — so a support agent
 serving Acme's user `alice` can never surface Globex's data, even for a
-same-named user.
+same-named user. Each caller's `bearer_token` is what the billing server
+authenticates, so one agent serves every tenant.
 
 ```python
 from promptise import CallerContext, build_agent
 
 agent = await build_agent(
     model="openai:gpt-5-mini",
+    # The agent's own credential: opens the connection and discovers tools.
+    # Tool calls are made with each caller's bearer_token instead.
     servers={"billing": {"url": "https://billing.internal/mcp",
-                         "transport": "http", "bearer_token": acme_jwt}},
+                         "transport": "http", "bearer_token": service_jwt}},
     memory=ChromaProvider(persist_directory="./mem"),
     cache=SemanticCache(),
     conversation_store=SQLiteConversationStore("chat.db"),
 )
 
-acme_alice   = CallerContext(user_id="alice", tenant_id="acme")
-globex_alice = CallerContext(user_id="alice", tenant_id="globex")  # sees NONE of acme
+acme_alice   = CallerContext(user_id="alice", tenant_id="acme", bearer_token=acme_alice_jwt)
+globex_alice = CallerContext(user_id="alice", tenant_id="globex",
+                             bearer_token=globex_alice_jwt)  # sees NONE of acme
 
-# Same user_id, different tenants — fully isolated across cache/memory/sessions:
+# Same user_id, different tenants — fully isolated across cache/memory/sessions,
+# and the billing server sees each caller's own token:
 await agent.chat("What did we discuss?", session_id="s1", caller=acme_alice)
 ```
+
+!!! warning "Never build the agent with one user's token"
+    The server derives the tenant from the token it receives. A
+    `CallerContext` without a `bearer_token` is sent with the spec's
+    credential, so the server sees whoever that credential belongs to —
+    not the caller. Give the spec a service credential and give every
+    caller their own token. See
+    [The user's token reaches the MCP server](../mcp/server/multi-tenancy.md#the-users-token-reaches-the-mcp-server).
 
 One derivation — `CallerContext.isolation_key` — feeds every per-user surface,
 so isolation is guaranteed at the scoping layer, not re-implemented per feature.

@@ -56,7 +56,7 @@ from ._decorators import build_prompt_def, build_resource_def, build_tool_def
 from ._di import DependencyResolver
 from ._errors import MCPError
 from ._lifecycle import LifecycleManager
-from ._middleware import compile_middleware_chain
+from ._middleware import compile_middleware_chain, with_tool_timeout
 from ._registry import PromptRegistry, ResourceRegistry, ToolRegistry
 from ._transport import TransportType, run_transport
 from ._validation import build_input_model, validate_arguments
@@ -99,6 +99,21 @@ class MCPServer:
             tool, resource and prompt authenticates and carries a
             ``RequireTenant`` guard, so a client whose token lacks the
             tenant claim is denied on every call.  Implies ``require_auth``.
+        hide_unauthorized_tools: Filter ``tools/list``, ``resources/list``,
+            ``resources/templates/list``, ``prompts/list`` (and the
+            ``docs://manifest`` resource) per request, so each caller sees
+            only what its identity may use: the request is authenticated
+            with the server's ``AuthMiddleware`` and every definition's
+            guards are evaluated against it.  Off by default, in which case
+            everything is listed to everyone and guards apply when a tool
+            is called, a resource read or a prompt requested.  Guards that
+            depend on state set by other middleware (not ``AuthMiddleware``
+            or its ``on_authenticate`` hook) cannot be evaluated at list
+            time and hide their definition.
+        cancel_grace_period: When a client cancels a call to a tool that
+            takes a ``CancellationToken``, the token is set and the handler
+            gets this many seconds to stop on its own before its task is
+            cancelled.  The client is answered immediately either way.
     """
 
     def __init__(
@@ -111,6 +126,8 @@ class MCPServer:
         shutdown_timeout: float | None = 30.0,
         require_auth: bool = False,
         require_tenant: bool = False,
+        hide_unauthorized_tools: bool = False,
+        cancel_grace_period: float = 5.0,
     ) -> None:
         self.name = name
         self.version = version
@@ -118,6 +135,13 @@ class MCPServer:
         self._shutdown_timeout = shutdown_timeout
         self._require_auth = require_auth or require_tenant
         self._require_tenant = require_tenant
+        self._hide_unauthorized_tools = hide_unauthorized_tools
+        self._cancel_grace_period = cancel_grace_period
+
+        # BackgroundTasks run after the response is sent, in tasks tracked
+        # here so shutdown can let them finish.
+        self._background_runs: set[asyncio.Task[None]] = set()
+        self._background_drain_registered = False
 
         self._tool_registry = ToolRegistry(on_change=lambda: self._on_registry_change("tools"))
         self._resource_registry = ResourceRegistry(
@@ -155,6 +179,10 @@ class MCPServer:
         # Token endpoint (None until enable_token_endpoint() is called)
         self._token_endpoint: Any = None
 
+        # Readiness checks behind GET /health/ready (set by
+        # HealthCheck.register_resources)
+        self._health_check: Any = None
+
         # Per-session state manager
         from ._session_state import SessionManager
 
@@ -185,6 +213,8 @@ class MCPServer:
         max_concurrent: int | None = None,
         # Server-side human-in-the-loop approval
         requires_approval: bool = False,
+        # Opt out of CacheMiddleware
+        cache: bool = True,
     ) -> Callable[..., Any]:
         """Register a function as an MCP tool.
 
@@ -213,6 +243,10 @@ class MCPServer:
                 ``ApprovalGateMiddleware`` — building a server with an
                 ungated ``requires_approval`` tool raises at build time
                 rather than silently not enforcing it.
+            cache: ``False`` keeps a server-wide ``CacheMiddleware`` from
+                caching this tool's results (use it for tools that change
+                data or must always be fresh).  Tools annotated
+                ``destructive_hint=True`` are never cached either.
 
         Example::
 
@@ -269,6 +303,7 @@ class MCPServer:
                 annotations=annotations,
                 max_concurrent=max_concurrent,
                 requires_approval=requires_approval,
+                cache=cache,
             )
             self._tool_registry.register(tool_def)
 
@@ -665,7 +700,7 @@ class MCPServer:
         self,
         transport: str = "stdio",
         *,
-        host: str = "0.0.0.0",  # nosec B104 - public bind is explicit opt-in for server transports
+        host: str = "127.0.0.1",
         port: int = 8080,
         dashboard: bool = False,
         cors: Any = None,
@@ -674,9 +709,22 @@ class MCPServer:
     ) -> None:
         """Start the server (blocking).
 
+        Over HTTP/SSE the server also answers ``GET /health`` (liveness)
+        and ``GET /health/ready`` (readiness from a registered
+        :class:`HealthCheck`, ``503`` when a required check fails) for
+        container and Kubernetes probes.
+
         Args:
             transport: ``"stdio"``, ``"http"``, or ``"sse"``.
-            host: Bind host for HTTP/SSE transports.
+            host: Bind host for HTTP/SSE transports.  Defaults to
+                ``"127.0.0.1"`` (reachable from this machine only, with
+                Host/Origin validation on).  Pass ``"0.0.0.0"`` to listen on
+                every interface — in a container, for example — and name
+                the public host in ``allowed_hosts``; without it a
+                non-loopback bind does not validate ``Host`` and logs a
+                warning at startup.  A non-loopback bind without
+                ``AuthMiddleware`` also logs a warning: every tool is then
+                callable by anyone who can reach the address.
             port: Bind port for HTTP/SSE transports.
             dashboard: Enable live terminal monitoring dashboard.
             cors: Optional ``CORSConfig`` for HTTP/SSE transports.
@@ -708,7 +756,7 @@ class MCPServer:
         self,
         transport: str = "stdio",
         *,
-        host: str = "0.0.0.0",  # nosec B104 - public bind is explicit opt-in for server transports
+        host: str = "127.0.0.1",
         port: int = 8080,
         dashboard: bool = False,
         cors: Any = None,
@@ -787,11 +835,12 @@ class MCPServer:
         if not dashboard and transport != "stdio":
             self._print_banner(transport=transport, host=host, port=port)
 
+        # ---- Warn about an unauthenticated server reachable from the network ----
+        if transport_type != TransportType.STDIO:
+            self._warn_unauthenticated_bind(host, port)
+
         # ---- Auth gate for transport-level rejection ----
-        auth_gate = None
-        if self._require_auth and self._auth_provider:
-            if hasattr(self._auth_provider, "verify_token"):
-                auth_gate = self._auth_provider.verify_token
+        auth_gate = self._transport_auth_gate()
 
         # ---- Start ----
         try:
@@ -811,10 +860,134 @@ class MCPServer:
                 token_endpoint=self._token_endpoint,
                 cors=cors,
                 security_settings=security_settings,
+                health=self._health_check,
             )
         finally:
             if _dashboard_obj:
                 _dashboard_obj.stop()
+
+    def asgi_app(
+        self,
+        transport: str = "http",
+        *,
+        allowed_hosts: list[str] | None = None,
+        allowed_origins: list[str] | None = None,
+        cors: Any = None,
+        stateless: bool = False,
+    ) -> Any:
+        """Return the server as an ASGI application, for uvicorn, gunicorn or hypercorn.
+
+        Serves the same routes as :meth:`run` (``/mcp`` — or ``/sse`` and
+        ``/messages/`` — plus ``/health`` and ``/health/ready``) with the
+        same auth gate, token endpoint and CORS.  The app's lifespan runs
+        the server's startup and shutdown hooks and the MCP session
+        manager, so the ASGI server must run lifespan events (uvicorn's
+        default ``--lifespan auto`` does).
+
+        Example::
+
+            # app.py
+            app = server.asgi_app(allowed_hosts=["mcp.example.com"])
+
+            # uvicorn app:app --host 0.0.0.0 --port 8080
+            # gunicorn app:app -k uvicorn.workers.UvicornWorker -w 4
+
+        The bind address belongs to the ASGI server, so ``Host``
+        validation cannot follow it: the app always accepts the loopback
+        names, plus every value in ``allowed_hosts``.  Name the public host
+        your clients or proxy send, or every request through it is refused
+        with ``421``.
+
+        **Several workers or replicas.** Each process keeps its own MCP
+        sessions.  A request whose ``mcp-session-id`` belongs to another
+        process is answered ``404``; Promptise clients then open a new
+        session, so routing that is not sticky turns into a new session on
+        almost every call.  Route each ``mcp-session-id`` to one process
+        (sticky sessions), or pass ``stateless=True``.
+
+        Args:
+            transport: ``"http"`` (Streamable HTTP) or ``"sse"``.
+            allowed_hosts: ``Host`` header values to accept in addition to
+                the loopback names, e.g. ``["mcp.example.com"]``.
+            allowed_origins: ``Origin`` header values to accept for browser
+                clients, in addition to the loopback origins.
+            cors: Optional ``CORSConfig``.
+            stateless: Streamable HTTP only.  Serve each request without a
+                session, so any worker or replica can answer it.  Stateless
+                servers cannot send requests back to the client: MCP
+                elicitation and sampling (including elicitation approval
+                gates) and per-session state are unavailable.
+
+        Raises:
+            ValueError: An unknown or stdio *transport*, ``stateless`` with
+                SSE, or an empty ``allowed_hosts`` list.
+        """
+        from ._transport import build_http_app, build_sse_app, build_transport_security
+
+        transport_type = TransportType(transport)
+        if transport_type == TransportType.STDIO:
+            raise ValueError("asgi_app() serves HTTP; use run(transport='stdio') for stdio")
+        if stateless and transport_type != TransportType.HTTP:
+            raise ValueError("stateless=True applies to the Streamable HTTP transport only")
+
+        # The ASGI server owns the bind, so validate as a loopback bind does:
+        # loopback names always, plus the hosts the operator names.
+        security_settings = build_transport_security(
+            "127.0.0.1", allowed_hosts=allowed_hosts, allowed_origins=allowed_origins
+        )
+        ll_server = self._build_lowlevel_server()
+        common: dict[str, Any] = {
+            "shutdown_timeout": self._shutdown_timeout,
+            "auth_gate": self._transport_auth_gate(),
+            "token_endpoint": self._token_endpoint,
+            "cors": cors,
+            "security_settings": security_settings,
+            "health": self._health_check,
+        }
+        if transport_type == TransportType.HTTP:
+            return build_http_app(ll_server, self._lifecycle, stateless=stateless, **common)
+        return build_sse_app(
+            ll_server, ll_server.create_initialization_options(), self._lifecycle, **common
+        )
+
+    def _has_auth_middleware(self) -> bool:
+        """True when an ``AuthMiddleware`` is on the server or on any router's tools."""
+        from ._auth import AuthMiddleware
+
+        if any(isinstance(m, AuthMiddleware) for m in self._middlewares):
+            return True
+        return any(
+            isinstance(m, AuthMiddleware)
+            for tdef in self._tool_registry.list_all()
+            for m in tdef.router_middleware
+        )
+
+    def _warn_unauthenticated_bind(self, host: str, port: int) -> None:
+        """Log a warning when a non-loopback HTTP/SSE bind has no ``AuthMiddleware``.
+
+        Such a server answers every client that can reach the address:
+        anyone on the network can list and call its tools.
+        """
+        from ._transport import is_loopback_host
+
+        if is_loopback_host(host) or self._has_auth_middleware():
+            return
+        logger.warning(
+            "MCP server %r is bound to %s:%d, which is reachable from other machines, and "
+            "has no AuthMiddleware: anyone who can reach that address can list and call "
+            "every tool. Add AuthMiddleware (JWTAuth, APIKeyAuth, ...), front the server "
+            "with an authenticating gateway, or bind host='127.0.0.1' (the default).",
+            self.name,
+            host,
+            port,
+        )
+
+    def _transport_auth_gate(self) -> Callable[[str], bool] | None:
+        """Verifier for the HTTP auth gate when ``require_auth`` is on."""
+        if self._require_auth and self._auth_provider:
+            if hasattr(self._auth_provider, "verify_token"):
+                return cast("Callable[[str], bool]", self._auth_provider.verify_token)
+        return None
 
     # ------------------------------------------------------------------
     # Internal: build the mcp.server.lowlevel.Server
@@ -830,6 +1003,12 @@ class MCPServer:
                 register_manifest(self)
             except ValueError:
                 pass  # Already registered (e.g. run_async called twice)
+
+        # Registered at build time, after the user's hooks, so it runs
+        # first on shutdown: background tasks finish before resources close.
+        if not self._background_drain_registered:
+            self._lifecycle.add_shutdown(self._drain_background_tasks)
+            self._background_drain_registered = True
 
         ll = _LowLevelServer(self.name, self.version, instructions=self.instructions)
         self._register_tool_handlers(ll)
@@ -997,13 +1176,13 @@ class MCPServer:
         self._apply_require_tenant()
 
         # Auto-insert per-tool concurrency limiter if any tool has
-        # max_concurrent set (guard against double-insert)
+        # max_concurrent set (guard against double-insert), outside any
+        # circuit breaker so capacity refusals never trip it
         has_per_tool_limits = any(getattr(t, "max_concurrent", None) for t in tool_reg.list_all())
         if has_per_tool_limits:
-            from ._concurrency import PerToolConcurrencyLimiter
+            from ._concurrency import PerToolConcurrencyLimiter, insert_per_tool_limiter
 
-            if not any(isinstance(m, PerToolConcurrencyLimiter) for m in middlewares):
-                middlewares.append(PerToolConcurrencyLimiter())
+            insert_per_tool_limiter(middlewares, PerToolConcurrencyLimiter())
 
         # Auto-insert declared rate-limit enforcement if any tool has
         # rate_limit set (guard against double-insert). This makes
@@ -1059,12 +1238,20 @@ class MCPServer:
         _default_chain = compile_middleware_chain(list(middlewares))
 
         note_session = self._note_session
+        hide_unauthorized = self._hide_unauthorized_tools
 
         @ll.list_tools()
         async def list_tools() -> list[Tool]:
             note_session(ll)
+            tdefs = tool_reg.list_all()
+            if hide_unauthorized:
+                from ._visibility import visible_tools
+
+                tdefs = await visible_tools(
+                    tdefs, middlewares, server_name=server_name, meta=_request_headers(ll)
+                )
             tools: list[Tool] = []
-            for tdef in tool_reg.list_all():
+            for tdef in tdefs:
                 # Build MCP ToolAnnotations from our ToolAnnotations
                 mcp_annotations = None
                 if tdef.annotations is not None:
@@ -1248,23 +1435,37 @@ class MCPServer:
 
                     effective_handler = _guarded
 
+                if tdef.timeout:
+                    effective_handler = with_tool_timeout(effective_handler, tdef.timeout, name)
+
                 # Use pre-compiled middleware chain (avoids per-request
                 # closure construction)
                 chain_fn = _compiled_chains.get(name, _default_chain)
-                result = await chain_fn(ctx, effective_handler, arguments)
+                cancel_token = ctx.state.get("_cancellation_token")
+                if cancel_token is None:
+                    result = await chain_fn(ctx, effective_handler, arguments)
+                else:
+                    result = await _run_cancellable(
+                        chain_fn(ctx, effective_handler, arguments),
+                        cancel_token,
+                        grace_period=self._cancel_grace_period,
+                    )
 
                 # Serialise result
                 serialised = _serialise_result(result)
 
-                # Run background tasks (fire-and-forget, errors logged)
+                # Background tasks run after the response is sent — never
+                # while the client waits (errors are logged, not returned).
                 bg = ctx.state.get("_background_tasks")
-                if bg is not None:
-                    await bg.execute()
+                if bg is not None and bg.pending:
+                    self._run_background(bg)
 
                 return serialised
 
             except MCPError as exc:
-                return [TextContent(type="text", text=exc.to_text())]
+                # A handler registered for this MCPError subclass may reshape it
+                mapped = await exception_handlers.handle(ctx, exc)
+                return [TextContent(type="text", text=(mapped or exc).to_text())]
             except Exception as exc:
                 # Try custom exception handlers first
                 mapped = await exception_handlers.handle(ctx, exc)
@@ -1289,15 +1490,52 @@ class MCPServer:
                 await di_resolver.cleanup()
                 clear_context()
 
+    def _run_background(self, bg: Any) -> None:
+        """Run a request's ``BackgroundTasks`` in their own task.
+
+        The task inherits the request's context (``get_context()`` still
+        works in it) and starts once the handler has returned, so the
+        response is not held back.
+        """
+
+        async def _after_response() -> None:
+            await asyncio.sleep(0)  # let the response go out first
+            await bg.execute()
+
+        task = asyncio.create_task(_after_response(), name=f"{self.name}-background-tasks")
+        self._background_runs.add(task)
+        task.add_done_callback(self._background_runs.discard)
+
+    async def _drain_background_tasks(self) -> None:
+        """Shutdown hook: wait for background tasks still running."""
+        if self._background_runs:
+            logger.info("Waiting for %d background task run(s)", len(self._background_runs))
+            await asyncio.gather(*self._background_runs, return_exceptions=True)
+
+    async def _visible(self, ll: LowLevelServer, definitions: list[Any], kind: str) -> list[Any]:
+        """*definitions* filtered for the caller with ``hide_unauthorized_tools``."""
+        if not self._hide_unauthorized_tools:
+            return definitions
+        from ._visibility import visible_tools
+
+        return await visible_tools(
+            definitions,
+            self._middlewares,
+            server_name=self.name,
+            meta=_request_headers(ll),
+            request_type=kind,
+        )
+
     def _register_resource_handlers(self, ll: LowLevelServer) -> None:
         res_reg = self._resource_registry
         note_session = self._note_session
+        visible = self._visible
 
         @ll.list_resources()
         async def list_resources() -> list[Resource]:
             note_session(ll)
             resources: list[Resource] = []
-            for rdef in res_reg.list_all():
+            for rdef in await visible(ll, res_reg.list_all(), "resource"):
                 resources.append(
                     Resource(
                         uri=cast("AnyUrl", rdef.uri),
@@ -1312,7 +1550,7 @@ class MCPServer:
         async def list_resource_templates() -> list[ResourceTemplate]:
             note_session(ll)
             templates: list[ResourceTemplate] = []
-            for rdef in res_reg.list_templates():
+            for rdef in await visible(ll, res_reg.list_templates(), "resource"):
                 templates.append(
                     ResourceTemplate(
                         uriTemplate=rdef.uri,
@@ -1342,6 +1580,7 @@ class MCPServer:
     def _register_prompt_handlers(self, ll: LowLevelServer) -> None:
         prompt_reg = self._prompt_registry
         note_session = self._note_session
+        visible = self._visible
 
         @ll.list_prompts()
         async def list_prompts() -> list[Any]:
@@ -1349,7 +1588,7 @@ class MCPServer:
 
             note_session(ll)
             prompts: list[MCPPrompt] = []
-            for pdef in prompt_reg.list_all():
+            for pdef in await visible(ll, prompt_reg.list_all(), "prompt"):
                 args = [
                     PromptArgument(
                         name=a["name"],
@@ -1579,3 +1818,32 @@ def _prompt_to_mcp_def(p: Any, *, version: str | None = None) -> PromptDef:
         arguments=arguments,
         input_model=input_model,
     )
+
+
+async def _run_cancellable(work: Any, token: Any, *, grace_period: float) -> Any:
+    """Await a tool call so that MCP cancellation reaches its ``CancellationToken``.
+
+    When the client sends ``notifications/cancelled``, the MCP SDK cancels
+    the request's task.  The call runs in a child task instead, so on that
+    cancellation the token is set first and the handler gets
+    *grace_period* seconds to stop on its own (``cancel.check()``,
+    ``cancel.wait()``) before its task is cancelled too.  The cancellation
+    is then re-raised: the SDK has already answered the client.
+    """
+    import anyio
+
+    task = asyncio.ensure_future(work)
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        token.cancel(reason="Request cancelled by the client")
+        # Shielded: the request's cancel scope would otherwise interrupt
+        # the grace period immediately.
+        with anyio.CancelScope(shield=True):
+            done, _ = await asyncio.wait({task}, timeout=grace_period)
+            if not done:
+                task.cancel()
+                await asyncio.wait({task})
+        if not task.cancelled() and task.exception() is not None:
+            logger.debug("Cancelled tool call ended with %r", task.exception())
+        raise
