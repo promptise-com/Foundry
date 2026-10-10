@@ -7,6 +7,7 @@ path with a scripted completer, and the CLI's non-interactive guard.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import sys
@@ -110,6 +111,31 @@ def _scripted(*responses: object):
         return queue.pop(0)
 
     return complete
+
+
+@pytest.fixture(autouse=True)
+def _patient_pilot(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make a bare ``pilot.pause()`` sturdy on slow CI runners.
+
+    Textual's ``pause()`` waits for one idle cycle; a message posted from a
+    worker thread or a timer (a spec load, a notice, a focus change) can land
+    just after it returns, so an assertion one frame later fails on a loaded
+    runner and passes everywhere else. A bare pause now also gives late
+    messages 50 ms and idles again. An explicit ``pause(delay)`` is unchanged.
+    """
+    from textual.pilot import Pilot
+
+    original = Pilot.pause
+
+    async def pause(self: Pilot, delay: float | None = None) -> None:
+        if delay is not None:
+            await original(self, delay)
+            return
+        await original(self)
+        await asyncio.sleep(0.05)
+        await original(self)
+
+    monkeypatch.setattr(Pilot, "pause", pause)
 
 
 async def _settle(pilot, seconds: float = 0.3) -> None:
@@ -1943,25 +1969,31 @@ class TestMarkdownLinks:
                 ),
             )
             assert opened == []
+
+            def blocked() -> int:
+                return sum("Link not opened" in n.message for n in app._notifications)
+
             for href in (
                 "x-apple.systempreferences:com.apple.preference.security",
                 "//evil/share/p.exe",
             ):
+                count = blocked()
                 detail.post_message(Markdown.LinkClicked(detail, href))
-                await pilot.pause()
+                # wait until this click was handled (its notice is posted), so the
+                # assertion below cannot pass just because nothing ran yet
+                await _until(pilot, lambda count=count: blocked() > count)
             assert opened == []
             detail.post_message(Markdown.LinkClicked(detail, "https://ok.example/"))
-            await pilot.pause()
-            assert opened == ["https://ok.example/"]
+            await _until(pilot, lambda: opened == ["https://ok.example/"])
             # a real click on the rendered link goes the same way
             from textual.widgets._markdown import MarkdownParagraph
 
             paragraph = next(
                 b for b in detail.query(MarkdownParagraph) if "docs" in str(b._content)
             )
-            before = sum("Link not opened" in n.message for n in app._notifications)
+            before = blocked()
             await pilot.click(paragraph, offset=(1, 0))  # on the word "docs"
-            await pilot.pause()
+            await _until(pilot, lambda: blocked() > before)
             assert opened == ["https://ok.example/"]  # ssh link clicked: still not opened
             after = [n.message for n in app._notifications if "Link not opened" in n.message]
             assert len(after) == before + 1 and after[-1].endswith("ssh://evil.example/x")
