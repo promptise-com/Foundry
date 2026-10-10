@@ -208,7 +208,11 @@ flowchart LR
    tools module per resource), the `server.py` launcher, `tests/`,
    `README.md`, and the scaffold (`pyproject.toml`, `Dockerfile`,
    `.env.example`, `.gitignore`) on first write. The package depends only on
-   `promptise` and `httpx`.
+   `promptise` and `httpx`. Every tool parameter advertises the spec's JSON
+   Schema in `tools/list` — enums, patterns, bounds, lengths, formats,
+   defaults, nullability, `oneOf`/`anyOf`, nested objects with their
+   `required` lists, descriptions — not just its Python type; `readOnly`
+   properties are not inputs.
 6. **Eval** — `--eval` drives the generated server with a real agent and
    grades it. See [Agent Readiness Score](#agent-readiness-score).
 
@@ -1018,9 +1022,24 @@ an API key in the environment.
   type …` rather than emitted as a tool that could never work. An object
   body with no properties (Stripe's empty bodies on `GET`) adds no
   parameter.
-- **An explicit `null` cannot be sent.** `None` means "not provided" and the
-  value is omitted, so PATCH-style `{"assignee": null}` is unreachable through
-  generated tools.
+- **An explicit `null` is sent only for a required, nullable JSON body
+  property.** Its `None` cannot mean "not provided" (the property is
+  required), so it is sent as `null`. Everywhere else `None` means "not
+  provided" and the value is omitted, so a PATCH-style `{"assignee": null}`
+  on an *optional* property is unreachable through generated tools, and a
+  path or query string cannot carry a `null` at all.
+- **Schemas are advertised, the API enforces them.** Each parameter's JSON
+  Schema comes from the spec (OpenAPI 3.0's `nullable`, Swagger 2's
+  `x-nullable` and boolean `exclusiveMinimum`/`exclusiveMaximum` are
+  translated to JSON Schema; `discriminator`, `xml`, vendor `x-` keys and
+  leftover `$ref` keys are dropped). The generated handler validates the base
+  type only (`str`, `int`, `dict[str, Any]`); an enum, pattern or bound is the
+  API's to reject. One parameter advertises at most 4,000 characters of
+  schema and one tool 24,000: past that, nested descriptions, then nested
+  structure, then the enum are cut, and
+  `promptise.mcpcast.emit.trimmed_schemas(plan)`, the guided setup's review
+  and the Agent Readiness report name the tool. A recursive
+  schema bottoms out at a plain `{"type": "object"}` after a few `$ref` hops.
 - **`passthrough` and `api-key` need HTTP or SSE.** Both rely on request
   headers, which stdio clients cannot send; over stdio use `--auth env-token`
   (or `none` for an open API).

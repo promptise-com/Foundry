@@ -382,7 +382,7 @@ def test_generated_tests_use_the_identifiers_the_tools_expose(
     assert '"user-id"' not in tests and '"from"' not in tests
     result = _run_generated_suite(out, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "5 passed" in result.stdout  # listing + 3 tools + 1 approval test
+    assert "6 passed" in result.stdout  # listing + schemas + 3 tools + 1 approval test
     _assert_lints_clean(out, mypy_cache)
 
 
@@ -406,7 +406,7 @@ def test_generated_test_suite_passes(
     result = _run_generated_suite(out, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
     plan = mcpcast(SPEC, name="helpdesk", profile=profile)
-    expected = 1 + len(plan.tools) + len(plan.gated_tools)
+    expected = 2 + len(plan.tools) + len(plan.gated_tools)  # listing + schemas
     assert f"{expected} passed" in result.stdout
     _assert_lints_clean(out, mypy_cache)
 
@@ -543,7 +543,7 @@ def test_hostile_names_stay_within_the_margin(
     _assert_lints_clean(out, mypy_cache)
     result = _run_generated_suite(out, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "17 passed" in result.stdout  # listing + 15 tools + 1 approval test
+    assert "18 passed" in result.stdout  # listing + schemas + 15 tools + 1 approval test
 
 
 ENCODED_PATHS_SPEC = {
@@ -618,7 +618,7 @@ def test_generated_tests_pass_for_percent_encoded_path_examples(
     assert "url.path" not in tests
     result = _run_generated_suite(out, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "4 passed" in result.stdout  # listing + 3 tools
+    assert "5 passed" in result.stdout  # listing + schemas + 3 tools
     _assert_lints_clean(out, mypy_cache)
 
 
@@ -659,5 +659,22 @@ def test_plain_http_project_passes_its_own_tests(
     assert 'monkeypatch.setattr("intranet_mcp.upstream.ALLOW_INSECURE_HTTP", True)' in conftest
     result = _run_generated_suite(out, tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "3 passed" in result.stdout  # listing + 2 tools
+    assert "4 passed" in result.stdout  # listing + schemas + 2 tools
+    _assert_lints_clean(out, mypy_cache)
+
+
+def test_a_schema_rich_project_passes_its_own_tests(tmp_path: Path, mypy_cache: Path) -> None:
+    """Enums, bounds, patterns, nullable unions, nested objects and a required nullable
+    body property (sent as ``null``, see ``Route.nulls``): the generated suite checks that
+    every parameter advertises the plan's schema, and the code stays lint- and type-clean."""
+    from test_mcpcast_schema_fidelity import SPEC as RICH_SPEC
+
+    plan = mcpcast(RICH_SPEC, name="shop", profile=SafetyProfile.STANDARD, auth=AuthMode.NONE)
+    out = tmp_path / "shop-mcp"
+    write_project(plan, out)
+    items = (out / "shop_mcp" / "tools" / "items.py").read_text(encoding="utf-8")
+    assert 'nulls=("parent",)' in items
+    result = _run_generated_suite(out, tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "5 passed" in result.stdout  # listing + schemas + 2 tools + 1 approval test
     _assert_lints_clean(out, mypy_cache)

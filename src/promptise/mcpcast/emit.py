@@ -59,6 +59,7 @@ from .schema import (
     AuthMode,
     MCPcastError,
     MCPcastPlan,
+    ParamPlan,
     RiskClass,
     RoutePlan,
     ToolPlan,
@@ -77,6 +78,7 @@ __all__ = [
     "render_project",
     "render_readme",
     "tool_group",
+    "trimmed_schemas",
     "write_project",
 ]
 
@@ -231,7 +233,7 @@ def _py_str(text: str) -> str:
     return json.dumps(text, ensure_ascii=False)
 
 
-def _literal(value: Any, indent: int = 0, prefix: int = 0) -> str:
+def _literal(value: Any, indent: int = 0, prefix: int = 0, wrap_strings: bool = False) -> str:
     """A Python source literal for a JSON-compatible value.
 
     Collections that do not fit in the remaining width are laid out one entry
@@ -240,9 +242,12 @@ def _literal(value: Any, indent: int = 0, prefix: int = 0) -> str:
     the literal starts at and *prefix* the width of what precedes it on that
     line (``tags=``); a trailing comma is always allowed for.  Non-finite
     numbers (``inf``, ``nan``) are not JSON and are rendered as strings.
+    With *wrap_strings*, a string that does not fit where it stands becomes
+    parenthesised adjacent literals (spec prose in a schema), which the
+    formatter keeps as written.
     """
     value = json.loads(json.dumps(value, default=str), parse_constant=str)
-    return _lay_out(value, indent, prefix)
+    return _lay_out(value, indent, prefix, wrap_strings)
 
 
 def _fits(indent: int, prefix: int, flat: str, tail: int = 1) -> bool:
@@ -256,9 +261,11 @@ def _fits(indent: int, prefix: int, flat: str, tail: int = 1) -> bool:
     return indent + prefix + _columns(flat) + tail <= _WIDTH and "\n" not in flat
 
 
-def _lay_out(value: Any, indent: int, prefix: int = 0) -> str:
+def _lay_out(value: Any, indent: int, prefix: int = 0, wrap_strings: bool = False) -> str:
     """Render *value* once, linearly: every child is laid out exactly one time."""
     if isinstance(value, str):
+        if wrap_strings:
+            return "\n".join(_wrapped_string(value, indent, prefix))
         return _py_str(value)
     if isinstance(value, bool) or value is None:
         return repr(value)
@@ -267,7 +274,7 @@ def _lay_out(value: Any, indent: int, prefix: int = 0) -> str:
     pad = " " * (indent + 4)
     if isinstance(value, dict):
         entries = [
-            (key, _lay_out(v, indent + 4, len(key) + 2))
+            (key, _lay_out(v, indent + 4, _columns(key) + 2, wrap_strings))
             for key, v in ((_py_str(str(k)), v) for k, v in value.items())
         ]
         flat = "{" + ", ".join(f"{k}: {v}" for k, v in entries) + "}"
@@ -275,7 +282,7 @@ def _lay_out(value: Any, indent: int, prefix: int = 0) -> str:
             return flat
         return "{\n" + "".join(f"{pad}{k}: {v},\n" for k, v in entries) + " " * indent + "}"
     if isinstance(value, list):
-        items = [_lay_out(v, indent + 4) for v in value]
+        items = [_lay_out(v, indent + 4, 0, wrap_strings) for v in value]
         flat = "[" + ", ".join(items) + "]"
         if _fits(indent, prefix, flat):
             return flat
@@ -426,6 +433,7 @@ def _signature(tool: ToolPlan) -> tuple[list[str], list[tuple[str, str]], dict[s
     optional: list[str] = []
     args: list[tuple[str, str]] = []
     idents: dict[str, str] = {}
+    nulls = _null_params(tool)
     for wire, param in tool.params.items():
         if param.hidden:
             # Laid out where it will sit: an entry of the ``args`` dict, twelve
@@ -436,7 +444,11 @@ def _signature(tool: ToolPlan) -> tuple[list[str], list[tuple[str, str]], dict[s
         idents[wire] = ident
         typ = python_type(param.json_schema)
         if param.required:
-            required.append(f"{ident}: {typ}")
+            # A required body property the spec lets be null accepts None and
+            # sends it as JSON null (see _null_params): it cannot be omitted, so
+            # None is the caller's explicit null.
+            nullable = typ != "Any" and wire in nulls
+            required.append(f"{ident}: {typ}{' | None' if nullable else ''}")
         else:
             annotation = "Any" if typ == "Any" else f"{typ} | None"
             optional.append(f"{ident}: {annotation} = None")
@@ -444,6 +456,26 @@ def _signature(tool: ToolPlan) -> tuple[list[str], list[tuple[str, str]], dict[s
     # ``ctx`` is injected by the server (not part of the tool's input schema);
     # it goes first so optional parameters can carry ``= None`` defaults.
     return ["ctx: RequestContext", *required, *optional], args, idents
+
+
+def _null_params(tool: ToolPlan) -> frozenset[str]:
+    """Required parameters whose explicit ``null`` the server sends as JSON ``null``.
+
+    Only a JSON body property can carry a null (a path or query string
+    cannot), and only a required one is unambiguous: an optional
+    parameter's ``None`` means "not given" and is left out of the request.
+    """
+    return frozenset(
+        name
+        for name, param in tool.params.items()
+        if param.required
+        and not param.hidden
+        and _nullable(param.json_schema)
+        and all(
+            name in r.params and r.params[name].location == "body" and r.body_encoding == "json"
+            for r in tool.routes
+        )
+    )
 
 
 def _shape_hint(schema: dict[str, Any], name: str) -> str | None:
@@ -549,13 +581,16 @@ def _describe_tool(tool: ToolPlan, idents: dict[str, str]) -> tuple[str, bool]:
         if param.description:
             parts.append(capped(param.description.strip(), _MAX_PARAM_DESC_CHARS))
         extras: list[str] = []
-        enum = param.json_schema.get("enum")
-        if isinstance(enum, list) and enum:
+        enum = _enum_of(param.json_schema)
+        if enum:
             entries = [capped(str(e), _MAX_ENUM_ENTRY_CHARS) for e in enum[:_MAX_ENUM_ENTRIES]]
             more = len(enum) - len(entries)
             extras.append("one of: " + ", ".join(entries) + (f" … (+{more} more)" if more else ""))
-        if param.default is not None:
-            extras.append(f"default {param.default!r}")
+        default = param.default
+        if default is None:
+            default = _unwrap_nullable(param.json_schema).get("default")
+        if default is not None:
+            extras.append(f"default {default!r}")
         shape = _shape_hint(param.json_schema, wire)
         if shape is not None:
             extras.append(f"e.g. {shape}")
@@ -566,8 +601,8 @@ def _describe_tool(tool: ToolPlan, idents: dict[str, str]) -> tuple[str, bool]:
     lines = [prose]
     if notes:
         # The parameter notes fill what the capped prose and tail leave of the
-        # budget; past it the agent is pointed at the input schema, which the
-        # server exposes in full.
+        # budget; past it the agent is pointed at the input schema, where every
+        # parameter advertises its JSON Schema (see _advertised_schema).
         room = _MAX_DESCRIPTION_CHARS - len(prose) - sum(len(t) + 1 for t in tail)
         lines += ["", "Parameters:"]
         used = sum(len(line) + 1 for line in lines[1:])
@@ -595,11 +630,265 @@ def _required_alternatives(tool: ToolPlan, idents: dict[str, str]) -> list[str]:
     return groups if len(set(groups)) > 1 else []
 
 
-def _route_literal(route: RoutePlan, indent: int = 8, prefix: int = 0) -> str:
-    """``Route(...)`` for one route, at column *indent* after *prefix* characters."""
+# ---------------------------------------------------------------------------
+# Advertised parameter schemas
+# ---------------------------------------------------------------------------
+
+_MAX_SCHEMA_CHARS = 4000
+"""Longest JSON Schema (serialised) one parameter advertises in ``tools/list``.  Past it
+the schema is trimmed in steps — nested descriptions, examples and titles first, then
+the nested structure, then the enum — so a spec with a page-long body schema or an enum
+of thousands of entries cannot bloat every listing; :func:`trimmed_schemas` reports it."""
+_MAX_TOOL_SCHEMA_CHARS = 24000
+"""Longest set of parameter schemas one tool advertises — hundreds of parameters at the
+per-parameter cap would still make one listing megabytes."""
+
+_SCHEMA_DATA_KEYS = frozenset({"default", "enum", "const", "examples"})
+"""Keywords whose value is data, never a schema: copied, not walked."""
+_NAMED_SCHEMAS = frozenset({"properties", "patternProperties"})
+"""Keywords whose value maps names (data) to schemas."""
+_DROPPED_KEYWORDS = frozenset(
+    {"$ref", "$defs", "definitions", "$schema", "$id", "discriminator", "xml", "externalDocs"}
+)
+"""OpenAPI-only or reference keywords.  References are inlined by the parser; a
+leftover ``$ref`` would make the server's schema builder chase a pointer to nowhere."""
+_NESTED_ANNOTATIONS = ("description", "examples", "title")
+
+
+def _has_ref_key(value: Any) -> bool:
+    """Whether a ``$ref`` key appears anywhere in *value* (data included)."""
+    if isinstance(value, dict):
+        return "$ref" in value or any(_has_ref_key(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_has_ref_key(v) for v in value)
+    return False
+
+
+def _clean_schema(node: Any) -> Any:
+    """A JSON Schema fragment from the plan as MCP clients should read it.
+
+    OpenAPI 3.0 dialect becomes JSON Schema (``nullable`` → a ``"null"``
+    type, boolean ``exclusiveMinimum``/``exclusiveMaximum`` → numbers,
+    ``example`` → ``examples``); vendor extensions and reference keywords
+    are dropped; nested descriptions are capped like a parameter's own.
+    Data (``default``, ``enum``, ``examples``) is copied as the spec wrote
+    it, unless it holds a ``$ref`` key, which no schema builder may see.
+    """
+    if isinstance(node, list):
+        return [_clean_schema(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        if not isinstance(key, str) or key.startswith("x-") or key in _DROPPED_KEYWORDS:
+            continue
+        if key in _SCHEMA_DATA_KEYS:
+            if not _has_ref_key(value):
+                out[key] = value
+        elif key == "example":
+            if "examples" not in node and not _has_ref_key(value):
+                out["examples"] = [value]
+        elif key in _NAMED_SCHEMAS and isinstance(value, dict):
+            out[key] = {n: _clean_schema(s) for n, s in value.items() if n != "$ref"}
+        elif key == "description" and isinstance(value, str):
+            out[key] = _clip(value.strip(), _MAX_PARAM_DESC_CHARS)
+        elif key != "nullable":
+            out[key] = _clean_schema(value)
+    if _declared_nullable(node):
+        _admit_null(out)
+    for bound, exclusive in (("minimum", "exclusiveMinimum"), ("maximum", "exclusiveMaximum")):
+        if isinstance(out.get(exclusive), bool):
+            if out.pop(exclusive) and bound in out:
+                out[exclusive] = out.pop(bound)
+    properties = out.get("properties")
+    if isinstance(properties, dict):
+        # A readOnly property is the server's to set (an id, a timestamp): it
+        # is never part of a request, and its ``required`` only binds responses.
+        read_only = {n for n, s in properties.items() if isinstance(s, dict) and s.get("readOnly")}
+        if read_only:
+            out["properties"] = {n: s for n, s in properties.items() if n not in read_only}
+            if isinstance(out.get("required"), list):
+                out["required"] = [n for n in out["required"] if n not in read_only]
+    return out
+
+
+def _declared_nullable(schema: dict[str, Any]) -> bool:
+    """OpenAPI 3.0's ``nullable: true`` or Swagger 2's ``x-nullable: true``."""
+    return schema.get("nullable") is True or schema.get("x-nullable") is True
+
+
+def _admit_null(schema: dict[str, Any]) -> None:
+    """Make *schema* accept ``null`` the way JSON Schema spells it, in place.
+
+    ``type: X`` becomes ``[X, "null"]``; a union gains a ``{"type": "null"}``
+    member; ``allOf`` (OpenAPI 3.0's nullable ``$ref``) becomes ``anyOf:
+    [{allOf}, null]``; an ``enum`` gains ``null``, which it must list for a
+    ``null`` to validate.  A schema with none of these already admits ``null``.
+    """
+    typ = schema.get("type")
+    if isinstance(typ, str):
+        if typ != "null":
+            schema["type"] = [typ, "null"]
+    elif isinstance(typ, list):
+        if "null" not in typ:
+            schema["type"] = [*typ, "null"]
+    elif isinstance(schema.get("anyOf") or schema.get("oneOf"), list):
+        key = "anyOf" if isinstance(schema.get("anyOf"), list) else "oneOf"
+        if not any(isinstance(m, dict) and m.get("type") == "null" for m in schema[key]):
+            schema[key] = [*schema[key], {"type": "null"}]
+    elif isinstance(schema.get("allOf"), list):
+        schema["anyOf"] = [{"allOf": schema.pop("allOf")}, {"type": "null"}]
+    enum = schema.get("enum")
+    if isinstance(enum, list) and None not in enum:
+        schema["enum"] = [*enum, None]
+
+
+def _nullable(schema: dict[str, Any]) -> bool:
+    """Whether the plan's schema lets the parameter be ``null`` (any dialect)."""
+    if _declared_nullable(schema):
+        return True
+    typ = schema.get("type")
+    if isinstance(typ, list) and "null" in typ:
+        return True
+    members = [m for key in ("anyOf", "oneOf") for m in _as_list(schema.get(key))]
+    return any(isinstance(m, dict) and m.get("type") == "null" for m in members)
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _strip_nested_annotations(node: Any, top: bool = True) -> Any:
+    """*node* without descriptions, examples and titles below the top level."""
+    if isinstance(node, list):
+        return [_strip_nested_annotations(item, top) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        if not top and key in _NESTED_ANNOTATIONS:
+            continue
+        if key in _SCHEMA_DATA_KEYS:
+            out[key] = value
+        elif key in _NAMED_SCHEMAS and isinstance(value, dict):
+            out[key] = {n: _strip_nested_annotations(s, False) for n, s in value.items()}
+        elif key in ("anyOf", "oneOf", "allOf"):
+            # The members describe the parameter itself (FastAPI's Optional[X]
+            # is anyOf: [X, null]): their enums and bounds stay.
+            out[key] = _strip_nested_annotations(value, top)
+        else:
+            out[key] = _strip_nested_annotations(value, False)
+    return out
+
+
+def _shallow(node: dict[str, Any], keep_enum: bool) -> dict[str, Any]:
+    """*node*'s own keywords only: no nested properties or items, members shallow too."""
+    out: dict[str, Any] = {}
+    for key, value in node.items():
+        if key in ("anyOf", "oneOf") and isinstance(value, list):
+            out[key] = [_shallow(m, keep_enum) if isinstance(m, dict) else m for m in value]
+        elif (key == "enum" and keep_enum) or key == "type" or not isinstance(value, (dict, list)):
+            out[key] = value
+    return out
+
+
+def _schema_chars(schema: dict[str, Any]) -> int:
+    return len(json.dumps(schema, ensure_ascii=False, default=str))
+
+
+def _bare(schema: dict[str, Any]) -> dict[str, Any]:
+    """The type alone — what is left when even a shallow schema is over budget."""
+    return {k: schema[k] for k in ("type",) if k in schema}
+
+
+_TRIM_STEPS: tuple[Callable[[dict[str, Any]], dict[str, Any]], ...] = (
+    _strip_nested_annotations,
+    lambda s: _shallow(s, keep_enum=True),
+    lambda s: _shallow(s, keep_enum=False),
+    _bare,
+)
+"""How an over-budget schema is reduced, one step at a time, least information lost first."""
+
+
+def _advertised_schema(param: ParamPlan) -> tuple[dict[str, Any], bool]:
+    """``(schema, trimmed)`` — the JSON Schema a visible parameter advertises.
+
+    The plan's ``json_schema`` (see :func:`_clean_schema`) with the plan's
+    description — which curation may have rewritten — and default.  Larger
+    than :data:`_MAX_SCHEMA_CHARS`, it is reduced by :data:`_TRIM_STEPS`
+    until it fits and *trimmed* is ``True``.
+    """
+    schema = _clean_schema(param.json_schema)
+    if param.description.strip():
+        schema["description"] = _clip(param.description.strip(), _MAX_PARAM_DESC_CHARS)
+    if param.default is not None:
+        schema["default"] = param.default
+    if _schema_chars(schema) <= _MAX_SCHEMA_CHARS:
+        return schema, False
+    for step in _TRIM_STEPS:
+        schema = step(schema)
+        if _schema_chars(schema) <= _MAX_SCHEMA_CHARS:
+            break
+    return schema, True
+
+
+def _tool_schemas(tool: ToolPlan, idents: dict[str, str]) -> tuple[dict[str, dict[str, Any]], bool]:
+    """``({identifier: schema}, trimmed)`` for the tool's visible parameters.
+
+    Each parameter is capped at :data:`_MAX_SCHEMA_CHARS`; together they are
+    capped at :data:`_MAX_TOOL_SCHEMA_CHARS`, past which every parameter is
+    reduced by the same :data:`_TRIM_STEPS` until the tool fits.
+    """
+    schemas: dict[str, dict[str, Any]] = {}
+    trimmed = False
+    for wire, param in tool.visible_params.items():
+        schemas[idents[wire]], cut = _advertised_schema(param)
+        trimmed = trimmed or cut
+    for step in _TRIM_STEPS:
+        if _schema_chars(schemas) <= _MAX_TOOL_SCHEMA_CHARS:
+            break
+        schemas = {name: step(schema) for name, schema in schemas.items()}
+        trimmed = True
+    return schemas, trimmed
+
+
+def trimmed_schemas(plan: MCPcastPlan) -> list[str]:
+    """Names of the tools whose advertised parameter schemas had to be trimmed.
+
+    Every other tool advertises the plan's JSON Schema for each parameter in
+    full; for a tool listed here an agent sees less than the spec declares —
+    a request body of many kilobytes, an enum of thousands of entries,
+    hundreds of parameters — which a review should see.
+
+    Args:
+        plan: The plan a project is generated from.
+
+    Returns:
+        Tool names in plan order; empty when nothing was trimmed.
+    """
+    return [tool.name for tool in plan.tools if _tool_schemas(tool, _signature(tool)[2])[1]]
+
+
+def _enum_of(schema: dict[str, Any]) -> list[Any] | None:
+    """The parameter's allowed values: its own ``enum``, or the one inside ``anyOf``/``oneOf``.
+
+    FastAPI writes an optional ``Literal`` as ``anyOf: [{enum: [...]}, {type: "null"}]``.
+    """
+    enum = _unwrap_nullable(schema).get("enum")
+    return enum if isinstance(enum, list) and enum else None
+
+
+def _route_literal(
+    route: RoutePlan, indent: int = 8, prefix: int = 0, nulls: frozenset[str] = frozenset()
+) -> str:
+    """``Route(...)`` for one route, at column *indent* after *prefix* characters.
+
+    *nulls* are the tool's parameters sent as JSON ``null`` (see :func:`_null_params`).
+    """
     path_params = tuple(n for n, p in route.params.items() if p.location == "path")
     query_params = tuple(n for n, p in route.params.items() if p.location == "query")
     body_params = tuple(n for n, p in route.params.items() if p.location == "body")
+    null_params = tuple(n for n in body_params if n in nulls)
     raw_body = next((n for n, p in route.params.items() if p.location == "raw_body"), None)
     aliases = {n: p.wire_name for n, p in route.params.items() if p.wire_name and p.wire_name != n}
 
@@ -620,6 +909,8 @@ def _route_literal(route: RoutePlan, indent: int = 8, prefix: int = 0) -> str:
             out.append(f"required={_names_tuple(route.required_params, at, len('required='))}")
         if route.body_encoding == "form":
             out.append("form=True")
+        if null_params:
+            out.append(f"nulls={_names_tuple(null_params, at, len('nulls='))}")
         if aliases:
             out.append(f"aliases={_literal(aliases, at, len('aliases='))}")
         if route.base_url:
@@ -697,6 +988,8 @@ def _render_tool(tool: ToolPlan, plan: MCPcastPlan) -> list[str]:
     out.append("    @server.tool(")
     out.extend(f"        {kw}," for kw in _decorator_kwargs(tool, description, plan))
     out.append("    )")
+    if tool.visible_params:
+        out.append(f"    @advertise(PARAM_SCHEMAS[{_py_str(tool.name)}])")
     out.append(f"    async def {tool.name}(")
     out.extend(f"        {p}," for p in params)
     out.append("    ) -> Any:")
@@ -728,11 +1021,15 @@ def _render_tool(tool: ToolPlan, plan: MCPcastPlan) -> list[str]:
 # Project layout
 # ---------------------------------------------------------------------------
 
-_PROMPTISE_MIN = "1.2"  # the release that introduced this layout
+_PROMPTISE_MIN = "1.2.1"
+"""The oldest release the generated code runs on as intended: 1.2 introduced the
+layout, and 1.2.1's tool schemas keep ``Annotated`` field metadata, which is how
+``advertise`` puts each parameter's JSON Schema into the tool's input schema (on
+1.2.0 the tools still work but advertise bare types)."""
 
 
 def _promptise_floor() -> str:
-    """``major.minor`` of the promptise that generated the project (never older than 1.2)."""
+    """``major.minor`` of the promptise that generated the project (never older than 1.2.1)."""
     import importlib.metadata
 
     try:
@@ -743,7 +1040,7 @@ def _promptise_floor() -> str:
     if not match:
         return _PROMPTISE_MIN
     major, minor = (int(g) for g in match.groups())
-    return f"{major}.{minor}" if (major, minor) >= (1, 2) else _PROMPTISE_MIN
+    return f"{major}.{minor}" if (major, minor) > (1, 2) else _PROMPTISE_MIN
 
 
 SCAFFOLD_ONCE: frozenset[str] = frozenset(
@@ -1111,6 +1408,7 @@ class Route:
     raw_body: str | None = None
     required: tuple[str, ...] = ()
     form: bool = False
+    nulls: tuple[str, ...] = ()  # body arguments whose None is sent as JSON null
     aliases: dict[str, str] | None = None  # tool argument name -> wire name
     base_url: str | None = None  # the operation's own server; MCPCAST_BASE_URL overrides it
 
@@ -1128,13 +1426,52 @@ def select_route(routes: tuple[Route, ...], args: dict[str, Any], hint: str | No
     """
     provided = {name for name, value in args.items() if value is not None}
     for route in routes:
-        if set(route.required) <= provided:
+        if set(route.required) <= provided | set(route.nulls):
             return route
     alternatives = hint or " | ".join(" + ".join(r.required) or "(no parameters)" for r in routes)
     raise ToolError(
         f"No route of this tool has its required arguments. Provide one of: {alternatives}",
         code="VALIDATION_ERROR",
     )
+
+
+Handler = TypeVar("Handler", bound=Callable[..., Any])
+
+
+def advertise(schemas: dict[str, dict[str, Any]]) -> Callable[[Handler], Handler]:
+    """Advertise each parameter's JSON Schema from the plan in the tool's input schema.
+
+    The handler's annotations carry the base type the server validates
+    (``str``, ``int``, ``list[Any]``); *schemas* — one per parameter, keyed
+    by its Python name — is what MCP clients and agents read in tools/list:
+    enums, bounds, lengths, patterns, formats, defaults and descriptions.
+    The API stays the authority on those constraints and rejects what
+    breaks them. Apply it below ``@server.tool``, which reads the schema.
+
+    Raises:
+        TypeError: When *schemas* names a parameter the handler does not have.
+    """
+
+    def apply(handler: Handler) -> Handler:
+        hints = get_type_hints(handler)
+        for name, schema in schemas.items():
+            if name not in hints:
+                raise TypeError(f"{handler.__name__}() has no parameter {name!r}")
+            metadata = Field(json_schema_extra=_replace_with(schema))
+            handler.__annotations__[name] = Annotated[hints[name], metadata]
+        return handler
+
+    return apply
+
+
+def _replace_with(schema: dict[str, Any]) -> Callable[[dict[str, Any]], None]:
+    """A ``json_schema_extra`` hook that swaps the generated field schema for *schema*."""
+
+    def replace(generated: dict[str, Any]) -> None:
+        generated.clear()
+        generated.update(copy.deepcopy(schema))
+
+    return replace
 
 
 def header(ctx: RequestContext, name: str) -> str | None:
@@ -1363,7 +1700,11 @@ class Upstream:
         if route.raw_body is not None:
             payload = args.get(route.raw_body)
         elif route.body_params:
-            payload = {route.wire(k): args[k] for k in route.body_params if args.get(k) is not None}
+            payload = {
+                route.wire(k): args.get(k)
+                for k in route.body_params
+                if args.get(k) is not None or k in route.nulls
+            }
         kwargs: dict[str, Any] = {"params": params, "headers": headers}
         if payload is not None and route.method != "HEAD":
             if route.form:
@@ -1488,28 +1829,32 @@ def _render_upstream(plan: MCPcastPlan) -> str:
     lines = _module_docstring(
         f"The HTTP client that calls the {plan.api.name} API on behalf of every tool.",
         plan,
-        "Routes describe where each argument travels (path, query, body); Upstream",
-        "adds the credential for the configured auth mode where the API expects it,",
-        "bounds every call by a wall-clock deadline, caps the response, scrubs the",
-        "credential from every body before the agent sees it and maps failures to",
-        "structured ToolError codes (UPSTREAM_AUTH_MISSING, UPSTREAM_AUTH_INVALID,",
-        "UPSTREAM_INSECURE, UPSTREAM_TIMEOUT, UPSTREAM_UNREACHABLE, UPSTREAM_ERROR,",
-        "UPSTREAM_RESPONSE_TOO_LARGE).",
+        "Routes describe where each argument travels (path, query, body), and",
+        "advertise puts each parameter's JSON Schema from the plan into the tool's",
+        "input schema. Upstream adds the credential for the configured auth mode",
+        "where the API expects it, bounds every call by a wall-clock deadline, caps",
+        "the response, scrubs the credential from every body before the agent sees",
+        "it and maps failures to structured ToolError codes (UPSTREAM_AUTH_MISSING,",
+        "UPSTREAM_AUTH_INVALID, UPSTREAM_INSECURE, UPSTREAM_TIMEOUT,",
+        "UPSTREAM_UNREACHABLE, UPSTREAM_ERROR, UPSTREAM_RESPONSE_TOO_LARGE).",
     )
     lines += [
         "",
         "from __future__ import annotations",
         "",
         "import asyncio",
+        "import copy",
         "import ipaddress",
         "import json",
         "import os",
+        "from collections.abc import Callable",
         "from dataclasses import dataclass",
-        "from typing import Any",
+        "from typing import Annotated, Any, TypeVar, get_type_hints",
         "from urllib.parse import quote, urlsplit",
         "",
         "import httpx",
         "from promptise.mcp.server import RequestContext, ToolError",
+        "from pydantic import Field",
         "",
         "from .config import (",
         "    ALLOW_INSECURE_HTTP,",
@@ -2091,6 +2436,14 @@ def _render_tools_module(plan: MCPcastPlan, group: str, tools: list[ToolPlan]) -
     for tool in tools:
         summaries.extend(_summary_lines(tool))
     lines = _module_docstring(_tools_summary(group), plan, "Tools:", *summaries)
+    schemas = {
+        tool.name: _tool_schemas(tool, _signature(tool)[2])[0]
+        for tool in tools
+        if tool.visible_params
+    }
+    imports = (
+        "Route, Upstream, advertise, select_route" if schemas else "Route, Upstream, select_route"
+    )
     lines += [
         "",
         "from __future__ import annotations",
@@ -2099,7 +2452,7 @@ def _render_tools_module(plan: MCPcastPlan, group: str, tools: list[ToolPlan]) -
         "",
         "from promptise.mcp.server import MCPServer, RequestContext",
         "",
-        "from ..upstream import Route, Upstream, select_route",
+        f"from ..upstream import {imports}",
         "",
         "# Upstream routes per tool. A tool with several routes dispatches to the first",
         "# route (in plan order) whose required arguments were all supplied.",
@@ -2110,15 +2463,22 @@ def _render_tools_module(plan: MCPcastPlan, group: str, tools: list[ToolPlan]) -
         if len(tool.routes) == 1:
             # A one-tuple's comma is not a magic trailing comma: keep it on one
             # line when it fits, exactly as the formatter would.
-            flat = _route_literal(tool.routes[0], 0, len(key) + 1)
+            flat = _route_literal(tool.routes[0], 0, len(key) + 1, _null_params(tool))
             if "\n" not in flat and _columns(key) + 1 + _columns(flat) + 3 <= _WIDTH:
                 lines.append(f"{key}({flat},),")
                 continue
         lines.append(key + "(")
-        lines.extend(f"        {_route_literal(route, 8)}," for route in tool.routes)
+        nulls = _null_params(tool)
+        lines.extend(f"        {_route_literal(route, 8, 0, nulls)}," for route in tool.routes)
         lines.append("    ),")
     lines += [
         "}",
+        "",
+        "# The JSON Schema each parameter advertises in tools/list, from the plan: enums,",
+        "# bounds, lengths, patterns, formats, defaults and descriptions. The handlers'",
+        "# annotations only carry the base type; the API enforces the rest.",
+        "PARAM_SCHEMAS: dict[str, dict[str, dict[str, Any]]] = "
+        + _literal(schemas, 0, len("PARAM_SCHEMAS: dict[str, dict[str, dict[str, Any]]] = "), True),
         "",
         "",
         "def register(server: MCPServer, upstream: Upstream) -> None:",
@@ -2668,7 +3028,8 @@ def _assert_equals(
 def _render_tests(plan: MCPcastPlan) -> str:
     lines = [
         '"""Generated tests — one per tool: it is listed, it calls the right upstream operation,',
-        "and, when it changes data, it does not run without a human's approval.",
+        "and, when it changes data, it does not run without a human's approval. Every tool",
+        "advertises the plan's JSON Schema for each of its parameters.",
         "",
         "Regenerated with the plan; add your own tests in another file.",
         '"""',
@@ -2678,10 +3039,21 @@ def _render_tests(plan: MCPcastPlan) -> str:
         "from conftest import FakeUpstream, error_of, path_of",
         "from promptise.mcp.server import TestClient",
         "",
+        f"from {package_name(plan.api.name)}.tools import MODULES",
+        "",
         "",
         "async def test_every_tool_is_listed(client: TestClient) -> None:",
         "    names = {tool.name for tool in await client.list_tools()}",
         _names_assertion(plan),
+        "",
+        "",
+        "async def test_every_parameter_advertises_its_schema(client: TestClient) -> None:",
+        "    listed = {tool.name: tool.inputSchema for tool in await client.list_tools()}",
+        "    for module in MODULES:",
+        "        for tool, params in module.PARAM_SCHEMAS.items():",
+        "            for name, schema in params.items():",
+        '                advertised = listed[tool]["properties"][name]',
+        "                assert {key: advertised.get(key) for key in schema} == schema, (tool, name)",
         "",
     ]
     for tool in plan.tools:

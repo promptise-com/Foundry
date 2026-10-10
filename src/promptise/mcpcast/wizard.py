@@ -76,6 +76,7 @@ from .emit import (
     load_generated_server,
     package_name,
     plain_http_hosts,
+    trimmed_schemas,
     write_project,
 )
 from .parse import (
@@ -837,6 +838,8 @@ def review_warnings(plan: MCPcastPlan) -> list[str]:
       tool that does not exist.
     - Parameters hidden from the agent (sent as fixed defaults), which your
       users may need to set.
+    - A tool whose parameter schemas are too large to advertise in full
+      (see :func:`~promptise.mcpcast.emit.trimmed_schemas`).
 
     Returns:
         One line per finding, ``"<tool>: <what to check>"``; empty when there
@@ -844,6 +847,7 @@ def review_warnings(plan: MCPcastPlan) -> list[str]:
     """
     exposed = {t.name for t in plan.tools}
     ghosts = {derive_tool_name(d.operation_id) for d in plan.dropped} - exposed
+    trimmed = set(trimmed_schemas(plan))
     out: list[str] = []
     for tool in plan.tools:
         named = sorted(g for g in ghosts if re.search(rf"\b{re.escape(g)}\b", tool.description))
@@ -857,6 +861,11 @@ def review_warnings(plan: MCPcastPlan) -> list[str]:
             out.append(
                 f"{tool.name}: hides {', '.join(hidden)} (sent as defaults) — fine unless your "
                 "users need to set them"
+            )
+        if tool.name in trimmed:
+            out.append(
+                f"{tool.name}: input schema trimmed for the agent — the spec's parameter "
+                "schemas are too large for one tools/list entry; hide or split parameters"
             )
     return out
 

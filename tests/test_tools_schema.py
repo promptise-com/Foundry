@@ -537,3 +537,118 @@ class TestRealWorldSchemas:
         model = _jsonschema_to_pydantic(schema, model_name="DescTest")
         assert model.model_fields["query"].description == "Search text to match against names"
         assert model.model_fields["limit"].description == "Max results to return"
+
+
+class TestSchemaFidelity:
+    """What a server's input schema says about a parameter reaches the model the agent sees."""
+
+    @staticmethod
+    def _props(schema: dict) -> dict:
+        model = _jsonschema_to_pydantic(schema, model_name="Fidelity")
+        return model.model_json_schema()["properties"]
+
+    def test_a_type_list_is_a_union_not_a_crash(self) -> None:
+        """``type: ["string", "null"]`` (JSON Schema, OpenAPI 3.1, MCPcast's nullable)
+        raised ``TypeError: unhashable type: 'list'`` and broke the whole tool list."""
+        model = _jsonschema_to_pydantic(
+            {
+                "type": "object",
+                "required": ["since"],
+                "properties": {
+                    "since": {"type": ["string", "null"], "format": "date-time"},
+                    "id": {"type": ["string", "integer"]},
+                },
+            },
+            model_name="TypeList",
+        )
+        assert model(since=None).since is None
+        assert model(since="2026-01-01T00:00:00Z", id=7).id == 7
+        props = model.model_json_schema()["properties"]
+        assert {"type": "string", "format": "date-time"} in props["since"]["anyOf"]
+        assert {"type": "null"} in props["since"]["anyOf"]
+        assert {m["type"] for m in props["id"]["anyOf"] if "type" in m} >= {"string", "integer"}
+
+    def test_constraints_are_shown_to_the_model(self) -> None:
+        props = self._props(
+            {
+                "type": "object",
+                "properties": {
+                    "sku": {"type": "string", "pattern": "^[A-Z]{3}$", "minLength": 3},
+                    "limit": {"type": "integer", "minimum": 1, "exclusiveMaximum": 100},
+                    "price": {"type": "number", "multipleOf": 0.01},
+                    "email": {"type": "string", "format": "email"},
+                    "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
+                },
+            }
+        )
+        assert props["sku"]["pattern"] == "^[A-Z]{3}$" and props["sku"]["minLength"] == 3
+        assert props["limit"]["minimum"] == 1 and props["limit"]["exclusiveMaximum"] == 100
+        assert props["price"]["multipleOf"] == 0.01
+        assert props["email"]["format"] == "email"
+        assert props["tags"]["maxItems"] == 3
+
+    def test_constraints_are_not_enforced_on_the_agent_side(self) -> None:
+        """A JavaScript-only pattern (lookbehind) must not break or reject anything here."""
+        model = _jsonschema_to_pydantic(
+            {"type": "object", "properties": {"code": {"type": "string", "pattern": "(?<=x)y"}}},
+            model_name="Unenforced",
+        )
+        assert model(code="anything").code == "anything"
+
+    def test_integer_and_nullable_enums_are_kept(self) -> None:
+        props = self._props(
+            {
+                "type": "object",
+                "properties": {
+                    "level": {"type": "integer", "enum": [1, 2, 3]},
+                    "state": {"type": "string", "enum": ["on", "off", None]},
+                    "ratio": {"type": "number", "enum": [0.5, 1.5]},
+                },
+            }
+        )
+        assert props["level"]["enum"] == [1, 2, 3]
+        (state,) = [m for m in props["state"]["anyOf"] if m.get("type") == "string"]
+        assert state["enum"] == ["on", "off"]
+        assert {"type": "null"} in props["state"]["anyOf"]
+        assert props["ratio"]["enum"] == [0.5, 1.5]
+
+    def test_array_items_keep_their_enum_and_constraints(self) -> None:
+        props = self._props(
+            {
+                "type": "object",
+                "properties": {
+                    "tags": {"type": "array", "items": {"type": "string", "enum": ["a", "b"]}},
+                    "codes": {"type": "array", "items": {"type": "string", "maxLength": 4}},
+                },
+            }
+        )
+        assert props["tags"]["items"]["enum"] == ["a", "b"]
+        assert props["codes"]["items"]["maxLength"] == 4
+
+    def test_openapi_nullable_is_optional(self) -> None:
+        model = _jsonschema_to_pydantic(
+            {
+                "type": "object",
+                "required": ["parent"],
+                "properties": {"parent": {"type": "integer", "nullable": True}},
+            },
+            model_name="Nullable",
+        )
+        assert model(parent=None).parent is None
+        assert model.model_fields["parent"].is_required()
+
+    def test_a_nullable_union_of_several_types(self) -> None:
+        """FastAPI's ``Union[str, int, None]`` raised ``TypeError: typing.Optional
+        requires a single type`` and broke the whole tool list."""
+        model = _jsonschema_to_pydantic(
+            {
+                "type": "object",
+                "properties": {
+                    "note": {"anyOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]}
+                },
+            },
+            model_name="NullableUnion",
+        )
+        assert model(note=None).note is None and model(note=3).note == 3
+        types = [m.get("type") for m in model.model_json_schema()["properties"]["note"]["anyOf"]]
+        assert types == ["string", "integer", "null"]
