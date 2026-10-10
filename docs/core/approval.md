@@ -304,7 +304,7 @@ handler = WebhookApprovalHandler(
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `url` | `str` | **required** | Webhook URL to POST approval requests to. Validated against private IP blocklist (SSRF protection). |
+| `url` | `str` | **required** | Webhook URL to POST approval requests to. Checked against private and internal addresses at construction and before every request (SSRF protection, see [SSRF Protection](#ssrf-protection)). |
 | `secret` | `str \| None` | Auto-generated | HMAC secret for signing requests. If not provided, a random secret is generated per process (not useful for cross-process verification — set your own for production). |
 | `poll_url` | `str \| None` | `{url}/{request_id}` | URL to poll for the decision. Handler GETs this URL every `poll_interval` seconds. |
 | `poll_interval` | `float` | `2.0` | Seconds between poll attempts. Min: 0.5. |
@@ -662,12 +662,14 @@ The reviewer sees enough to make a decision without seeing raw sensitive data. R
 
 ### SSRF Protection
 
-`WebhookApprovalHandler` validates the webhook URL at construction time:
+`WebhookApprovalHandler` refuses every address that is not public unicast:
 
-- Blocks private IP ranges (10.x, 172.16-31.x, 192.168.x)
-- Blocks loopback (127.x)
-- Blocks link-local (169.254.x — cloud metadata endpoints)
-- Blocks `localhost` and known internal hostnames
+- Private IP ranges (10.x, 172.16-31.x, 192.168.x)
+- Loopback (127.x) and `localhost`
+- Link-local (169.254.x — cloud metadata endpoints) and shared/carrier-grade NAT space (100.64.0.0/10)
+- `0.0.0.0`, multicast and reserved ranges
+
+The URL is checked when the handler is created, and again before the POST and before every poll: the host is resolved, every address is checked, and the request goes to the checked address (keeping the `Host` header and the TLS server name), so a DNS record that later points at an internal address (DNS rebinding) is not followed. A request to an internal address raises, and the tool call is denied. Redirects are never followed, even with an `http_client` configured to follow them.
 
 `poll_url` is checked the same way. If your approval service runs on your own network (`https://ops.internal/approvals`, `http://10.0.4.2:8080/approvals`), opt in explicitly:
 

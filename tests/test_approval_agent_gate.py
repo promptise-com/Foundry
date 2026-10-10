@@ -591,8 +591,18 @@ class TestVerifyWebhookSignature:
             assert verify_webhook_signature(body, signature, "s3cret")
             assert not verify_webhook_signature(body, signature, "s3cret", max_age=300)
 
-    async def test_round_trip_through_the_handler(self):
+    async def test_round_trip_through_the_handler(self, monkeypatch):
+        import socket
+
         import httpx
+
+        # The handler resolves the host before every request (DNS rebinding
+        # protection); answer with a public address instead of real DNS.
+        monkeypatch.setattr(
+            socket,
+            "getaddrinfo",
+            lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+        )
 
         received: list[bool] = []
 

@@ -29,6 +29,9 @@ Security model:
   cross-site ``Origin`` with ``403``, so a web page open in a browser on
   the same machine can't drive the runtime.
 * Request bodies must be JSON objects (``400`` otherwise).
+* ``PATCH`` on ``budget``, ``health`` and ``mission`` validates the patched
+  section against its config model (limits, strict JSON types, no unknown
+  fields) and answers ``422`` without changing anything when it fails.
 """
 
 from __future__ import annotations
@@ -38,10 +41,12 @@ import json
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable
-from typing import Any
+import types
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any, Union, get_args, get_origin
 
 from aiohttp import web
+from pydantic import BaseModel, ValidationError
 
 from ._http_guard import bearer_token_matches, is_loopback, loopback_request_problem
 
@@ -79,6 +84,68 @@ def _error_response(code: str, message: str, status: int = 400) -> web.Response:
         {"error": {"code": code, "message": message}},
         status=status,
     )
+
+
+def _unknown_fields(
+    model_cls: type[BaseModel], data: Mapping[str, Any], path: str = ""
+) -> list[str]:
+    """Dotted names of keys in *data* that *model_cls* does not declare.
+
+    Recurses into nested models (``escalation``) and dicts of models
+    (``tool_costs``), which pydantic would otherwise silently drop.
+    """
+    unknown: list[str] = []
+    for key, value in data.items():
+        field = model_cls.model_fields.get(key)
+        if field is None:
+            unknown.append(f"{path}{key}")
+            continue
+        if not isinstance(value, Mapping):
+            continue
+        annotation = field.annotation
+        is_union = get_origin(annotation) in (Union, types.UnionType)
+        for kind in get_args(annotation) if is_union else (annotation,):
+            if isinstance(kind, type) and issubclass(kind, BaseModel):
+                unknown += _unknown_fields(kind, value, f"{path}{key}.")
+            elif get_origin(kind) is dict:
+                item_type = get_args(kind)[1]
+                if isinstance(item_type, type) and issubclass(item_type, BaseModel):
+                    for name, item in value.items():
+                        if isinstance(item, Mapping):
+                            unknown += _unknown_fields(item_type, item, f"{path}{key}.{name}.")
+    return unknown
+
+
+def _apply_patch(section: BaseModel, body: dict[str, Any]) -> web.Response | None:
+    """Validate *body* against *section*'s model, then apply it in place.
+
+    The patched section is validated as a whole (strict JSON types, the
+    model's limits) before anything changes, so a bad value leaves the
+    live config untouched.  Fields are set on the existing object, which
+    the running process keeps reading.
+
+    Returns:
+        A ``422`` error response, or ``None`` once the patch is applied.
+    """
+    model_cls = type(section)
+    unknown = _unknown_fields(model_cls, body)
+    if unknown:
+        return _error_response(
+            "UNKNOWN_FIELD",
+            f"Unknown field(s): {', '.join(unknown)}. Allowed: {', '.join(model_cls.model_fields)}",
+            422,
+        )
+    merged = {**section.model_dump(mode="json"), **body}
+    try:
+        validated = model_cls.model_validate_json(json.dumps(merged), strict=True)
+    except ValidationError as exc:
+        detail = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()
+        )
+        return _error_response("INVALID_CONFIG", f"Config validation failed: {detail}", 422)
+    for key in body:
+        setattr(section, key, getattr(validated, key))
+    return None
 
 
 class OrchestrationAPI:
@@ -539,13 +606,9 @@ class OrchestrationAPI:
 
         try:
             process = self._get_process(name)
-
-            # Only allow declared BudgetConfig fields (not internal Pydantic attrs)
-            budget = process.config.budget
-            allowed = set(budget.model_fields.keys()) if hasattr(budget, "model_fields") else set()
-            for key, value in body.items():
-                if key in allowed:
-                    setattr(budget, key, value)
+            error = _apply_patch(process.config.budget, body)
+            if error is not None:
+                return error
 
             return _json_response(
                 {
@@ -569,11 +632,9 @@ class OrchestrationAPI:
 
         try:
             process = self._get_process(name)
-            health = process.config.health
-            allowed = set(health.model_fields.keys()) if hasattr(health, "model_fields") else set()
-            for key, value in body.items():
-                if key in allowed:
-                    setattr(health, key, value)
+            error = _apply_patch(process.config.health, body)
+            if error is not None:
+                return error
 
             return _json_response(
                 {
@@ -597,13 +658,9 @@ class OrchestrationAPI:
 
         try:
             process = self._get_process(name)
-            mission = process.config.mission
-            allowed = (
-                set(mission.model_fields.keys()) if hasattr(mission, "model_fields") else set()
-            )
-            for key, value in body.items():
-                if key in allowed:
-                    setattr(mission, key, value)
+            error = _apply_patch(process.config.mission, body)
+            if error is not None:
+                return error
 
             return _json_response(
                 {

@@ -202,3 +202,161 @@ class TestJsonObjectBodies:
             assert status == 404
         finally:
             await api.stop()
+
+
+class TestPatchValidation:
+    """PATCH budget/health/mission validate against the config models.
+
+    A bad value used to be written straight onto the live config: a
+    negative budget limit, a string where a number goes, a typo'd field
+    silently dropped, or a dict where the runtime expects an
+    ``EscalationTarget``.  Now the whole patch is validated first, and
+    nothing changes unless all of it is valid.
+    """
+
+    @staticmethod
+    async def _patch(base: str, section: str, payload: dict) -> tuple[int, dict]:
+        import json
+
+        return await _call(
+            "PATCH",
+            f"{base}/api/v1/processes/worker/{section}",
+            data=json.dumps(payload).encode(),
+        )
+
+    @pytest.mark.parametrize(
+        ("section", "payload"),
+        [
+            # negative / out-of-range limits
+            ("budget", {"max_tool_calls_per_run": -5}),
+            ("budget", {"max_cost_per_day": 0}),
+            ("budget", {"daily_reset_hour_utc": 24}),
+            ("health", {"error_rate_threshold": 1.5}),
+            ("health", {"cooldown": -1}),
+            ("mission", {"confidence_threshold": -0.1}),
+            ("mission", {"max_invocations": -1}),
+            # wrong types (no silent coercion of JSON strings / bools / floats)
+            ("budget", {"max_tool_calls_per_run": "lots"}),
+            ("budget", {"max_tool_calls_per_run": "5"}),
+            ("budget", {"max_runs_per_day": 2.5}),
+            ("budget", {"enabled": "yes"}),
+            ("health", {"stuck_threshold": True}),
+            ("health", {"on_anomaly": "explode"}),
+            ("mission", {"objective": ["not", "a", "string"]}),
+            ("mission", {"auto_complete": None}),
+            ("budget", {"escalation": "https://hooks.example.com"}),
+            ("budget", {"tool_costs": {"send_email": {"cost_weight": -1}}}),
+            # one bad value spoils the whole patch
+            ("budget", {"enabled": True, "max_tool_calls_per_run": -1}),
+        ],
+    )
+    async def test_invalid_values_are_422_and_change_nothing(
+        self, runtime, section, payload
+    ) -> None:
+        config = getattr(runtime.get_process("worker").config, section)
+        before = config.model_dump()
+        api, base = await _serve(runtime)
+        try:
+            status, resp = await self._patch(base, section, payload)
+        finally:
+            await api.stop()
+        assert status == 422, resp
+        assert resp["error"]["code"] == "INVALID_CONFIG"
+        assert config.model_dump() == before
+
+    @pytest.mark.parametrize(
+        ("section", "payload", "unknown"),
+        [
+            ("budget", {"max_tool_calls_per_runn": 5}, "max_tool_calls_per_runn"),
+            ("health", {"enabled": True, "__class__": "x"}, "__class__"),
+            ("mission", {"objective": "ship", "model_config": {}}, "model_config"),
+            (
+                "budget",
+                {"escalation": {"webhok_url": "https://x.example"}},
+                "escalation.webhok_url",
+            ),
+            (
+                "budget",
+                {"tool_costs": {"send_email": {"cost_weight": 2, "price": 1}}},
+                "tool_costs.send_email.price",
+            ),
+        ],
+    )
+    async def test_unknown_fields_are_422_and_change_nothing(
+        self, runtime, section, payload, unknown
+    ) -> None:
+        config = getattr(runtime.get_process("worker").config, section)
+        before = config.model_dump()
+        api, base = await _serve(runtime)
+        try:
+            status, resp = await self._patch(base, section, payload)
+        finally:
+            await api.stop()
+        assert status == 422, resp
+        assert resp["error"]["code"] == "UNKNOWN_FIELD"
+        assert unknown in resp["error"]["message"]
+        assert config.model_dump() == before
+
+    async def test_valid_patches_apply_with_model_types(self, runtime) -> None:
+        from promptise.runtime.config import EscalationTarget, ToolCostAnnotation
+
+        process = runtime.get_process("worker")
+        budget = process.config.budget
+        api, base = await _serve(runtime)
+        try:
+            status, resp = await self._patch(
+                base,
+                "budget",
+                {
+                    "enabled": True,
+                    "max_tool_calls_per_run": 7,
+                    "max_cost_per_day": 12,
+                    "tool_costs": {"send_email": {"cost_weight": 2.5, "irreversible": True}},
+                    "escalation": {"webhook_url": "https://hooks.example.com/budget"},
+                },
+            )
+            assert status == 200, resp
+            assert resp["budget_updated"] is True
+
+            status, resp = await self._patch(
+                base, "health", {"stuck_threshold": 5, "on_anomaly": "pause"}
+            )
+            assert status == 200, resp
+            status, resp = await self._patch(
+                base,
+                "mission",
+                {"objective": "Triage the queue", "confidence_threshold": 0.9, "escalation": None},
+            )
+            assert status == 200, resp
+            # Clearing an optional limit with null still works
+            status, resp = await self._patch(base, "budget", {"max_cost_per_day": None})
+            assert status == 200, resp
+        finally:
+            await api.stop()
+
+        # Updated in place: the runtime keeps reading the same objects
+        assert process.config.budget is budget
+        assert budget.enabled is True
+        assert budget.max_tool_calls_per_run == 7
+        assert budget.max_cost_per_day is None
+        assert budget.tool_costs == {
+            "send_email": ToolCostAnnotation(cost_weight=2.5, irreversible=True)
+        }
+        assert isinstance(budget.escalation, EscalationTarget)
+        assert budget.escalation.webhook_url == "https://hooks.example.com/budget"
+        assert process.config.health.stuck_threshold == 5
+        assert process.config.health.on_anomaly == "pause"
+        assert process.config.health.loop_window == 20  # untouched fields keep their values
+        assert process.config.mission.objective == "Triage the queue"
+        assert process.config.mission.confidence_threshold == 0.9
+
+    async def test_unknown_process_is_still_404(self, runtime) -> None:
+        api, base = await _serve(runtime)
+        try:
+            status, resp = await _call(
+                "PATCH", base + "/api/v1/processes/nope/budget", data=b'{"enabled": true}'
+            )
+        finally:
+            await api.stop()
+        assert status == 404
+        assert resp["error"]["code"] == "PROCESS_NOT_FOUND"

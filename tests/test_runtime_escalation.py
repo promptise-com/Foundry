@@ -100,7 +100,16 @@ class TestEscalate:
 
 class TestFireWebhook:
     @pytest.mark.asyncio
-    async def test_posts_json_payload(self) -> None:
+    async def test_posts_json_payload(self, monkeypatch) -> None:
+        import socket
+
+        # The host is resolved and checked before the POST (DNS rebinding
+        # protection); answer with a public address instead of real DNS.
+        monkeypatch.setattr(
+            socket,
+            "getaddrinfo",
+            lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+        )
         with patch("httpx.AsyncClient") as mock_cls:
             mock_client = AsyncMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -112,6 +121,8 @@ class TestFireWebhook:
             mock_client.post.assert_awaited_once()
             call_kwargs = mock_client.post.call_args
             assert call_kwargs[1]["json"] == {"key": "value"}
+            assert call_kwargs[0][0] == "https://93.184.216.34/"
+            assert call_kwargs[1]["headers"]["Host"] == "hooks.example.com"
 
     @pytest.mark.asyncio
     async def test_httpx_not_installed_degrades_gracefully(self) -> None:
