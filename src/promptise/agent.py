@@ -2416,6 +2416,68 @@ class _TracedTool(BaseTool):
         return result
 
 
+def identity_token_provider(
+    identity: AgentIdentity | None, spec: HTTPServerSpec, *, owner: str = "Agent"
+) -> Callable[[bool], str] | None:
+    """The ``bearer_token_provider`` presenting *identity* to an MCP server.
+
+    Returns ``None`` when there is nothing to present: no identity, a local
+    (non-verifiable) one, or a server with a bearer of its own
+    (``spec.bearer_token`` or an ``Authorization`` header in
+    ``spec.headers``), which always wins.
+
+    The provider asks the identity for a credential scoped to the server's
+    ``audience`` on every request, so a renewed credential replaces an
+    expiring one without a rebuild, and ``force_refresh=True`` (the server
+    answered ``401``) bypasses the identity's cache.  It **fails closed**:
+    when no credential can be acquired (the IdP is down) it raises, and the
+    client fails the request instead of sending it unauthenticated.  The
+    outage is logged once, not on every request; the log line names the
+    error but never carries a credential.
+
+    Args:
+        identity: The agent's identity.
+        spec: The MCP server it connects to.
+        owner: How log lines name the agent (e.g. ``"AgentProcess 'x'"``).
+    """
+    if identity is None or not identity.is_verifiable:
+        return None
+    if spec.bearer_token or any(k.lower() == "authorization" for k in (spec.headers or {})):
+        return None
+    audience = spec.audience
+    failing = False
+
+    def _provide(force_refresh: bool) -> str:
+        nonlocal failing
+        try:
+            token = identity.get_credential(audience, force_refresh=force_refresh)
+        except IdentityError as exc:
+            if not failing:
+                logger.warning(
+                    "%s identity %r could not acquire a credential for MCP server "
+                    "audience %r (%s: %s); requests to it fail until the credential "
+                    "can be acquired.",
+                    owner,
+                    identity.agent_id,
+                    audience,
+                    type(exc).__name__,
+                    exc,
+                )
+            failing = True
+            raise
+        if failing:
+            logger.info(
+                "%s identity %r acquired a credential for MCP server audience %r again.",
+                owner,
+                identity.agent_id,
+                audience,
+            )
+        failing = False
+        return token
+
+    return _provide
+
+
 def _normalize_model(model: ModelLike) -> Runnable[Any, Any]:
     """Normalize the supplied model into a Runnable.
 
@@ -2529,10 +2591,18 @@ async def build_agent(
             agent's identifier — its ``agent_id`` handle, or, for an
             IdP-backed identity with no handle, the IdP ``subject`` —
             unless ``observer_agent_id`` is set explicitly. A **verifiable**
-            identity is also presented to MCP servers that have no bearer
-            of their own (its credential becomes their ``bearer_token``),
-            so the server can authenticate and attribute the calling
-            agent. The identity is exposed as
+            identity is also presented to HTTP/SSE MCP servers that have
+            no bearer of their own, so the server can authenticate and
+            attribute the calling agent. The credential is requested for
+            each server's ``audience`` on every request, so it is renewed
+            before it expires (the session is reopened with the new one)
+            and refreshed once if a server answers ``401``; a call the
+            server still rejects fails with
+            :class:`~promptise.mcp.client.MCPConnectionRejectedError`
+            instead of hanging. If the identity cannot supply a credential
+            (the IdP is unreachable), the request is not sent: it fails with
+            :class:`~promptise.mcp.client.MCPCredentialError` rather than
+            going out unauthenticated. The identity is exposed as
             :attr:`PromptiseAgent.identity`.
         trace_tools: Print each tool invocation and result to stdout. Covers
             MCP tools, cross-agent tools, sandbox tools and ``extra_tools``.
@@ -2849,30 +2919,6 @@ async def build_agent(
     if servers:
         from .mcp.client import MCPClient, MCPMultiClient, MCPToolAdapter
 
-        # When the agent carries a verifiable identity, present its identity
-        # credential to MCP servers that have no explicit bearer of their own —
-        # scoped to each server's ``audience`` so one identity can serve several
-        # resources. Best-effort: an unreachable IdP must not fail the build.
-        def _identity_bearer_for(spec: HTTPServerSpec) -> str | None:
-            if identity is None or not identity.is_verifiable:
-                return None
-            try:
-                return identity.get_credential(spec.audience)
-            except IdentityError as exc:
-                # Do not silently drop the credential: an operator who
-                # configured a verifiable identity expects authenticated MCP
-                # calls. Surface the failure loudly; servers requiring auth
-                # will then reject the unauthenticated calls.
-                logger.warning(
-                    "Agent identity %r could not acquire a credential for MCP "
-                    "server audience %r (%s: %s); connecting without it.",
-                    identity.agent_id,
-                    spec.audience,
-                    type(exc).__name__,
-                    exc,
-                )
-                return None
-
         clients: dict[str, MCPClient] = {}
 
         # Server-side approval gates ask the client's human through MCP
@@ -2899,7 +2945,10 @@ async def build_agent(
                     headers=spec.headers,
                     bearer_token=spec.bearer_token.get_secret_value()
                     if spec.bearer_token
-                    else _identity_bearer_for(spec),
+                    else None,
+                    # A verifiable identity is presented to servers without a
+                    # bearer of their own, asked for on every request.
+                    bearer_token_provider=identity_token_provider(identity, spec),
                     api_key=spec.api_key.get_secret_value() if spec.api_key else None,
                     elicitation_callback=_elicitation_callback_for(sname),
                 )

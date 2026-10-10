@@ -33,12 +33,19 @@ _ENTRA_ENV_VARS: tuple[str, ...] = (
 )
 
 #: AWS markers: Lambda, the generic execution-env stamp, the EKS pod
-#: name, and the EKS-projected web-identity token file.
+#: name, IRSA's web-identity token file, and the Promptise projected token
+#: file. They line up with the two modes :func:`from_aws` picks between:
+#: ``PROMPTISE_IDENTITY_TOKEN_FILE`` selects projected mode (that file is
+#: what it presents); every other marker, IRSA included, leads to STS mode.
+#: IRSA's own token (``AWS_WEB_IDENTITY_TOKEN_FILE``) is never presented:
+#: its audience is ``sts.amazonaws.com``. It only signals that boto3 has a
+#: role to call STS with.
 _AWS_ENV_VARS: tuple[str, ...] = (
     "AWS_LAMBDA_FUNCTION_NAME",
     "AWS_EXECUTION_ENV",
     "EKS_POD_NAME",
     "AWS_WEB_IDENTITY_TOKEN_FILE",
+    "PROMPTISE_IDENTITY_TOKEN_FILE",
 )
 
 #: GCP markers: the project id, the Cloud Run service name, and the

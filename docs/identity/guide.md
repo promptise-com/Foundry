@@ -177,12 +177,18 @@ How `audience` is honoured depends on the provider — *active* providers
 audience the platform stamped. See
 [Per-resource credentials](architecture.md#per-resource-credentials).
 
+The credential is requested on every request (served from the identity's
+cache while it is valid), so a long-running agent keeps working past the
+credential's expiry: it is renewed before it expires and the MCP session is
+reopened with the new one, and if a server answers `401` (a revoked or
+rotated key) the agent refreshes it once and retries. A call the server
+still rejects fails with `MCPConnectionRejectedError` instead of hanging.
+
 !!! warning "Fail-closed, never fail-silent"
-    If the IdP is briefly unreachable when a credential is acquired, the
-    build does **not** silently drop it: it logs a warning and connects
-    unauthenticated, so a server that requires auth rejects the call. You
-    learn about the misconfiguration from the rejection, not from
-    mysterious unattributed access.
+    If the IdP is unreachable when a credential must be acquired, the
+    request is **not** sent: the call (or the connection `build_agent`
+    opens) fails with `MCPCredentialError`, and a warning is logged once
+    per outage. A request never goes out without the agent's credential.
 
 You can also present the credential by hand anywhere — an HTTP API, a
 custom client:

@@ -7,8 +7,11 @@ async context manager that handles:
 - Bearer token injection (from IdP or server token endpoint)
 - API key injection (simple pre-shared secret)
 - Custom header injection on every HTTP request
+- Short-lived credentials: a ``bearer_token_provider`` is asked for the
+  current token on every request, refreshed once on ``401``, and the
+  session is reopened when the token changes
 - Proper session lifecycle (initialize → use → close)
-- Clear, typed errors when a server refuses the connection
+- Clear, typed errors when a server refuses the connection, also mid-session
 - MCP elicitation: an optional handler answers ``elicitation/create``
   requests from the server (the elicitation capability is declared only
   when one is configured)
@@ -31,13 +34,15 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import inspect
 import itertools
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, Union
 
+import httpx
 from mcp.client.session import ClientSession
 from mcp.shared.exceptions import McpError
 from mcp.types import (
@@ -58,6 +63,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
+
+#: A callable returning the bearer token to present, or ``None`` for none.
+#: It receives ``force_refresh``: ``False`` for a normal request (a cached
+#: token that is still valid is fine), ``True`` after the server answered
+#: ``401`` (bypass any cache).  Sync callables run in a worker thread, so
+#: they may block on an identity provider; async callables are awaited.
+#: Raising fails the request with :class:`MCPCredentialError`; it is never
+#: sent without a credential instead.
+BearerTokenProvider = Callable[[bool], Union[str, None, Awaitable[Union[str, None]]]]
 
 # The MCP SDK's Streamable HTTP client turns an HTTP 404 answer to a request
 # into a JSON-RPC error with this message: the server does not know the
@@ -94,12 +108,18 @@ class MCPConnectionRejectedError(MCPClientError):
     or ``404`` (wrong endpoint URL).  Retrying with the same configuration
     will fail the same way.
 
+    Also raised when a server rejects the credential of an established
+    session (``mid_session=True``), typically because a static
+    ``bearer_token`` expired.  The call that hit it fails at once.
+
     Attributes:
-        status_code: The HTTP status the server answered ``initialize`` with.
+        status_code: The HTTP status the server answered with.
         reason: The HTTP reason phrase (e.g. ``"Unauthorized"``).
         url: The endpoint that was contacted.
         server_name: The server's name when connected through
             :class:`~promptise.mcp.client.MCPMultiClient` or ``build_agent``.
+        mid_session: ``True`` when an established session was rejected,
+            ``False`` when the handshake was.
     """
 
     def __init__(
@@ -109,18 +129,36 @@ class MCPConnectionRejectedError(MCPClientError):
         reason: str,
         url: str,
         server_name: str | None = None,
+        mid_session: bool = False,
+        refreshable: bool = False,
     ) -> None:
         self.status_code = status_code
         self.reason = reason
         self.url = url
         self.server_name = server_name
+        self.mid_session = mid_session
+        self._refreshable = refreshable
         who = f"Server '{server_name}'" if server_name else f"Server at {url}"
         status = f"{status_code} {reason}" if reason else str(status_code)
-        message = f"{who} rejected the connection: {status}."
-        if status_code in (401, 403):
-            message += " Check the bearer_token/api_key configured for it."
-        elif status_code == 404:
-            message += f" Check the URL ({url}); Promptise servers serve MCP at /mcp."
+        if not mid_session:
+            message = f"{who} rejected the connection: {status}."
+            if status_code in (401, 403):
+                message += " Check the bearer_token/api_key configured for it."
+            elif status_code == 404:
+                message += f" Check the URL ({url}); Promptise servers serve MCP at /mcp."
+        else:
+            message = f"{who} rejected the session's credential mid-session: {status}."
+            if status_code in (401, 403) and refreshable:
+                message += (
+                    " A freshly acquired token was rejected too: check that the"
+                    " server trusts its issuer and audience."
+                )
+            elif status_code in (401, 403):
+                message += (
+                    " The bearer token most likely expired; pass"
+                    " bearer_token_provider (or build the agent with an identity)"
+                    " so the client presents a fresh one."
+                )
         super().__init__(message)
 
     def for_server(self, server_name: str) -> MCPConnectionRejectedError:
@@ -130,7 +168,19 @@ class MCPConnectionRejectedError(MCPClientError):
             reason=self.reason,
             url=self.url,
             server_name=server_name,
+            mid_session=self.mid_session,
+            refreshable=self._refreshable,
         )
+
+
+class MCPCredentialError(MCPClientError):
+    """Raised when ``bearer_token_provider`` cannot supply a credential.
+
+    The request that needed it is **not sent**: a client configured with a
+    provider never falls back to an unauthenticated request.  The provider's
+    own exception is attached as ``__cause__``; the message names only its
+    type, so it can never echo a credential.
+    """
 
 
 @dataclass(frozen=True)
@@ -192,6 +242,162 @@ def _leaf_exceptions(exc: BaseException) -> list[BaseException]:
     return [exc]
 
 
+class _TokenSource:
+    """Asks a :data:`BearerTokenProvider` for tokens, collapsing refreshes."""
+
+    def __init__(self, provider: BearerTokenProvider) -> None:
+        self._provider = provider
+        self._latest: str | None = None
+        self._refresh_lock: asyncio.Lock | None = None
+
+    async def _ask(self, force_refresh: bool) -> str | None:
+        """Ask the provider; any failure fails closed as :class:`MCPCredentialError`."""
+        try:
+            if inspect.iscoroutinefunction(self._provider):
+                token = await self._provider(force_refresh)
+            else:
+                import anyio.to_thread
+
+                token = await anyio.to_thread.run_sync(self._provider, force_refresh)
+                if inspect.isawaitable(token):
+                    token = await token
+        except Exception as exc:
+            raise MCPCredentialError(
+                f"bearer_token_provider failed ({type(exc).__name__}); the request "
+                "was not sent without a credential"
+            ) from exc
+        if token is not None and not isinstance(token, str):
+            raise MCPCredentialError(
+                f"bearer_token_provider returned {type(token).__name__}, expected str or None"
+            )
+        return token or None
+
+    async def current(self) -> str | None:
+        """The token to present now (the provider may serve it from cache)."""
+        self._latest = await self._ask(False)
+        return self._latest
+
+    async def refresh(self, rejected: str | None) -> str | None:
+        """A fresh token to replace *rejected*, which the server refused.
+
+        Concurrent requests rejected with the same token share a single
+        forced refresh.
+        """
+        if self._refresh_lock is None:
+            self._refresh_lock = asyncio.Lock()
+        async with self._refresh_lock:
+            if self._latest is not None and self._latest != rejected:
+                return self._latest  # another request already refreshed it
+            self._latest = await self._ask(True)
+            return self._latest
+
+
+class _BearerAuth(httpx.Auth):
+    """Per-connection httpx auth hook: a current token on every request.
+
+    On ``401`` the token is refreshed once and the request re-sent.  The
+    token that opened the session is remembered so the client can reopen
+    the session when the token changes; once the connection is retired
+    (replaced by a newer one), its remaining requests — in-flight calls
+    and the closing ``DELETE`` — keep presenting that token, so they
+    address the session they belong to.
+    """
+
+    def __init__(self, source: _TokenSource) -> None:
+        self._source = source
+        self.opened_with: str | None = None
+        self.retired = False
+
+    def sync_auth_flow(self, request: httpx.Request) -> Any:
+        raise RuntimeError("MCPClient's bearer_token_provider only supports async transports")
+
+    async def async_auth_flow(
+        self, request: httpx.Request
+    ) -> AsyncGenerator[httpx.Request, httpx.Response]:
+        if self.retired:
+            token = self.opened_with
+        else:
+            token = await self._source.current()
+        _set_bearer(request, token)
+        response = yield request
+        if response.status_code != 401 or self.retired:
+            self._note_opened(token, response)
+            return
+        fresh = await self._source.refresh(rejected=token)
+        if fresh is None or fresh == token:
+            return  # nothing better to offer: the 401 stands
+        logger.info("Server at %s answered 401; retrying once with a refreshed token", request.url)
+        _set_bearer(request, fresh)
+        response = yield request
+        self._note_opened(fresh, response)
+
+    def _note_opened(self, token: str | None, response: httpx.Response) -> None:
+        """Remember the token the server accepted to open the session.
+
+        Only the first accepted request (``initialize``) counts, so a
+        handshake that succeeded on the 401 retry records the refreshed
+        token rather than the rejected one.
+        """
+        if self.opened_with is None and response.status_code < 400:
+            self.opened_with = token
+
+
+def _set_bearer(request: httpx.Request, token: str | None) -> None:
+    if token:
+        request.headers["Authorization"] = f"Bearer {token}"
+    else:
+        request.headers.pop("Authorization", None)
+
+
+def _jwt_expired(token: str | None) -> bool:
+    """Whether *token* is a JWT whose ``exp`` has passed (read, not verified)."""
+    if not token or token.count(".") < 2:
+        return False
+    import base64
+    import json
+    import time
+
+    segment = token.split(".")[1]
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
+    except (ValueError, TypeError):
+        return False
+    exp = claims.get("exp") if isinstance(claims, dict) else None
+    return isinstance(exp, (int, float)) and exp <= time.time()
+
+
+class _RetiredSessionTransport(httpx.AsyncBaseTransport):
+    """Skips the closing ``DELETE`` of a replaced session whose token expired.
+
+    The server would refuse it (and the SDK would log a warning on every
+    token renewal); an abandoned session expires on the server by itself.
+    """
+
+    def __init__(self, auth: _BearerAuth) -> None:
+        self._auth = auth
+        self._inner = httpx.AsyncHTTPTransport()
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        if (
+            request.method == "DELETE"
+            and self._auth.retired
+            and _jwt_expired(self._auth.opened_with)
+        ):
+            return httpx.Response(204, request=request)
+        return await self._inner.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
+
+
+class _RetiredSession:
+    """A session replaced by a newer one while calls were still using it."""
+
+    def __init__(self, closing: asyncio.Event, auth: _BearerAuth | None) -> None:
+        self.closing = closing
+        self.auth = auth
+
+
 class MCPClient:
     """Production-grade MCP client for a single server.
 
@@ -239,6 +445,17 @@ class MCPClient:
             connection that drops *during* a call is not retried (the tool
             may have run); the next call opens a new session instead.
             Ignored for stdio.
+        bearer_token_provider: For short-lived tokens, instead of
+            ``bearer_token``: a callable returning the current token (or
+            ``None``), asked on every HTTP request.  It receives
+            ``force_refresh`` — ``True`` after the server answered ``401``,
+            when the request is re-sent once with the refreshed token.  A
+            session opened with a token the provider has since replaced is
+            reopened before the next call; calls still running on the old
+            session finish there and are never re-sent.  If the provider
+            raises, the operation fails with :class:`MCPCredentialError` and
+            nothing is sent.  Sync callables run in a worker thread.  HTTP
+            and SSE only.
 
     Example — unauthenticated::
 
@@ -250,6 +467,16 @@ class MCPClient:
         async with MCPClient(
             url="http://localhost:8080/mcp",
             bearer_token="eyJhbGciOiJIUzI1NiIs...",
+        ) as client:
+            result = await client.call_tool("search", {"query": "python"})
+
+    Example — with short-lived tokens from an identity::
+
+        async with MCPClient(
+            url="http://localhost:8080/mcp",
+            bearer_token_provider=lambda force: identity.get_credential(
+                "api://my-server", force_refresh=force
+            ),
         ) as client:
             result = await client.call_tool("search", {"query": "python"})
 
@@ -290,7 +517,12 @@ class MCPClient:
         timeout: float = 30.0,
         elicitation_callback: ElicitationFnT | None = None,
         auto_reconnect: bool = True,
+        bearer_token_provider: BearerTokenProvider | None = None,
     ) -> None:
+        if bearer_token and bearer_token_provider is not None:
+            raise MCPClientError("Pass either bearer_token or bearer_token_provider, not both")
+        if bearer_token_provider is not None and transport not in _NETWORK_TRANSPORTS:
+            raise MCPClientError("bearer_token_provider needs an HTTP or SSE transport")
         self._url = url
         self._transport = transport
         self._headers = dict(headers or {})
@@ -329,6 +561,22 @@ class MCPClient:
         self._active = False
         self._generation = 0
         self._reconnect_lock = asyncio.Lock()
+
+        # A provider replaces any static Authorization header: the auth hook
+        # sets the header on each request.  It is never copied into
+        # ``_headers``, so a copy of this client's headers never carries it.
+        # ``_auth`` belongs to the current session.  A session replaced
+        # because the token was renewed is retired, not closed, while calls
+        # still use it (``_retired``, keyed by its runner, and
+        # ``_runner_calls``); ``_closers`` close retired sessions.
+        self._token_source: _TokenSource | None = None
+        if bearer_token_provider is not None:
+            self._token_source = _TokenSource(bearer_token_provider)
+            self._headers = {k: v for k, v in self._headers.items() if k.lower() != "authorization"}
+        self._auth: _BearerAuth | None = None
+        self._retired: dict[asyncio.Task[None], _RetiredSession] = {}
+        self._runner_calls: dict[asyncio.Task[None], int] = {}
+        self._closers: set[asyncio.Task[None]] = set()
 
         # Inject Bearer token as Authorization header
         if bearer_token:
@@ -427,6 +675,10 @@ class MCPClient:
         """
         self._active = False
         await self._shutdown()
+        for runner in list(self._retired):
+            self._close_retired(runner)
+        while self._closers:
+            await asyncio.wait(set(self._closers))
 
     @property
     def session_generation(self) -> int:
@@ -441,7 +693,8 @@ class MCPClient:
 
     async def _open(self) -> None:
         """Start the runner and wait for the ``initialize`` handshake."""
-        open_transport = self._transport_opener()
+        self._auth = _BearerAuth(self._token_source) if self._token_source is not None else None
+        open_transport = self._transport_opener(self._auth)
         ready: asyncio.Future[None] = asyncio.get_running_loop().create_future()
         self._closing = asyncio.Event()
         self._failure = None
@@ -466,7 +719,7 @@ class MCPClient:
             return " ".join([self._command or "", *self._args]).strip()
         return self._url or ""
 
-    def _transport_opener(self) -> Any:
+    def _transport_opener(self, auth: _BearerAuth | None = None) -> Any:
         """Validate the configuration and return a transport factory.
 
         The factory returns an async context manager yielding
@@ -478,20 +731,40 @@ class MCPClient:
                 raise MCPClientError("url is required for HTTP transport")
             from mcp.client.streamable_http import streamablehttp_client
 
+            factory: dict[str, Any] = {}
+            if auth is not None:
+                bearer = auth
+
+                def _client_factory(
+                    headers: dict[str, str] | None = None,
+                    timeout: httpx.Timeout | None = None,
+                    auth: httpx.Auth | None = None,
+                ) -> httpx.AsyncClient:
+                    return httpx.AsyncClient(
+                        headers=headers,
+                        timeout=timeout,
+                        auth=auth,
+                        transport=_RetiredSessionTransport(bearer),
+                    )
+
+                factory = {"auth": auth, "httpx_client_factory": _client_factory}
             return lambda: streamablehttp_client(
                 url=self._url,
                 headers=self._headers or None,
                 timeout=self._timeout,
+                **factory,
             )
         if self._transport == "sse":
             if not self._url:
                 raise MCPClientError("url is required for SSE transport")
             from mcp.client.sse import sse_client
 
+            sse_auth: dict[str, Any] = {"auth": auth} if auth is not None else {}
             return lambda: sse_client(
                 url=self._url,
                 headers=self._headers or None,
                 timeout=self._timeout,
+                **sse_auth,
             )
         if self._transport == "stdio":
             from mcp.client.stdio import stdio_client
@@ -533,12 +806,19 @@ class MCPClient:
             if not ready.done():
                 ready.set_exception(self._connect_error(exc))
             elif not closing.is_set():
-                self._failure = self._connect_error(exc, connected=True)
-                logger.warning("%s", self._failure)
+                failure = self._connect_error(exc, connected=True)
+                if self._closing is closing:
+                    self._failure = failure
+                    logger.warning("%s", failure)
+                else:  # a retired session (its token was renewed) ended
+                    logger.debug("Retired MCP session ended: %s", failure)
             else:
                 logger.debug("MCP session cleanup error", exc_info=True)
         finally:
-            self._session = None
+            # A retired session ends after a newer one took over; only the
+            # current session's runner may clear the client's session.
+            if self._closing is closing:
+                self._session = None
             if not ready.done():
                 ready.set_exception(MCPClientError(f"Connection to {self._target} closed"))
 
@@ -572,8 +852,6 @@ class MCPClient:
 
     def _connect_error(self, exc: BaseException, *, connected: bool = False) -> MCPClientError:
         """Translate a transport failure into a typed, readable error."""
-        import httpx
-
         leaves = _leaf_exceptions(exc)
         if not connected and any(_is_session_terminated(leaf) for leaf in leaves):
             # The SDK reports a 404 answer to ``initialize`` as a terminated
@@ -591,6 +869,14 @@ class MCPClient:
                         status_code=response.status_code,
                         reason=response.reason_phrase,
                         url=str(self._url),
+                    )
+                elif response.status_code in (401, 403):
+                    error = MCPConnectionRejectedError(
+                        status_code=response.status_code,
+                        reason=response.reason_phrase,
+                        url=str(self._url),
+                        mid_session=True,
+                        refreshable=self._token_source is not None,
                     )
                 else:
                     error = MCPClientError(
@@ -616,14 +902,57 @@ class MCPClient:
         runner, self._runner = self._runner, None
         if runner is None:
             return
-        if self._closing is not None:
-            self._closing.set()
+        await self._stop_runner(runner, self._closing)
+        self._session = None
+
+    async def _stop_runner(self, runner: asyncio.Task[None], closing: asyncio.Event | None) -> None:
+        """Set *closing* and wait for *runner* to close its session."""
+        if closing is not None:
+            closing.set()
         done, _ = await asyncio.wait({runner}, timeout=self._timeout)
         if not done:
             logger.debug("MCP session did not close within %ss; cancelling", self._timeout)
             runner.cancel()
             await asyncio.wait({runner})
-        self._session = None
+
+    async def _renew(self, seen_generation: int) -> None:
+        """Open a session with the renewed token; retire the current one.
+
+        Unlike :meth:`_reconnect`, the current session is still good: calls
+        running on it finish there (presenting the token it was opened with)
+        and it is closed after the last one.  Concurrent callers share one
+        renewal.
+        """
+        async with self._reconnect_lock:
+            if self._generation != seen_generation or self._runner is None:
+                return
+            logger.info(
+                "Reopening the MCP session to %s: the bearer token was renewed", self._target
+            )
+            runner, closing, auth = self._runner, self._closing, self._auth
+            assert closing is not None
+            self._retired[runner] = _RetiredSession(closing, auth)
+            if auth is not None:
+                auth.retired = True
+            self._runner = None
+            self._session = None
+            try:
+                await self._open()
+            except MCPClientError as exc:
+                self._failure = exc
+                raise
+            finally:
+                if not self._runner_calls.get(runner):
+                    self._close_retired(runner)
+
+    def _close_retired(self, runner: asyncio.Task[None]) -> None:
+        """Close a retired session in the background."""
+        retired = self._retired.pop(runner, None)
+        if retired is None:
+            return
+        task = asyncio.ensure_future(self._stop_runner(runner, retired.closing))
+        self._closers.add(task)
+        task.add_done_callback(self._closers.discard)
 
     def _stdio_params(self) -> Any:
         """Build the stdio launch parameters, including the working dir.
@@ -658,7 +987,20 @@ class MCPClient:
         return self._session
 
     async def _live_session(self) -> ClientSession:
-        """The current session, re-opening it first if it dropped on its own."""
+        """The current session, re-opening it first if it dropped on its own.
+
+        With a ``bearer_token_provider``, the token is asked for first: if it
+        cannot be acquired the operation fails here (:class:`MCPCredentialError`)
+        before anything is sent.  A session opened with a token the provider
+        has since renewed is replaced, since servers that bind a session to
+        the credential that opened it (Promptise servers do) would answer
+        the new token on the old session with ``404``.
+        """
+        if self._token_source is not None and self._active:
+            token = await self._token_source.current()
+            auth = self._auth
+            if self._session is not None and auth is not None and token != auth.opened_with:
+                await self._renew(self._generation)
         if self._session is None and self._active and self._auto_reconnect:
             await self._reconnect(self._generation, reason=str(self._failure or "session closed"))
         return self._require_session()
@@ -719,18 +1061,30 @@ class MCPClient:
         pending = asyncio.ensure_future(request)
         if runner is None:
             return await pending
+        self._runner_calls[runner] = self._runner_calls.get(runner, 0) + 1
         try:
-            await asyncio.wait({pending, runner}, return_when=asyncio.FIRST_COMPLETED)
-        except BaseException:
+            try:
+                await asyncio.wait({pending, runner}, return_when=asyncio.FIRST_COMPLETED)
+            except BaseException:
+                pending.cancel()
+                raise
+            if pending.done():
+                return pending.result()
             pending.cancel()
-            raise
-        if pending.done():
-            return pending.result()
-        pending.cancel()
-        await asyncio.gather(pending, return_exceptions=True)
-        if self._active and closing is not None and closing.is_set():
-            raise _SessionReplaced
-        raise self._failure or MCPClientError(f"Connection to {self._target} was closed")
+            await asyncio.gather(pending, return_exceptions=True)
+            if self._active and closing is not None and closing.is_set():
+                raise _SessionReplaced
+            if runner in self._retired:
+                raise MCPClientError(f"Connection to {self._target} was lost")
+            raise self._failure or MCPClientError(f"Connection to {self._target} was closed")
+        finally:
+            remaining = self._runner_calls[runner] - 1
+            if remaining:
+                self._runner_calls[runner] = remaining
+            else:
+                del self._runner_calls[runner]
+                if runner in self._retired:
+                    self._close_retired(runner)
 
     async def list_tools(self) -> list[Tool]:
         """List all tools from the connected server.
@@ -833,6 +1187,8 @@ class MCPClient:
         ``Bearer <bearer_token>``.  Used to open a session per caller, so one
         caller's token is never sent on another caller's requests, while the
         server can still ask the caller's human to approve a gated call.
+        A ``bearer_token_provider`` (for instance the agent's own identity)
+        is not copied: the caller's token takes its place.
 
         Raises:
             MCPClientError: For a stdio client, which cannot carry headers.
@@ -986,7 +1342,11 @@ class MCPClient:
 
     @property
     def headers(self) -> dict[str, str]:
-        """Current HTTP headers (read-only copy)."""
+        """Current static HTTP headers (read-only copy).
+
+        A token from ``bearer_token_provider`` is set per request and is not
+        included.
+        """
         return dict(self._headers)
 
 

@@ -51,15 +51,24 @@ With API key auth::
         tools = await client.list_tools()
 """
 
-from ._client import InFlightToolCall, MCPClient, MCPClientError, MCPConnectionRejectedError
+from ._client import (
+    BearerTokenProvider,
+    InFlightToolCall,
+    MCPClient,
+    MCPClientError,
+    MCPConnectionRejectedError,
+    MCPCredentialError,
+)
 from ._multi import MCPMultiClient
 from ._tool_adapter import MCPToolAdapter, MCPToolError
 
 __all__ = [
+    "BearerTokenProvider",
     "InFlightToolCall",
     "MCPClient",
     "MCPClientError",
     "MCPConnectionRejectedError",
+    "MCPCredentialError",
     "MCPMultiClient",
     "MCPToolAdapter",
     "MCPToolError",

@@ -255,6 +255,11 @@ class MCPMultiClient:
             if progress_callback is not None:
                 return await client.call_tool(name, arguments, progress_callback=progress_callback)
             return await client.call_tool(name, arguments)
+        except MCPConnectionRejectedError as exc:
+            # The server is up and still has the tool; it refused the
+            # credential. Keep the mapping so a later call (with a renewed
+            # credential) still routes, and name the server in the error.
+            raise exc.for_server(server_name) from exc.__cause__
         finally:
             if client.session_generation != generation:
                 await self._refresh_server_tools(server_name)
