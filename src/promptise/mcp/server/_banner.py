@@ -59,6 +59,30 @@ def _blue(text: str) -> str:
 # Banner
 # =====================================================================
 
+_ASCII_BOX = str.maketrans("╔═╗║╚╝", "+=+|++")
+
+
+def _emit(text: str) -> None:
+    """Print *text* in a form stdout's encoding can represent.
+
+    A redirected stdout on Windows (a service, ``> server.log``, a parent
+    process piping output) uses the ANSI code page, cp1252, which has no
+    box-drawing characters: printing the banner raised
+    ``UnicodeEncodeError`` and the server never started.  The box falls back
+    to ASCII and anything else unencodable (a server name, say) to ``?``.
+    """
+    stream = sys.stdout
+    if stream is None:  # pythonw.exe
+        return
+    encoding = getattr(stream, "encoding", None) or "utf-8"
+    try:
+        text.encode(encoding)
+    except UnicodeEncodeError:
+        text = text.translate(_ASCII_BOX).encode(encoding, errors="replace").decode(encoding)
+    except LookupError:
+        pass
+    print(text, file=stream)
+
 
 def print_banner(
     *,
@@ -131,4 +155,4 @@ def print_banner(
     lines.append(f"    {_green('Ready!')} {_dim('Press Ctrl+C to stop.')}")
     lines.append("")
 
-    print("\n".join(lines))
+    _emit("\n".join(lines))

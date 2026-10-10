@@ -187,6 +187,58 @@ def _text(result: Any) -> str:
 # =====================================================================
 
 
+class TestStartupBanner:
+    def test_banner_survives_a_stdout_without_box_drawing_characters(self, monkeypatch):
+        """Windows: a redirected stdout is cp1252, and the banner killed the server."""
+        import io
+
+        from promptise.mcp.server._banner import print_banner
+
+        raw = io.BytesIO()
+        out = io.TextIOWrapper(raw, encoding="cp1252", newline="\n")
+        monkeypatch.setattr(sys, "stdout", out)
+        print_banner(
+            server_name="inventory 東京",
+            version="1.0",
+            transport="http",
+            host="127.0.0.1",
+            port=8080,
+            tool_count=1,
+            auth_tool_count=0,
+            resource_count=0,
+            prompt_count=0,
+            middleware_count=0,
+        )
+        out.flush()
+        text = raw.getvalue().decode("cp1252")
+        assert "+=====" in text and "|          P R O M P T I S E" in text
+        assert "inventory ??" in text
+        assert "http://127.0.0.1:8080/mcp" in text
+
+    def test_banner_keeps_its_box_on_utf8(self, monkeypatch):
+        import io
+
+        from promptise.mcp.server._banner import print_banner
+
+        raw = io.BytesIO()
+        out = io.TextIOWrapper(raw, encoding="utf-8", newline="\n")
+        monkeypatch.setattr(sys, "stdout", out)
+        print_banner(
+            server_name="inventory",
+            version="1.0",
+            transport="http",
+            host="127.0.0.1",
+            port=8080,
+            tool_count=1,
+            auth_tool_count=0,
+            resource_count=0,
+            prompt_count=0,
+            middleware_count=0,
+        )
+        out.flush()
+        assert "╔═════" in raw.getvalue().decode("utf-8")
+
+
 class TestReconnectAfterRestart:
     async def test_client_reopens_the_session_after_a_restart(self, monkeypatch):
         client: MCPClient | None = None
@@ -237,24 +289,27 @@ class TestReconnectAfterRestart:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
         env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+        log = tmp_path / "server.log"
 
         async def start() -> subprocess.Popen[bytes]:
-            proc = subprocess.Popen(
-                [sys.executable, str(script), str(port)],
-                env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            async with httpx.AsyncClient(timeout=1) as http:
-                for _ in range(200):
+            # stdout is redirected, as under a service manager: on Windows it
+            # is then cp1252, which the startup banner must survive.
+            with log.open("ab") as out:
+                proc = subprocess.Popen(
+                    [sys.executable, str(script), str(port)], env=env, stdout=out, stderr=out
+                )
+            deadline = asyncio.get_running_loop().time() + 60
+            async with httpx.AsyncClient(timeout=2) as http:
+                while asyncio.get_running_loop().time() < deadline and proc.poll() is None:
                     try:
                         if (await http.get(f"http://127.0.0.1:{port}/health")).status_code == 200:
                             return proc
                     except httpx.TransportError:
                         pass
                     await asyncio.sleep(0.05)
-            proc.kill()
-            raise RuntimeError("server process did not start")
+            stop(proc)
+            output = log.read_text(encoding="utf-8", errors="replace")[-3000:]
+            raise RuntimeError(f"server process did not start (exit {proc.returncode}):\n{output}")
 
         def stop(proc: subprocess.Popen[bytes]) -> None:
             proc.terminate()
