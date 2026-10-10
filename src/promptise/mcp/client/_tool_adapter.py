@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import contextlib
 import inspect
+import json
 import logging
 from collections.abc import Callable, Collection
 from typing import Any
 
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, ToolException
 from mcp.types import CallToolResult
 from pydantic import BaseModel, PrivateAttr
 
@@ -41,8 +42,8 @@ def _extract_text(result: CallToolResult) -> str:
     LangChain's ``BaseTool`` expects a plain string return value.
 
     Concatenates all text parts with newlines, returning a single string.
-    If the result contains an error (``isError=True``), the text is still
-    returned so the LLM can see the error message.
+    For an error result this is the error text, which
+    :class:`_PromptiseMCPTool` raises as an :class:`MCPToolError`.
     """
     if not hasattr(result, "content") or not result.content:
         return ""
@@ -51,6 +52,82 @@ def _extract_text(result: CallToolResult) -> str:
         if hasattr(item, "text"):
             parts.append(item.text)
     return "\n".join(parts)
+
+
+class MCPToolError(ToolException):
+    """An MCP tool ran and reported a failure.
+
+    Raised by MCP tools built by :class:`MCPToolAdapter` when the server
+    answers a call with an error result: ``isError=True``, or the
+    ``{"error": {"code": ..., "message": ...}}`` envelope Promptise MCP
+    servers return for a ``ToolError``, ``ValidationError`` or other
+    ``MCPError`` raised by a handler.  The agent loop shows the message to
+    the model (so it can correct the call), and callbacks receive
+    ``on_tool_error``, so the call counts as failed in observability, events
+    and adaptive strategy.  A failure to reach the server at all raises
+    :class:`MCPClientError` instead.
+
+    Attributes:
+        tool_name: The tool that failed.
+        code: Machine-readable error code from the envelope (e.g.
+            ``"TOOL_ERROR"``, ``"VALIDATION_ERROR"``), or ``None``.
+        message: The error message.
+        retryable: The envelope's ``retryable`` flag, or ``None``.
+        text: The raw text content of the result.
+    """
+
+    def __init__(
+        self,
+        tool_name: str,
+        message: str,
+        *,
+        code: str | None = None,
+        retryable: bool | None = None,
+        text: str | None = None,
+    ) -> None:
+        self.tool_name = tool_name
+        self.code = code
+        self.message = message
+        self.retryable = retryable
+        self.text = message if text is None else text
+        super().__init__(f"{code}: {message}" if code else message)
+
+
+def _error_envelope(text: str) -> tuple[str, str, bool | None] | None:
+    """Parse a Promptise MCP error envelope into ``(code, message, retryable)``.
+
+    The envelope is a JSON object whose only key is ``"error"``, holding
+    string ``code`` and ``message`` fields.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("{"):
+        return None
+    try:
+        payload = json.loads(stripped)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict) or set(payload) != {"error"}:
+        return None
+    error = payload["error"]
+    if not isinstance(error, dict):
+        return None
+    code, message = error.get("code"), error.get("message")
+    if not isinstance(code, str) or not isinstance(message, str):
+        return None
+    retryable = error.get("retryable")
+    return code, message, retryable if isinstance(retryable, bool) else None
+
+
+def _tool_error(tool_name: str, result: CallToolResult) -> MCPToolError | None:
+    """The :class:`MCPToolError` for an error result, or ``None`` on success."""
+    text = _extract_text(result)
+    envelope = _error_envelope(text)
+    if envelope is not None:
+        code, message, retryable = envelope
+        return MCPToolError(tool_name, message, code=code, retryable=retryable, text=text)
+    if getattr(result, "isError", False):
+        return MCPToolError(tool_name, text or f"Tool '{tool_name}' failed", text=text)
+    return None
 
 
 class _PromptiseMCPTool(BaseTool):
@@ -139,6 +216,16 @@ class _PromptiseMCPTool(BaseTool):
                 with contextlib.suppress(Exception):
                     self._on_error(self.name, exc)
             raise MCPClientError(f"Failed to call MCP tool '{self._tool_name}': {exc}") from exc
+
+        # The server ran the tool and reported a failure: raise it so the call
+        # is a failed call downstream (callbacks get on_tool_error).  The
+        # agent loop still shows the model the server's message.
+        error = _tool_error(self._tool_name, result)
+        if error is not None:
+            if self._on_error:
+                with contextlib.suppress(Exception):
+                    self._on_error(self.name, error)
+            raise error
 
         if self._on_after:
             with contextlib.suppress(Exception):

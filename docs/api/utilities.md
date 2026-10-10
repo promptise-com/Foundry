@@ -413,6 +413,13 @@ Failure classification and strategy learning. Agents track past failures, catego
       show_source: false
       heading_level: 4
 
+### AdaptiveLesson
+
+::: promptise.strategy.AdaptiveLesson
+    options:
+      show_source: false
+      heading_level: 4
+
 ### classify_failure
 
 ::: promptise.strategy.classify_failure

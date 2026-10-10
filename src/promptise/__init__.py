@@ -156,6 +156,7 @@ from .runtime import (
     SecretScopeConfig,
 )
 from .strategy import (
+    AdaptiveLesson,
     AdaptiveStrategyConfig,
     AdaptiveStrategyManager,
     FailureCategory,
@@ -232,6 +233,7 @@ __all__ = [
     # Adaptive Strategy
     "AdaptiveStrategyConfig",
     "AdaptiveStrategyManager",
+    "AdaptiveLesson",
     "FailureCategory",
     "FailureLog",
     "classify_failure",
