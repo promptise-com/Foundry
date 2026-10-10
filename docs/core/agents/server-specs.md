@@ -121,7 +121,42 @@ spec = HTTPServerSpec(
 | `headers` | `dict[str, str]` | `{}` | Extra HTTP headers sent on every request. |
 | `bearer_token` | `str \| None` | `None` | Pre-issued Bearer token. Automatically injected as `Authorization: Bearer <token>`. |
 | `api_key` | `str \| None` | `None` | Pre-shared API key. Automatically injected as `x-api-key: <key>`. |
+| `audience` | `str \| None` | `None` | Resource audience this server expects; with an agent identity and no `bearer_token`, a credential for this audience is presented. |
+| `forward_caller_token` | `bool` | `True` | When an invocation's `CallerContext` has a `bearer_token`, call this server's tools with that token (one MCP session per caller) instead of `bearer_token` / the agent identity. Set `False` for servers that must not receive your users' tokens. See [Per-user tokens](#per-user-tokens). |
 | `auth` | `str \| None` | `None` | Legacy auth hint (kept for backward compatibility). |
+
+### Per-user tokens
+
+The credentials above authenticate **the agent**: they open its connection
+to the server and are used to discover the server's tools. When an
+invocation carries a user's token, the tool calls are made as that user:
+
+```python
+agent = await build_agent(
+    model="openai:gpt-5-mini",
+    servers={
+        "crm": HTTPServerSpec(url="https://crm.internal/mcp", bearer_token=SERVICE_TOKEN),
+        "search": HTTPServerSpec(
+            url="https://search.vendor.example/mcp",
+            api_key=VENDOR_KEY,
+            forward_caller_token=False,  # third party: never send our users' tokens
+        ),
+    },
+)
+
+caller = CallerContext(user_id="alice", tenant_id="acme", bearer_token=alice_jwt)
+await agent.ainvoke({"messages": [...]}, caller=caller)
+# crm tools:    Authorization: Bearer <alice_jwt>   (a session opened for Alice)
+# search tools: x-api-key: <VENDOR_KEY>             (the agent's own session)
+```
+
+Each distinct caller token gets its own MCP session, opened on first use,
+reused by that caller's later calls, and closed after five idle minutes;
+concurrent invocations never share a session or a header. The forwarded
+token replaces any `Authorization` header from `bearer_token` or
+`headers`; other headers, including `x-api-key`, are kept. Invocations
+without a caller token use the spec's credentials. `StdioServerSpec`
+servers have no request headers and never receive a caller token.
 
 ### Transport Protocols
 

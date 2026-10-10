@@ -287,7 +287,7 @@ from promptise.agent import CallerContext
 caller = CallerContext(
     user_id="user-alice-001",           # Scopes memory, cache, conversations
     tenant_id="acme",                   # Tenant-qualifies ALL isolation keys (multi-tenant SaaS)
-    bearer_token="eyJhbGciOi...",       # Forwarded to MCP servers as Authorization header
+    bearer_token="eyJhbGciOi...",       # Sent to HTTP MCP servers on this invocation's tool calls
     roles={"analyst", "viewer"},         # Agent-side role info
     scopes={"read", "write"},            # Agent-side scope info
     metadata={"team": "finance"},        # Custom metadata
@@ -301,7 +301,7 @@ result = await agent.ainvoke(input, caller=caller)
 | Field | Agent side | MCP server side |
 |-------|-----------|-----------------|
 | `user_id` | Scopes memory search, conversation history, semantic cache to this user | Not sent (stays on agent) |
-| `bearer_token` | Forwarded as `Authorization: Bearer <token>` to every MCP server | Validated by `AuthMiddleware`, extracted into `ClientContext` with roles/scopes/claims |
+| `bearer_token` | Sent as `Authorization: Bearer <token>` on this invocation's tool calls to every HTTP/SSE MCP server (unless its spec sets `forward_caller_token=False`), over a session opened for this token | Validated by `AuthMiddleware`, extracted into `ClientContext` with roles/scopes/claims |
 | `roles` | Available for agent-side logic via `get_current_caller()` | Not sent — server extracts roles from the JWT |
 | `scopes` | Available for agent-side logic | Not sent — server extracts scopes from the JWT |
 | `metadata` | Custom data available to guardrails, hooks, events | Not sent |
@@ -310,8 +310,9 @@ result = await agent.ainvoke(input, caller=caller)
 
 ```
 CallerContext(bearer_token="eyJ...")
-    → MCPClient sets Authorization header
-        → HTTP request to MCP server
+    → the tool call goes over an MCP session opened with this token
+      (one per caller; never shared with another caller)
+        → HTTP request to MCP server with Authorization: Bearer eyJ...
             → AuthMiddleware validates JWT
                 → Extracts roles, scopes, claims
                 → Builds ClientContext

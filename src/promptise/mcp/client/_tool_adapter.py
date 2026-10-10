@@ -10,7 +10,7 @@ Uses the Promptise MCP Client for tool discovery and invocation.
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from typing import Any
 
 from langchain_core.tools import BaseTool
@@ -51,7 +51,9 @@ class _PromptiseMCPTool(BaseTool):
     """LangChain ``BaseTool`` that invokes an MCP tool via the Promptise client.
 
     Uses a persistent ``MCPMultiClient`` that stays connected for the
-    agent's lifetime.
+    agent's lifetime.  When ``forward_caller_token`` is set and the current
+    invocation carries a ``CallerContext`` with a ``bearer_token``, the call
+    is made with that token (see :meth:`MCPMultiClient.call_tool`).
     """
 
     name: str
@@ -63,6 +65,7 @@ class _PromptiseMCPTool(BaseTool):
     _on_before: OnBefore | None = PrivateAttr(default=None)
     _on_after: OnAfter | None = PrivateAttr(default=None)
     _on_error: OnError | None = PrivateAttr(default=None)
+    _forward_caller_token: bool = PrivateAttr(default=False)
 
     def __init__(
         self,
@@ -75,6 +78,7 @@ class _PromptiseMCPTool(BaseTool):
         on_before: OnBefore | None = None,
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
+        forward_caller_token: bool = False,
     ) -> None:
         super().__init__(name=name, description=description, args_schema=args_schema)
         self._tool_name = tool_name
@@ -82,6 +86,16 @@ class _PromptiseMCPTool(BaseTool):
         self._on_before = on_before
         self._on_after = on_after
         self._on_error = on_error
+        self._forward_caller_token = forward_caller_token
+
+    def _caller_token(self) -> str | None:
+        """The current caller's bearer token, when this tool forwards it."""
+        if not self._forward_caller_token:
+            return None
+        from ...agent import get_current_caller
+
+        caller = get_current_caller()
+        return caller.bearer_token if caller is not None and caller.bearer_token else None
 
     async def _arun(self, **kwargs: Any) -> Any:
         """Execute the MCP tool via the persistent multi-client."""
@@ -90,7 +104,9 @@ class _PromptiseMCPTool(BaseTool):
                 self._on_before(self.name, kwargs)
 
         try:
-            result = await self._multi.call_tool(self._tool_name, kwargs)
+            result = await self._multi.call_tool(
+                self._tool_name, kwargs, bearer_token=self._caller_token()
+            )
         except Exception as exc:
             if self._on_error:
                 with contextlib.suppress(Exception):
@@ -123,6 +139,12 @@ class MCPToolAdapter:
         on_before: Callback fired before each tool invocation.
         on_after: Callback fired after each tool invocation.
         on_error: Callback fired on tool errors.
+        optimize: Tool optimization config (schema minification etc.).
+        forward_caller_token: Which servers' tools send the invoking
+            ``CallerContext.bearer_token`` instead of the client's own
+            credentials: ``True`` for every server, ``False`` for none
+            (default), or a collection of server names.  stdio servers
+            cannot receive it (see :meth:`MCPMultiClient.call_tool`).
 
     Example::
 
@@ -141,8 +163,10 @@ class MCPToolAdapter:
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
         optimize: Any | None = None,
+        forward_caller_token: bool | Collection[str] = False,
     ) -> None:
         self._multi = multi
+        self._forward_caller_token = forward_caller_token
         self._on_before = on_before
         self._on_after = on_after
         self._on_error = on_error
@@ -172,10 +196,23 @@ class MCPToolAdapter:
             strip_desc = resolved.minify_schema
 
         mcp_tools = await self._multi.list_tools()
+        tool_to_server = self._multi.tool_to_server
+        forward_to = self._forward_caller_token
+        forward_servers: set[str] | None
+        if isinstance(forward_to, bool):
+            forward_servers = None
+        elif isinstance(forward_to, str):  # one server name, not its characters
+            forward_servers = {forward_to}
+        else:
+            forward_servers = set(forward_to)
 
         out: list[BaseTool] = []
         for t in mcp_tools:
             name = t.name
+            if forward_servers is None:
+                forward = bool(forward_to)
+            else:
+                forward = tool_to_server.get(name) in forward_servers
             desc = t.description or ""
             schema = t.inputSchema or {}
             model = _jsonschema_to_pydantic(
@@ -193,6 +230,7 @@ class MCPToolAdapter:
                     on_before=self._on_before,
                     on_after=self._on_after,
                     on_error=self._on_error,
+                    forward_caller_token=forward,
                 )
             )
 

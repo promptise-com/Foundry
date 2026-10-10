@@ -75,9 +75,32 @@ response = await agent.chat(
 The `caller` parameter:
 
 - Stores the CallerContext in an async-safe contextvar for the duration of the invocation
-- Passes `bearer_token` to every MCP client connection as an HTTP `Authorization` header
+- Sends `bearer_token` as `Authorization: Bearer <token>` on every tool call to an HTTP or SSE MCP server during the invocation
 - Scopes memory search, conversation history, and semantic cache to `user_id`
 - Available to guardrails, observability, and event handlers via `get_current_caller()`
+
+### How the token travels
+
+The agent is built once and keeps one connection per server, opened with
+the credentials in its `HTTPServerSpec` — those are what tool discovery
+uses. When an invocation carries a `bearer_token`, its tool calls go over a
+separate MCP session opened with that token instead. Each distinct token
+gets its own session, so concurrent invocations for different users never
+share headers, and one user's token is never sent on another user's
+request. Sessions are reused by later calls with the same token and closed
+after five idle minutes.
+
+- An invocation **without** a `bearer_token` uses the spec's credential
+  (or the agent's identity). The server then sees the agent, not the user.
+- A server whose spec sets `forward_caller_token=False` always gets the
+  spec's credential. Use it for third-party servers that must not receive
+  your users' tokens.
+- stdio servers have no request headers and never receive the token; the
+  agent logs a warning the first time it cannot send one. A stdio tool runs
+  with the agent's own privileges for every caller.
+- If the server rejects the user's token, that tool call fails with
+  `401 Unauthorized` (reported to the model like any tool error); other
+  users' calls are unaffected.
 
 ## Step 3: Build the MCP Server with Auth
 

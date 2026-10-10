@@ -116,6 +116,15 @@ class InFlightToolCall:
     context: contextvars.Context = field(repr=False, compare=False)
 
 
+# The client whose session is answering an ``elicitation/create`` request
+# right now (set for the duration of the callback, in the session's task).
+# Lets ``in_flight_calls`` on a client report the calls of the per-caller
+# session derived from it that actually received the request.
+_answering_client: contextvars.ContextVar[MCPClient | None] = contextvars.ContextVar(
+    "promptise_mcp_answering_client", default=None
+)
+
+
 def _sdk_supports_elicitation() -> bool:
     """Whether the installed MCP SDK's ``ClientSession`` accepts an elicitation callback."""
     import inspect
@@ -236,6 +245,8 @@ class MCPClient:
                 "has no client elicitation support)"
             )
         self._elicitation_callback = elicitation_callback
+        # The client this one was derived from by ``with_bearer_token``.
+        self._origin: MCPClient | None = None
 
         # Calls awaiting a result, so an elicitation handler can tell which
         # call a server request belongs to (see ``in_flight_calls``).
@@ -455,6 +466,7 @@ class MCPClient:
         callback = self._elicitation_callback
         if callback is None:  # only installed when set; kept for type narrowing
             return types.ErrorData(code=types.INVALID_REQUEST, message="Elicitation not supported")
+        answering = _answering_client.set(self)
         try:
             return await callback(context, params)
         except Exception as exc:
@@ -468,6 +480,8 @@ class MCPClient:
                 code=types.INTERNAL_ERROR,
                 message=f"Elicitation handler failed: {type(exc).__name__}",
             )
+        finally:
+            _answering_client.reset(answering)
 
     def _connect_error(self, exc: BaseException, *, connected: bool = False) -> MCPClientError:
         """Translate a transport failure into a typed, readable error."""
@@ -603,8 +617,61 @@ class MCPClient:
         call that caused it.  With exactly one call in flight, a request
         arriving meanwhile is attributed to that call; with none or several,
         it cannot be tied to one.
+
+        Read from inside an elicitation callback that is answering a request
+        on a per-caller session derived from this client (see
+        :meth:`with_bearer_token`), it returns *that* session's calls: the
+        connection the request actually arrived on.
         """
+        answering = _answering_client.get()
+        if answering is not None and answering is not self and answering._origin is self:
+            return list(answering._in_flight.values())
         return list(self._in_flight.values())
+
+    @property
+    def transport(self) -> str:
+        """The transport this client connects with (``"http"``, ``"sse"``, ``"stdio"``)."""
+        return self._transport
+
+    @property
+    def supports_bearer_token(self) -> bool:
+        """Whether a per-caller bearer token can be sent to this server.
+
+        ``True`` for HTTP and SSE.  ``False`` for stdio, which has no
+        request headers: a stdio server runs with the agent's own
+        privileges for every caller.
+        """
+        return self._transport != "stdio"
+
+    def with_bearer_token(self, bearer_token: str) -> MCPClient:
+        """Return a new, unconnected client that authenticates as *bearer_token*.
+
+        The copy keeps this client's URL, transport, timeout, headers
+        (including ``x-api-key``) and elicitation callback, and replaces any
+        ``Authorization`` header, whatever its casing, with
+        ``Bearer <bearer_token>``.  Used to open a session per caller, so one
+        caller's token is never sent on another caller's requests, while the
+        server can still ask the caller's human to approve a gated call.
+
+        Raises:
+            MCPClientError: For a stdio client, which cannot carry headers.
+        """
+        if not self.supports_bearer_token:
+            raise MCPClientError(
+                f"Cannot send a bearer token over the {self._transport} transport; "
+                "only HTTP and SSE servers receive request headers."
+            )
+        headers = {k: v for k, v in self._headers.items() if k.lower() != "authorization"}
+        clone = MCPClient(
+            url=self._url,
+            transport=self._transport,
+            headers=headers,
+            bearer_token=bearer_token,
+            timeout=self._timeout,
+            elicitation_callback=self._elicitation_callback,
+        )
+        clone._origin = self._origin or self
+        return clone
 
     @property
     def session(self) -> ClientSession | None:

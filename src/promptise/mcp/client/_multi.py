@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcp.types import CallToolResult, Tool
 
+from ._caller_sessions import CallerSessionPool
 from ._client import (
     MCPClient,
     MCPClientError,
@@ -36,6 +37,13 @@ class MCPMultiClient:
     Consider using server-specific prefixes on your MCP servers to avoid
     collisions.
 
+    **Per-caller tokens**: ``call_tool(..., bearer_token=...)`` sends that
+    token instead of the client's own credentials.  Each distinct token
+    gets its own session to an HTTP/SSE server (opened on first use,
+    reused by later calls with the same token), so concurrent calls for
+    different users never share headers.  stdio servers have no request
+    headers: the token is ignored there and a warning is logged once.
+
     Args:
         clients: Mapping of server name → ``MCPClient`` instance.
         elicitation_callback: Default handler for MCP elicitation requests,
@@ -43,7 +51,13 @@ class MCPMultiClient:
             ``elicitation_callback``.  Same signature as
             :class:`MCPClient`'s.  The SDK callback does not say which
             server asked, so set a callback per ``MCPClient`` instead when
-            the handler needs the server name.
+            the handler needs the server name.  Per-caller sessions
+            inherit their server's callback, so a call made with
+            ``bearer_token=...`` can still answer elicitation requests.
+        max_caller_sessions: Most idle per-caller sessions kept open.
+            Least recently used sessions are closed first.
+        caller_session_idle_timeout: Seconds after which an unused
+            per-caller session is closed.
 
     Example::
 
@@ -61,6 +75,8 @@ class MCPMultiClient:
         clients: dict[str, MCPClient],
         *,
         elicitation_callback: ElicitationFnT | None = None,
+        max_caller_sessions: int = 256,
+        caller_session_idle_timeout: float = 300.0,
     ) -> None:
         self._clients = clients
         if elicitation_callback is not None:
@@ -75,6 +91,12 @@ class MCPMultiClient:
         # tool_name → server_name mapping (populated on connect)
         self._tool_to_server: dict[str, str] = {}
         self._connected = False
+        self._max_caller_sessions = max_caller_sessions
+        self._caller_session_idle_timeout = caller_session_idle_timeout
+        self._caller_sessions = CallerSessionPool(
+            max_sessions=max_caller_sessions, idle_timeout=caller_session_idle_timeout
+        )
+        self._warned_no_headers: set[str] = set()
 
     async def __aenter__(self) -> MCPMultiClient:
         """Connect to all servers."""
@@ -103,6 +125,15 @@ class MCPMultiClient:
     async def __aexit__(self, *exc: Any) -> None:
         """Disconnect from all servers."""
         errors: list[str] = []
+        try:
+            await self._caller_sessions.aclose()
+        except BaseException as e:
+            errors.append(f"per-caller sessions: {e}")
+        # A fresh pool, so the multi-client can be entered again.
+        self._caller_sessions = CallerSessionPool(
+            max_sessions=self._max_caller_sessions,
+            idle_timeout=self._caller_session_idle_timeout,
+        )
         for name, client in self._clients.items():
             try:
                 await client.__aexit__(*exc)
@@ -155,18 +186,25 @@ class MCPMultiClient:
         self,
         name: str,
         arguments: dict[str, Any] | None = None,
+        *,
+        bearer_token: str | None = None,
     ) -> CallToolResult:
         """Call a tool, automatically routing to the correct server.
 
         Args:
             name: Tool name (as discovered via ``list_tools``).
             arguments: Tool arguments dict.
+            bearer_token: Send this token as ``Authorization: Bearer ...``
+                instead of the server's configured credentials, over a
+                session dedicated to this token.  Ignored (with a one-time
+                warning) for stdio servers.
 
         Returns:
             MCP ``CallToolResult``.
 
         Raises:
             MCPClientError: If the tool name is unknown or the call fails.
+            MCPConnectionRejectedError: The server refused *bearer_token*.
         """
         server_name = self._tool_to_server.get(name)
         if server_name is None:
@@ -174,6 +212,18 @@ class MCPMultiClient:
                 f"Unknown tool '{name}'. Call list_tools() first to discover tools."
             )
         client = self._clients[server_name]
+        if bearer_token:
+            if client.supports_bearer_token:
+                return await self._call_as(server_name, client, bearer_token, name, arguments)
+            if server_name not in self._warned_no_headers:
+                self._warned_no_headers.add(server_name)
+                logger.warning(
+                    "Server '%s' uses the %s transport, which has no request "
+                    "headers: the caller's bearer token is not sent to it, and "
+                    "its tools run with the agent's own privileges for every caller.",
+                    server_name,
+                    client.transport,
+                )
         try:
             return await client.call_tool(name, arguments)
         except MCPClientError:
@@ -181,6 +231,23 @@ class MCPMultiClient:
             # the server may have restarted with different tools
             self._tool_to_server.pop(name, None)
             raise
+
+    async def _call_as(
+        self,
+        server_name: str,
+        client: MCPClient,
+        bearer_token: str,
+        name: str,
+        arguments: dict[str, Any] | None,
+    ) -> CallToolResult:
+        """Call *name* over the session that authenticates as *bearer_token*."""
+        if not self._connected:
+            raise MCPClientError("Not connected. Use 'async with multi:'")
+        try:
+            async with self._caller_sessions.lease(server_name, client, bearer_token) as session:
+                return await session.call_tool(name, arguments)
+        except MCPConnectionRejectedError as exc:
+            raise exc.for_server(server_name) from exc.__cause__
 
     @property
     def servers(self) -> dict[str, MCPClient]:

@@ -271,6 +271,35 @@ async with multi:
     print(multi.servers)         # {"hr": <MCPClient>, "docs": <MCPClient>}
 ```
 
+### Calling a tool as a specific user
+
+`call_tool(..., bearer_token=...)` sends that token as
+`Authorization: Bearer <token>` instead of the server's configured
+credentials. It is what `build_agent()` uses to make each invocation's tool
+calls as the invoking user (`CallerContext.bearer_token`):
+
+```python
+async with multi:
+    await multi.list_tools()
+    alice_view = await multi.call_tool("my_tickets", {}, bearer_token=alice_jwt)
+    bob_view = await multi.call_tool("my_tickets", {}, bearer_token=bob_jwt)
+```
+
+Each distinct token gets its own MCP session to the server: opened on first
+use, reused by later calls with the same token, and closed after
+`caller_session_idle_timeout` seconds unused (default 300). At most
+`max_caller_sessions` idle sessions stay open (default 256; least recently
+used first). Concurrent calls with different tokens never share a session
+or a header, and a session in use is never closed. The token replaces any
+`Authorization` header the client was configured with; other headers,
+including `x-api-key`, are kept. A server that rejects the token raises
+`MCPConnectionRejectedError` for that call only.
+
+stdio servers have no request headers: the token is ignored for them and a
+warning is logged once per server. `MCPClient.with_bearer_token(token)`
+returns an unconnected copy of a client that authenticates with *token*, if
+you manage sessions yourself.
+
 ### Tool name collisions
 
 If two servers expose a tool with the same name, the last-discovered server wins and a warning is logged. Use server-specific prefixes on your MCP servers to avoid collisions.
