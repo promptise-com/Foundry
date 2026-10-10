@@ -13,6 +13,7 @@ from .approval import (
     verify_webhook_signature,
 )
 from .approval_classifier import (
+    DEFAULT_DESTRUCTIVE_VERBS,
     DEFAULT_READ_ONLY_PREFIXES,
     ApprovalRule,
     AutoApprovalClassifier,
@@ -260,6 +261,7 @@ __all__ = [
     "ClassifierStats",
     "ClassifierDecisionTrace",
     "DEFAULT_READ_ONLY_PREFIXES",
+    "DEFAULT_DESTRUCTIVE_VERBS",
     # Semantic Cache
     "SemanticCache",
     "EmbeddingProvider",

@@ -583,6 +583,32 @@ class TestMapping:
         assert await callback(None, _form()) == types.ElicitResult(action="decline")
         assert len(human.requests) == 1  # the human was asked, the allow-all rule was not
 
+    async def test_policy_on_decision_records_every_outcome(self):
+        seen: list[tuple[str, bool, str]] = []
+
+        def audit(request: ApprovalRequest, decision: ApprovalDecision) -> None:
+            seen.append((request.metadata["source"], decision.approved, decision.decided_by))
+
+        calls = [_call("add_pet", {"name": "Rex"})]
+        outcomes = [
+            True,
+            False,
+            ApprovalDecision(approved=True, modified_arguments={"name": "Max"}),
+        ]
+        for outcome in outcomes:
+            policy = ApprovalPolicy(tools=["*"], handler=Recorder(outcome), on_decision=audit)
+            await approval_elicitation_callback(policy, in_flight=lambda: calls)(None, _form())
+        crashing = ApprovalPolicy(tools=["*"], handler=Recorder(error=True), on_decision=audit)
+        await approval_elicitation_callback(crashing, in_flight=lambda: calls)(None, _form())
+
+        assert seen == [
+            ("mcp_elicitation", True, "reviewer"),
+            ("mcp_elicitation", False, "reviewer"),
+            # A modified approval is declined by the bridge, and recorded so
+            ("mcp_elicitation", False, "gate"),
+            ("mcp_elicitation", False, "gate"),
+        ]
+
     async def test_events_carry_the_source(self):
         from promptise.events import CallbackSink, EventNotifier
 
