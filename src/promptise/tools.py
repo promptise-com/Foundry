@@ -16,7 +16,7 @@ import itertools
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Optional, Union, cast
+from typing import Annotated, Any, Literal, Optional, Union, cast
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
@@ -107,7 +107,8 @@ def _schema_to_annotation(
                 _schema_to_annotation(v, defs, f"{name_hint}_{i}") for i, v in enumerate(non_null)
             )
             if has_null:
-                return Optional[types]  # type: ignore[return-value]
+                # Union[str, int, None]: Optional[...] takes one type, not a tuple.
+                return Union[types + (type(None),)]  # type: ignore[return-value]
             return Union[types]  # type: ignore[return-value]
 
     # Handle allOf (merge all schemas)
@@ -129,39 +130,93 @@ def _schema_to_annotation(
 
     t = prop.get("type")
 
+    # A list of types (JSON Schema, OpenAPI 3.1): ``["string", "null"]`` is
+    # Optional[str], ``["string", "integer"]`` is Union[str, int].
+    if isinstance(t, list):
+        members = [m for m in t if m != "null"]
+        if not members:
+            return Any  # type: ignore[return-value]
+        types = tuple(
+            _schema_to_annotation({**prop, "type": m}, defs, f"{name_hint}_{i}")
+            for i, m in enumerate(members)
+        )
+        member: Any = types[0] if len(types) == 1 else Union[types]
+        return Optional[member] if "null" in t else member  # type: ignore[return-value]
+
+    # OpenAPI 3.0's ``nullable: true``
+    if prop.get("nullable") is True:
+        rest = {k: v for k, v in prop.items() if k != "nullable"}
+        return Optional[_schema_to_annotation(rest, defs, name_hint)]  # type: ignore[return-value]
+
     # Nested object with properties -> build a Pydantic model
     if t == "object" and prop.get("properties"):
         return _jsonschema_to_pydantic(prop, model_name=name_hint, _defs=defs)
 
-    # Array with structured items -> list[Model]
+    extras = _displayed_keywords(prop)
+    annotation: Any
+
     if t == "array":
-        items = prop.get("items", {})
-        if items:
-            items = _resolve_refs(items, defs)
-            if items.get("type") == "object" and items.get("properties"):
-                inner_model = _jsonschema_to_pydantic(
-                    items,
-                    model_name=f"{name_hint}_Item",
-                    _defs=defs,
-                )
-                return list[inner_model]  # type: ignore[valid-type]
-            inner_type = _primitive_type(items.get("type"))
-            if inner_type is not Any:
-                return list[inner_type]  # type: ignore[valid-type]
-        return list
+        # Items keep their own shape: models, enums, unions, constraints.
+        items = prop.get("items")
+        if isinstance(items, dict) and items:
+            annotation = list[_schema_to_annotation(items, defs, f"{name_hint}_Item")]  # type: ignore[misc]
+        else:
+            annotation = list
+    elif _literal_values(prop.get("enum")):
+        values = prop["enum"]
+        literal: Any = Literal[tuple(v for v in values if v is not None)]  # type: ignore[valid-type]
+        annotation = Optional[literal] if None in values else literal
+    elif "const" in prop and _literal_values([prop["const"]]):
+        annotation = Literal[prop["const"]]
+    else:
+        annotation = _primitive_type(t)
+        enum = prop.get("enum")
+        if isinstance(enum, list) and enum:
+            extras["enum"] = enum  # values a Literal cannot hold (floats, objects)
 
-    # Enum
-    if "enum" in prop:
-        vals = prop["enum"]
-        if all(isinstance(v, str) for v in vals):
-            from typing import Literal
-
-            return Literal[tuple(vals)]  # type: ignore[valid-type,return-value]
-
-    return _primitive_type(t)
+    if extras:
+        # Shown to the model in the tool's schema; the server enforces them.
+        return Annotated[annotation, Field(json_schema_extra=extras)]  # type: ignore[return-value]
+    return annotation  # type: ignore[no-any-return]
 
 
-def _primitive_type(t: str | None) -> type[Any]:
+_DISPLAYED_KEYWORDS = (
+    "format",
+    "pattern",
+    "minLength",
+    "maxLength",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+    "minItems",
+    "maxItems",
+    "uniqueItems",
+    "minProperties",
+    "maxProperties",
+)
+"""Constraints a tool's parameter schema carries over to the model the agent sees.
+
+They are shown, not enforced: the MCP server validates its own arguments, and
+a pattern written for JavaScript's regex engine need not compile in Python's."""
+
+
+def _displayed_keywords(prop: dict[str, Any]) -> dict[str, Any]:
+    return {k: prop[k] for k in _DISPLAYED_KEYWORDS if k in prop}
+
+
+def _literal_values(values: Any) -> bool:
+    """Whether *values* (``null`` aside) can be a ``Literal``: strings and integers only."""
+    if not isinstance(values, list):
+        return False
+    real = [v for v in values if v is not None]
+    return bool(real) and all(
+        isinstance(v, str) or (isinstance(v, int) and not isinstance(v, bool)) for v in real
+    )
+
+
+def _primitive_type(t: Any) -> type[Any]:
     """Map a JSON Schema type string to a Python primitive."""
     mapping: dict[str | None, type[Any]] = {
         "string": str,
@@ -172,7 +227,7 @@ def _primitive_type(t: str | None) -> type[Any]:
         "object": dict,
         None: Any,
     }
-    return mapping.get(t, Any)
+    return mapping.get(t, Any) if t is None or isinstance(t, str) else Any
 
 
 def _jsonschema_to_pydantic(

@@ -452,3 +452,33 @@ class TestWhatCannotBeAdvertisedIsReported:
         assert trimmed_schemas(plan) == []
         assert not any("trimmed" in fix for fix in score(plan, []).fixes)
         assert not any("trimmed" in line for line in review_warnings(plan))
+
+
+class TestAnAgentSeesTheSchema:
+    """The Promptise agent side turns each listed input schema into a typed model
+    (``promptise.tools``); a nullable parameter's ``["string", "null"]`` type used to
+    crash that conversion, so no agent — nor the readiness evaluation — could use
+    a generated server whose spec declares ``nullable``."""
+
+    @pytest.mark.asyncio
+    async def test_the_agent_tools_keep_the_constraints(self, tmp_path: Path) -> None:
+        from promptise.mcpcast.readiness import tools_from_server
+
+        _, module = _generate(tmp_path)
+        upstream = _Upstream()
+        async with upstream.client() as http:
+            server = module.build_server(approval_handler=lambda request: True, http_client=http)
+            tools = {t.name: t for t in await tools_from_server(server)}
+            listed = tools["list_items"].args_schema.model_json_schema()["properties"]  # type: ignore[union-attr]
+            assert listed["status"]["enum"] == ["open", "closed"]
+            assert listed["sku"]["pattern"] == "^[A-Z]{3}-\\d+$"
+            assert {"type": "string", "format": "date-time"} in listed["since"]["anyOf"]
+            assert listed["tags"]["items"]["enum"] == ["a", "b"]
+            created = tools["create_item"].args_schema.model_json_schema()  # type: ignore[union-attr]
+            (dims,) = [d for d in created["$defs"].values() if "w" in d.get("properties", {})]
+            assert dims["required"] == ["w"]
+            assert dims["properties"]["w"]["description"] == "Width in mm"
+
+            await tools["create_item"].ainvoke({"name": "lamp", "price": 2.5, "parent": None})
+        (post,) = upstream.requests
+        assert json.loads(post.content) == {"name": "lamp", "price": 2.5, "parent": None}
