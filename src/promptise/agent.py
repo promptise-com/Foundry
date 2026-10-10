@@ -333,8 +333,15 @@ class PromptiseAgent:
         # Human-in-the-loop approval
         self._approval = approval
 
-        # Event notifications
+        # Event notifications. The agent stops the notifier on shutdown()
+        # unless something else (an AgentProcess, the runtime) owns it.
         self._event_notifier = event_notifier
+        self._owns_event_notifier = True
+        self._tool_event_handler: Any | None = None
+        if event_notifier is not None:
+            from .events import _ToolEventCallback
+
+            self._tool_event_handler = _ToolEventCallback(event_notifier)
 
         # Invocation timeout (0 = no limit)
         self._max_invocation_time: float = 0
@@ -380,13 +387,71 @@ class PromptiseAgent:
     def _actor(self) -> str | None:
         """Return the id to attribute the agent's events to.
 
-        When an identity is attached, this is the agent's resolved
-        identifier (``agent_id`` or the IdP subject); otherwise it is the
-        model name, so agents without an identity are unaffected.
+        This is ``observer_agent_id`` when set, else the identity's
+        resolved identifier (``agent_id`` or the IdP subject); an agent
+        run by an ``AgentProcess`` uses the process name.  Without any of
+        these it is the model name, as before.
         """
-        if self.identity is not None:
-            return self._actor_id or self.model_name
-        return self.model_name
+        return self._actor_id or self.model_name
+
+    def _push_event_scope(self, session_id: str | None = None) -> contextvars.Token[Any] | None:
+        """Attribute events emitted during this invocation to this agent.
+
+        Call after :func:`_begin_invocation`: the events carry that
+        invocation's id, the one approval gates see too.
+        """
+        if self._event_notifier is None:
+            return None
+        import secrets
+
+        from .events import _push_scope
+
+        invocation = _invocation_ctx_var.get()
+        return _push_scope(
+            agent_id=self._actor(),
+            session_id=session_id or _session_ctx_var.get(),
+            metadata={
+                "model": self.model_name,
+                "invocation_id": (
+                    invocation.invocation_id if invocation is not None else secrets.token_hex(8)
+                ),
+            },
+        )
+
+    @staticmethod
+    def _pop_event_scope(token: contextvars.Token[Any] | None) -> None:
+        if token is not None:
+            from .events import _scope_var
+
+            _scope_var.reset(token)
+
+    def _with_callbacks(self, config: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Add the observability and tool-event callback handlers to *config*."""
+        handlers = [h for h in (self._handler, self._tool_event_handler) if h is not None]
+        return self._add_callback_handlers(config, handlers)
+
+    @staticmethod
+    def _add_callback_handlers(
+        config: dict[str, Any] | None, handlers: list[Any]
+    ) -> dict[str, Any] | None:
+        """Return a copy of *config* whose ``callbacks`` also run *handlers*.
+
+        ``callbacks`` may be a list or a ``CallbackManager`` (which is copied,
+        never mutated).
+        """
+        if not handlers:
+            return config
+        config = dict(config) if config else {}
+        callbacks = config.get("callbacks")
+        if callbacks is not None and not isinstance(callbacks, list):
+            # A CallbackManager: add ours to it (on a copy).
+            manager = callbacks.copy()
+            for handler in handlers:
+                manager.add_handler(handler, inherit=True)
+            config["callbacks"] = manager
+        else:
+            config["callbacks"] = [*(callbacks or []), *handlers]
+        return config
 
     def _cache_model_id(self) -> str:
         """Model id the cache keys this request's answer under.
@@ -418,9 +483,7 @@ class PromptiseAgent:
         annotations = {t.name: tool_annotations(t) for t in tools}
         gated = {t.name for t in tools if isinstance(t, _ApprovalToolWrapper)}
         watcher = ToolCallWatcher(self._cache, get_current_caller(), annotations, gated)
-        config = dict(config) if config else {}
-        config["callbacks"] = [*config.get("callbacks", []), watcher]
-        return config, watcher
+        return self._add_callback_handlers(config, [watcher]), watcher
 
     # -----------------------------------------------------------------
     # Core invocation methods
@@ -468,6 +531,7 @@ class PromptiseAgent:
             caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
         _inv_token = _begin_invocation(input)
+        _scope_token = self._push_event_scope(session_id)
         # Observability: agent.input now, agent.output / agent.error when the
         # invocation ends.  Every event recorded in between is linked to it.
         _run = self._begin_run(input)
@@ -480,6 +544,7 @@ class PromptiseAgent:
             self._end_run(_run, output=output)
             return output
         finally:
+            self._pop_event_scope(_scope_token)
             _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
 
@@ -670,7 +735,7 @@ class PromptiseAgent:
                         self._event_notifier,
                         "guardrail.blocked",
                         "warning",
-                        {"direction": "input", "error": type(guard_exc).__name__},
+                        _guardrail_block_data("input", guard_exc),
                     )
                 raise  # Re-raise — don't swallow the violation
             if _input_sink is not None:
@@ -816,12 +881,8 @@ class PromptiseAgent:
         # tools relevant to the recent conversation (re-evaluated every step).
         config = self._with_tool_selection(config)
 
-        # Step 2: Observability — inject callback handler
-        if self._handler is not None:
-            config = dict(config) if config else {}
-            callbacks = list(config.get("callbacks", []))
-            callbacks.append(self._handler)
-            config["callbacks"] = callbacks
+        # Step 2: Observability and tool events — inject callback handlers
+        config = self._with_callbacks(config)
         config, _cache_watcher = self._add_cache_watcher(config)
 
         # Step 2.5: Adaptive strategy — collect this invocation's failed tool
@@ -999,6 +1060,7 @@ class PromptiseAgent:
             caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
         _inv_token = _begin_invocation(input)
+        _scope_token = self._push_event_scope()
         _run = self._begin_run(input)
         _run_error: BaseException | None = None
         try:
@@ -1012,6 +1074,7 @@ class PromptiseAgent:
         finally:
             # astream() yields raw graph chunks; the final text is not known here.
             self._end_run(_run, output=None, error=_run_error)
+            self._pop_event_scope(_scope_token)
             _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
 
@@ -1043,7 +1106,7 @@ class PromptiseAgent:
                         self._event_notifier,
                         "guardrail.blocked",
                         "warning",
-                        {"direction": "input", "error": type(guard_exc).__name__},
+                        _guardrail_block_data("input", guard_exc),
                     )
                 raise
 
@@ -1063,12 +1126,8 @@ class PromptiseAgent:
 
         config = self._with_tool_selection(config)
 
-        # Step 2: Observability — inject callback handler
-        if self._handler is not None:
-            config = dict(config) if config else {}
-            callbacks = list(config.get("callbacks", []))
-            callbacks.append(self._handler)
-            config["callbacks"] = callbacks
+        # Step 2: Observability and tool events — inject callback handlers
+        config = self._with_callbacks(config)
         config, _ = self._add_cache_watcher(config)
 
         # Step 2.5: Adaptive strategy — collect this run's failed tool calls
@@ -1190,6 +1249,7 @@ class PromptiseAgent:
             caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
         _inv_token = _begin_invocation(input)
+        _scope_token = self._push_event_scope()
         _start = time.monotonic()
         _cumulative = ""
         # The final answer: the text of the last model call (its run_id).
@@ -1228,7 +1288,7 @@ class PromptiseAgent:
                             self._event_notifier,
                             "guardrail.blocked",
                             "warning",
-                            {"direction": "input"},
+                            _guardrail_block_data("input", guard_in_exc, streaming=True),
                         )
                     yield ErrorEvent(
                         message="Input blocked by safety policy.",
@@ -1278,12 +1338,8 @@ class PromptiseAgent:
 
             config = self._with_tool_selection(config)
 
-            # Step 2: Inject callback handler
-            if self._handler is not None:
-                config = dict(config) if config else {}
-                callbacks = list(config.get("callbacks", []))
-                callbacks.append(self._handler)
-                config["callbacks"] = callbacks
+            # Step 2: Inject callback handlers (observability, tool events)
+            config = self._with_callbacks(config)
             config, _ = self._add_cache_watcher(config)
 
             # Step 2.5: Adaptive strategy — collect this run's failed tool calls
@@ -1421,7 +1477,7 @@ class PromptiseAgent:
                             self._event_notifier,
                             "guardrail.blocked",
                             "warning",
-                            {"direction": "output", "streaming": True},
+                            _guardrail_block_data("output", guard_exc, streaming=True),
                         )
                     yield ErrorEvent(
                         message="Output blocked by safety policy.",
@@ -1479,6 +1535,7 @@ class PromptiseAgent:
             raise
         finally:
             self._end_run(_run, output=_run_output, error=_run_error)
+            self._pop_event_scope(_scope_token)
             _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
 
@@ -1528,8 +1585,13 @@ class PromptiseAgent:
             except Exception:
                 logger.debug("Transporter close error during shutdown", exc_info=True)
 
-        # Stop event notifier (drain remaining events)
-        if self._event_notifier is not None and hasattr(self._event_notifier, "stop"):
+        # Stop event notifier (drain remaining events) — unless an owner
+        # such as an AgentProcess stops it after its own final events.
+        if (
+            self._event_notifier is not None
+            and self._owns_event_notifier
+            and hasattr(self._event_notifier, "stop")
+        ):
             try:
                 await self._event_notifier.stop()
             except Exception:
@@ -1825,9 +1887,7 @@ class PromptiseAgent:
         from .strategy import _ToolFailureRecorder
 
         recorder = _ToolFailureRecorder()
-        config = dict(config) if config else {}
-        config["callbacks"] = [*config.get("callbacks", []), recorder]
-        return config, recorder
+        return self._add_callback_handlers(config, [recorder]), recorder
 
     async def _record_tool_failures(self, recorder: Any | None) -> None:
         """Hand an invocation's failed tool calls to adaptive strategy."""
@@ -2539,6 +2599,28 @@ class PromptiseAgent:
         return getattr(self._inner, name)
 
 
+def _guardrail_block_data(direction: str, exc: BaseException, **extra: Any) -> dict[str, Any]:
+    """Payload for ``guardrail.blocked``: why it blocked, without the matched text."""
+    data: dict[str, Any] = {"direction": direction, "error": type(exc).__name__}
+    report = getattr(exc, "report", None)
+    blocked = list(getattr(report, "blocked", None) or [])
+    if blocked:
+        data["reason"] = "; ".join(str(getattr(f, "description", "")) for f in blocked[:3])[:300]
+        data["findings"] = [
+            {
+                "detector": getattr(f, "detector", None),
+                "category": getattr(f, "category", None),
+                "severity": str(getattr(getattr(f, "severity", None), "value", None) or ""),
+                "description": getattr(f, "description", None),
+            }
+            for f in blocked[:10]
+        ]
+    else:
+        data["reason"] = str(exc)[:300]
+    data.update(extra)
+    return data
+
+
 def _replace_last_user_text(input: Any, text: str) -> Any:
     """Return *input* with its last user message's text set to *text*."""
     if isinstance(input, str):
@@ -2953,7 +3035,8 @@ async def build_agent(
             agent without it. ``agent_pattern="code-action"`` enables a
             sandbox automatically.
         observer: Optional :class:`ObservabilityCollector` to reuse.
-        observer_agent_id: Agent identifier for tool-event recording.
+        observer_agent_id: Agent identifier for tool-event recording.  Also
+            the ``agent_id`` of every event the agent emits (see ``events``).
         observe: Plug-and-play observability.  Can be:
             - ``True``: Enable with defaults (STANDARD level, HTML report).
               Writes an HTML report file to ``./reports`` when the agent
@@ -3038,9 +3121,12 @@ async def build_agent(
             ``exec_timeout`` (seconds the program may run, default 120),
             ``max_repairs`` (default 1) and ``max_tool_calls`` (default 50).
             Raises ``ValueError`` with any other pattern.
-        events: Optional :class:`~promptise.events.EventNotifier`.  Besides
-            the agent's other events, it receives a ``tool.progress`` event
-            for each progress notification an MCP tool sends.
+        events: Optional :class:`~promptise.events.EventNotifier`.  The
+            agent emits ``invocation.*``, ``tool.error``, ``tool.slow``,
+            ``tool.progress`` (one per progress notification an MCP tool
+            sends), ``guardrail.*``, ``approval.*`` and ``cache.*`` events
+            to it, whether or not ``observe`` is on, and stops it
+            (delivering what is queued) in :meth:`~PromptiseAgent.shutdown`.
         on_tool_progress: Optional callback for progress notifications
             MCP servers send while a tool call runs (``ProgressReporter``
             on a Promptise server), called as ``(tool_name, progress,
@@ -3818,10 +3904,9 @@ async def build_agent(
     if isinstance(model, FallbackChain):
         agent._fallback_chain = model
 
-    # Wire event notifier to callback handler and cache
+    # Wire event notifier to the cache (tool events come from the agent's
+    # own tool-event handler, independent of observability)
     if events is not None:
-        if _callback_handler is not None:
-            _callback_handler._event_notifier = events
         if cache is not None:
             cache._event_notifier = events
         # Auto-start the notifier

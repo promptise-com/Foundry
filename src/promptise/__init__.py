@@ -70,6 +70,7 @@ from .events import (
     EventSink,
     LogSink,
     WebhookSink,
+    verify_event_signature,
 )
 from .exceptions import (
     EnvVarNotFoundError,
@@ -249,6 +250,7 @@ __all__ = [
     # Events
     "AgentEvent",
     "EventNotifier",
+    "verify_event_signature",
     "EventSink",
     "WebhookSink",
     "CallbackSink",
