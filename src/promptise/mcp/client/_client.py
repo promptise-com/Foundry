@@ -9,6 +9,7 @@ async context manager that handles:
 - Custom header injection on every HTTP request
 - Proper session lifecycle (initialize → use → close)
 - Clear, typed errors when a server refuses the connection
+- Progress notifications for a tool call, through a per-call callback
 
 The transport and session live in a task owned by the client.  The MCP
 SDK's transports run their HTTP traffic in an anyio task group; owning
@@ -26,10 +27,13 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mcp.client.session import ClientSession
 from mcp.types import CallToolResult, ListToolsResult, Tool
+
+if TYPE_CHECKING:
+    from mcp.shared.session import ProgressFnT
 
 logger = logging.getLogger(__name__)
 
@@ -470,18 +474,27 @@ class MCPClient:
         self,
         name: str,
         arguments: dict[str, Any] | None = None,
+        *,
+        progress_callback: ProgressFnT | None = None,
     ) -> CallToolResult:
         """Call a tool on the connected server.
 
         Args:
             name: Tool name.
             arguments: Tool arguments dict.
+            progress_callback: ``async (progress, total, message) -> None``
+                awaited for each progress notification the server sends
+                for this call (``ProgressReporter.report()`` on a Promptise
+                server).  Servers only send progress when the call carries
+                a progress token, which is attached only when this is set.
 
         Returns:
             MCP ``CallToolResult`` with content list.
         """
         session = self._require_session()
         try:
+            if progress_callback is not None:
+                return await session.call_tool(name, arguments, progress_callback=progress_callback)
             return await session.call_tool(name, arguments)
         except (TimeoutError, asyncio.TimeoutError) as exc:
             raise MCPClientError(f"Timeout calling tool '{name}': {exc}") from exc

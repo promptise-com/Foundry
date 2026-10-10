@@ -449,6 +449,13 @@ Background task queue with priority, retry, progress, and cancellation.
       show_source: false
       heading_level: 4
 
+### QueueCaller
+
+::: promptise.mcp.server.QueueCaller
+    options:
+      show_source: false
+      heading_level: 4
+
 ---
 
 ## Streaming & Progress

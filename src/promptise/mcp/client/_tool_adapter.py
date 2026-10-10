@@ -10,6 +10,8 @@ Uses the Promptise MCP Client for tool discovery and invocation.
 from __future__ import annotations
 
 import contextlib
+import inspect
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -21,10 +23,14 @@ from ...tools import ToolInfo, _jsonschema_to_pydantic
 from ._client import MCPClientError
 from ._multi import MCPMultiClient
 
+logger = logging.getLogger("promptise.mcp.client")
+
 # Callback types
 OnBefore = Callable[[str, dict[str, Any]], None]
 OnAfter = Callable[[str, Any], None]
 OnError = Callable[[str, Exception], None]
+# (tool_name, progress, total, message); may return an awaitable
+OnProgress = Callable[[str, float, "float | None", "str | None"], Any]
 
 
 def _extract_text(result: CallToolResult) -> str:
@@ -63,6 +69,7 @@ class _PromptiseMCPTool(BaseTool):
     _on_before: OnBefore | None = PrivateAttr(default=None)
     _on_after: OnAfter | None = PrivateAttr(default=None)
     _on_error: OnError | None = PrivateAttr(default=None)
+    _on_progress: OnProgress | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -75,6 +82,7 @@ class _PromptiseMCPTool(BaseTool):
         on_before: OnBefore | None = None,
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
+        on_progress: OnProgress | None = None,
     ) -> None:
         super().__init__(name=name, description=description, args_schema=args_schema)
         self._tool_name = tool_name
@@ -82,6 +90,20 @@ class _PromptiseMCPTool(BaseTool):
         self._on_before = on_before
         self._on_after = on_after
         self._on_error = on_error
+        self._on_progress = on_progress
+
+    async def _report_progress(
+        self, progress: float, total: float | None, message: str | None
+    ) -> None:
+        """Forward one progress notification to ``on_progress`` (errors logged)."""
+        if self._on_progress is None:
+            return
+        try:
+            result = self._on_progress(self.name, progress, total, message)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.warning("on_progress callback failed for tool '%s'", self.name, exc_info=True)
 
     async def _arun(self, **kwargs: Any) -> Any:
         """Execute the MCP tool via the persistent multi-client."""
@@ -90,7 +112,12 @@ class _PromptiseMCPTool(BaseTool):
                 self._on_before(self.name, kwargs)
 
         try:
-            result = await self._multi.call_tool(self._tool_name, kwargs)
+            if self._on_progress is not None:
+                result = await self._multi.call_tool(
+                    self._tool_name, kwargs, progress_callback=self._report_progress
+                )
+            else:
+                result = await self._multi.call_tool(self._tool_name, kwargs)
         except Exception as exc:
             if self._on_error:
                 with contextlib.suppress(Exception):
@@ -123,6 +150,10 @@ class MCPToolAdapter:
         on_before: Callback fired before each tool invocation.
         on_after: Callback fired after each tool invocation.
         on_error: Callback fired on tool errors.
+        on_progress: Callback fired for each progress notification a
+            server sends during a tool call, as ``(tool_name, progress,
+            total, message)``.  May be sync or async.  When ``None``, no
+            progress is requested from servers.
 
     Example::
 
@@ -141,11 +172,13 @@ class MCPToolAdapter:
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
         optimize: Any | None = None,
+        on_progress: OnProgress | None = None,
     ) -> None:
         self._multi = multi
         self._on_before = on_before
         self._on_after = on_after
         self._on_error = on_error
+        self._on_progress = on_progress
         self._optimize = optimize
 
     async def as_langchain_tools(self) -> list[BaseTool]:
@@ -193,6 +226,7 @@ class MCPToolAdapter:
                     on_before=self._on_before,
                     on_after=self._on_after,
                     on_error=self._on_error,
+                    on_progress=self._on_progress,
                 )
             )
 

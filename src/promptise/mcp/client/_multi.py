@@ -8,9 +8,12 @@ on tool discovery.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mcp.types import CallToolResult, Tool
+
+if TYPE_CHECKING:
+    from mcp.shared.session import ProgressFnT
 
 from ._client import MCPClient, MCPClientError, MCPConnectionRejectedError
 
@@ -127,12 +130,16 @@ class MCPMultiClient:
         self,
         name: str,
         arguments: dict[str, Any] | None = None,
+        *,
+        progress_callback: ProgressFnT | None = None,
     ) -> CallToolResult:
         """Call a tool, automatically routing to the correct server.
 
         Args:
             name: Tool name (as discovered via ``list_tools``).
             arguments: Tool arguments dict.
+            progress_callback: Receives the call's progress notifications;
+                see :meth:`MCPClient.call_tool`.
 
         Returns:
             MCP ``CallToolResult``.
@@ -147,6 +154,8 @@ class MCPMultiClient:
             )
         client = self._clients[server_name]
         try:
+            if progress_callback is not None:
+                return await client.call_tool(name, arguments, progress_callback=progress_callback)
             return await client.call_tool(name, arguments)
         except MCPClientError:
             # Invalidate stale tool mapping on connection failure —

@@ -88,7 +88,7 @@ from ._openapi import OpenAPIProvider
 from ._otel import OTelMiddleware
 from ._progress import ProgressReporter
 from ._prometheus import PrometheusMiddleware
-from ._queue import InMemoryQueueBackend, MCPQueue, QueueBackend
+from ._queue import InMemoryQueueBackend, MCPQueue, QueueBackend, QueueCaller
 from ._rate_limit import (
     DeclaredRateLimitMiddleware,
     RateLimitMiddleware,
@@ -263,4 +263,5 @@ __all__ = [
     "MCPQueue",
     "QueueBackend",
     "InMemoryQueueBackend",
+    "QueueCaller",
 ]

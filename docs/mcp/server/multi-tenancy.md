@@ -83,6 +83,7 @@ server = MCPServer(name="api", require_tenant=True)  # implies require_auth
 | Rate limiting | Bucket keys are tenant-qualified in both `RateLimitMiddleware` and declared per-tool limits — one tenant's traffic can never exhaust another's quota, even for identical `client_id` strings |
 | Audit log | `AuditMiddleware` records `tenant_id` in each entry's identity descriptors — tenant-scoped forensics without joining external data |
 | Tool access | `RequireTenant` / `HasTenant` guards, or the server-wide `require_tenant` invariant |
+| Job queue | `MCPQueue` jobs record the submitting client and tenant; `queue_status`, `queue_result`, `queue_cancel` and `queue_list` only show a caller its own jobs, and the admin role widens that to its own tenant only ([Job ownership](queue.md#job-ownership)) |
 
 `SessionState` needs no tenant prefix: it is keyed by the live transport
 session, which is connection-scoped and therefore cannot be shared across

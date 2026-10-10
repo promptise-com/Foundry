@@ -170,6 +170,19 @@ async with MCPClient(url="http://localhost:8080/mcp", bearer_token=token) as cli
             print(item.text)
 ```
 
+### Progress notifications
+
+Long-running tools can report progress (`ProgressReporter` on a Promptise server). Pass a `progress_callback` to receive it; it is awaited for each notification the server sends for that call:
+
+```python
+async def on_progress(progress: float, total: float | None, message: str | None) -> None:
+    print(f"{progress}/{total} {message or ''}")
+
+result = await client.call_tool("crawl_site", {"pages": 3}, progress_callback=on_progress)
+```
+
+Without a callback the call carries no progress token, and servers don't send progress for it. `MCPMultiClient.call_tool()` accepts the same argument. Agents built with `build_agent()` take `on_tool_progress=` instead -- see [Progress Reporting](../server/resilience-patterns.md#receiving-progress-in-a-promptise-client-or-agent).
+
 ### Accessing the session
 
 For advanced use cases, access the underlying MCP `ClientSession`:
@@ -291,11 +304,15 @@ def on_after(tool_name: str, result) -> None:
 def on_error(tool_name: str, exc: Exception) -> None:
     print(f"{tool_name} failed: {exc}")
 
+def on_progress(tool_name: str, progress: float, total: float | None, message: str | None) -> None:
+    print(f"{tool_name}: {progress}/{total} {message or ''}")  # may also be async
+
 adapter = MCPToolAdapter(
     multi,
     on_before=on_before,
     on_after=on_after,
     on_error=on_error,
+    on_progress=on_progress,  # progress notifications during a call
 )
 lc_tools = await adapter.as_langchain_tools()
 ```
@@ -364,15 +381,15 @@ asyncio.run(main())
 | `MCPClient(url, transport, bearer_token, ...)` | Class | Single-server MCP client |
 | `MCPClient.fetch_token(url, client_id, secret)` | Static method | Acquire a JWT from a token endpoint |
 | `client.list_tools()` | Method | Discover all tools on the server |
-| `client.call_tool(name, arguments)` | Method | Call a tool and get a `CallToolResult` |
+| `client.call_tool(name, arguments, progress_callback=None)` | Method | Call a tool and get a `CallToolResult`; the callback receives progress notifications |
 | `client.session` | Property | Underlying MCP `ClientSession` |
 | `client.headers` | Property | Read-only copy of HTTP headers |
 | `MCPMultiClient(clients)` | Class | Multi-server aggregating client |
 | `multi.list_tools()` | Method | Discover tools from all servers |
-| `multi.call_tool(name, arguments)` | Method | Call a tool, auto-routed to the correct server |
+| `multi.call_tool(name, arguments, progress_callback=None)` | Method | Call a tool, auto-routed to the correct server |
 | `multi.tool_to_server` | Property | Tool name to server name mapping |
 | `multi.servers` | Property | Server name to `MCPClient` mapping |
-| `MCPToolAdapter(multi, on_before, on_after, on_error)` | Class | MCP-to-LangChain tool converter |
+| `MCPToolAdapter(multi, on_before, on_after, on_error, on_progress)` | Class | MCP-to-LangChain tool converter |
 | `adapter.as_langchain_tools()` | Method | Convert MCP tools to `BaseTool` instances |
 | `adapter.list_tool_info()` | Method | Get tool metadata for introspection |
 | `MCPClientError` | Exception | Raised on client operation failures |
