@@ -31,9 +31,11 @@ Usage::
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -82,136 +84,213 @@ class BaseTransporter(ABC):
 
 
 class HTMLReportTransporter(BaseTransporter):
-    """Generates a self-contained interactive HTML report on flush.
+    """Generates a self-contained interactive HTML report.
 
-    Events are buffered in memory.  When :meth:`flush` is called (typically
-    at the end of a session), the full report is generated via the existing
-    ``generate_report()`` infrastructure.
+    Events are read from the collector when the report is written, so
+    nothing is buffered here.  :meth:`flush` (called on agent shutdown)
+    writes ``<output_dir>/<session_name>-report-<timestamp>.html``;
+    :meth:`write` writes to an exact path, which is what
+    :meth:`PromptiseAgent.generate_report` uses.
+
+    The page shows the session's stats (taken from
+    :meth:`ObservabilityCollector.get_stats`, so they match
+    ``agent.get_stats()``), a filterable timeline, and each event's
+    metadata on click.  All data is embedded; the page loads nothing.
 
     Args:
         output_dir: Directory for the report file.  Defaults to ``"./reports"``.
         session_name: Embedded in the filename.
+        title: Page title and heading.
     """
 
     def __init__(
         self,
         output_dir: str = "./reports",
         session_name: str = "promptise",
+        title: str = "Promptise Agent Report",
     ) -> None:
         self.output_dir = output_dir
         self.session_name = session_name
+        self.title = title
         self._collector: Any | None = None  # Set externally when auto-created
 
     def on_event(self, entry: Any) -> None:
         # Events are already stored in the collector; nothing to buffer.
         pass
 
+    def write(self, path: str | os.PathLike[str]) -> Path:
+        """Write the report to exactly *path* and return it.
+
+        Creates missing parent directories and overwrites an existing file.
+
+        Raises:
+            RuntimeError: When no collector is attached.
+            OSError: When the file cannot be written.
+        """
+        if self._collector is None:
+            raise RuntimeError("HTMLReportTransporter has no collector to report on")
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        html_text = self._render_html(self._collector.to_json(), self.title)
+        target.write_text(html_text, encoding="utf-8")
+        logger.info("HTML observability report written: %s", target)
+        return target
+
     def flush(self) -> None:
-        """Write a self-contained HTML report of collected events."""
+        """Write a timestamped report into :attr:`output_dir`."""
         if self._collector is None:
             return
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         try:
-            Path(self.output_dir).mkdir(parents=True, exist_ok=True)
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{self.session_name}-report-{ts}.html"
-            path = os.path.join(self.output_dir, filename)
-
-            # Build the HTML report with embedded JSON data
-            data_json = self._collector.to_json(indent=2)
-            html = self._render_html(data_json)
-
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(html)
-            logger.info("HTML observability report written: %s", path)
+            self.write(Path(self.output_dir) / f"{self.session_name}-report-{ts}.html")
         except Exception as exc:
             logger.error("HTMLReportTransporter flush error: %s", exc)
 
     @staticmethod
-    def _render_html(data_json: str) -> str:
-        """Render a self-contained HTML report with timeline visualization."""
-        return f"""<!DOCTYPE html>
+    def _render_html(data_json: str, title: str = "Promptise Agent Report") -> str:
+        """Render a self-contained HTML report with timeline visualization.
+
+        ``data_json`` is embedded in a ``<script>`` element.  Every ``<``,
+        ``>`` and ``&`` in it is written as a JSON unicode escape, so event
+        text (tool output, user input) can never close the element or
+        inject markup; the page renders all event text with
+        ``textContent``.
+        """
+        safe_json = (
+            data_json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+        )
+        values = {
+            "__TITLE__": html.escape(title),
+            "__TITLE_JSON__": json.dumps(title).replace("<", "\\u003c"),
+            "__DATA__": safe_json,
+        }
+        # One pass, so a placeholder inside a substituted value stays literal.
+        return re.sub(
+            r"__TITLE_JSON__|__TITLE__|__DATA__",
+            lambda m: values[m.group(0)],
+            _HTML_REPORT_TEMPLATE,
+        )
+
+
+_HTML_REPORT_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Promptise Agent Report</title>
+<title>__TITLE__</title>
 <style>
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }}
-  h1 {{ color: #58a6ff; margin-bottom: 8px; }}
-  .meta {{ color: #8b949e; margin-bottom: 24px; font-size: 14px; }}
-  .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }}
-  .stat {{ background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }}
-  .stat-value {{ font-size: 28px; font-weight: 700; color: #58a6ff; }}
-  .stat-label {{ font-size: 12px; color: #8b949e; margin-top: 4px; }}
-  .timeline {{ margin-top: 24px; }}
-  .event {{ background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }}
-  .event-icon {{ font-size: 18px; min-width: 24px; text-align: center; }}
-  .event-type {{ font-weight: 600; color: #f0f6fc; min-width: 140px; }}
-  .event-desc {{ flex: 1; color: #8b949e; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-  .event-time {{ color: #484f58; font-size: 12px; font-family: monospace; }}
-  .tool {{ color: #d2a8ff; }} .llm {{ color: #7ee787; }} .error {{ color: #f85149; }} .cache {{ color: #ffa657; }}
-  .filter {{ margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }}
-  .filter button {{ background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 12px; border-radius: 16px; cursor: pointer; font-size: 12px; }}
-  .filter button.active {{ background: #1f6feb; border-color: #1f6feb; }}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+  h1 { color: #58a6ff; margin-bottom: 8px; }
+  .meta { color: #8b949e; margin-bottom: 24px; font-size: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .stat-value { font-size: 28px; font-weight: 700; color: #58a6ff; }
+  .stat-label { font-size: 12px; color: #8b949e; margin-top: 4px; }
+  .filter { margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter button { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 12px; border-radius: 16px; cursor: pointer; font-size: 12px; }
+  .filter button.active { background: #1f6feb; border-color: #1f6feb; }
+  .event { background: #161b22; border: 1px solid #30363d; border-radius: 6px; margin-bottom: 8px; }
+  .event summary { padding: 10px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; }
+  .event summary::-webkit-details-marker { display: none; }
+  .event-icon { font-size: 18px; min-width: 24px; text-align: center; }
+  .event-type { font-weight: 600; color: #f0f6fc; min-width: 120px; font-family: monospace; }
+  .event-desc { flex: 1; color: #8b949e; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .event-dur { color: #8b949e; font-size: 12px; font-family: monospace; min-width: 70px; text-align: right; }
+  .event-time { color: #6e7681; font-size: 12px; font-family: monospace; }
+  .event pre { margin: 0 16px 12px 52px; padding: 10px; background: #0d1117; border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+  .tool { color: #d2a8ff; } .llm { color: #7ee787; } .error { color: #f85149; } .cache { color: #ffa657; } .agent { color: #79c0ff; }
 </style>
 </head>
 <body>
-<h1>Promptise Agent Report</h1>
-<p class="meta">Generated by Promptise Observability</p>
+<h1 id="title"></h1>
+<p class="meta" id="meta"></p>
 <div class="stats" id="stats"></div>
 <div class="filter" id="filter"></div>
-<div class="timeline" id="timeline"></div>
+<div id="timeline"></div>
 <script>
-const data = {data_json};
-const entries = data.entries || data.timeline || [];
-const icons = {{tool_call_start:'🔧',tool_call_end:'✅',llm_start:'🧠',llm_end:'💬',error:'❌',retry:'🔄',agent_start:'▶️',agent_end:'⏹️','cache.hit':'💨','cache.miss':'🔍','cache.store':'💾'}};
-const cats = {{tool_call_start:'tool',tool_call_end:'tool',llm_start:'llm',llm_end:'llm',error:'error',retry:'error','cache.hit':'cache','cache.miss':'cache','cache.store':'cache'}};
+const title = __TITLE_JSON__;
+const data = __DATA__;
+const entries = data.entries || [];
+const stats = data.stats || {};
+const icons = {
+  'agent.input': '▶️', 'agent.output': '⏹️', 'agent.error': '❌',
+  'llm.start': '🧠', 'llm.end': '💬', 'llm.error': '💥', 'llm.retry': '🔄',
+  'tool.call': '🔧', 'tool.result': '✅', 'tool.error': '❌',
+  'cache.hit': '💨', 'cache.miss': '🔍', 'cache.store': '💾', 'cache.error': '⚠️'
+};
+function category(type) {
+  if (type.endsWith('.error') || type.endsWith('.failed') || type.endsWith('.timeout')) return 'error';
+  const prefix = type.split('.')[0];
+  return ['agent', 'llm', 'tool', 'cache'].includes(prefix) ? prefix : 'other';
+}
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
 
-// Stats
-const stats = document.getElementById('stats');
-let totalTokens=0, toolCalls=0, llmCalls=0, errors=0, cacheHits=0;
-entries.forEach(e => {{
-  if(e.event_type==='llm_end') {{ totalTokens += (e.metadata||{{}}).total_tokens||0; llmCalls++; }}
-  if(e.event_type==='tool_call_start') toolCalls++;
-  if(e.event_type==='error') errors++;
-  if(e.event_type==='cache.hit') cacheHits++;
-}});
-stats.innerHTML = `
-  <div class="stat"><div class="stat-value">${{entries.length}}</div><div class="stat-label">Total Events</div></div>
-  <div class="stat"><div class="stat-value">${{totalTokens.toLocaleString()}}</div><div class="stat-label">Total Tokens</div></div>
-  <div class="stat"><div class="stat-value">${{llmCalls}}</div><div class="stat-label">LLM Calls</div></div>
-  <div class="stat"><div class="stat-value">${{toolCalls}}</div><div class="stat-label">Tool Calls</div></div>
-  <div class="stat"><div class="stat-value">${{errors}}</div><div class="stat-label">Errors</div></div>
-  <div class="stat"><div class="stat-value">${{cacheHits}}</div><div class="stat-label">Cache Hits</div></div>
-`;
+document.title = title;
+document.getElementById('title').textContent = title;
+const started = entries.length ? new Date(entries[0].timestamp * 1000).toLocaleString() : '';
+document.getElementById('meta').textContent =
+  'Session ' + (data.session_name || '') + (started ? ' · started ' + started : '') +
+  ' · generated by Promptise Observability';
 
-// Filter
+const byType = stats.events_by_type || {};
+const cards = [
+  [entries.length, 'Total Events'],
+  [stats.total_tokens || 0, 'Total Tokens'],
+  [stats.llm_call_count || 0, 'LLM Calls'],
+  [stats.tool_call_count || 0, 'Tool Calls'],
+  [stats.error_count || 0, 'Errors'],
+  [byType['cache.hit'] || 0, 'Cache Hits']
+];
+const statsEl = document.getElementById('stats');
+cards.forEach(([value, label]) => {
+  const card = el('div', 'stat');
+  card.appendChild(el('div', 'stat-value', Number(value).toLocaleString()));
+  card.appendChild(el('div', 'stat-label', label));
+  statsEl.appendChild(card);
+});
+
 const filterEl = document.getElementById('filter');
 let activeFilter = 'all';
-['all','tool','llm','error','cache'].forEach(f => {{
-  const btn = document.createElement('button');
-  btn.textContent = f.charAt(0).toUpperCase()+f.slice(1);
-  btn.className = f==='all'?'active':'';
-  btn.onclick = () => {{ activeFilter=f; document.querySelectorAll('.filter button').forEach(b=>b.className=''); btn.className='active'; render(); }};
+const filters = [['all', 'All'], ['agent', 'Agent'], ['llm', 'LLM'], ['tool', 'Tool'], ['error', 'Error'], ['cache', 'Cache']];
+filters.forEach(([key, label]) => {
+  const btn = el('button', key === 'all' ? 'active' : '', label);
+  btn.dataset.filter = key;
+  btn.onclick = () => {
+    activeFilter = key;
+    filterEl.querySelectorAll('button').forEach(b => b.className = b === btn ? 'active' : '');
+    render();
+  };
   filterEl.appendChild(btn);
-}});
+});
 
-// Timeline
-const tl = document.getElementById('timeline');
-function render() {{
-  tl.innerHTML = '';
-  entries.forEach(e => {{
-    const cat = cats[e.event_type]||'other';
-    if(activeFilter!=='all' && cat!==activeFilter) return;
-    const div = document.createElement('div');
-    div.className = 'event';
-    const icon = icons[e.event_type]||'📌';
-    const cls = cat;
-    div.innerHTML = `<span class="event-icon">${{icon}}</span><span class="event-type ${{cls}}">${{e.event_type}}</span><span class="event-desc">${{e.description||e.details||''}}</span><span class="event-time">${{e.timestamp?new Date(e.timestamp*1000).toLocaleTimeString():''}}</span>`;
-    tl.appendChild(div);
-  }});
-}}
+const timeline = document.getElementById('timeline');
+function render() {
+  timeline.replaceChildren();
+  entries.forEach(e => {
+    const cat = category(e.event_type);
+    if (activeFilter !== 'all' && cat !== activeFilter) return;
+    const row = el('details', 'event');
+    row.dataset.category = cat;
+    const summary = el('summary');
+    summary.appendChild(el('span', 'event-icon', icons[e.event_type] || '📌'));
+    summary.appendChild(el('span', 'event-type ' + cat, e.event_type));
+    summary.appendChild(el('span', 'event-desc', e.details || ''));
+    const ms = e.duration != null ? e.duration * 1000 : (e.metadata || {}).latency_ms;
+    summary.appendChild(el('span', 'event-dur', ms != null ? Math.round(ms) + ' ms' : ''));
+    summary.appendChild(el('span', 'event-time', e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString() : ''));
+    row.appendChild(summary);
+    const extra = Object.assign({}, e.metadata || {});
+    ['user_id', 'session_id', 'agent_id', 'parent_id'].forEach(k => { if (e[k]) extra[k] = e[k]; });
+    row.appendChild(el('pre', '', JSON.stringify(extra, null, 2)));
+    timeline.appendChild(row);
+  });
+}
 render();
 </script>
 </body>
@@ -227,8 +306,13 @@ class JSONFileTransporter(BaseTransporter):
     """Writes NDJSON lines (one per event) and a full session dump on flush.
 
     Supports two output modes:
-    - **Streaming**: Each event is appended as a single JSON line to the file.
-    - **Dump**: On ``flush()``, a full session JSON is written to a separate file.
+    - **Streaming**: Each event is appended as a single JSON line to
+      ``<output_dir>/<session_name>-events.ndjson``.
+    - **Dump**: On ``flush()``, a full session JSON is written to a separate,
+      timestamped file.
+
+    The NDJSON file is opened in append mode, so events from every run with
+    the same ``session_name`` accumulate in it.
 
     Args:
         output_dir: Directory for output files.  Defaults to ``"./reports"``.
@@ -262,6 +346,8 @@ class JSONFileTransporter(BaseTransporter):
         if self.stream and self._stream_file is not None:
             line = json.dumps(entry.to_dict(), default=str)
             with self._lock:
+                if self._stream_file is None:
+                    return
                 self._stream_file.write(line + "\n")
                 self._stream_file.flush()
 
@@ -723,10 +809,29 @@ class PrometheusTransporter(BaseTransporter):
 
 
 class OTLPTransporter(BaseTransporter):
-    """Converts timeline entries to OpenTelemetry spans and exports via OTLP.
+    """Exports agent runs to OpenTelemetry as traces, via OTLP gRPC.
 
-    Each agent invocation is a parent span; each LLM call and tool call
-    are child spans with proper parent-child relationships.
+    Each agent invocation becomes one trace: an ``invoke_agent`` span from
+    ``agent.input`` to ``agent.output`` (or ``agent.error``), with a
+    ``chat <model>`` child span per LLM call (``llm.start`` → ``llm.end``)
+    and an ``execute_tool <name>`` child span per tool call (``tool.call``
+    → ``tool.result`` / ``tool.error``).  Spans carry the real start and
+    end times of the work, so their duration is the latency.  Other events
+    recorded during the run (cache hits, retries, approvals …) become span
+    events on the run span; events outside a run become standalone spans.
+
+    If an OpenTelemetry span is active when the agent is invoked (for
+    example the server span of an instrumented web framework), the run
+    span becomes its child, so the agent run joins the request's trace.
+
+    Attributes follow the OpenTelemetry GenAI semantic conventions where
+    one exists (``gen_ai.operation.name``, ``gen_ai.agent.name``,
+    ``gen_ai.request.model``, ``gen_ai.usage.input_tokens`` /
+    ``output_tokens``, ``gen_ai.tool.name``) plus ``enduser.id`` and
+    ``session.id`` from the :class:`~promptise.agent.CallerContext`,
+    ``promptise.correlation_id``, and each event's scalar metadata as
+    ``promptise.<key>``.  Failed LLM calls, tool calls and runs get an
+    ``ERROR`` status.
 
     Requires the ``[all]`` extra::
 
@@ -738,89 +843,300 @@ class OTLPTransporter(BaseTransporter):
     Args:
         endpoint: OTLP gRPC endpoint.  Default: ``"http://localhost:4317"``.
         service_name: OpenTelemetry service name.  Default: ``"promptise"``.
+        correlation_id: Optional ID added to every span as
+            ``promptise.correlation_id``.
+        tracer_provider: An existing ``TracerProvider`` to emit spans
+            through (for example your application's).  When given,
+            ``endpoint`` and ``service_name`` are not used and the provider
+            is flushed but not shut down by :meth:`close`.  When omitted, a
+            private provider with an OTLP exporter is created; the global
+            tracer provider is never replaced.
     """
+
+    #: Upper bound on spans kept open while waiting for their end event.
+    _MAX_OPEN_SPANS = 10_000
 
     def __init__(
         self,
         endpoint: str = "http://localhost:4317",
         service_name: str = "promptise",
+        *,
+        correlation_id: str | None = None,
+        tracer_provider: Any | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.service_name = service_name
+        self.correlation_id = correlation_id
         self._tracer: Any = None
-        self._spans: dict[str, Any] = {}  # entry_id → span
+        self._provider: Any = None
+        self._owns_provider = tracer_provider is None
+        self._lock = threading.Lock()
+        # Open spans waiting for their end event.
+        self._runs: dict[str, Any] = {}  # agent.input entry_id → run span
+        self._open: dict[tuple[str, str], Any] = {}  # (kind, key) → LLM/tool span
 
         try:
-            from opentelemetry import trace  # type: ignore
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (  # type: ignore
-                OTLPSpanExporter,
-            )
-            from opentelemetry.sdk.resources import Resource  # type: ignore
+            from opentelemetry import trace  # type: ignore  # noqa: F401
             from opentelemetry.sdk.trace import TracerProvider  # type: ignore
-            from opentelemetry.sdk.trace.export import (  # type: ignore
-                BatchSpanProcessor,
-            )
 
-            resource = Resource.create({"service.name": service_name})
-            provider = TracerProvider(resource=resource)
-            exporter = OTLPSpanExporter(endpoint=endpoint)
-            provider.add_span_processor(BatchSpanProcessor(exporter))
-            trace.set_tracer_provider(provider)
-            self._tracer = trace.get_tracer("promptise")
-            self._provider = provider
-            logger.info("OTLPTransporter connected to %s", endpoint)
+            if tracer_provider is None:
+                from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (  # type: ignore
+                    OTLPSpanExporter,
+                )
+                from opentelemetry.sdk.resources import Resource  # type: ignore
+                from opentelemetry.sdk.trace.export import (  # type: ignore
+                    BatchSpanProcessor,
+                )
+
+                resource = Resource.create({"service.name": service_name})
+                tracer_provider = TracerProvider(resource=resource)
+                tracer_provider.add_span_processor(
+                    BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+                )
+                logger.info("OTLPTransporter exporting to %s", endpoint)
+            self._provider = tracer_provider
+            self._tracer = tracer_provider.get_tracer("promptise")
 
         except ImportError:
             logger.warning(
                 'OpenTelemetry packages not installed.  Install with: pip install "promptise[all]"'
             )
 
+    # -- helpers ---------------------------------------------------------
+
+    @staticmethod
+    def _ns(seconds: float) -> int:
+        return int(seconds * 1_000_000_000)
+
+    def _context_for(self, parent_entry_id: str | None) -> Any:
+        """Context whose current span is the open run span *parent_entry_id*."""
+        if parent_entry_id is None:
+            return None
+        parent = self._runs.get(parent_entry_id)
+        if parent is None:
+            return None
+        from opentelemetry import trace  # type: ignore
+
+        return trace.set_span_in_context(parent)
+
+    def _attributes(self, entry: Any) -> dict[str, Any]:
+        attrs: dict[str, Any] = {
+            "promptise.event_type": entry.event_type.value,
+            "promptise.category": entry.category.value,
+            "promptise.entry_id": entry.entry_id,
+        }
+        if entry.agent_id:
+            attrs["promptise.agent_id"] = entry.agent_id
+            attrs["gen_ai.agent.name"] = entry.agent_id
+        if entry.phase:
+            attrs["promptise.phase"] = entry.phase
+        if entry.details:
+            attrs["promptise.details"] = entry.details
+        if entry.user_id:
+            attrs["enduser.id"] = entry.user_id
+        if entry.session_id:
+            attrs["session.id"] = entry.session_id
+        if self.correlation_id:
+            attrs["promptise.correlation_id"] = self.correlation_id
+        for k, v in entry.metadata.items():
+            if isinstance(v, (str, int, float, bool)):
+                attrs[f"promptise.{k}"] = v
+            elif isinstance(v, (list, tuple)) and v and all(isinstance(i, str) for i in v):
+                attrs[f"promptise.{k}"] = list(v)
+        return attrs
+
+    def _start(self, name: str, entry: Any, parent_entry_id: str | None, **attrs: Any) -> Any:
+        from opentelemetry.trace import SpanKind  # type: ignore
+
+        all_attrs = self._attributes(entry)
+        all_attrs.update({k: v for k, v in attrs.items() if v is not None})
+        return self._tracer.start_span(
+            name,
+            context=self._context_for(parent_entry_id),
+            kind=SpanKind.INTERNAL,
+            attributes=all_attrs,
+            start_time=self._ns(entry.timestamp),
+        )
+
+    def _finish(self, span: Any, entry: Any, *, error: bool = False, **attrs: Any) -> None:
+        for k, v in self._attributes(entry).items():
+            if k not in ("promptise.event_type", "promptise.entry_id", "promptise.details"):
+                span.set_attribute(k, v)
+        for k, v in attrs.items():
+            if v is not None:
+                span.set_attribute(k, v)
+        if error:
+            from opentelemetry.trace import Status, StatusCode  # type: ignore
+
+            message = entry.metadata.get("error_type") or entry.details or "error"
+            span.set_status(Status(StatusCode.ERROR, str(message)))
+        span.end(end_time=self._ns(entry.timestamp))
+
+    def _remember(self, store: dict[Any, Any], key: Any, span: Any) -> None:
+        if len(store) >= self._MAX_OPEN_SPANS:
+            # Drop the oldest open span rather than grow without bound.
+            oldest = next(iter(store))
+            store.pop(oldest).end()
+        store[key] = span
+
+    def _pop_or_backdated(self, kind: str, key: str, name: str, entry: Any, **attrs: Any) -> Any:
+        """The open span for *key*, or a new one back-dated by the event's duration."""
+        span = self._open.pop((kind, key), None)
+        if span is not None:
+            return span
+        from opentelemetry.trace import SpanKind  # type: ignore
+
+        duration = entry.duration
+        if duration is None and entry.metadata.get("latency_ms") is not None:
+            duration = float(entry.metadata["latency_ms"]) / 1000.0
+        start = entry.timestamp - (duration or 0.0)
+        all_attrs = self._attributes(entry)
+        all_attrs.update({k: v for k, v in attrs.items() if v is not None})
+        return self._tracer.start_span(
+            name,
+            context=self._context_for(entry.parent_id),
+            kind=SpanKind.INTERNAL,
+            attributes=all_attrs,
+            start_time=self._ns(start),
+        )
+
+    # -- event handling ---------------------------------------------------
+
     def on_event(self, entry: Any) -> None:
         if self._tracer is None:
             return
+        with self._lock:
+            self._handle(entry)
 
+    def _handle(self, entry: Any) -> None:
         etype = entry.event_type.value
+        meta = entry.metadata
+        agent = entry.agent_id or "agent"
 
-        # Map event types to span names
-        span_name = f"promptise.{etype}"
-        if entry.agent_id:
-            span_name = f"promptise.{entry.agent_id}.{etype}"
+        if etype == "agent.input":
+            span = self._start(
+                f"invoke_agent {agent}",
+                entry,
+                entry.parent_id,
+                **{
+                    "gen_ai.operation.name": "invoke_agent",
+                    "gen_ai.request.model": meta.get("model"),
+                },
+            )
+            self._remember(self._runs, entry.entry_id, span)
+            return
 
-        # Create span with attributes
-        span = self._tracer.start_span(span_name)
-        span.set_attribute("promptise.event_type", etype)
-        span.set_attribute("promptise.category", entry.category.value)
-        if entry.agent_id:
-            span.set_attribute("promptise.agent_id", entry.agent_id)
-        if entry.phase:
-            span.set_attribute("promptise.phase", entry.phase)
-        span.set_attribute("promptise.details", entry.details)
+        if etype in ("agent.output", "agent.error"):
+            span = self._runs.pop(entry.parent_id, None) if entry.parent_id else None
+            if span is None:
+                span = self._pop_or_backdated("run", entry.entry_id, f"invoke_agent {agent}", entry)
+            self._finish(
+                span,
+                entry,
+                error=etype == "agent.error",
+                **{
+                    "gen_ai.usage.input_tokens": meta.get("prompt_tokens"),
+                    "gen_ai.usage.output_tokens": meta.get("completion_tokens"),
+                },
+            )
+            return
 
-        # Add metadata as attributes
-        for k, v in entry.metadata.items():
-            if isinstance(v, (str, int, float, bool)):
-                span.set_attribute(f"promptise.{k}", v)
+        if etype == "llm.start":
+            model = meta.get("model")
+            span = self._start(
+                f"chat {model}" if model else "chat",
+                entry,
+                entry.parent_id,
+                **{"gen_ai.operation.name": "chat", "gen_ai.request.model": model},
+            )
+            self._remember(self._open, ("llm", str(meta.get("run_id", entry.entry_id))), span)
+            return
 
-        # Set duration if available
-        if entry.duration is not None:
-            span.set_attribute("promptise.duration_ms", entry.duration * 1000)
+        if etype in ("llm.end", "llm.error"):
+            model = meta.get("model")
+            span = self._pop_or_backdated(
+                "llm",
+                str(meta.get("run_id", entry.entry_id)),
+                f"chat {model}" if model else "chat",
+                entry,
+                **{"gen_ai.operation.name": "chat"},
+            )
+            self._finish(
+                span,
+                entry,
+                error=etype == "llm.error",
+                **{
+                    "gen_ai.response.model": model,
+                    "gen_ai.usage.input_tokens": meta.get("prompt_tokens"),
+                    "gen_ai.usage.output_tokens": meta.get("completion_tokens"),
+                },
+            )
+            return
 
-        span.end()
+        if etype == "tool.call":
+            tool = meta.get("tool_name", "tool")
+            span = self._start(
+                f"execute_tool {tool}",
+                entry,
+                entry.parent_id,
+                **{"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": tool},
+            )
+            self._remember(self._open, ("tool", str(meta.get("run_id", tool))), span)
+            return
+
+        if etype in ("tool.result", "tool.error"):
+            tool = meta.get("tool_name", "tool")
+            span = self._pop_or_backdated(
+                "tool",
+                str(meta.get("run_id", tool)),
+                f"execute_tool {tool}",
+                entry,
+                **{"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": tool},
+            )
+            self._finish(span, entry, error=etype == "tool.error" or meta.get("status") == "error")
+            return
+
+        # Anything else: an event on the run it belongs to, or its own span.
+        run_span = self._runs.get(entry.parent_id) if entry.parent_id else None
+        if run_span is not None:
+            run_span.add_event(
+                f"promptise.{etype}",
+                attributes=self._attributes(entry),
+                timestamp=self._ns(entry.timestamp),
+            )
+            return
+        span = self._pop_or_backdated("event", entry.entry_id, f"promptise.{etype}", entry)
+        self._finish(span, entry, error=etype.endswith((".error", ".failed")))
+
+    # -- lifecycle --------------------------------------------------------
+
+    def _end_open_spans(self) -> None:
+        with self._lock:
+            for store in (self._open, self._runs):
+                for span in store.values():
+                    span.end()
+                store.clear()
 
     def flush(self) -> None:
-        """Force-flush the span processor."""
-        if hasattr(self, "_provider"):
+        """Export finished spans now."""
+        if self._provider is not None:
             try:
                 self._provider.force_flush()
             except Exception as exc:
                 logger.error("OTLPTransporter flush error: %s", exc)
 
     def close(self) -> None:
-        if hasattr(self, "_provider"):
-            try:
+        """End spans still open, export them, and shut down the private provider."""
+        if self._provider is None:
+            return
+        self._end_open_spans()
+        try:
+            if self._owns_provider:
                 self._provider.shutdown()
-            except Exception:
-                logger.debug("OTLPTransporter shutdown error", exc_info=True)
+            else:
+                self._provider.force_flush()
+        except Exception:
+            logger.debug("OTLPTransporter shutdown error", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1036,6 +1352,7 @@ def create_transporters(
                 t = OTLPTransporter(
                     endpoint=config.otlp_endpoint,
                     service_name=config.session_name,
+                    correlation_id=config.correlation_id,
                 )
 
             elif t_type == TransporterType.WEBHOOK:

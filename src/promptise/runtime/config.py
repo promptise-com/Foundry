@@ -358,6 +358,8 @@ class ContextConfig(BaseModel):
         memory_provider: Memory provider type (or ``None`` to disable).
         memory_max: Max memories to inject per invocation.
         memory_min_score: Min relevance score for memory injection.
+        memory_timeout: Seconds to wait for a memory search or auto-store
+            write (a slower write finishes in the background).
         memory_auto_store: Automatically store exchanges in long-term memory.
         memory_collection: Collection name for ChromaDB backend.
         memory_persist_directory: Persist directory for ChromaDB.
@@ -382,6 +384,9 @@ class ContextConfig(BaseModel):
     )
     memory_max: int = Field(5, ge=1, description="Max memories per invocation")
     memory_min_score: float = Field(0.0, ge=0.0, le=1.0, description="Min relevance score")
+    memory_timeout: float = Field(
+        5.0, gt=0, description="Seconds to wait for memory search / auto-store"
+    )
     memory_auto_store: bool = Field(
         False,
         description="Automatically store exchanges in long-term memory",

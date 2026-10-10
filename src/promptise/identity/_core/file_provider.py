@@ -35,6 +35,9 @@ class FileTokenProvider(IdentityProvider):
             their own label.
     """
 
+    # The projected token's audience is fixed by the platform.
+    _audience_scoped = False
+
     def __init__(
         self,
         *,

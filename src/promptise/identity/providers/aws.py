@@ -92,6 +92,7 @@ class AwsStsProvider(CallableTokenProvider):
         super().__init__(
             token_fn=self._fetch_sts_web_identity_token,
             provider_label="aws-sts",
+            default_audience=audience,
         )
 
     def _fetch_sts_web_identity_token(self, audience: str | None = None) -> str:

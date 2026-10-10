@@ -74,6 +74,7 @@ class GcpMetadataProvider(CallableTokenProvider):
         super().__init__(
             token_fn=self._fetch_metadata_identity_token,
             provider_label="gcp-metadata",
+            default_audience=audience,
         )
 
     def _fetch_metadata_identity_token(self, audience: str | None = None) -> str:

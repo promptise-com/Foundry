@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import contextvars
+import dataclasses
 import json
 import logging
 import time
@@ -193,6 +194,10 @@ ModelLike: TypeAlias = str | Model | BaseChatModel | Runnable[Any, Any]
 
 logger = logging.getLogger("promptise.agent")
 
+#: Seconds :meth:`PromptiseAgent.shutdown` waits for memory auto-store writes
+#: that outlived ``memory_timeout`` (or ``memory_timeout``, if longer).
+_SHUTDOWN_STORE_GRACE = 30.0
+
 
 # ---------------------------------------------------------------------------
 # PromptiseAgent — the unified agent with opt-in capabilities
@@ -284,6 +289,8 @@ class PromptiseAgent:
         self._memory_min_score = memory_min_score
         self._memory_timeout = memory_timeout
         self._memory_auto_store = memory_auto_store
+        # Auto-store writes that outlived memory_timeout and are still running.
+        self._pending_memory_writes: set[asyncio.Task[Any]] = set()
 
         # MCP lifecycle
         self._mcp_multi = mcp_multi
@@ -490,6 +497,31 @@ class PromptiseAgent:
         _ctx_token = _caller_ctx_var.set(caller)
         _inv_token = _begin_invocation(input)
         _scope_token = self._push_event_scope(session_id)
+        # Observability: agent.input now, agent.output / agent.error when the
+        # invocation ends.  Every event recorded in between is linked to it.
+        _run = self._begin_run(input)
+        try:
+            output = await self._ainvoke_with_limits(input, config, session_id=session_id, **kwargs)
+        except BaseException as exc:
+            self._end_run(_run, error=exc)
+            raise
+        else:
+            self._end_run(_run, output=output)
+            return output
+        finally:
+            self._pop_event_scope(_scope_token)
+            _invocation_ctx_var.reset(_inv_token)
+            _caller_ctx_var.reset(_ctx_token)
+
+    async def _ainvoke_with_limits(
+        self,
+        input: Any,
+        config: dict[str, Any] | None = None,
+        *,
+        session_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Run :meth:`_ainvoke_inner` under ``max_invocation_time``, emitting error events."""
         try:
             # Enforce max_invocation_time if configured
             timeout = getattr(self, "_max_invocation_time", 0)
@@ -526,10 +558,6 @@ class PromptiseAgent:
                     agent_id=self._actor(),
                 )
             raise
-        finally:
-            self._pop_event_scope(_scope_token)
-            _invocation_ctx_var.reset(_inv_token)
-            _caller_ctx_var.reset(_ctx_token)
 
     async def _assemble_with_engine(
         self,
@@ -756,12 +784,16 @@ class PromptiseAgent:
                     )
                     if cached is not None:
                         # Record cache hit in observability
-                        if self.collector is not None:
-                            from .observability import TimelineEventType
+                        if self.collector is not None and self._observing():
+                            from .observability import TimelineEventType, get_current_run
 
+                            _hit_run = get_current_run()
+                            if _hit_run is not None:
+                                _hit_run.cache_hit = True
                             self.collector.record(
                                 TimelineEventType.CACHE_HIT,
-                                description=f"Cache hit (similarity match for: {_cache_query[:80]})",
+                                agent_id=self._observed_agent_id(),
+                                details="Cache hit (semantically similar request)",
                                 metadata={"scope": cached.scope_key, "ttl": cached.ttl},
                             )
                         output = cached.output
@@ -777,12 +809,13 @@ class PromptiseAgent:
                         return output
                     else:
                         # Record cache miss
-                        if self.collector is not None:
+                        if self.collector is not None and self._observing():
                             from .observability import TimelineEventType
 
                             self.collector.record(
                                 TimelineEventType.CACHE_MISS,
-                                description=f"Cache miss for: {_cache_query[:80]}",
+                                agent_id=self._observed_agent_id(),
+                                details="Cache miss",
                             )
             except Exception:
                 # Cache errors never crash the agent — graceful degradation
@@ -864,12 +897,13 @@ class PromptiseAgent:
                         instruction_hash=_inst_hash,
                         tools_used=_tools_used,
                     )
-                    if self.collector is not None:
+                    if self.collector is not None and self._observing():
                         from .observability import TimelineEventType
 
                         self.collector.record(
                             TimelineEventType.CACHE_STORE,
-                            description=f"Cached response for: {_cache_query[:80]}",
+                            agent_id=self._observed_agent_id(),
+                            details="Cached response",
                         )
             except Exception:
                 logger.warning("Cache store failed", exc_info=True)
@@ -968,10 +1002,19 @@ class PromptiseAgent:
         _ctx_token = _caller_ctx_var.set(caller)
         _inv_token = _begin_invocation(input)
         _scope_token = self._push_event_scope()
+        _run = self._begin_run(input)
+        _run_error: BaseException | None = None
         try:
             async for chunk in self._astream_inner(input, config, **kwargs):
                 yield chunk
+        except BaseException as exc:
+            # A consumer that stops iterating early is not an agent error.
+            if not isinstance(exc, GeneratorExit):
+                _run_error = exc
+            raise
         finally:
+            # astream() yields raw graph chunks; the final text is not known here.
+            self._end_run(_run, output=None, error=_run_error)
             self._pop_event_scope(_scope_token)
             _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
@@ -1155,6 +1198,9 @@ class PromptiseAgent:
         _tool_counter = 0
         _tool_starts: dict[str, tuple[float, int]] = {}
         _all_tool_calls: list[dict[str, Any]] = []
+        _run = self._begin_run(input)
+        _run_error: BaseException | None = None
+        _run_output = ""
 
         try:
             # Emit invocation.start event notification
@@ -1173,7 +1219,8 @@ class PromptiseAgent:
             if self._guardrails is not None:
                 try:
                     input = await self._guard_input(input)
-                except Exception as guard_exc:
+                except Exception as guard_in_exc:
+                    _run_error = guard_in_exc
                     if self._event_notifier is not None:
                         from .events import emit_event
 
@@ -1181,7 +1228,7 @@ class PromptiseAgent:
                             self._event_notifier,
                             "guardrail.blocked",
                             "warning",
-                            _guardrail_block_data("input", guard_exc, streaming=True),
+                            _guardrail_block_data("input", guard_in_exc, streaming=True),
                         )
                     yield ErrorEvent(
                         message="Input blocked by safety policy.",
@@ -1197,7 +1244,8 @@ class PromptiseAgent:
                 if prompt_text:
                     try:
                         checked_text = await self._check_prompt_input(prompt_text)
-                    except Exception:
+                    except Exception as prompt_guard_exc:
+                        _run_error = prompt_guard_exc
                         yield ErrorEvent(
                             message="Input blocked by prompt guard.",
                             recoverable=False,
@@ -1207,14 +1255,16 @@ class PromptiseAgent:
                         input = _replace_last_user_text(input, checked_text)
 
             # Step 1: Memory injection
+            from .memory import _extract_user_text as _ext_stream
+
+            _stream_user_text = _ext_stream(input) if input else ""
             if self.provider is not None:
                 from .memory import (
-                    _extract_user_text,
                     _format_memory_context,
                     _inject_memory_into_messages,
                 )
 
-                user_text = _extract_user_text(input)
+                user_text = _stream_user_text
                 results = await self._search_memory(user_text)
                 if results:
                     context = _format_memory_context(results)
@@ -1315,6 +1365,7 @@ class PromptiseAgent:
                             )
 
             except Exception as exc:
+                _run_error = exc
                 yield ErrorEvent(
                     message="An error occurred during processing.",
                     recoverable=False,
@@ -1355,6 +1406,7 @@ class PromptiseAgent:
                     # A violation, or a guard that failed: either way don't
                     # serve an unchecked response.  Same as ainvoke(), where
                     # the exception propagates.
+                    _run_error = guard_exc
                     if "Violation" not in type(guard_exc).__name__:
                         logger.error("Output guardrail error in stream: %s", guard_exc)
                     if self._event_notifier is not None:
@@ -1377,7 +1429,8 @@ class PromptiseAgent:
                 try:
                     for g in self._prompt_guards("output"):
                         checked_output = await g.check_output(checked_output)
-                except Exception:
+                except Exception as prompt_guard_exc:
+                    _run_error = prompt_guard_exc
                     yield ErrorEvent(
                         message="Output blocked by prompt guard.",
                         recoverable=False,
@@ -1386,20 +1439,14 @@ class PromptiseAgent:
                 if isinstance(checked_output, str):
                     final_response = checked_output
 
-            # Step 5: Memory auto-store
-            if self.provider is not None and final_response:
-                try:
-                    from .memory import _extract_user_text
-
-                    user_text = _extract_user_text(input)
-                    if user_text:
-                        await self.provider.add(
-                            f"User: {user_text}\nAssistant: {final_response[:500]}"
-                        )
-                except Exception:
-                    pass
+            # Step 5: Memory auto-store (same rules as ainvoke: only when
+            # memory_auto_store is on, scoped to the caller, and the
+            # post-guardrail text, never the unredacted stream)
+            if self.provider is not None and final_response and _stream_user_text:
+                await self._maybe_store(_stream_user_text, final_response)
 
             # Step 6: Yield done event
+            _run_output = final_response
             duration = round((time.monotonic() - _start) * 1000, 1)
             yield DoneEvent(
                 full_response=final_response,
@@ -1420,7 +1467,13 @@ class PromptiseAgent:
                     agent_id=self._actor(),
                 )
 
+        except BaseException as exc:
+            # A consumer that stops iterating early is not an agent error.
+            if not isinstance(exc, GeneratorExit):
+                _run_error = exc
+            raise
         finally:
+            self._end_run(_run, output=_run_output, error=_run_error)
             self._pop_event_scope(_scope_token)
             _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
@@ -1453,7 +1506,8 @@ class PromptiseAgent:
             except Exception:
                 logger.debug("Adaptive strategy drain error during shutdown", exc_info=True)
 
-        # Flush observability transporters
+        # Flush observability transporters, then release them (close the
+        # NDJSON stream and log file handles, end and export open spans).
         for t in self._transporters:
             try:
                 if hasattr(t, "flush"):
@@ -1462,6 +1516,13 @@ class PromptiseAgent:
                         await result
             except Exception:
                 logger.debug("Transporter flush error during shutdown", exc_info=True)
+            try:
+                if hasattr(t, "close"):
+                    result = t.close()
+                    if hasattr(result, "__await__"):
+                        await result
+            except Exception:
+                logger.debug("Transporter close error during shutdown", exc_info=True)
 
         # Stop event notifier (drain remaining events) — unless an owner
         # such as an AgentProcess stops it after its own final events.
@@ -1490,6 +1551,15 @@ class PromptiseAgent:
                     await result
             except Exception:
                 logger.debug("Conversation store close error during shutdown", exc_info=True)
+
+        # Let auto-store writes that outlived memory_timeout finish before the
+        # provider is closed underneath them.
+        if self._pending_memory_writes:
+            from .memory import _wait_for_pending_stores
+
+            await _wait_for_pending_stores(
+                self._pending_memory_writes, max(self._memory_timeout, _SHUTDOWN_STORE_GRACE)
+            )
 
         # Close memory provider if it has a close method
         if self.provider is not None and hasattr(self.provider, "close"):
@@ -1530,6 +1600,138 @@ class PromptiseAgent:
     # Observability accessors
     # -----------------------------------------------------------------
 
+    def _observed_agent_id(self) -> str | None:
+        """Agent id stamped on the events this agent records itself."""
+        if self._handler is not None:
+            return cast("str | None", getattr(self._handler, "agent_id", None))
+        return None
+
+    def _records_content(self) -> bool:
+        """Whether prompt / input / output text may be recorded."""
+        return bool(self._handler is not None and getattr(self._handler, "record_prompts", False))
+
+    def _observing(self) -> bool:
+        """Whether this agent records events (observability on, level not OFF)."""
+        if self.collector is None:
+            return False
+        from .observability_config import ObserveLevel
+
+        return getattr(self._handler, "level", None) != ObserveLevel.OFF
+
+    def _begin_run(self, input: Any) -> tuple[Any, Any] | None:
+        """Record ``agent.input`` and make the new run current.
+
+        Returns the run and its context token for :meth:`_end_run`, or
+        ``None`` when observability is off.
+        """
+        if self.collector is None or not self._observing():
+            return None
+        try:
+            from .memory import _extract_user_text
+            from .observability import (
+                AgentRun,
+                TimelineEventType,
+                _run_ctx_var,
+                _truncate_for_metadata,
+            )
+
+            text = _extract_user_text(input) if input else ""
+            metadata: dict[str, Any] = {"input_length": len(text)}
+            if self.model_name:
+                metadata["model"] = self.model_name
+            if self._records_content():
+                metadata["input_preview"] = _truncate_for_metadata(text)
+            entry = self.collector.record(
+                TimelineEventType.AGENT_INPUT,
+                agent_id=self._observed_agent_id(),
+                details="Agent invocation started",
+                metadata=metadata,
+            )
+            run = AgentRun(entry_id=entry.entry_id, started=entry.timestamp)
+            return run, _run_ctx_var.set(run)
+        except Exception:
+            logger.debug("Could not record agent.input", exc_info=True)
+            return None
+
+    def _end_run(
+        self,
+        started: tuple[Any, Any] | None,
+        *,
+        output: Any = None,
+        error: BaseException | None = None,
+    ) -> None:
+        """Record ``agent.output`` (or ``agent.error``) and end the run.
+
+        ``output=None`` means the final text is unknown (``astream()``), so
+        no output length or preview is recorded.
+        """
+        if started is None or self.collector is None:
+            return
+        run, token = started
+        try:
+            from .observability import TimelineEventType, _truncate_for_metadata
+
+            duration = max(0.0, time.time() - run.started)
+            metadata: dict[str, Any] = {
+                "duration_ms": round(duration * 1000, 1),
+                "prompt_tokens": run.prompt_tokens,
+                "completion_tokens": run.completion_tokens,
+                "total_tokens": run.total_tokens,
+                "llm_call_count": run.llm_calls,
+                "tool_call_count": run.tool_calls,
+                "error_count": run.errors,
+                "cache_hit": run.cache_hit,
+            }
+            if error is not None:
+                from .guardrails import GuardrailViolation
+
+                metadata["error_type"] = type(error).__name__
+                if isinstance(error, GuardrailViolation):
+                    # Its message quotes the findings, and a finding quotes
+                    # what it matched (an NER finding reads "person detected:
+                    # '<name>'"): record what was blocked, not the content.
+                    blocked = error.report.blocked
+                    metadata["error"] = (
+                        f"Guardrail violation ({error.direction}): "
+                        f"{len(blocked)} blocked finding(s)"
+                    )
+                    metadata["guardrail_categories"] = sorted({f.category for f in blocked})
+                else:
+                    metadata["error"] = str(error)[:500]
+                self.collector.record(
+                    TimelineEventType.AGENT_ERROR,
+                    agent_id=self._observed_agent_id(),
+                    details=f"Agent error: {type(error).__name__}",
+                    duration=duration,
+                    parent_id=run.entry_id,
+                    metadata=metadata,
+                )
+            else:
+                if output is not None:
+                    text = output if isinstance(output, str) else _extract_response_text(output)
+                    metadata["output_length"] = len(text or "")
+                    if self._records_content():
+                        metadata["output_preview"] = _truncate_for_metadata(text or "")
+                self.collector.record(
+                    TimelineEventType.AGENT_OUTPUT,
+                    agent_id=self._observed_agent_id(),
+                    details=f"Agent completed ({run.total_tokens} tokens)",
+                    duration=duration,
+                    parent_id=run.entry_id,
+                    metadata=metadata,
+                )
+        except Exception:
+            logger.debug("Could not record the end of an agent run", exc_info=True)
+        finally:
+            from .observability import _run_ctx_var
+
+            try:
+                _run_ctx_var.reset(token)
+            except ValueError:
+                # A streaming generator finalised in another context; the
+                # run variable dies with that context anyway.
+                pass
+
     def get_stats(self) -> dict[str, Any]:
         """Return aggregate observability statistics.
 
@@ -1541,13 +1743,24 @@ class PromptiseAgent:
 
     def generate_report(
         self,
-        path: str,
+        path: str | Path,
         title: str = "Agent Observability Report",
     ) -> str:
-        """Generate an interactive HTML report and return its file path.
+        """Write an interactive HTML report of the recorded events to *path*.
+
+        The report is written to exactly *path* (missing parent directories
+        are created; an existing file is overwritten).
+
+        Args:
+            path: File to write, e.g. ``"report.html"``.
+            title: Page title and heading of the report.
+
+        Returns:
+            The path the report was written to, as a string.
 
         Raises:
             RuntimeError: When observability is not enabled.
+            OSError: When the file cannot be written.
         """
         if self.collector is None:
             raise RuntimeError(
@@ -1558,11 +1771,11 @@ class PromptiseAgent:
 
         transporter = HTMLReportTransporter(
             output_dir=str(Path(path).parent),
-            session_name=Path(path).stem,
+            session_name=self.collector.session_name,
+            title=title,
         )
         transporter._collector = self.collector
-        transporter.flush()
-        return path
+        return str(transporter.write(path))
 
     async def _inject_strategies(self, input: Any, user_text: str) -> Any:
         """Insert the adaptive strategy's relevant lessons as a system message.
@@ -1659,7 +1872,10 @@ class PromptiseAgent:
                 results = [r for r in results if r.score >= self._memory_min_score]
             return results
         except asyncio.TimeoutError:
-            logger.warning("Memory search timed out after %.1fs", self._memory_timeout)
+            logger.warning(
+                "Memory search timed out after %.1fs; continuing without memory context",
+                self._memory_timeout,
+            )
             return []
         except Exception:
             logger.warning("Memory search failed", exc_info=True)
@@ -1673,7 +1889,7 @@ class PromptiseAgent:
         if not self._memory_auto_store:
             return
         assert self.provider is not None  # guarded by caller
-        from .memory import _extract_user_text
+        from .memory import _extract_user_text, _store_exchange
 
         caller = get_current_caller()
         # Memory scoping keys on the isolation key (tenant::user) so tenants
@@ -1681,17 +1897,15 @@ class PromptiseAgent:
         user_id = caller.isolation_key if caller is not None else None
         output_text = _extract_user_text(output)
         content = f"User: {user_text}\nAssistant: {output_text}"
-        try:
-            await asyncio.wait_for(
-                self.provider.add(
-                    content,
-                    metadata={"source": "auto_store"},
-                    user_id=user_id,
-                ),
-                timeout=self._memory_timeout,
-            )
-        except Exception:
-            logger.warning("Memory auto-store failed", exc_info=True)
+        # Never cancels the write on timeout: a provider write running in a
+        # worker thread would land anyway, so the log reports what happened.
+        await _store_exchange(
+            self.provider,
+            content,
+            user_id=user_id,
+            timeout=self._memory_timeout,
+            pending=self._pending_memory_writes,
+        )
 
     # -----------------------------------------------------------------
     # High-level chat API with session persistence
@@ -1727,9 +1941,12 @@ class PromptiseAgent:
                 Use :func:`~promptise.conversations.generate_session_id`
                 to create cryptographically secure, non-enumerable IDs.
             user_id: Optional user identifier.  Shorthand for
-                ``caller=CallerContext(user_id=...)``.  If both ``user_id``
-                and ``caller`` are provided, ``caller.user_id`` takes
-                precedence.
+                ``caller=CallerContext(user_id=...)``: it scopes session
+                ownership *and* the rest of the invocation (per-user
+                memory, cache, guardrails, observability).  If both
+                ``user_id`` and ``caller`` are provided, ``caller.user_id``
+                takes precedence; a ``caller`` without a ``user_id`` gets
+                this one.
             caller: Optional :class:`CallerContext` with per-request
                 identity.  Carries user_id, bearer_token, roles, scopes,
                 and metadata through the entire invocation.
@@ -1743,6 +1960,11 @@ class PromptiseAgent:
         Raises:
             SessionAccessDenied: If ``user_id`` is provided and the
                 session belongs to a different user.
+            RuntimeError: If the conversation store fails while the
+                session's ownership is being checked.  ``chat()`` fails
+                closed here: it will not answer in a session whose owner
+                it could not verify.  Failures to *load* or *save* the
+                history are logged and the call still answers.
 
         Example::
 
@@ -1757,12 +1979,19 @@ class PromptiseAgent:
 
         from .conversations import Message
 
-        # Resolve user_id: caller takes precedence over explicit user_id
-        if caller is not None and caller.user_id is not None:
-            # Ownership keys on the isolation key (tenant::user when a
-            # tenant is set) so sessions can never cross tenants even for
-            # identical user ids.
-            user_id = caller.isolation_key
+        # ``user_id=`` is shorthand for ``caller=CallerContext(user_id=...)``:
+        # build (or complete) the caller so every per-user surface of the
+        # invocation — memory, cache, guardrails, observability — sees the
+        # same identity that session ownership is checked against.
+        # ``caller.user_id`` takes precedence when both are given.
+        if caller is None:
+            if user_id is not None:
+                caller = CallerContext(user_id=user_id)
+        elif caller.user_id is None and user_id is not None:
+            caller = dataclasses.replace(caller, user_id=user_id)
+        # Ownership keys on the isolation key (tenant::user when a tenant is
+        # set) so sessions can never cross tenants even for identical user ids.
+        user_id = caller.isolation_key if caller is not None else None
 
         # Step 1: Ownership check — before loading messages
         is_new_session = True
@@ -1866,7 +2095,15 @@ class PromptiseAgent:
                             session_id, user_id=user_id, title=message[:100]
                         )
                 except Exception:
-                    logger.debug("Failed to update session metadata", exc_info=True)
+                    # Not raised (the reply is already generated and saved),
+                    # but not hidden either: an unowned session is readable by
+                    # any user until an owner is assigned.
+                    logger.warning(
+                        "Failed to assign session %s to its user; the session has "
+                        "no owner, so ownership is not enforced for it",
+                        session_id,
+                        exc_info=True,
+                    )
 
         return response_text
 
@@ -2500,6 +2737,68 @@ class _TracedTool(BaseTool):
         return result
 
 
+def identity_token_provider(
+    identity: AgentIdentity | None, spec: HTTPServerSpec, *, owner: str = "Agent"
+) -> Callable[[bool], str] | None:
+    """The ``bearer_token_provider`` presenting *identity* to an MCP server.
+
+    Returns ``None`` when there is nothing to present: no identity, a local
+    (non-verifiable) one, or a server with a bearer of its own
+    (``spec.bearer_token`` or an ``Authorization`` header in
+    ``spec.headers``), which always wins.
+
+    The provider asks the identity for a credential scoped to the server's
+    ``audience`` on every request, so a renewed credential replaces an
+    expiring one without a rebuild, and ``force_refresh=True`` (the server
+    answered ``401``) bypasses the identity's cache.  It **fails closed**:
+    when no credential can be acquired (the IdP is down) it raises, and the
+    client fails the request instead of sending it unauthenticated.  The
+    outage is logged once, not on every request; the log line names the
+    error but never carries a credential.
+
+    Args:
+        identity: The agent's identity.
+        spec: The MCP server it connects to.
+        owner: How log lines name the agent (e.g. ``"AgentProcess 'x'"``).
+    """
+    if identity is None or not identity.is_verifiable:
+        return None
+    if spec.bearer_token or any(k.lower() == "authorization" for k in (spec.headers or {})):
+        return None
+    audience = spec.audience
+    failing = False
+
+    def _provide(force_refresh: bool) -> str:
+        nonlocal failing
+        try:
+            token = identity.get_credential(audience, force_refresh=force_refresh)
+        except IdentityError as exc:
+            if not failing:
+                logger.warning(
+                    "%s identity %r could not acquire a credential for MCP server "
+                    "audience %r (%s: %s); requests to it fail until the credential "
+                    "can be acquired.",
+                    owner,
+                    identity.agent_id,
+                    audience,
+                    type(exc).__name__,
+                    exc,
+                )
+            failing = True
+            raise
+        if failing:
+            logger.info(
+                "%s identity %r acquired a credential for MCP server audience %r again.",
+                owner,
+                identity.agent_id,
+                audience,
+            )
+        failing = False
+        return token
+
+    return _provide
+
+
 def _normalize_model(model: ModelLike) -> Runnable[Any, Any]:
     """Normalize the supplied model into a Runnable.
 
@@ -2569,6 +2868,9 @@ async def build_agent(
     observe: bool | Any | None = None,
     memory: Any | None = None,
     memory_auto_store: bool = False,
+    memory_max_results: int = 5,
+    memory_min_score: float = 0.0,
+    memory_timeout: float = 5.0,
     extra_tools: list[BaseTool] | None = None,
     flow: Any | None = None,
     conversation_store: Any | None = None,
@@ -2613,10 +2915,18 @@ async def build_agent(
             agent's identifier — its ``agent_id`` handle, or, for an
             IdP-backed identity with no handle, the IdP ``subject`` —
             unless ``observer_agent_id`` is set explicitly. A **verifiable**
-            identity is also presented to MCP servers that have no bearer
-            of their own (its credential becomes their ``bearer_token``),
-            so the server can authenticate and attribute the calling
-            agent. The identity is exposed as
+            identity is also presented to HTTP/SSE MCP servers that have
+            no bearer of their own, so the server can authenticate and
+            attribute the calling agent. The credential is requested for
+            each server's ``audience`` on every request, so it is renewed
+            before it expires (the session is reopened with the new one)
+            and refreshed once if a server answers ``401``; a call the
+            server still rejects fails with
+            :class:`~promptise.mcp.client.MCPConnectionRejectedError`
+            instead of hanging. If the identity cannot supply a credential
+            (the IdP is unreachable), the request is not sent: it fails with
+            :class:`~promptise.mcp.client.MCPCredentialError` rather than
+            going out unauthenticated. The identity is exposed as
             :attr:`PromptiseAgent.identity`.
         trace_tools: Print each tool invocation and result to stdout. Covers
             MCP tools, cross-agent tools, sandbox tools and ``extra_tools``.
@@ -2642,6 +2952,19 @@ async def build_agent(
         memory_auto_store: When ``True`` and *memory* is provided,
             automatically store each exchange in long-term memory after
             invocation.  Defaults to ``False``.
+        memory_max_results: Maximum memories injected per invocation
+            (the ``limit`` passed to the provider's ``search``).
+            Defaults to ``5``.
+        memory_min_score: Drop search results scoring below this
+            relevance (``0.0``--``1.0``).  Defaults to ``0.0`` (keep all).
+        memory_timeout: Seconds to wait for the memory search before
+            answering without memory context, and for an auto-store write
+            before returning.  A write that takes longer is not cancelled:
+            it finishes in the background, its outcome is logged, and
+            :meth:`PromptiseAgent.shutdown` waits up to 30 seconds (or
+            ``memory_timeout``, if longer) for it.  Defaults to ``5.0``.
+            Raise it when the provider is slow to start (a
+            ``ChromaProvider`` loads its embedding model on first use).
         sandbox: Optional sandbox configuration (``True``, a dict of
             :class:`~promptise.sandbox.SandboxConfig` fields, a
             ``SandboxConfig``, or ``None``). Unknown keys raise. The network
@@ -2658,7 +2981,10 @@ async def build_agent(
               Writes an HTML report file to ``./reports`` when the agent
               shuts down; pass an :class:`ObservabilityConfig` with other
               ``transporters`` or ``output_dir`` to change that.
-            - :class:`ObservabilityConfig`: Full configuration.
+            - :class:`ObservabilityConfig`: Full configuration.  A config
+              with ``level=ObserveLevel.OFF`` records nothing.
+            - A dict of :class:`ObservabilityConfig` fields (as in a
+              ``.superagent`` file's ``observability:`` section).
             - ``None``/``False``: Disabled (default).
         extra_tools: Optional additional :class:`BaseTool` instances to
             include alongside MCP-discovered tools.  Used by the runtime
@@ -2937,30 +3263,6 @@ async def build_agent(
     if servers:
         from .mcp.client import MCPClient, MCPMultiClient, MCPToolAdapter
 
-        # When the agent carries a verifiable identity, present its identity
-        # credential to MCP servers that have no explicit bearer of their own —
-        # scoped to each server's ``audience`` so one identity can serve several
-        # resources. Best-effort: an unreachable IdP must not fail the build.
-        def _identity_bearer_for(spec: HTTPServerSpec) -> str | None:
-            if identity is None or not identity.is_verifiable:
-                return None
-            try:
-                return identity.get_credential(spec.audience)
-            except IdentityError as exc:
-                # Do not silently drop the credential: an operator who
-                # configured a verifiable identity expects authenticated MCP
-                # calls. Surface the failure loudly; servers requiring auth
-                # will then reject the unauthenticated calls.
-                logger.warning(
-                    "Agent identity %r could not acquire a credential for MCP "
-                    "server audience %r (%s: %s); connecting without it.",
-                    identity.agent_id,
-                    spec.audience,
-                    type(exc).__name__,
-                    exc,
-                )
-                return None
-
         clients: dict[str, MCPClient] = {}
 
         # Server-side approval gates ask the client's human through MCP
@@ -2987,7 +3289,10 @@ async def build_agent(
                     headers=spec.headers,
                     bearer_token=spec.bearer_token.get_secret_value()
                     if spec.bearer_token
-                    else _identity_bearer_for(spec),
+                    else None,
+                    # A verifiable identity is presented to servers without a
+                    # bearer of their own, asked for on every request.
+                    bearer_token_provider=identity_token_provider(identity, spec),
                     api_key=spec.api_key.get_secret_value() if spec.api_key else None,
                     elicitation_callback=_elicitation_callback_for(sname),
                 )
@@ -3176,6 +3481,12 @@ async def build_agent(
     # ------------------------------------------------------------------
     _memory_provider = None
     _memory_auto_store = memory_auto_store
+    if memory_max_results < 1:
+        raise ValueError(f"memory_max_results must be >= 1 (got {memory_max_results})")
+    if not 0.0 <= memory_min_score <= 1.0:
+        raise ValueError(f"memory_min_score must be between 0.0 and 1.0 (got {memory_min_score})")
+    if memory_timeout <= 0:
+        raise ValueError(f"memory_timeout must be > 0 seconds (got {memory_timeout})")
     if memory is not None:
         from .memory import MemoryProvider
 
@@ -3402,25 +3713,37 @@ async def build_agent(
     _created_transporters: list[Any] = []
 
     if observe is not None and observe is not False:
-        from .callback_handler import PromptiseCallbackHandler
-        from .observability import ObservabilityCollector
         from .observability_config import ObservabilityConfig
 
-        # Normalize observe=True to default config
+        # Normalize observe=True / a .superagent dict to a config
         if observe is True:
             _observe_cfg = ObservabilityConfig()
         elif isinstance(observe, ObservabilityConfig):
             _observe_cfg = observe
+        elif isinstance(observe, Mapping):
+            _observe_cfg = _observability_config_from_mapping(observe)
         else:
-            _observe_cfg = ObservabilityConfig()
+            raise TypeError(
+                f"observe must be a bool, ObservabilityConfig or dict, got {type(observe).__name__}"
+            )
+
+    if _observe_cfg is not None:
+        from .callback_handler import PromptiseCallbackHandler
+        from .observability import ObservabilityCollector
 
         # Create or reuse the collector
         if _obs is not None:
             _collector = _obs
         else:
+            from .observability import redact_sensitive
+
+            # Tool arguments, tool results, error messages and prompt text
+            # are recorded and exported to reports, logs and trace backends:
+            # scrub credentials and common PII from them first.
             _collector = ObservabilityCollector(
                 session_name=_observe_cfg.session_name,
                 max_entries=_observe_cfg.max_entries,
+                sanitizer=redact_sensitive if _observe_cfg.redact_sensitive else None,
             )
 
         # Create the callback handler
@@ -3430,12 +3753,16 @@ async def build_agent(
             agent_id=_agent_id,
             record_prompts=_observe_cfg.record_prompts,
             level=_observe_cfg.level,
+            record_tool_io=_observe_cfg.record_tool_io,
         )
 
-        # Create and register transporters from config
+        # Create and register transporters from config.  ObserveLevel.OFF
+        # records nothing, so it gets none (no empty report on shutdown).
+        from .observability_config import ObserveLevel as _ObserveLevel
         from .observability_transporters import create_transporters
 
-        _created_transporters = create_transporters(_observe_cfg, _collector)
+        if _observe_cfg.level != _ObserveLevel.OFF:
+            _created_transporters = create_transporters(_observe_cfg, _collector)
 
     # ------------------------------------------------------------------
     # Construct unified PromptiseAgent — no wrapper chain needed
@@ -3459,6 +3786,9 @@ async def build_agent(
         observe_config=_observe_cfg,
         transporters=_created_transporters,
         memory_provider=_memory_provider,
+        memory_max=memory_max_results,
+        memory_min_score=memory_min_score,
+        memory_timeout=memory_timeout,
         memory_auto_store=_memory_auto_store,
         mcp_multi=_promptise_multi,
         model_name=_model_name,
@@ -3525,6 +3855,25 @@ async def build_agent(
         agent._sandbox_manager = sandbox_manager
 
     return agent
+
+
+def _observability_config_from_mapping(raw: Mapping[str, Any]) -> Any:
+    """Build an :class:`ObservabilityConfig` from a ``.superagent``-style dict.
+
+    Unknown keys raise ``TypeError`` rather than being dropped, so a typo
+    in a config file is not silently ignored.
+    """
+    from .observability_config import ObservabilityConfig, ObserveLevel, TransporterType
+
+    values = dict(raw)
+    if "level" in values and not isinstance(values["level"], ObserveLevel):
+        values["level"] = ObserveLevel(str(values["level"]).lower())
+    if "transporters" in values:
+        values["transporters"] = [
+            t if isinstance(t, TransporterType) else TransporterType(str(t).lower())
+            for t in values["transporters"]
+        ]
+    return ObservabilityConfig(**values)
 
 
 def _tool_definitions_text(tools: Sequence[BaseTool]) -> str:

@@ -101,6 +101,7 @@ from .mcp.client import (
     MCPClient,
     MCPClientError,
     MCPConnectionRejectedError,
+    MCPCredentialError,
     MCPMultiClient,
     MCPToolAdapter,
 )
@@ -218,6 +219,7 @@ __all__ = [
     "MCPClient",
     "MCPClientError",
     "MCPConnectionRejectedError",
+    "MCPCredentialError",
     "MCPMultiClient",
     "MCPToolAdapter",
     # Agent

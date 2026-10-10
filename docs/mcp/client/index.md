@@ -56,6 +56,27 @@ async with MCPClient(
 
 The `bearer_token` is injected as an `Authorization: Bearer <token>` header on every request.
 
+### Short-lived tokens
+
+A fixed `bearer_token` stops working when it expires: the server answers `401` and the call fails with `MCPConnectionRejectedError` (`mid_session=True`). For tokens that expire while the client is open, such as an agent identity's credential, pass `bearer_token_provider` instead -- a callable (sync or async) that returns the current token:
+
+```python
+async with MCPClient(
+    url="https://billing.internal/mcp",
+    bearer_token_provider=lambda force: identity.get_credential(
+        "api://billing", force_refresh=force
+    ),
+) as client:
+    result = await client.call_tool("search", {"query": "python"})
+```
+
+- It is asked on every HTTP request, so keep it cheap (cache the token, as `AgentIdentity.get_credential` does). Sync callables run in a worker thread.
+- When the server answers `401`, it is called with `force=True` and the request is re-sent once with the new token. If that is refused too, the call fails with `MCPConnectionRejectedError`.
+- When it returns a token other than the one the session was opened with, the client opens a new session for the next call; calls still running on the old session finish there and are never re-sent.
+- If it raises, the call fails with `MCPCredentialError` and nothing is sent -- never a request without the credential.
+
+`build_agent(identity=...)` wires this up for every HTTP/SSE server without a `bearer_token` of its own, scoped to the server's `audience`. A caller token forwarded with `call_tool(..., bearer_token=...)` (see [Calling a tool as a specific user](#calling-a-tool-as-a-specific-user)) takes precedence: the per-caller session presents the caller's token, not the provider's.
+
 ### API key authentication
 
 ```python
@@ -130,6 +151,7 @@ async with MCPClient(
 | `timeout` | `float` | `30.0` | HTTP request timeout in seconds |
 | `elicitation_callback` | SDK `ElicitationFnT \| None` | `None` | Answers the server's MCP elicitation requests; the elicitation capability is declared only when set. See [Answering elicitation](#answering-elicitation-server-side-approval-gates) |
 | `auto_reconnect` | `bool` | `True` | Open a new session and retry once when an HTTP/SSE server has lost the session — see [Reconnecting after a server restart](#reconnecting-after-a-server-restart). Ignored for stdio |
+| `bearer_token_provider` | `Callable[[bool], str \| None]` (or async) | `None` | Returns the current token on every request, instead of `bearer_token` — see [Short-lived tokens](#short-lived-tokens). HTTP/SSE only |
 
 ### Fetching tokens
 
@@ -564,7 +586,8 @@ asyncio.run(main())
 | `adapter.as_langchain_tools()` | Method | Convert MCP tools to `BaseTool` instances |
 | `adapter.list_tool_info()` | Method | Get tool metadata for introspection |
 | `MCPClientError` | Exception | Raised on client operation failures |
-| `MCPConnectionRejectedError` | Exception | The server refused the handshake with a 4xx (`status_code`, `reason`, `url`, `server_name`) |
+| `MCPConnectionRejectedError` | Exception | The server refused the handshake with a 4xx, or an established session's credential (`status_code`, `reason`, `url`, `server_name`, `mid_session`) |
+| `MCPCredentialError` | Exception | `bearer_token_provider` could not supply a token; nothing was sent |
 
 !!! tip "Persistent connections"
     `MCPClient` and `MCPMultiClient` maintain persistent connections for the lifetime of the context manager. Avoid creating a new client per tool call -- instead, keep the client alive for the duration of your agent session.

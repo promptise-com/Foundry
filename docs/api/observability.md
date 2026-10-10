@@ -25,6 +25,27 @@ Plug-and-play observability system for Promptise agents. Controls what gets obse
       show_source: false
       heading_level: 4
 
+### AgentRun
+
+::: promptise.observability.AgentRun
+    options:
+      show_source: false
+      heading_level: 4
+
+### get_current_run
+
+::: promptise.observability.get_current_run
+    options:
+      show_source: false
+      heading_level: 4
+
+### redact_sensitive
+
+::: promptise.observability.redact_sensitive
+    options:
+      show_source: false
+      heading_level: 4
+
 ### TimelineEventCategory
 
 ::: promptise.observability.TimelineEventCategory

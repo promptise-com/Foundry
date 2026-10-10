@@ -77,7 +77,9 @@ all = [
   "sentence-transformers>=2.2.0",
   "transformers>=4.30.0",
   "numpy>=2.2.6",
-  "mem0ai>=0.1.0",
+  # Mem0Provider supports the 0.1 (>=0.1.118), 1.x and 2.x APIs; 2.0 moved
+  # search()/get_all() to filters=/top_k=. Lift the cap after checking 3.0.
+  "mem0ai>=0.1.118,<3",
   # Infrastructure
   "redis>=5.0.0",
   "promptise[sandbox]",

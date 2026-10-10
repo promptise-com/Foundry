@@ -30,7 +30,7 @@ agent = await build_agent(
 
 Promptise memory has two layers:
 
-- **Auto-injection** via `MemoryAgent` -- before every agent invocation, relevant memories are searched and injected as a `SystemMessage`. The agent sees contextual history without needing explicit memory tools.
+- **Auto-injection** -- before every agent invocation, relevant memories are searched and injected as a `SystemMessage`. The agent sees contextual history without needing explicit memory tools. `build_agent(memory=...)` does this inside the agent; `MemoryAgent` does the same for a graph you built yourself.
 - **Provider protocol** -- a simple async interface (`search`, `add`, `delete`, `close`) that any backend can implement.
 
 Three providers ship with the framework, covering development through production use cases.
@@ -100,7 +100,7 @@ If a `PER_USER` provider is called without a `user_id`, it raises `MemoryIsolati
 
 ### Auto-propagation from CallerContext
 
-When a memory provider is attached to an agent via `build_agent(memory=...)`, the wrapping `MemoryAgent` reads the current `CallerContext.user_id` from the async contextvar and passes it into every `search`/`add`/`delete` call automatically. Your handler code never has to thread `user_id` manually:
+When a memory provider is attached to an agent via `build_agent(memory=...)`, the agent reads the current `CallerContext` from the async contextvar and passes its isolation key (`user_id`, or `tenant_id::user_id` when a tenant is set) into every memory `search` and auto-store `add`. Your handler code never has to thread `user_id` manually:
 
 ```python
 from promptise.agent import CallerContext
@@ -109,9 +109,13 @@ from promptise.agent import CallerContext
 caller = CallerContext(user_id="alice", metadata={"session_id": "sess-1"})
 await agent.ainvoke(input, caller=caller)
 # → memory provider sees user_id="alice" on every call
+
+# chat(user_id=...) is shorthand for caller=CallerContext(user_id=...):
+# it scopes memory exactly like the caller above, not only session ownership.
+await agent.chat("What do I like to eat?", session_id=sid, user_id="alice")
 ```
 
-If no caller is set (e.g., background tasks), the `MemoryAgent` catches `MemoryIsolationError` during auto-search and simply skips memory injection — the agent still runs.
+If no caller is set (e.g., background tasks), a `PER_USER` provider raises `MemoryIsolationError` during the auto-search; the agent logs it as `Memory search failed` and runs without memory context.
 
 ### GDPR purge
 
@@ -119,7 +123,7 @@ If no caller is set (e.g., background tasks), the `MemoryAgent` catches `MemoryI
 removed = await provider.purge_user("alice")   # → int count of deleted entries
 ```
 
-Works on every provider. `InMemoryProvider` drops in-process entries. `ChromaProvider` deletes every entry whose metadata contains `_promptise_user_id: alice`. `Mem0Provider` delegates to Mem0's `delete_all(user_id=…)`.
+Works on every provider. `InMemoryProvider` drops in-process entries. `ChromaProvider` deletes every entry whose metadata contains `_promptise_user_id: alice`. `Mem0Provider` counts the user's entries with `get_all` and removes them with Mem0's `delete_all(user_id=…)`.
 
 ---
 
@@ -199,7 +203,8 @@ results = await provider.search("deployment issues")
 
 | Feature | Value |
 |---|---|
-| Search method | Vector similarity (cosine distance) |
+| Search method | Vector similarity (cosine distance for collections it creates) |
+| Score | Cosine similarity, `0.0`–`1.0` |
 | Default embedding model | `all-MiniLM-L6-v2` (runs locally, no API key) |
 | Persistence | Optional (`persist_directory` parameter) |
 | Isolation | `SHARED` or `PER_USER` via `scope=` |
@@ -229,9 +234,45 @@ Constructor parameters:
 
 In `PER_USER` mode the provider stamps every stored document with a `_promptise_user_id` metadata field and every `search`/`delete` uses ChromaDB's `where=` filter to restrict results to that owner.
 
+#### Scores and distance functions
+
+`ChromaProvider` creates a missing collection with cosine distance (`metadata={"hnsw:space": "cosine"}`), and `MemoryResult.score` is the cosine similarity: `1.0` for the same meaning, around `0.3`–`0.6` for related text, near `0.0` for unrelated text. That makes `min_score` filters meaningful — `memory_min_score=0.3` on `build_agent()` keeps related memories and drops noise.
+
+A collection that already exists keeps the distance function it was created with; Chroma cannot change it. The provider reads it and scores accordingly:
+
+| Collection space | Score |
+|---|---|
+| `cosine` | `1 - distance` |
+| `ip` | `1 - distance` |
+| `l2` (Chroma's default) | `1 - distance / 2` — equal to cosine similarity for unit-length embeddings, which Chroma's default model produces |
+
+Promptise 1.2.1 and earlier created collections with Chroma's default `l2` space and scored them as `1 - distance`; typical distances are 1.2–1.5, so every score was `0.00` and any `min_score` above zero dropped every memory. Those collections now score correctly, and the provider logs a warning when it opens one. To move one to cosine distance, copy it into a new collection (the embeddings are reused, nothing is re-embedded):
+
+```python
+import chromadb
+
+client = chromadb.PersistentClient(path=".promptise/chroma")
+old = client.get_collection("agent_memory")
+rows = old.get(include=["documents", "metadatas", "embeddings"])
+new = client.create_collection("agent_memory_v2", metadata={"hnsw:space": "cosine"})
+if rows["ids"]:
+    new.add(
+        ids=rows["ids"],
+        documents=rows["documents"],
+        metadatas=rows["metadatas"],
+        embeddings=rows["embeddings"],
+    )
+
+provider = ChromaProvider(collection_name="agent_memory_v2", persist_directory=".promptise/chroma")
+```
+
+The `_promptise_user_id` ownership metadata is copied with the rows, so `PER_USER` isolation carries over. Delete the old collection (`client.delete_collection("agent_memory")`) once you have checked the new one.
+
 ### Mem0Provider
 
 Wraps [Mem0](https://github.com/mem0ai/mem0) for hybrid vector + graph search. Can run fully local (with Ollama) or via the Mem0 cloud platform.
+
+Supported releases: `mem0ai>=0.1.118,<3` — the 0.1, 1.x and 2.x lines (the `[all]` extra installs a release in that range). Mem0 2.0 changed `Memory.search()` and `Memory.get_all()` to take the user and agent ids in a `filters` dict and the result count as `top_k`, and rejects the old `user_id=` / `limit=` arguments; the provider reads the installed client's signature once and calls the form it accepts. Search errors from Mem0 are raised, not turned into an empty result, so an incompatible release or an unreachable vector store is visible (the agent still catches them and answers without memory).
 
 ```python
 from promptise.memory import Mem0Provider, MemoryScope
@@ -248,7 +289,7 @@ results = await provider.search("theme preferences", user_id="alice")
 |---|---|
 | Search method | Hybrid vector + optional graph search |
 | Persistence | Managed by Mem0 |
-| Isolation | `SHARED` (default user) or `PER_USER` (per-call `user_id` override) |
+| Isolation | `SHARED` (default user) or `PER_USER` (per-call `user_id`; `delete` checks the entry's owner first) |
 | Dependencies | `pip install "promptise[all]"` |
 | Best for | Multi-user agents, knowledge graphs, cloud deployments |
 
@@ -258,8 +299,11 @@ Constructor parameters:
 |---|---|---|---|
 | `user_id` | `str` | `"default"` | Fallback owner when `scope=SHARED` or no per-call override given |
 | `agent_id` | `str \| None` | `None` | Optional agent identifier for multi-agent scoping |
-| `config` | `dict \| None` | `None` | Mem0 configuration dict (for self-hosted setups) |
+| `config` | `dict \| None` | `None` | Mem0 configuration dict, passed to `mem0.Memory.from_config()` (vector store, LLM, embedder) |
 | `scope` | `MemoryScope` | `SHARED` | `PER_USER` makes per-call `user_id=` override the tenant for each operation |
+
+!!! note "Mem0 runs its own LLM"
+    `add()` asks Mem0's configured LLM to extract facts from the text, so Mem0 needs an LLM (and an embedder) of its own, set in `config`. If Mem0's default OpenAI model rejects a parameter Mem0 sends (for example `temperature` on a reasoning model), name the model in `config` — e.g. `{"llm": {"provider": "openai", "config": {"model": "gpt-5-mini", "is_reasoning_model": True}}}` on mem0ai 2.x. That error comes from Mem0's request, not from Promptise.
 
 ---
 
@@ -295,7 +339,7 @@ result = await memory_agent.ainvoke({"messages": [{"role": "user", "content": "H
 | `provider` | `MemoryProvider` | required | Memory provider instance |
 | `max_memories` | `int` | `5` | Max results to inject per invocation |
 | `min_score` | `float` | `0.0` | Min relevance score threshold |
-| `timeout` | `float` | `5.0` | Max seconds to wait for memory search |
+| `timeout` | `float` | `5.0` | Max seconds to wait for the memory search, and for an auto-store write before returning |
 | `auto_store` | `bool` | `False` | Auto-store each exchange after invocation |
 
 !!! tip "Graceful degradation"
@@ -320,7 +364,36 @@ agent = await build_agent(
 )
 ```
 
-This automatically wraps the agent graph in a `MemoryAgent`.
+The agent searches memory before every invocation and injects the results; no `MemoryAgent` wrapper is involved. These `build_agent()` parameters control it:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `memory` | `MemoryProvider` | `None` | The provider to search (and store into) |
+| `memory_auto_store` | `bool` | `False` | Store each exchange (`User: ...` / `Assistant: ...`) after the invocation, scoped to the caller |
+| `memory_max_results` | `int` | `5` | Maximum memories injected per invocation |
+| `memory_min_score` | `float` | `0.0` | Drop results scoring below this (`0.0`–`1.0`) |
+| `memory_timeout` | `float` | `5.0` | Seconds to wait for the search, and for an auto-store write before returning |
+
+```python
+from promptise.memory import ChromaProvider, MemoryScope
+
+agent = await build_agent(
+    servers=servers,
+    model="openai:gpt-5-mini",
+    memory=ChromaProvider(persist_directory=".promptise/chroma", scope=MemoryScope.PER_USER),
+    memory_auto_store=True,
+    memory_max_results=3,
+    memory_min_score=0.3,   # cosine similarity — keeps related memories, drops noise
+    memory_timeout=15.0,    # the first Chroma call loads the embedding model
+)
+```
+
+### Timeouts
+
+- **Search.** If the search takes longer than `memory_timeout`, the agent answers without memory context and logs `Memory search timed out after 5.0s; continuing without memory context`.
+- **Auto-store.** The agent waits up to `memory_timeout` for the write. Provider writes run in a worker thread that cannot be cancelled, so a slow write is **not** abandoned: it keeps running in the background, the agent logs `Memory auto-store has not finished after 5.0s; continuing without waiting`, and when the write ends it logs the real outcome — `Memory auto-store completed after 7.2s` (INFO) or `Memory auto-store failed` with the error (WARNING). `agent.shutdown()` waits up to 30 seconds (or `memory_timeout`, if longer) for writes still in flight before closing the provider.
+
+A cold `ChromaProvider` loads its embedding model on the first search or write, which can take longer than the 5-second default on a busy machine. Raise `memory_timeout`, or warm the provider up before the first request with `await provider.search("warm-up", limit=1, user_id=...)`.
 
 ---
 
@@ -338,6 +411,7 @@ config = ProcessConfig(
         memory_auto_store=True,               # Auto-store exchanges
         memory_max=5,                         # Max memories per invocation
         memory_min_score=0.3,                 # Min relevance score
+        memory_timeout=5.0,                   # Seconds for search / auto-store
         memory_collection="agent_memory",     # ChromaDB collection name
         memory_persist_directory=".promptise/chroma",
         conversation_max_messages=50,         # Short-term buffer size
@@ -353,6 +427,7 @@ memory:
   auto_store: true
   max: 5
   min_score: 0.3
+  timeout: 5.0
   collection: agent_memory
   persist_directory: .promptise/chroma
 ```

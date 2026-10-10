@@ -449,6 +449,38 @@ class InMemoryProvider:
         self._store.clear()
 
 
+def _mem0_uses_filters_api(client: Any) -> bool:
+    """Return ``True`` when the Mem0 client takes ``filters``/``top_k`` (mem0ai 2.x).
+
+    mem0ai 2.0 moved the entity ids of ``Memory.search()`` and
+    ``Memory.get_all()`` into a ``filters`` dict, renamed ``limit`` to
+    ``top_k``, and rejects the old keyword arguments.  0.1 and 1.x take
+    ``user_id=`` / ``agent_id=`` / ``limit=``.
+    """
+    import inspect
+
+    try:
+        params = inspect.signature(client.search).parameters
+    except (TypeError, ValueError):
+        return False
+    return "top_k" in params
+
+
+def _mem0_entries(raw: Any, method: str) -> list[Any]:
+    """Unwrap a Mem0 ``search``/``get_all`` result into a list of entries.
+
+    Mem0 returns a plain list in early releases and ``{"results": [...]}``
+    from 1.x on.
+    """
+    if isinstance(raw, dict):
+        return list(raw.get("results", raw.get("memories", [])) or [])
+    if isinstance(raw, list):
+        return raw
+    if raw is None:
+        return []
+    raise TypeError(f"Mem0 Memory.{method}() returned unexpected type {type(raw).__name__}")
+
+
 # ---------------------------------------------------------------------------
 # Mem0Provider
 # ---------------------------------------------------------------------------
@@ -458,8 +490,18 @@ class Mem0Provider:
     """Adapter for `mem0 <https://github.com/mem0ai/mem0>`_.
 
     Requires ``pip install mem0ai`` (or ``pip install "promptise[all]"``).
+    Supported releases: ``mem0ai>=0.1.118,<3`` (the 0.1, 1.x and 2.x lines).
     Wraps Mem0's hybrid retrieval (vector + optional graph search) behind
     the :class:`MemoryProvider` protocol.
+
+    Mem0 changed its Python API between major versions: from 2.0,
+    ``Memory.search()`` and ``Memory.get_all()`` take the entity ids in a
+    ``filters`` dict and the result count as ``top_k`` (and reject
+    ``user_id=`` / ``limit=``), while 0.1 and 1.x take ``user_id=`` /
+    ``agent_id=`` / ``limit=``.  The adapter reads the installed client's
+    ``search()`` signature once and calls whichever form it accepts.
+    ``Memory.add()`` takes the text as ``messages`` in every supported
+    release.
 
     Mem0 can run fully local (with Ollama) or via their cloud platform.
     Pass a ``config`` dict to ``from_config()`` for self-hosted setups.
@@ -470,6 +512,7 @@ class Mem0Provider:
         config: Optional Mem0 configuration dict.  Passed directly to
             ``mem0.Memory.from_config()``.  If ``None``, uses Mem0
             defaults.
+        scope: Isolation mode (see :class:`MemoryScope`).
 
     Raises:
         ImportError: If ``mem0ai`` is not installed.
@@ -508,6 +551,7 @@ class Mem0Provider:
             self._client: Any = Memory.from_config(config)
         else:
             self._client = Memory()
+        self._filters_api = _mem0_uses_filters_api(self._client)
 
     def _check_closed(self) -> None:
         if self._closed:
@@ -535,6 +579,19 @@ class Mem0Provider:
         # Shared scope: caller can override, otherwise use the default.
         return user_id or self._user_id
 
+    def _entity_kwargs(self, user_id: str, limit: int) -> dict[str, Any]:
+        """Build the entity filter and result-count kwargs for ``search``/``get_all``.
+
+        Mem0 2.x wants ``filters={"user_id": ...}`` and ``top_k``; 0.1 and
+        1.x want ``user_id=`` and ``limit=``.
+        """
+        entities: dict[str, Any] = {"user_id": user_id}
+        if self._agent_id:
+            entities["agent_id"] = self._agent_id
+        if self._filters_api:
+            return {"filters": entities, "top_k": limit}
+        return {**entities, "limit": limit}
+
     async def search(
         self,
         query: str,
@@ -542,37 +599,27 @@ class Mem0Provider:
         limit: int = 5,
         user_id: str | None = None,
     ) -> list[MemoryResult]:
+        """Search Mem0 for memories relevant to *query*.
+
+        Raises:
+            MemoryIsolationError: ``scope=PER_USER`` and no ``user_id``.
+            Exception: Whatever the Mem0 client raises.  Errors are not
+                turned into an empty result, so an incompatible Mem0
+                release or an unreachable vector store is visible.
+        """
         self._check_closed()
         effective_user = self._effective_user(user_id, "search")
-        kwargs: dict[str, Any] = {"query": query, "user_id": effective_user}
-        if self._agent_id:
-            kwargs["agent_id"] = self._agent_id
-        kwargs["limit"] = limit
+        kwargs = self._entity_kwargs(effective_user, limit)
 
         loop = asyncio.get_running_loop()
         try:
-            raw = await loop.run_in_executor(None, lambda: self._client.search(**kwargs))
+            raw = await loop.run_in_executor(None, lambda: self._client.search(query, **kwargs))
         except Exception:
             logger.warning("Mem0Provider.search failed", exc_info=True)
-            return []
+            raise
 
-        # Mem0 returns different formats across versions:
-        #   v1.0+: list of dicts directly
-        #   v1.1+: {"results": [...]}} wrapper
         results: list[MemoryResult] = []
-        entries: list[Any]
-        if isinstance(raw, dict):
-            entries = raw.get("results", raw.get("memories", [])) or []
-        elif isinstance(raw, list):
-            entries = raw
-        else:
-            logger.warning(
-                "Mem0Provider.search returned unexpected type: %s",
-                type(raw).__name__,
-            )
-            return []
-
-        for entry in entries:
+        for entry in _mem0_entries(raw, "search"):
             if isinstance(entry, dict):
                 content = entry.get("memory", entry.get("text", str(entry)))
                 score = entry.get("score", 0.5)
@@ -600,7 +647,7 @@ class Mem0Provider:
     ) -> str:
         self._check_closed()
         effective_user = self._effective_user(user_id, "add")
-        kwargs: dict[str, Any] = {"data": content, "user_id": effective_user}
+        kwargs: dict[str, Any] = {"user_id": effective_user}
         if self._agent_id:
             kwargs["agent_id"] = self._agent_id
         if metadata:
@@ -608,7 +655,9 @@ class Mem0Provider:
 
         loop = asyncio.get_running_loop()
         try:
-            raw = await loop.run_in_executor(None, lambda: self._client.add(**kwargs))
+            raw = await loop.run_in_executor(
+                None, lambda: self._client.add(messages=content, **kwargs)
+            )
         except Exception:
             logger.error("Mem0Provider.add failed", exc_info=True)
             raise
@@ -617,17 +666,20 @@ class Mem0Provider:
         if isinstance(raw, dict):
             results = raw.get("results", [])
             if results and isinstance(results[0], dict):
-                return results[0].get("id", str(uuid4())[:12])
+                return str(results[0].get("id", str(uuid4())[:12]))
         return str(uuid4())[:12]
 
     async def delete(self, memory_id: str, *, user_id: str | None = None) -> bool:
         self._check_closed()
-        # Delegate ownership enforcement to the underlying Mem0 backend —
-        # its ``delete`` takes the caller's perspective.  We still validate
-        # the scope requirements here so misuse surfaces a clear error.
-        self._effective_user(user_id, "delete")
+        owner = self._effective_user(user_id, "delete")
         loop = asyncio.get_running_loop()
         try:
+            if self.scope == MemoryScope.PER_USER:
+                # Mem0's delete() takes only the id, so check ownership first:
+                # a tenant must not delete another tenant's entry by id.
+                existing = await loop.run_in_executor(None, lambda: self._client.get(memory_id))
+                if not isinstance(existing, dict) or existing.get("user_id") != owner:
+                    return False
             await loop.run_in_executor(None, lambda: self._client.delete(memory_id))
             return True
         except Exception:
@@ -647,31 +699,23 @@ class Mem0Provider:
     ) -> list[MemoryResult]:
         """List the user's entries whose metadata matches ``metadata`` exactly.
 
-        Uses Mem0's ``get_all`` and filters client-side.  See
-        :meth:`InMemoryProvider.list_entries`.
+        Uses Mem0's ``get_all`` (up to ``limit`` entries, in the API form
+        the installed release accepts -- see :meth:`search`) and filters
+        client-side.  See :meth:`InMemoryProvider.list_entries`.
         """
         self._check_closed()
         effective_user = self._effective_user(user_id, "list_entries")
-        kwargs: dict[str, Any] = {"user_id": effective_user}
-        if self._agent_id:
-            kwargs["agent_id"] = self._agent_id
-
-        def _get_all() -> Any:
-            try:
-                return self._client.get_all(**kwargs)
-            except TypeError:
-                # mem0ai >= 1.0 takes entity ids through ``filters``.
-                return self._client.get_all(filters=kwargs)
+        kwargs = self._entity_kwargs(effective_user, limit)
 
         loop = asyncio.get_running_loop()
         try:
-            raw = await loop.run_in_executor(None, _get_all)
+            raw = await loop.run_in_executor(None, lambda: self._client.get_all(**kwargs))
+            entries = _mem0_entries(raw, "get_all")
         except Exception:
             logger.warning("Mem0Provider.list_entries failed", exc_info=True)
             return []
-        entries = raw.get("results", raw.get("memories", [])) if isinstance(raw, dict) else raw
         out: list[MemoryResult] = []
-        for entry in entries or []:
+        for entry in entries:
             if not isinstance(entry, dict):
                 continue
             meta = {k: v for k, v in entry.items() if k not in ("memory", "text", "score", "id")}
@@ -696,10 +740,10 @@ class Mem0Provider:
     async def purge_user(self, user_id: str) -> int:
         """Delete every Mem0 entry owned by ``user_id``.
 
-        Uses Mem0's ``delete_all(user_id=...)`` / ``reset_user`` path when
-        available.  Falls back to listing + individual deletion for older
-        mem0ai releases.  Returns ``0`` for SHARED-scope providers and
-        when no entries existed.
+        Counts the user's entries with ``get_all`` and removes them with
+        Mem0's ``delete_all(user_id=...)``; when ``delete_all`` is missing
+        or fails, deletes the listed entries one by one.  Returns ``0`` for
+        SHARED-scope providers and when no entries existed.
         """
         self._check_closed()
         if self.scope != MemoryScope.PER_USER:
@@ -709,45 +753,47 @@ class Mem0Provider:
 
         loop = asyncio.get_running_loop()
 
+        def _list_ids() -> list[str]:
+            if not hasattr(self._client, "get_all"):
+                return []
+            kwargs = self._entity_kwargs(user_id, 10_000)
+            # Purge covers every agent's entries for this user.
+            if self._filters_api:
+                kwargs["filters"].pop("agent_id", None)
+            else:
+                kwargs.pop("agent_id", None)
+            raw = self._client.get_all(**kwargs)
+            return [
+                str(e["id"])
+                for e in _mem0_entries(raw, "get_all")
+                if isinstance(e, dict) and e.get("id")
+            ]
+
         def _purge() -> int:
-            # Preferred path — Mem0 >=1.0 exposes delete_all(user_id=...)
+            ids = _list_ids()
             if hasattr(self._client, "delete_all"):
                 try:
                     self._client.delete_all(user_id=user_id)
-                    return -1  # Count unknown; caller should treat as success.
-                except Exception:  # pragma: no cover — defensive
+                    return len(ids)
+                except Exception:
                     logger.warning(
-                        "Mem0 delete_all failed, falling back to listing",
+                        "Mem0 delete_all failed, deleting entries one by one",
                         exc_info=True,
                     )
-            # Fallback — list the user's entries, delete individually.
             removed = 0
-            if hasattr(self._client, "get_all"):
-                raw = self._client.get_all(user_id=user_id)
-                entries: list[Any]
-                if isinstance(raw, dict):
-                    entries = raw.get("results") or raw.get("memories") or []
-                else:
-                    entries = raw or []
-                for entry in entries:
-                    mid = entry.get("id") if isinstance(entry, dict) else None
-                    if mid:
-                        try:
-                            self._client.delete(mid)
-                            removed += 1
-                        except Exception:
-                            logger.warning(
-                                "Mem0 individual delete failed for %s", mid, exc_info=True
-                            )
+            for mid in ids:
+                try:
+                    self._client.delete(mid)
+                    removed += 1
+                except Exception:
+                    logger.warning("Mem0 individual delete failed for %s", mid, exc_info=True)
             return removed
 
         try:
-            result = await loop.run_in_executor(None, _purge)
+            return await loop.run_in_executor(None, _purge)
         except Exception:
             logger.warning("Mem0Provider.purge_user failed", exc_info=True)
             return 0
-        # delete_all path returned -1; surface it as 0-or-more unknown count.
-        return max(result, 0)
 
     async def close(self) -> None:
         """Release Mem0 client resources.
@@ -768,6 +814,41 @@ class Mem0Provider:
         logger.debug("Mem0Provider closed")
 
 
+def _chroma_space(collection: Any) -> str:
+    """Return the distance function (``cosine``, ``l2`` or ``ip``) of a collection.
+
+    Chroma 1.x reports it in ``configuration_json["hnsw"]["space"]``;
+    earlier releases keep it in the ``hnsw:space`` metadata key.  Chroma
+    defaults to ``l2`` when neither is set.
+    """
+    config = getattr(collection, "configuration_json", None)
+    if isinstance(config, dict):
+        hnsw = config.get("hnsw")
+        if isinstance(hnsw, dict) and hnsw.get("space"):
+            return str(hnsw["space"])
+    metadata = getattr(collection, "metadata", None)
+    if isinstance(metadata, dict) and metadata.get("hnsw:space"):
+        return str(metadata["hnsw:space"])
+    return "l2"
+
+
+def _chroma_score(distance: float | None, space: str) -> float:
+    """Convert a Chroma distance to a ``[0, 1]`` similarity score.
+
+    * ``cosine``: distance is ``1 - cos``, so the score is ``1 - distance``.
+    * ``ip``: distance is ``1 - dot``; for unit vectors that is ``1 - cos``.
+    * ``l2``: Chroma reports the *squared* L2 distance, ``2 - 2 cos`` for
+      unit vectors, so the score is ``1 - distance / 2``.
+    """
+    if distance is None:
+        return 0.0
+    if space == "l2":
+        similarity = 1.0 - distance / 2.0
+    else:
+        similarity = 1.0 - distance
+    return max(0.0, min(1.0, similarity))
+
+
 # ---------------------------------------------------------------------------
 # ChromaProvider
 # ---------------------------------------------------------------------------
@@ -780,6 +861,18 @@ class ChromaProvider:
     Provides local vector similarity search with automatic embedding
     generation.  ChromaDB handles its own input validation internally.
 
+    **Scores.**  New collections are created with cosine distance
+    (``metadata={"hnsw:space": "cosine"}``), and a result's
+    :attr:`MemoryResult.score` is its cosine similarity (``1 - distance``,
+    clamped to ``[0, 1]``).  A collection that already exists keeps the
+    distance function it was created with — Chroma cannot change it — and
+    the score is derived from that function: ``ip`` uses ``1 - distance``,
+    and ``l2`` (Chroma's default, used by collections created by
+    Promptise 1.2.1 and earlier) uses ``1 - distance / 2``, which equals
+    cosine similarity for unit-length embeddings such as Chroma's default
+    model.  A warning is logged for an ``l2`` collection; re-create it to
+    get cosine distances (see the memory guide).
+
     Args:
         collection_name: Name of the ChromaDB collection.
         persist_directory: Path for persistent storage.  When ``None``,
@@ -787,6 +880,7 @@ class ChromaProvider:
         embedding_function: Custom ChromaDB embedding function.  When
             ``None``, uses ChromaDB's default (all-MiniLM-L6-v2 via
             Sentence Transformers).
+        scope: Isolation mode (see :class:`MemoryScope`).
 
     Raises:
         ImportError: If ``chromadb`` is not installed.
@@ -828,7 +922,25 @@ class ChromaProvider:
         if embedding_function is not None:
             get_kwargs["embedding_function"] = embedding_function
 
-        self._collection: Any = self._client.get_or_create_collection(**get_kwargs)
+        # Look the collection up first: an existing collection keeps its
+        # distance function, and passing ``metadata`` for one that exists
+        # would overwrite its metadata on older Chroma releases without
+        # changing the index.  Only a new collection gets cosine distance.
+        try:
+            self._collection: Any = self._client.get_collection(**get_kwargs)
+        except Exception:
+            self._collection = self._client.get_or_create_collection(
+                **get_kwargs, metadata={"hnsw:space": "cosine"}
+            )
+        self._space = _chroma_space(self._collection)
+        if self._space == "l2":
+            logger.warning(
+                "Chroma collection %r uses l2 distance (created by Promptise "
+                "1.2.1 or earlier, or outside Promptise). Scores are derived as 1 - distance/2, "
+                "which is cosine similarity only for unit-length embeddings. "
+                "Re-create the collection to switch it to cosine distance.",
+                collection_name,
+            )
         self._closed = False
         self.scope = scope
 
@@ -878,9 +990,10 @@ class ChromaProvider:
         metadatas = _meta_raw[0] if _meta_raw else []
 
         for i, doc in enumerate(documents):
-            # ChromaDB returns distances (lower = better); convert to score
-            distance = distances[i] if i < len(distances) else 1.0
-            score = max(0.0, 1.0 - distance)
+            # ChromaDB returns distances (lower = better); convert to a
+            # similarity score for the collection's distance function.
+            distance = distances[i] if i < len(distances) else None
+            score = _chroma_score(distance, self._space)
             mid = ids[i] if i < len(ids) else str(uuid4())[:12]
             meta = metadatas[i] if i < len(metadatas) else {}
             results.append(
@@ -1182,6 +1295,74 @@ def _inject_memory_into_messages(
     return new_input
 
 
+async def _store_exchange(
+    provider: MemoryProvider,
+    content: str,
+    *,
+    user_id: str | None,
+    timeout: float,
+    pending: set[asyncio.Task[Any]],
+) -> None:
+    """Auto-store *content* in *provider* without misreporting a slow write.
+
+    Providers run their writes in a worker thread (Chroma, Mem0), and a
+    thread cannot be cancelled: cancelling the awaiting coroutine when a
+    timeout expires leaves the write running, and it usually lands a
+    moment later.  So the write is never cancelled.  This waits up to
+    ``timeout`` seconds for it; if it has not finished by then, it keeps
+    running in the background (tracked in ``pending`` so the owner can
+    wait for it on shutdown) and its real outcome is logged when it
+    finishes — a failure as a warning, a late success at INFO.
+
+    Never raises: memory storage must not fail the invocation.
+    """
+    started = time.monotonic()
+    state = {"late": False}
+    task: asyncio.Task[Any] = asyncio.ensure_future(
+        provider.add(content, metadata={"source": "auto_store"}, user_id=user_id)
+    )
+    pending.add(task)
+
+    def _on_done(t: asyncio.Task[Any]) -> None:
+        pending.discard(t)
+        if t.cancelled():
+            logger.warning("Memory auto-store was cancelled before it finished")
+            return
+        exc = t.exception()
+        if exc is not None:
+            logger.warning("Memory auto-store failed", exc_info=exc)
+        elif state["late"]:
+            logger.info(
+                "Memory auto-store completed after %.1fs (finished in the background)",
+                time.monotonic() - started,
+            )
+
+    task.add_done_callback(_on_done)
+    done, _ = await asyncio.wait({task}, timeout=timeout)
+    if not done:
+        state["late"] = True
+        logger.warning(
+            "Memory auto-store has not finished after %.1fs; continuing without "
+            "waiting. The write keeps running and its outcome will be logged.",
+            timeout,
+        )
+
+
+async def _wait_for_pending_stores(pending: set[asyncio.Task[Any]], timeout: float) -> None:
+    """Give background auto-store writes up to ``timeout`` seconds to finish."""
+    loop = asyncio.get_running_loop()
+    tasks = {t for t in pending if not t.done() and t.get_loop() is loop}
+    if not tasks:
+        return
+    _, still_running = await asyncio.wait(tasks, timeout=timeout)
+    if still_running:
+        logger.warning(
+            "%d memory auto-store write(s) still running after %.1fs at shutdown",
+            len(still_running),
+            timeout,
+        )
+
+
 class MemoryAgent:
     """Wraps an agent with automatic memory context injection.
 
@@ -1224,6 +1405,7 @@ class MemoryAgent:
         self._min_score = min_score
         self._timeout = timeout
         self._auto_store = auto_store
+        self._pending_stores: set[asyncio.Task[Any]] = set()
 
     def _caller_user_id(self) -> str | None:
         """Best-effort lookup of the current caller's isolation key.
@@ -1257,7 +1439,10 @@ class MemoryAgent:
                 results = [r for r in results if r.score >= self._min_score]
             return results
         except asyncio.TimeoutError:
-            logger.warning("Memory search timed out after %.1fs", self._timeout)
+            logger.warning(
+                "Memory search timed out after %.1fs; continuing without memory context",
+                self._timeout,
+            )
             return []
         except Exception:
             logger.warning("Memory search failed", exc_info=True)
@@ -1270,17 +1455,13 @@ class MemoryAgent:
         user_id = self._caller_user_id()
         output_text = _extract_user_text(output)
         content = f"User: {user_text}\nAssistant: {output_text}"
-        try:
-            await asyncio.wait_for(
-                self.provider.add(
-                    content,
-                    metadata={"source": "auto_store"},
-                    user_id=user_id,
-                ),
-                timeout=self._timeout,
-            )
-        except Exception:
-            logger.warning("Memory auto-store failed", exc_info=True)
+        await _store_exchange(
+            self.provider,
+            content,
+            user_id=user_id,
+            timeout=self._timeout,
+            pending=self._pending_stores,
+        )
 
     async def ainvoke(
         self,

@@ -1151,28 +1151,7 @@ class AgentProcess:
             # :func:`_resolve_server_specs`).
             resolved = _resolve_server_specs(servers)
 
-            # When the process carries a verifiable identity, present its
-            # credential to MCP servers that have no bearer of their own —
-            # scoped to each server's audience (best-effort; an unreachable
-            # IdP must not fail the build).
-            def _identity_bearer(spec: HTTPServerSpec) -> str | None:
-                identity = self.config.identity
-                if identity is None or not getattr(identity, "is_verifiable", False):
-                    return None
-                from promptise.identity import IdentityError
-
-                try:
-                    return str(identity.get_credential(spec.audience))
-                except IdentityError as exc:
-                    logger.warning(
-                        "AgentProcess %s: identity could not acquire a "
-                        "credential for MCP server audience %r (%s); "
-                        "connecting without it.",
-                        self.name,
-                        spec.audience,
-                        exc,
-                    )
-                    return None
+            from promptise.agent import identity_token_provider
 
             # Build native MCP clients from resolved specs
             clients: dict[str, MCPClient] = {}
@@ -1184,7 +1163,12 @@ class AgentProcess:
                         headers=spec.headers,
                         bearer_token=spec.bearer_token.get_secret_value()
                         if spec.bearer_token
-                        else _identity_bearer(spec),
+                        else None,
+                        # The process identity, renewed per request and
+                        # failing closed (see identity_token_provider).
+                        bearer_token_provider=identity_token_provider(
+                            self.config.identity, spec, owner=f"AgentProcess {self.name!r}"
+                        ),
                         api_key=spec.api_key.get_secret_value() if spec.api_key else None,
                     )
                 else:
@@ -1218,6 +1202,9 @@ class AgentProcess:
             "instructions": instructions,
             "memory": self._long_term_memory,
             "memory_auto_store": self.config.context.memory_auto_store,
+            "memory_max_results": self.config.context.memory_max,
+            "memory_min_score": self.config.context.memory_min_score,
+            "memory_timeout": self.config.context.memory_timeout,
             "extra_tools": extra_tools or None,
         }
 

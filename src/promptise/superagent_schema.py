@@ -378,7 +378,9 @@ class ObservabilitySection(BaseModel):
     Attributes:
         level: Detail level (off, basic, standard, full).
         session_name: Human-readable session identifier.
-        record_prompts: Store full prompt/response text.
+        record_prompts: Store prompt/response text.  Unset follows
+            ``level`` (on at ``full`` only).
+        record_tool_io: Store tool arguments and result previews.
         transporters: List of transporter type strings.
         output_dir: Directory for HTML and JSON output.
         log_file: File path for structured log transporter.
@@ -395,7 +397,10 @@ class ObservabilitySection(BaseModel):
         "standard", description="Detail level"
     )
     session_name: str = Field("promptise", description="Session identifier")
-    record_prompts: bool = Field(False, description="Store full prompt/response text")
+    record_prompts: bool | None = Field(
+        None, description="Store prompt/response text (unset: only at level 'full')"
+    )
+    record_tool_io: bool = Field(True, description="Store tool arguments and result previews")
     transporters: list[str] = Field(
         default_factory=lambda: ["html"], description="Transporter types"
     )
