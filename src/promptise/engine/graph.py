@@ -26,7 +26,7 @@ import copy
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from .base import BaseNode
 from .state import GraphMutation, NodeResult
@@ -60,6 +60,55 @@ class Edge:
     condition: Callable[[NodeResult], bool] | None = None
     label: str = ""
     priority: int = 0
+
+
+@dataclass(frozen=True)
+class EdgeCondition:
+    """A built-in edge condition, described by data instead of a lambda.
+
+    The edge helpers (``on_tool_call``, ``on_output``, ``on_error`` …) use
+    it, so their edges survive :func:`~promptise.engine.serialization.save_graph`.
+
+    Attributes:
+        kind: ``"tool_called"``, ``"no_tool_call"``, ``"output"``,
+            ``"error"``, ``"confidence"`` or ``"guard_failed"``.
+        key: Output key (``"output"``).
+        value: Expected value of ``output[key]`` (``"output"``).
+        min_confidence: Threshold for ``output["confidence"]`` (``"confidence"``).
+    """
+
+    kind: str
+    key: str = ""
+    value: Any = True
+    min_confidence: float = 0.0
+
+    KINDS: ClassVar[tuple[str, ...]] = (
+        "tool_called",
+        "no_tool_call",
+        "output",
+        "error",
+        "confidence",
+        "guard_failed",
+    )
+
+    def __post_init__(self) -> None:
+        if self.kind not in self.KINDS:
+            raise ValueError(f"Unknown edge condition kind {self.kind!r}. Kinds: {self.KINDS}")
+
+    def __call__(self, r: NodeResult) -> bool:
+        if self.kind == "tool_called":
+            return bool(r.tool_calls)
+        if self.kind == "no_tool_call":
+            return not r.tool_calls
+        if self.kind == "output":
+            return isinstance(r.output, dict) and r.output.get(self.key) == self.value
+        if self.kind == "error":
+            return r.error is not None
+        if self.kind == "confidence":
+            return isinstance(r.output, dict) and float(r.output.get("confidence", 0)) >= (
+                self.min_confidence
+            )
+        return bool(r.guards_failed)  # guard_failed
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +157,8 @@ class PromptGraph:
         self._edge_index_dirty = True
         self._entry: str | None = None
         self._cow_source: PromptGraph | None = None  # Copy-on-write parent
+        # loop_until() budgets: node name → (max_iterations, exit_to)
+        self._loop_limits: dict[str, tuple[int, str]] = {}
 
         # Add nodes if passed in constructor
         if nodes:
@@ -131,6 +182,7 @@ class PromptGraph:
     def remove_node(self, name: str) -> PromptGraph:
         """Remove a node and all edges referencing it."""
         self._nodes.pop(name, None)
+        self._loop_limits.pop(name, None)
         self._ensure_edges_owned()
         self._edges = [e for e in self._edges if e.from_node != name and e.to_node != name]
         self._edge_index_dirty = True
@@ -268,7 +320,7 @@ class PromptGraph:
         return self.add_edge(
             from_node,
             to_node,
-            condition=lambda r: bool(r.tool_calls),
+            condition=EdgeCondition("tool_called"),
             label="tool_called",
         )
 
@@ -277,7 +329,7 @@ class PromptGraph:
         return self.add_edge(
             from_node,
             to_node,
-            condition=lambda r: not r.tool_calls,
+            condition=EdgeCondition("no_tool_call"),
             label="no_tools",
         )
 
@@ -286,15 +338,13 @@ class PromptGraph:
         return self.add_edge(
             from_node,
             to_node,
-            condition=lambda r: isinstance(r.output, dict) and r.output.get(key) == value,
+            condition=EdgeCondition("output", key=key, value=value),
             label=f"{key}={value}",
         )
 
     def on_error(self, from_node: str, to_node: str) -> PromptGraph:
         """Add an edge that fires when a node has an error."""
-        return self.add_edge(
-            from_node, to_node, condition=lambda r: r.error is not None, label="error"
-        )
+        return self.add_edge(from_node, to_node, condition=EdgeCondition("error"), label="error")
 
     def on_confidence(
         self, from_node: str, to_node: str, min_confidence: float = 0.7
@@ -303,17 +353,17 @@ class PromptGraph:
         return self.add_edge(
             from_node,
             to_node,
-            condition=lambda r: (
-                isinstance(r.output, dict)
-                and float(r.output.get("confidence", 0)) >= min_confidence
-            ),
+            condition=EdgeCondition("confidence", min_confidence=min_confidence),
             label=f"confidence>={min_confidence}",
         )
 
     def on_guard_fail(self, from_node: str, to_node: str) -> PromptGraph:
         """Add an edge that fires when any guard fails."""
         return self.add_edge(
-            from_node, to_node, condition=lambda r: bool(r.guards_failed), label="guard_failed"
+            from_node,
+            to_node,
+            condition=EdgeCondition("guard_failed"),
+            label="guard_failed",
         )
 
     def sequential(self, *node_names: str) -> PromptGraph:
@@ -330,10 +380,23 @@ class PromptGraph:
         condition: Callable[[NodeResult], bool],
         max_iterations: int = 5,
     ) -> PromptGraph:
-        """Add a loop: node re-enters itself until condition, then exits."""
+        """Add a loop: node re-enters itself until condition, then exits.
+
+        The node runs at most *max_iterations* times in a run (fewer when
+        its own ``max_iterations`` is lower); once it has used them, the
+        engine exits to *exit_to* even though *condition* never held.
+        """
+        if max_iterations < 1:
+            raise ValueError("loop_until max_iterations must be at least 1")
         self.add_edge(node_name, exit_to, condition=condition, label="exit_loop", priority=10)
         self.add_edge(node_name, node_name, label="loop", priority=0)
+        self._loop_limits[node_name] = (max_iterations, exit_to)
         return self
+
+    def loop_limit(self, node_name: str) -> tuple[int, str] | None:
+        """``(max_iterations, exit_to)`` set by :meth:`loop_until` for
+        *node_name*, or ``None``."""
+        return self._loop_limits.get(node_name)
 
     # ── Factory: build from node pool ──────────────────────────────
 
@@ -444,11 +507,12 @@ class PromptGraph:
         Edges use copy-on-write — shared until the copy mutates them,
         at which point they are lazily copied via ``_ensure_edges_owned()``.
         """
-        new = PromptGraph(name=self.name)
+        new = PromptGraph(name=self.name, mode=self.mode)
         new._nodes = dict(self._nodes)  # Shallow copy of node dict
         new._edges = self._edges  # Shared — COW on first mutation
         new._cow_source = self
         new._entry = self._entry
+        new._loop_limits = dict(self._loop_limits)
         new._edge_index_dirty = True  # Rebuild on first use
         return new
 

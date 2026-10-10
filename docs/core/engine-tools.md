@@ -4,11 +4,13 @@ When you use `build_agent(servers=...)`, MCP tools are discovered at startup. Fo
 
 ## How It Works
 
-1. `build_agent()` discovers tools from MCP servers
+1. `build_agent()` discovers tools from MCP servers (plus `extra_tools`, cross-agent and sandbox tools)
 2. Tools are converted to LangChain `BaseTool` instances
-3. The engine collects all tools and passes them via `config["_engine_tools"]`
-4. Nodes with `inject_tools=True` receive all discovered tools at runtime
-5. Injected tools merge with any explicitly configured tools (no duplicates)
+3. `build_agent()` hands them to the engine: `PromptGraphEngine(graph, model, tools=discovered)`
+4. Nodes with `inject_tools=True` receive those tools at runtime, together with every tool another node of the graph declares
+5. Injected tools merge with the node's own `tools` (no duplicates — the node's own tool wins on a name clash)
+
+Nodes without `inject_tools=True` see only their own `tools`. `agent.tool_names` lists what was discovered; it does not mean every node can call them.
 
 ## Usage
 
@@ -42,7 +44,7 @@ graph.set_entry("search")
 agent = await build_agent(
     model="openai:gpt-5-mini",
     servers={"tools": HTTPServerSpec(url="http://localhost:8000/mcp")},
-    pattern=graph,
+    agent_pattern=graph,
 )
 ```
 
@@ -55,3 +57,11 @@ agent = await build_agent(
 | Routing decision | `False` | Lightweight, no tool overhead |
 | Guard/validation | `False` | No LLM call, no tools needed |
 | Mixed (custom + MCP) | `True` + explicit `tools` | Both available |
+
+## Without build_agent
+
+Running a graph directly, pass the tools to the engine yourself:
+
+```python
+engine = PromptGraphEngine(graph=graph, model=model, tools=my_tools)
+```

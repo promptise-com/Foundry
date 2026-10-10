@@ -606,7 +606,7 @@ agent = await build_agent(
 )
 ```
 
-10 built-in patterns: `react` (default), `verify`, `managed`, `code-action`, `peoatr`, `research`, `autonomous`, `deliberate`, `debate`, `pipeline`. See [Reasoning Patterns](../core/agents/reasoning-patterns.md).
+Pattern names: `react` (default), `verify`, `managed`, `code-action`, `peoatr`, `research`, `autonomous`, `deliberate`, `debate` — any other string raises `ValueError`. For a sequential chain pass `agent_pattern=PromptGraph.pipeline(node_a, node_b)`. See [Reasoning Patterns](../core/agents/reasoning-patterns.md).
 
 ---
 

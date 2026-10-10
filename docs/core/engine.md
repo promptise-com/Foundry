@@ -91,7 +91,7 @@ agent = await build_agent(..., agent_pattern="react")       # Default tool-calli
 agent = await build_agent(..., agent_pattern="verify")      # Plan → Solve → Self-check (1 turn)
 agent = await build_agent(..., agent_pattern="managed")     # Tool loop with facts-ledger context
 agent = await build_agent(..., agent_pattern="code-action") # Writes ONE sandboxed program (1 turn)
-agent = await build_agent(..., agent_pattern="peoatr")      # Plan → Act → Think → Reflect
+agent = await build_agent(..., agent_pattern="peoatr")      # Plan → Act → Think → Reflect → Answer
 agent = await build_agent(..., agent_pattern="research")    # Search → Verify → Synthesize
 agent = await build_agent(..., agent_pattern="autonomous")  # Agent builds own path
 agent = await build_agent(..., agent_pattern="deliberate")  # Think → Plan → Act → Observe → Reflect
@@ -172,7 +172,7 @@ Reasoning Graph Engine
 │  └─ Dynamic (LLM-directed)
 │     └── output.route                LLM names next node at runtime
 │
-├─ Flags (16 typed) ─────────────────────────────────────────────
+├─ Flags (18 typed) ─────────────────────────────────────────────
 │  │
 │  ├─ Execution Control
 │  │  ├── ENTRY / TERMINAL            Graph start and end markers
@@ -248,7 +248,7 @@ Reasoning Graph Engine
 │  │  └── code-action                 Writes ONE sandboxed program (1 turn)
 │  │
 │  ├─ Structured Reasoning
-│  │  ├── peoatr                      Plan → Act → Think → Reflect
+│  │  ├── peoatr                      Plan → Act → Think → Reflect → Answer
 │  │  ├── deliberate                  Think → Plan → Act → Observe → Reflect
 │  │  └── research                    Search → Verify → Synthesize
 │  │
@@ -319,6 +319,8 @@ never happens: an "answer" that silently echoes the question because the
 model call failed.
 
 ```python
+from langchain_core.messages import HumanMessage
+
 from promptise.engine import GraphExecutionError
 
 try:
@@ -365,7 +367,7 @@ The LLM can modify the graph during execution — add nodes, skip to nodes, chan
 
 - [Nodes](engine-nodes.md) — All 20 node types with full parameter reference
 - [Edges & Transitions](engine-edges.md) — 10 edge helpers, transition resolution, LLM routing
-- [Node Flags](engine-flags.md) — 16 typed flags controlling execution, caching, error handling
+- [Node Flags](engine-flags.md) — 18 typed flags controlling execution, caching, error handling
 - [Processors](engine-processors.md) — Pre/post processors for data transformation
 - [Runtime Tool Injection](engine-tools.md) — How MCP tools flow into nodes
 - [Hooks & Observability](engine-hooks.md) — 5 hooks, execution reports, per-node metrics
