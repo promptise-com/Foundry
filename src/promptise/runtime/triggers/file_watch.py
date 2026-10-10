@@ -16,9 +16,26 @@ Example::
     await trigger.start()
 
     event = await trigger.wait_for_next()
-    print(event.payload)  # {"path": "/data/inbox/new.csv", "event_type": "created"}
+    print(event.payload)
+    # {"path": "/data/inbox/new.csv", "filename": "new.csv",
+    #  "event_type": "created", "event_types": ["created", "modified"]}
 
     await trigger.stop()
+
+Debouncing: the operating system often reports one write as several
+events (a new file is usually ``created`` then ``modified``).  All events
+for the same path inside the ``debounce_seconds`` window are merged into
+**one** trigger event whose ``event_type`` describes the net change:
+
+* the file is gone → ``deleted`` (nothing at all if it was also created
+  inside the window)
+* it was created inside the window → ``created``
+* it was moved/renamed into place → ``moved``
+* otherwise → ``modified``
+
+The merged ``event_type`` is then checked against ``events`` (the
+trigger's ``watch_events``), so ``events=["deleted"]`` never fires for a
+new or changed file.  ``event_types`` lists the raw events that were merged.
 """
 
 from __future__ import annotations
@@ -27,11 +44,13 @@ import asyncio
 import fnmatch
 import logging
 import os
-import time
 from pathlib import Path
 from typing import Any
 
 from .base import TriggerEvent
+
+#: Event types a :class:`FileWatchTrigger` can report.
+FILE_EVENT_TYPES = frozenset({"created", "modified", "deleted", "moved"})
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +73,11 @@ class FileWatchTrigger:
     Args:
         watch_path: Directory to monitor.
         patterns: Glob patterns to match (e.g. ``["*.csv", "*.json"]``).
-        events: Event types to react to.
+        events: Event types to react to (``created``, ``modified``,
+            ``deleted``, ``moved``).  Defaults to created + modified.
         recursive: Watch subdirectories recursively.
-        debounce_seconds: Debounce interval to avoid duplicate events.
+        debounce_seconds: Window in which all events for one path are
+            merged into a single trigger event.
         poll_interval: Polling interval in seconds (used when watchdog
             is not available).
     """
@@ -73,6 +94,11 @@ class FileWatchTrigger:
         self._watch_path = Path(watch_path)
         self._patterns = patterns or ["*"]
         self._events = set(events or ["created", "modified"])
+        unknown = self._events - FILE_EVENT_TYPES
+        if unknown:
+            raise ValueError(
+                f"Unknown file watch events {sorted(unknown)}; choose from {sorted(FILE_EVENT_TYPES)}"
+            )
         self._recursive = recursive
         self._debounce_seconds = debounce_seconds
         self._poll_interval = poll_interval
@@ -91,14 +117,15 @@ class FileWatchTrigger:
         self._file_mtimes: dict[str, float] = {}
         self._known_files: set[str] = set()
 
-        # Deduplication
-        self._recent_events: dict[str, float] = {}
+        # Debounce: raw event types per path, flushed after the window
+        self._pending: dict[str, list[str]] = {}
+        self._pending_handles: dict[str, asyncio.TimerHandle] = {}
 
     async def start(self) -> None:
         """Start watching for file changes."""
         self._stopped = False
         self._stop_event.clear()
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
 
         # Ensure watch path exists
         if not self._watch_path.exists():
@@ -139,6 +166,11 @@ class FileWatchTrigger:
                 pass
             self._poll_task = None
 
+        for handle in self._pending_handles.values():
+            handle.cancel()
+        self._pending_handles.clear()
+        self._pending.clear()
+
         # Unblock waiters
         sentinel = TriggerEvent(
             trigger_id=self.trigger_id,
@@ -174,53 +206,77 @@ class FileWatchTrigger:
         """Check if a filename matches any of the configured patterns."""
         return any(fnmatch.fnmatch(filename, p) for p in self._patterns)
 
-    def _is_duplicate(self, file_path: str, event_type: str) -> bool:
-        """Debounce: check if this event was recently emitted."""
-        key = f"{event_type}:{file_path}"
-        now = time.monotonic()
-
-        last = self._recent_events.get(key)
-        if last is not None and (now - last) < self._debounce_seconds:
-            return True
-
-        self._recent_events[key] = now
-
-        # Garbage-collect old entries
-        cutoff = now - self._debounce_seconds * 10
-        self._recent_events = {k: v for k, v in self._recent_events.items() if v > cutoff}
-        return False
-
     def _emit_event(self, file_path: str, event_type: str) -> None:
-        """Create and enqueue a TriggerEvent."""
-        if event_type not in self._events:
+        """Record a raw filesystem event (safe to call from any thread).
+
+        The event is merged with others for the same path and turned into
+        a trigger event once the debounce window closes.
+        """
+        file_path = str(file_path)
+        if not self._matches_pattern(os.path.basename(file_path)):
+            return
+        loop = self._loop
+        if loop is not None and loop.is_running():
+            loop.call_soon_threadsafe(self._record, file_path, event_type)
+        else:
+            self._record(file_path, event_type)
+
+    def _record(self, file_path: str, event_type: str) -> None:
+        """Add a raw event to the path's debounce window (event-loop thread)."""
+        if self._stopped:
+            return
+        types = self._pending.get(file_path)
+        if types is not None:
+            if event_type not in types:
+                types.append(event_type)
+            return
+        self._pending[file_path] = [event_type]
+        if self._loop is None:
+            self._flush(file_path)
+            return
+        self._pending_handles[file_path] = self._loop.call_later(
+            self._debounce_seconds, self._flush, file_path
+        )
+
+    @staticmethod
+    def _net_event_type(types: list[str], exists: bool) -> str | None:
+        """Collapse the raw events seen in one window into the net change."""
+        if not exists:
+            # Created and removed inside one window: nothing to report.
+            return None if "created" in types else "deleted"
+        if "created" in types or "deleted" in types:
+            return "created"
+        if "moved" in types:
+            return "moved"
+        return "modified"
+
+    def _flush(self, file_path: str) -> None:
+        """Close the debounce window for *file_path* and enqueue one event."""
+        self._pending_handles.pop(file_path, None)
+        types = self._pending.pop(file_path, None)
+        if not types or self._stopped:
+            return
+        event_type = self._net_event_type(types, os.path.exists(file_path))
+        if event_type is None or event_type not in self._events:
             return
 
         filename = os.path.basename(file_path)
-        if not self._matches_pattern(filename):
-            return
-
-        if self._is_duplicate(file_path, event_type):
-            return
-
         trigger_event = TriggerEvent(
             trigger_id=self.trigger_id,
             trigger_type="file_watch",
             payload={
-                "path": str(file_path),
+                "path": file_path,
                 "filename": filename,
                 "event_type": event_type,
+                "event_types": types,
             },
             metadata={
                 "watch_path": str(self._watch_path),
                 "patterns": self._patterns,
             },
         )
-
         try:
-            if self._loop and self._loop.is_running():
-                self._loop.call_soon_threadsafe(self._queue.put_nowait, trigger_event)
-            else:
-                self._queue.put_nowait(trigger_event)
+            self._queue.put_nowait(trigger_event)
         except asyncio.QueueFull:
             logger.warning("FileWatchTrigger: queue full, dropping event")
 
@@ -339,5 +395,6 @@ class FileWatchTrigger:
         return (
             f"FileWatchTrigger(path={str(self._watch_path)!r}, "
             f"patterns={self._patterns}, "
+            f"events={sorted(self._events)}, "
             f"backend={backend!r})"
         )

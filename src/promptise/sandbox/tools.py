@@ -58,19 +58,21 @@ class SandboxExecTool(BaseTool):
     description: str = """Execute a shell command in the secure sandbox environment.
 
 The sandbox is an isolated Linux container where you can safely:
-- Run Python, Node.js, Rust, Go, or any other installed tools
-- Install packages (pip, npm, cargo, go get, etc.)
-- Create and modify files in /workspace
+- Run the interpreters and tools installed in its image
+- Create and modify files in /workspace (the only writable directory besides /tmp)
 - Run tests and experiments
 - Execute any CLI commands
 
+Network access depends on how the sandbox is configured; by default it has
+none, so downloads and package installs fail.
+
 Examples:
 - sandbox_exec(command="python --version")
-- sandbox_exec(command="pip install requests && python script.py")
-- sandbox_exec(command="npm install express && node server.js", timeout=60)
+- sandbox_exec(command="python /workspace/script.py", timeout=60)
 - sandbox_exec(command="ls -la /workspace")
 
 The command runs in /workspace by default. Output includes stdout, stderr, and exit code.
+A command that exceeds its timeout is killed.
 """
     args_schema: type[BaseModel] = SandboxExecInput
 
@@ -224,11 +226,14 @@ class SandboxInstallPackageTool(BaseTool):
     name: str = "sandbox_install_package"
     description: str = """Install a package in the sandbox environment.
 
-Supports multiple package managers:
+Supports multiple package managers (packages go into /workspace):
 - Python: pip install
-- Node.js: npm install -g
+- Node.js: npm install (into /workspace/node_modules)
 - Rust: cargo install
 - Go: go install
+
+Downloading packages needs network access, which the sandbox does not have
+unless it was configured with one.
 
 Examples:
 - sandbox_install_package(package="requests", tool="python")

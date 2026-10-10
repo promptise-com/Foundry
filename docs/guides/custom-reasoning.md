@@ -49,12 +49,12 @@ graph.add_node(PromptNode(
     "agent",
     instructions="You are a helpful assistant. Use tools to answer questions.",
     tools=my_tools,
-    default_next="agent",  # Loop back after tool calls
+    default_next="__end__",  # A tool-free answer ends the run
 ))
 graph.set_entry("agent")
 ```
 
-The engine handles everything: LLM calls, tool execution, re-entry, termination.
+The engine handles everything: LLM calls, tool execution, re-entry, termination. After a turn with tool calls the engine re-enters the node on its own, so `default_next` only decides what happens after the final answer.
 
 ## Example 2: Research Pipeline
 
@@ -71,6 +71,9 @@ graph LR
 Three stages with data flow between nodes:
 
 ```python
+from promptise.engine import PromptGraph, PromptNode
+from promptise.prompts import chain_of_thought
+
 graph = PromptGraph("researcher")
 
 # Stage 1: Search (has tools)
@@ -123,6 +126,7 @@ Add a guard node for quality control with retry:
 
 ```python
 from promptise.engine import PromptNode, GuardNode, PromptGraph
+from promptise.prompts.guards import ContentFilterGuard, LengthGuard
 
 graph = PromptGraph("quality-agent")
 
@@ -137,7 +141,7 @@ graph.add_node(PromptNode(
 graph.add_node(GuardNode(
     "review",
     guards=[
-        LengthGuard(min=500, max=3000),
+        LengthGuard(min_length=500, max_length=3000),
         ContentFilterGuard(required=["conclusion", "introduction"]),
     ],
     on_pass="__end__",
@@ -179,6 +183,7 @@ Search multiple sources simultaneously:
 
 ```python
 from promptise.engine import PromptNode, ParallelNode, PromptGraph
+from promptise.prompts import chain_of_thought, self_critique
 
 graph = PromptGraph("parallel-research")
 
@@ -220,18 +225,27 @@ graph TD
     style CR fill:#3a2a0a,stroke:#fbbf24,color:#fff
 ```
 
-The LLM decides where to go at each step:
+The LLM decides where to go at each step. Give the node an `output_schema` with a `route` field: the engine follows the transition whose key the model picks (a node name works too).
 
 ```python
+from typing import Literal
+
+from pydantic import BaseModel
+
+from promptise.engine import PromptGraph, PromptNode
+from promptise.prompts import creative
+
+
+class Triage(BaseModel):
+    route: Literal["simple_answer", "research", "code_task", "creative"]
+
+
 graph = PromptGraph("dynamic-agent")
 
 graph.add_node(PromptNode(
     "triage",
-    instructions=(
-        "Analyze the user's request. Decide the approach.\n"
-        "Set 'route' to one of: simple_answer, research, code_task, creative"
-    ),
-    tools=None,
+    instructions="Analyze the user's request and decide the approach.",
+    output_schema=Triage,
     transitions={
         "simple_answer": "__end__",
         "research": "deep_research",
@@ -242,7 +256,7 @@ graph.add_node(PromptNode(
 
 graph.add_node(PromptNode("deep_research", tools=search_tools, default_next="__end__"))
 graph.add_node(PromptNode("code_agent", tools=code_tools, default_next="__end__"))
-graph.add_node(PromptNode("creative_agent", strategy=creative, default_next="__end__"))
+graph.add_node(PromptNode("creative_agent", perspective=creative, default_next="__end__"))
 
 graph.set_entry("triage")
 ```
@@ -252,6 +266,9 @@ graph.set_entry("triage")
 Transform data before the LLM sees it:
 
 ```python
+from datetime import datetime
+
+
 async def load_customer_data(state, config):
     """Preprocessor: load customer data into context."""
     customer_id = state.context.get("customer_id")
@@ -332,15 +349,16 @@ graph.add_node(PromptNode(
         Identity("Senior data analyst"),
         Rules(["Always cite sources", "Include confidence levels"]),
     ],
-    tools=None,  # Will be populated by build_agent from MCP servers
+    inject_tools=True,  # Receives the tools build_agent discovers
+    default_next="__end__",
 ))
 graph.set_entry("main")
 
-# Pass it to build_agent — tools from MCP servers are auto-injected
+# Pass it to build_agent — nodes with inject_tools=True get the MCP tools
 agent = await build_agent(
     model="openai:gpt-5-mini",
     servers={"analytics": HTTPServerSpec(url="http://localhost:8000/mcp")},
-    pattern=graph,
+    agent_pattern=graph,
 )
 
 result = await agent.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
@@ -358,17 +376,24 @@ print(graph.to_mermaid())
 ### Execution Report
 
 ```python
-result = await engine.ainvoke(input)
+result = await engine.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
 print(engine.last_report.summary())
 ```
 
 ### Step-by-Step Inspection
 
+A `post_node` hook sees every node's `NodeResult` as the run goes:
+
 ```python
-# Check node history after execution
-for nr in state.node_history:
-    print(f"{nr.node_name}: {nr.duration_ms:.0f}ms, tokens={nr.total_tokens}, "
-          f"tools={len(nr.tool_calls)}, next={nr.next_node}")
+class PrintSteps:
+    async def post_node(self, node, result, state):
+        print(f"{result.node_name}: {result.duration_ms:.0f}ms, tokens={result.total_tokens}, "
+              f"tools={len(result.tool_calls)}")
+        return result
+
+
+engine = PromptGraphEngine(graph=graph, model=model, hooks=[PrintSteps()])
+result = await engine.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
 ```
 
 ### Hooks for Debugging
@@ -450,7 +475,7 @@ engine = PromptGraphEngine(
     ],
 )
 
-result = await engine.ainvoke(input)
+result = await engine.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
 
 # Inspect per-node performance
 for node_name, stats in metrics.summary().items():
@@ -461,18 +486,20 @@ for node_name, stats in metrics.summary().items():
 
 ### Error Handling
 
+A run that ends on a failed node — a provider error, a CRITICAL node, a RETRYABLE node out of attempts — raises `GraphExecutionError`, which carries the run's report:
+
 ```python
-result = await agent.ainvoke({"messages": [...]})
-report = agent._inner.last_report
+from promptise.engine import GraphExecutionError
 
-# Check if a CRITICAL node caused early termination
-if report and report.error:
-    print(f"Graph aborted: {report.error}")
+try:
+    result = await agent.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
+except GraphExecutionError as exc:
+    print(f"Graph failed at {exc.node_name}: {exc.error}")
+    report = exc.report
+else:
+    report = agent.last_report
 
-# Check individual node errors
-for nr in report.nodes_visited if report else []:
-    if hasattr(nr, 'error') and nr.error:
-        print(f"Node {nr.node_name} failed: {nr.error}")
+print(report.summary())  # path, tokens, tool calls, guards
 ```
 
 ## Best Practices

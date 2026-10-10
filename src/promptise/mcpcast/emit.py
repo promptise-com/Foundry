@@ -3286,9 +3286,11 @@ def _approval_section(plan: MCPcastPlan) -> str:
         + (
             "**Approval mode: `elicitation`** (confirm your own action). The human behind the "
             "calling MCP client is asked to approve through MCP elicitation. If the client "
-            "cannot elicit, the call is **denied** — never silently allowed. Independent "
-            "four-eyes review (`api.approval: pending`) needs identified callers and is "
-            "available with `--auth api-key`.\n"
+            "cannot elicit, the call is **denied** — never silently allowed. A Promptise "
+            "agent asks its own approval handler: pass `approval=` to `build_agent()` (for "
+            "example `approval=CallbackApprovalHandler(ask_human)`); without it the agent "
+            "cannot elicit. Independent four-eyes review (`api.approval: pending`) needs "
+            "identified callers and is available with `--auth api-key`.\n"
         )
     )
 

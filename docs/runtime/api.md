@@ -19,16 +19,29 @@ await api.start()
 
 ## Authentication
 
-Every request (except `/api/v1/health`) requires a Bearer token:
+When `auth_token` is set, every request except `GET /api/v1/health` needs a Bearer token, including requests to unknown paths:
 
 ```
 Authorization: Bearer <your-token>
 ```
 
-- **Localhost** (`127.0.0.1`): auth token is optional
-- **Non-localhost**: auth token is **required** — the API refuses to start without one
+- **Loopback** (`127.0.0.1`, `localhost`, `::1`): auth token is optional
+- **Anything else**: auth token is **required** — the API refuses to start without one (an empty token is refused too)
 - Comparison is timing-safe (`hmac.compare_digest`)
 - Token supports env var resolution: `${ORCHESTRATION_API_TOKEN}`
+
+### Browsers can't drive a local API
+
+A loopback bind is reachable by any web page open in a browser on the same machine. On a loopback bind the API therefore refuses:
+
+| Request | Status | Why |
+|---|---|---|
+| `Host` header that isn't a loopback name | `421` `MISDIRECTED_REQUEST` | DNS rebinding: a page whose own host name resolves to `127.0.0.1` |
+| `Origin` header from a non-loopback site | `403` `CROSS_ORIGIN_REFUSED` | A cross-site `fetch` or form post from a page you visit |
+
+`curl`, scripts and the Promptise clients send a loopback `Host` and no `Origin`, so they are unaffected. A local web UI served from `http://localhost:<port>` is allowed. Set an `auth_token` even on loopback if other users share the machine.
+
+Request bodies must be JSON objects. Anything else (a list, a string, invalid JSON) gets `400` `INVALID_JSON`; routes that take no body accept an empty one.
 
 ---
 
@@ -79,6 +92,8 @@ curl -X PATCH http://localhost:9100/api/v1/processes/monitor/budget \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"max_cost_per_day": 500.0}'
 ```
+
+The body of a `budget`, `health` or `mission` patch holds the fields to change, named as in [`BudgetConfig`, `HealthConfig` and `MissionConfig`](governance/budget.md). The patched section is validated against its model before anything changes, with the same limits as at deploy time and strict JSON types (`"5"` is not a number, `1` is not `true`). A field the model does not declare, including inside `escalation` or `tool_costs`, is answered with `422 UNKNOWN_FIELD`; an invalid value with `422 INVALID_CONFIG`. In both cases nothing is changed, even when other fields in the same patch are valid. `null` clears an optional field such as `max_cost_per_day`.
 
 ### Trigger Management
 
@@ -430,6 +445,8 @@ All errors follow a consistent format:
 | 404 | `TRIGGER_NOT_FOUND` | Trigger ID doesn't exist |
 | 409 | `PROCESS_EXISTS` | Deploy with a name that's already registered |
 | 422 | `MISSING_FIELD` | Required field missing from request |
+| 422 | `INVALID_CONFIG` | Config fails validation (deploy, add trigger, `PATCH` budget/health/mission) |
+| 422 | `UNKNOWN_FIELD` | `PATCH` budget/health/mission names a field the config model does not declare |
 | 429 | `RATE_LIMITED` | Inbox rate limit exceeded |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
 
@@ -442,7 +459,7 @@ All errors follow a consistent format:
 - Config validated via Pydantic before process creation
 - Secret values are never returned in API responses (only names and TTL status)
 - Health endpoint has no auth (for Kubernetes probes)
-- Config updates restricted to declared model fields only (prevents attribute injection)
+- Config updates (`PATCH` budget/health/mission) are validated against the config models before they are applied; unknown fields, out-of-range values and wrong types are refused with `422` and change nothing
 - All mutating operations (POST/PATCH/DELETE) are logged
 
 ---

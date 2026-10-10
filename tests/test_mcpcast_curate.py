@@ -842,3 +842,199 @@ class TestCuratedCredentialSlot:
                 profile=SafetyProfile.FULL,
                 max_tools=25,
             )
+
+
+# ---------------------------------------------------------------------------
+# Descriptions never name a tool the server does not have
+# ---------------------------------------------------------------------------
+
+PET_ID = ParamSpec(name="petId", location="path", required=True)
+PETS = [
+    op("getPetById", "GET", "/pet/{petId}", [PET_ID], summary="Find pet by ID"),
+    op(
+        "findPetsByStatus",
+        "GET",
+        "/pet/findByStatus",
+        [ParamSpec(name="status", location="query", description="Status to filter by")],
+        summary="Finds pets by status",
+    ),
+    op(
+        "updatePetWithForm",
+        "POST",
+        "/pet/{petId}",
+        [PET_ID, ParamSpec(name="name", location="query")],
+        summary="Updates a pet with form data",
+    ),
+    op("deletePet", "DELETE", "/pet/{petId}", [PET_ID], summary="Deletes a pet"),
+]
+FIND_PETS = {
+    "name": "find_pets",
+    "description": (
+        "Look up pets by id or by status. Do not use this tool to change pets — "
+        "use update_pet_form or delete_pet for those actions. Returns pet objects."
+    ),
+    "risk": "read",
+    "operations": ["getPetById", "findPetsByStatus"],
+}
+UPDATE_PET_FORM = {
+    "name": "update_pet_form",
+    "description": "Rename a pet. Related tools: find_pets.",
+    "risk": "write",
+    "operations": ["updatePetWithForm"],
+}
+DELETE_PET = {
+    "name": "delete_pet",
+    "description": "Delete a pet permanently.",
+    "risk": "destructive",
+    "operations": ["deletePet"],
+}
+PHANTOM = {"tools": [FIND_PETS, UPDATE_PET_FORM, DELETE_PET], "dropped": []}
+FIXED = {
+    "tools": [
+        {
+            **FIND_PETS,
+            "description": "Look up pets by id or by status. Use update_pet_form to rename one.",
+        },
+        UPDATE_PET_FORM,
+        DELETE_PET,
+    ],
+    "dropped": [],
+}
+
+
+def _mentions(plan, name: str) -> bool:
+    texts = [t.description for t in plan.tools]
+    texts += [p.description for t in plan.tools for p in t.params.values()]
+    return any(name in text for text in texts)
+
+
+class TestDanglingToolReferences:
+    """The petstore repro: ``delete_pet`` is excluded by ``standard`` but named elsewhere."""
+
+    @pytest.mark.asyncio
+    async def test_reference_to_a_profile_excluded_tool_is_fed_back(self):
+        script = _script(PHANTOM, FIXED)
+        plan = await curate(PETS, profile=SafetyProfile.STANDARD, complete=script)
+        assert len(script.seen) == 2
+        feedback = script.seen[1][1]
+        assert "tool 'find_pets' description names delete_pet" in feedback
+        assert "excluded by profile 'standard'" in feedback
+        assert "find_pets, update_pet_form" in feedback  # the tools it may name instead
+        assert plan.tool_names == ["find_pets", "update_pet_form"]
+        assert "deletePet" in {d.operation_id for d in plan.dropped}
+        assert not _mentions(plan, "delete_pet")
+
+    @pytest.mark.asyncio
+    async def test_last_attempt_strips_the_sentence_instead_of_failing(self):
+        script = _script(PHANTOM, PHANTOM, PHANTOM)
+        plan = await curate(PETS, profile=SafetyProfile.STANDARD, complete=script)
+        assert len(script.seen) == 3
+        assert all("names delete_pet" in user for _, user in script.seen[1:])
+        find = plan.tool("find_pets")
+        assert find.description == "Look up pets by id or by status. Returns pet objects."
+        assert not _mentions(plan, "delete_pet")
+        # Nothing else is touched: references to exposed tools stay.
+        assert plan.tool("update_pet_form").description == "Rename a pet. Related tools: find_pets."
+
+    @pytest.mark.asyncio
+    async def test_parameter_descriptions_are_checked_and_repaired(self):
+        bad_param = {
+            **UPDATE_PET_FORM,
+            "params": {"name": {"description": "New name. To remove the pet use delete_pet."}},
+        }
+        proposal = {"tools": [FIXED["tools"][0], bad_param, DELETE_PET], "dropped": []}
+        script = _script(proposal, proposal)
+        plan = await curate(PETS, profile=SafetyProfile.STANDARD, complete=script, max_attempts=2)
+        assert (
+            "tool 'update_pet_form' parameter 'name' description names delete_pet"
+            in (script.seen[1][1])
+        )
+        assert plan.tool("update_pet_form").params["name"].description == "New name."
+
+    def test_merged_operation_name_points_at_the_tool_that_serves_it(self):
+        proposal = {
+            "tools": [
+                FIXED["tools"][0],
+                {**UPDATE_PET_FORM, "description": "Rename a pet; get_pet_by_id shows it."},
+            ],
+            "dropped": [{"operation_id": "deletePet", "reason": "too dangerous"}],
+        }
+        with pytest.raises(CurationViolation) as exc:
+            apply_curation(
+                CurationResult.model_validate(proposal),
+                PETS,
+                {o.operation_id: classify(o) for o in PETS},
+                profile=SafetyProfile.FULL,
+                max_tools=25,
+            )
+        (violation,) = exc.value.violations
+        assert "names get_pet_by_id" in violation
+        assert "'getPetById' is served by 'find_pets'" in violation
+
+    def test_unmappable_operations_count_through_spec_operations(self):
+        broken = op("exportPets", "GET", "/pets/export/{format}")  # no path parameter
+        proposal = {
+            "tools": [
+                {**FIXED["tools"][0], "description": "Find pets; for a dump use export_pets."}
+            ],
+            "dropped": [
+                {"operation_id": "updatePetWithForm", "reason": "x"},
+                {"operation_id": "deletePet", "reason": "x"},
+            ],
+        }
+        classes = {o.operation_id: classify(o) for o in PETS}
+        args = (CurationResult.model_validate(proposal), PETS, classes)
+        kw = {"profile": SafetyProfile.FULL, "max_tools": 25}
+        apply_curation(*args, **kw)  # not part of the plan's operations: unknown here
+        with pytest.raises(CurationViolation, match="names export_pets"):
+            apply_curation(*args, **kw, spec_operations=[*PETS, broken])
+
+    def test_parameter_names_and_single_words_are_not_tools(self):
+        ops = [
+            op("search", "GET", "/pets", [ParamSpec(name="pet_status", location="query")]),
+            op("petStatus", "GET", "/status"),
+        ]
+        proposal = {
+            "tools": [
+                {
+                    "name": "find_pets",
+                    "description": "Search pets by pet_status; use search terms freely.",
+                    "risk": "read",
+                    "operations": ["search"],
+                }
+            ],
+            "dropped": [{"operation_id": "petStatus", "reason": "internal"}],
+        }
+        plan = apply_curation(
+            CurationResult.model_validate(proposal),
+            ops,
+            {o.operation_id: classify(o) for o in ops},
+            profile=SafetyProfile.READ_ONLY,
+            max_tools=25,
+        )
+        assert plan.tools[0].description.startswith("Search pets by pet_status")
+
+    def test_a_description_left_empty_falls_back_to_the_spec(self):
+        proposal = {
+            "tools": [{**FIND_PETS, "description": "Use delete_pet to remove one."}, DELETE_PET],
+            "dropped": [{"operation_id": "updatePetWithForm", "reason": "x"}],
+        }
+        plan = apply_curation(
+            CurationResult.model_validate(proposal),
+            PETS,
+            {o.operation_id: classify(o) for o in PETS},
+            profile=SafetyProfile.READ_ONLY,
+            max_tools=25,
+            repair_references=True,
+        )
+        assert plan.tool("find_pets").description == "Find pet by ID"
+
+    def test_prompt_names_the_classes_the_profile_exposes(self):
+        text = render_curation_prompt(
+            PETS,
+            {o.operation_id: classify(o) for o in PETS},
+            max_tools=5,
+            profile=SafetyProfile.STANDARD,
+        )
+        assert "exposes only these risk classes: read, write;" in text
+        assert "ONLY tools in your" in CURATION_SYSTEM

@@ -30,11 +30,13 @@ class SupportFlow(ConversationFlow):
         ctx.activate(Section("resolve", "Propose a concrete solution."))
 
 flow = SupportFlow()
-prompt = await flow.start()                        # Enter greeting phase
+prompt = await flow.start("Hi")                    # Enter greeting phase with the first message
 prompt = await flow.next_turn("My app crashed")    # Process user message
 await flow.transition("investigate")               # Move to investigate
 prompt = await flow.next_turn("It crashes on login")
 ```
+
+A flow instance holds the state of **one** conversation. To use a flow in an agent, pass it to `build_agent()`, which keeps a separate copy per session ([Integration with `build_agent`](#integration-with-build_agent)).
 
 ## Concepts
 
@@ -157,14 +159,16 @@ async def greet(self, ctx: TurnContext) -> None:
 
 ### Starting the Flow
 
-`start()` enters the initial phase, runs its handler, and returns the first assembled prompt:
+`start()` enters the initial phase, runs its handler, and returns the first assembled prompt. Pass the conversation's first user message so the initial phase handler can act on it (it is recorded in `ctx.history` as turn 0):
 
 ```python
 flow = SupportFlow()
-prompt = await flow.start()
+prompt = await flow.start("Hi, my app keeps crashing")
 print(prompt.text)              # Full prompt with base + greeting blocks
 print(prompt.included)          # ["identity", "rules", "greeting_instructions"]
 ```
+
+`start()` with no argument still works and starts the flow before any message arrives.
 
 ### Processing Turns
 
@@ -210,16 +214,84 @@ flow.reset()
 # Flow is now back to its initial state, ready for start()
 ```
 
-## Integration with `build_agent`
+### Token Budget
 
-Pass a `ConversationFlow` to `build_agent()` and the prompt auto-evolves on each `ainvoke()`:
+Cap the assembled prompt with `token_budget`, as a class attribute or a constructor argument. Over budget, blocks are dropped lowest-priority first, exactly as in [`PromptAssembler`](blocks.md#token-budgeting). Dropped blocks are listed in `prompt.excluded`.
 
 ```python
-from promptise import build_agent
+class SupportFlow(ConversationFlow):
+    token_budget = 1500          # every instance
+    ...
 
-flow = SupportFlow()
-agent = build_agent(flow=flow)
+flow = SupportFlow(token_budget=800)   # or per instance
 ```
+
+### Inspecting a Flow
+
+Give the flow a [`PromptInspector`](inspector.md) and every `start()`, `next_turn()` and `transition()` records a trace with the blocks included and excluded, the token estimate, the prompt text, and `flow_phase` / `flow_turn`:
+
+```python
+from promptise.prompts.inspector import PromptInspector
+
+inspector = PromptInspector()
+flow = SupportFlow(inspector=inspector)   # or set `inspector = ...` on the class
+await flow.start("Hi")
+trace = inspector.last()
+print(trace.prompt_name, trace.flow_phase, trace.flow_turn)   # SupportFlow greeting 0
+```
+
+## Integration with `build_agent`
+
+Pass a flow to `build_agent()` and the system prompt evolves with each message:
+
+```python
+import asyncio
+from promptise import build_agent
+from promptise.config import HTTPServerSpec
+
+async def main():
+    agent = await build_agent(
+        model="openai:gpt-5-mini",
+        servers={"support": HTTPServerSpec(url="http://localhost:8080/mcp")},
+        flow=SupportFlow(),
+        instructions="Use the tools to look up orders.",   # optional
+    )
+    try:
+        reply = await agent.chat("My mug arrived broken.", session_id="sess-1", user_id="dana")
+        reply = await agent.chat("The order is A-1001.", session_id="sess-1", user_id="dana")
+        print(agent.get_flow("sess-1", user_id="dana").get_prompt().included)
+    finally:
+        await agent.shutdown()
+
+asyncio.run(main())
+```
+
+### One flow per conversation
+
+A flow carries one conversation's phase, history, `ctx.state` and slot fills, so the agent never shares one between conversations. The flow you pass is a **template**: each conversation gets its own deep copy. You can also pass the class (`flow=SupportFlow`) or any zero-argument factory (`flow=lambda: SupportFlow(business_customer=True)`), which is called once per conversation. If your flow holds something that can't be deep-copied (a client, a lock), pass a factory: `build_agent()` raises `TypeError` otherwise.
+
+The agent picks the conversation from the call:
+
+| Call | Flow state kept per |
+|------|---------------------|
+| `agent.chat(msg, session_id=...)` | session, scoped to its `caller` / `user_id` |
+| `agent.ainvoke(input, session_id=...)` | session, scoped to its `caller` |
+| `agent.ainvoke(input, caller=CallerContext(user_id=...))` | caller (tenant and user) |
+| `agent.ainvoke(input)` with neither | nothing kept: a fresh flow built from the messages in `input` |
+
+When the agent first sees a conversation, it starts a new flow and feeds it every user message in the input, in order: the first message goes to `start()`, the rest to `next_turn()`. After that, each call feeds only the newest user message. So a conversation whose history is passed in (from a conversation store after a restart, or a full `messages` list with no `session_id`) resumes in the right phase. The agent keeps up to 10,000 flows; the least recently used is dropped and rebuilt the same way when that conversation continues. `delete_session()` drops the session's flow.
+
+!!! note "Phase handlers replay"
+    Rebuilding a flow runs its phase handlers once per earlier user message. Keep handlers free of side effects (they should only read `ctx.history` and `ctx.state` and change blocks), or pass a `session_id` so the flow is built once.
+
+Use `agent.get_flow(session_id, caller=..., user_id=...)` to read a conversation's flow, for example its phase (`flow.current_phase`) or its current prompt (`flow.get_prompt()`). The template you passed to `build_agent()` is never advanced.
+
+### What the model receives
+
+The model gets **one** system message: the flow's prompt for this turn, then your `instructions`, then the list of available tools. Without `instructions`, nothing is added to the flow's prompt; the generic default system prompt is only used when there is no flow.
+
+!!! warning "Not on streaming calls"
+    Flows run on `ainvoke()`, `invoke()` and `chat()`. `astream()` and `astream_with_tools()` don't advance a flow, and neither does an agent built with a `context_engine`.
 
 ## Full Example: Customer Support Agent
 
@@ -309,11 +381,13 @@ asyncio.run(main())
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `start()` | `AssembledPrompt` | Enter initial phase and return first prompt |
+| `ConversationFlow(*, token_budget=None, inspector=None)` | | Create a flow; both default to the class attributes |
+| `start(user_message=None)` | `AssembledPrompt` | Enter initial phase (with the first message) and return first prompt |
 | `next_turn(user_message, ...)` | `AssembledPrompt` | Process a turn and return updated prompt |
 | `transition(phase_name)` | `AssembledPrompt` | Transition to a new phase |
 | `get_prompt()` | `AssembledPrompt` | Get current prompt without advancing turn |
 | `reset()` | `None` | Reset to initial state |
+| `current_phase` | `str \| None` | Current phase name (property), `None` before `start()` |
 
 ### TurnContext
 
@@ -334,6 +408,7 @@ asyncio.run(main())
 - Phase handlers run on every turn within that phase -- use them to dynamically adjust blocks based on conversation progress.
 - Blocks from `@phase(blocks=[...])` are automatically activated on phase entry and deactivated on exit. Blocks added via `ctx.activate()` persist until explicitly deactivated.
 - `flow._history` stores all user and assistant messages. Use `ctx.history` for a read-only copy inside handlers.
+- Run a flow by hand (as in the full example) when you drive the model yourself. Create one flow per conversation and keep it with that conversation.
 
 ## What's Next?
 

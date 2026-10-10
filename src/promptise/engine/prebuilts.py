@@ -21,11 +21,12 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 logger = logging.getLogger("promptise.engine")
 
 from langchain_core.tools import BaseTool
+from pydantic import BaseModel, Field
 
 from .base import BaseNode
 from .code_action import CodeActionNode
@@ -86,6 +87,38 @@ def build_react_graph(
     return graph
 
 
+class PeoatrPlan(BaseModel):
+    """Structured output of the PEOATR ``plan`` stage."""
+
+    subgoals: list[str] = Field(description="2-4 concrete subgoals, in the order to do them")
+    active_subgoal: str = Field(description="The subgoal to work on first")
+    quality_score: int = Field(description="Plan quality from 1 (poor) to 5 (excellent)")
+
+
+class PeoatrThought(BaseModel):
+    """Structured output of the PEOATR ``think`` stage."""
+
+    analysis: str = Field(description="What the results show and what gap remains")
+    subgoal_complete: bool = Field(description="Whether the active subgoal is done")
+    route: Literal["continue", "reflect"] = Field(
+        description="continue: another tool call is needed right away; "
+        "reflect: step back and evaluate progress"
+    )
+
+
+class PeoatrReflection(BaseModel):
+    """Structured output of the PEOATR ``reflect`` stage."""
+
+    progress: str = Field(description="One sentence on overall progress")
+    mistake: str = Field(description="A mistake or wrong turn so far, or an empty string")
+    correction: str = Field(description="How to correct it, or an empty string")
+    confidence: int = Field(description="Confidence in the findings from 1 to 5")
+    route: Literal["answer", "replan", "continue"] = Field(
+        description="answer: the question can be answered now; "
+        "replan: the plan is wrong; continue: more work is needed"
+    )
+
+
 def build_peoatr_graph(
     tools: list[BaseTool] | None = None,
     system_prompt: str = "",
@@ -95,14 +128,22 @@ def build_peoatr_graph(
     thinking_instructions: str = "",
     reflecting_instructions: str = "",
     blocks: list[Any] | None = None,
+    max_act_steps: int = 12,
 ) -> PromptGraph:
-    """Build a PEOATR (Plan → Act → Think → Reflect) graph.
+    """Build a PEOATR (Plan → Act → Think → Reflect → Answer) graph.
 
-    Four-stage reasoning pattern where the agent:
-    1. Plans subgoals with self-evaluation
-    2. Executes tools to achieve subgoals
-    3. Analyzes tool results (think)
-    4. Reflects on progress and routes (replan/continue/answer)
+    Five-stage reasoning pattern where the agent:
+
+    1. Plans subgoals and rates the plan (re-plans below quality 3)
+    2. Executes tools to achieve the active subgoal
+    3. Analyzes the results (think): another tool call now, or reflect
+    4. Reflects on progress and routes: answer, replan, or continue
+    5. Writes the final answer
+
+    Plan, think and reflect produce structured output, so their routing
+    decisions always reach the engine. Every stage has an iteration budget;
+    a stage that exhausts it hands over to ``answer`` (``plan`` hands over
+    to ``act``), so the run always ends with a written answer.
 
     Args:
         tools: Tools available during the Act stage.
@@ -112,94 +153,103 @@ def build_peoatr_graph(
         thinking_instructions: Extra instructions for the Think stage.
         reflecting_instructions: Extra instructions for the Reflect stage.
         blocks: Optional PromptBlocks shared across all stages.
+        max_act_steps: Budget for the Act stage across the run — each model
+            call (every tool-loop round) counts.
 
     Returns:
-        A ``PromptGraph`` with plan → act → think → reflect nodes.
+        A ``PromptGraph`` with plan → act → think → reflect → answer nodes.
     """
+    from .reasoning_nodes import PlanNode, ReflectNode, SynthesizeNode, ThinkNode
+
     graph = PromptGraph(name="peoatr")
     base_blocks = list(blocks) if blocks else []
+    prefix = f"{system_prompt}\n\n" if system_prompt else ""
 
-    # Plan: create subgoals, self-evaluate
     graph.add_node(
-        PromptNode(
+        PlanNode(
             "plan",
             instructions=(
-                f"{system_prompt}\n\n"
+                f"{prefix}"
                 f"{planning_instructions or 'Create a step-by-step plan with 2-4 subgoals. '}"
-                "Evaluate the plan quality (1-5). If quality < 3, set proceed=false. "
-                "Output JSON with: subgoals (list), active_subgoal (str), "
-                "plan_quality (int), proceed (bool)."
+                "Each subgoal is one concrete step; never plan to ask the user for data "
+                "a tool can fetch. Rate the plan from 1 to 5 as quality_score."
             ),
             blocks=base_blocks,
-            tools=None,
-            transitions={
-                "proceed": "act",
-                "replan": "plan",
-            },
+            output_schema=PeoatrPlan,
             default_next="act",
+            # Exhausted (three weak plans): act on the latest plan anyway.
+            transitions={"error": "act"},
             max_iterations=3,
         )
     )
-
-    # Act: execute tools
     graph.add_node(
         PromptNode(
             "act",
             instructions=(
-                f"{system_prompt}\n\n"
-                f"{acting_instructions or 'Execute the current subgoal using available tools. '}"
-                "Call ONE tool per turn. If you have the final answer, "
-                "respond without tool calls."
+                f"{prefix}"
+                f"{acting_instructions or 'Work on the active subgoal of the plan with your tools. '}"
+                "When the subgoal is done, reply with a short summary of what you found, "
+                "without a tool call."
             ),
             blocks=base_blocks,
             tools=list(tools) if tools else [],
             tool_choice="auto",
             default_next="think",
-            max_iterations=8,
+            transitions={"error": "answer"},
+            max_iterations=max_act_steps,
         )
     )
-
-    # Think: analyze results
     graph.add_node(
-        PromptNode(
+        ThinkNode(
             "think",
             instructions=(
-                f"{system_prompt}\n\n"
-                f"{thinking_instructions or 'Analyze the tool result. '}"
-                "Assess: is the subgoal complete? What gap remains? "
-                "If another tool call is immediately needed, set route=continue. "
-                "If you need to step back and evaluate, set route=reflect."
+                f"{prefix}"
+                f"{thinking_instructions or 'Analyze the results gathered so far. '}"
+                "Is the active subgoal complete? What gap remains? "
+                "Route 'continue' if another tool call is needed right away, "
+                "'reflect' to step back and evaluate progress."
             ),
             blocks=base_blocks,
-            tools=None,
-            transitions={
-                "continue": "act",
-                "reflect": "reflect",
-            },
+            output_schema=PeoatrThought,
+            transitions={"continue": "act", "reflect": "reflect", "error": "reflect"},
             default_next="reflect",
+            max_iterations=max_act_steps,
         )
     )
-
-    # Reflect: evaluate progress
     graph.add_node(
-        PromptNode(
+        ReflectNode(
             "reflect",
             instructions=(
-                f"{system_prompt}\n\n"
+                f"{prefix}"
                 f"{reflecting_instructions or 'Reflect on progress so far. '}"
-                "Rate confidence (1-5), progress (1-5), blockers (1-5). "
-                "Route: answer (confidence>=4, progress>=4), "
-                "replan (confidence<=2 or blockers>=4), "
-                "continue (otherwise)."
+                "Name any mistake and its correction. Rate confidence from 1 to 5. "
+                "Route 'answer' when the question can be answered from the results "
+                "gathered, 'replan' when the plan is wrong, 'continue' when more "
+                "tool work is needed."
             ),
             blocks=base_blocks,
-            tools=None,
+            output_schema=PeoatrReflection,
             transitions={
-                "answer": "act",  # Final answer via act node
+                "answer": "answer",
                 "replan": "plan",
                 "continue": "act",
+                "error": "answer",
             },
-            default_next="act",
+            default_next="answer",
+            max_iterations=4,
+        )
+    )
+    graph.add_node(
+        SynthesizeNode(
+            "answer",
+            instructions=(
+                f"{prefix}"
+                "Write the final answer to the user's question from the results "
+                "gathered. Use only facts from the tool results; say what could not "
+                "be determined."
+            ),
+            blocks=base_blocks,
+            default_next="__end__",
         )
     )
 

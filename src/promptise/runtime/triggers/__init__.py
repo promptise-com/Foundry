@@ -27,6 +27,7 @@ from ..exceptions import TriggerError
 from .base import BaseTrigger, TriggerEvent
 from .cron import CronTrigger
 from .event import EventTrigger, MessageTrigger
+from .filters import FilterExpressionError, compile_filter
 
 __all__ = [
     "BaseTrigger",
@@ -35,6 +36,8 @@ __all__ = [
     "EventTrigger",
     "MessageTrigger",
     "create_trigger",
+    "compile_filter",
+    "FilterExpressionError",
     "register_trigger_type",
     "unregister_trigger_type",
     "registered_trigger_types",
@@ -125,7 +128,7 @@ def _cron_factory(
     """Factory for cron triggers."""
     if not config.cron_expression:
         raise TriggerError("Cron trigger requires cron_expression")
-    return CronTrigger(config.cron_expression)
+    return CronTrigger(config.cron_expression, timezone=config.cron_timezone)
 
 
 def _event_factory(
@@ -176,6 +179,15 @@ def _webhook_factory(
     return WebhookTrigger(
         path=config.webhook_path,
         port=config.webhook_port,
+        host=config.webhook_host,
+        hmac_secret=config.hmac_secret.get_secret_value() if config.hmac_secret else None,
+        signature_scheme=config.signature_scheme,
+        signature_header=config.signature_header,
+        signature_tolerance=config.signature_tolerance,
+        allowed_sources=config.allowed_sources,
+        event_filter=compile_filter(config.filter_expression)
+        if config.filter_expression is not None
+        else None,
     )
 
 
@@ -197,6 +209,8 @@ def _file_watch_factory(
     return FileWatchTrigger(
         watch_path=config.watch_path,
         patterns=config.watch_patterns,
+        events=config.watch_events,
+        debounce_seconds=config.watch_debounce_seconds,
     )
 
 

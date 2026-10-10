@@ -18,19 +18,37 @@ Example::
         auth_token="${ORCHESTRATION_API_TOKEN}",
     )
     await api.start()
+
+Security model:
+
+* Every route except ``GET /api/v1/health`` requires
+  ``Authorization: Bearer <auth_token>`` when ``auth_token`` is set.  A
+  non-loopback ``host`` without ``auth_token`` is refused at construction.
+* On a loopback bind, requests whose ``Host`` header is not a loopback
+  name are refused with ``421`` (DNS rebinding), and requests carrying a
+  cross-site ``Origin`` with ``403``, so a web page open in a browser on
+  the same machine can't drive the runtime.
+* Request bodies must be JSON objects (``400`` otherwise).
+* ``PATCH`` on ``budget``, ``health`` and ``mission`` validates the patched
+  section against its config model (limits, strict JSON types, no unknown
+  fields) and answers ``422`` without changing anything when it fails.
 """
 
 from __future__ import annotations
 
 import asyncio
-import hmac as _hmac_mod
 import json
 import logging
 import re
 import time
-from typing import Any
+import types
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any, Union, get_args, get_origin
 
 from aiohttp import web
+from pydantic import BaseModel, ValidationError
+
+from ._http_guard import bearer_token_matches, is_loopback, loopback_request_problem
 
 logger = logging.getLogger("promptise.runtime.api")
 
@@ -38,6 +56,12 @@ __all__ = ["OrchestrationAPI"]
 
 # Process name validation: alphanumeric + hyphens + underscores, max 64 chars
 _PROCESS_NAME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
+
+#: Routes that answer without a bearer token (load-balancer probes).
+_PUBLIC_PATHS = frozenset({"/api/v1/health"})
+
+#: Methods whose request body is checked to be a JSON object.
+_BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
 def _json_dumps(obj: Any) -> str:
@@ -62,6 +86,68 @@ def _error_response(code: str, message: str, status: int = 400) -> web.Response:
     )
 
 
+def _unknown_fields(
+    model_cls: type[BaseModel], data: Mapping[str, Any], path: str = ""
+) -> list[str]:
+    """Dotted names of keys in *data* that *model_cls* does not declare.
+
+    Recurses into nested models (``escalation``) and dicts of models
+    (``tool_costs``), which pydantic would otherwise silently drop.
+    """
+    unknown: list[str] = []
+    for key, value in data.items():
+        field = model_cls.model_fields.get(key)
+        if field is None:
+            unknown.append(f"{path}{key}")
+            continue
+        if not isinstance(value, Mapping):
+            continue
+        annotation = field.annotation
+        is_union = get_origin(annotation) in (Union, types.UnionType)
+        for kind in get_args(annotation) if is_union else (annotation,):
+            if isinstance(kind, type) and issubclass(kind, BaseModel):
+                unknown += _unknown_fields(kind, value, f"{path}{key}.")
+            elif get_origin(kind) is dict:
+                item_type = get_args(kind)[1]
+                if isinstance(item_type, type) and issubclass(item_type, BaseModel):
+                    for name, item in value.items():
+                        if isinstance(item, Mapping):
+                            unknown += _unknown_fields(item_type, item, f"{path}{key}.{name}.")
+    return unknown
+
+
+def _apply_patch(section: BaseModel, body: dict[str, Any]) -> web.Response | None:
+    """Validate *body* against *section*'s model, then apply it in place.
+
+    The patched section is validated as a whole (strict JSON types, the
+    model's limits) before anything changes, so a bad value leaves the
+    live config untouched.  Fields are set on the existing object, which
+    the running process keeps reading.
+
+    Returns:
+        A ``422`` error response, or ``None`` once the patch is applied.
+    """
+    model_cls = type(section)
+    unknown = _unknown_fields(model_cls, body)
+    if unknown:
+        return _error_response(
+            "UNKNOWN_FIELD",
+            f"Unknown field(s): {', '.join(unknown)}. Allowed: {', '.join(model_cls.model_fields)}",
+            422,
+        )
+    merged = {**section.model_dump(mode="json"), **body}
+    try:
+        validated = model_cls.model_validate_json(json.dumps(merged), strict=True)
+    except ValidationError as exc:
+        detail = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()
+        )
+        return _error_response("INVALID_CONFIG", f"Config validation failed: {detail}", 422)
+    for key in body:
+        setattr(section, key, getattr(validated, key))
+    return None
+
+
 class OrchestrationAPI:
     """REST API server for managing an AgentRuntime.
 
@@ -69,8 +155,13 @@ class OrchestrationAPI:
         runtime: The :class:`AgentRuntime` to manage.
         host: Bind address (default ``127.0.0.1``).
         port: Port to listen on (default ``9100``).
-        auth_token: Bearer token for authentication. **Required** when
-            ``host`` is not localhost.
+        auth_token: Bearer token required on every route except
+            ``GET /api/v1/health``. **Required** when ``host`` is not a
+            loopback address.
+
+    Raises:
+        ValueError: ``auth_token`` is empty, or ``host`` is not a loopback
+            address and there is no ``auth_token``.
     """
 
     def __init__(
@@ -90,7 +181,10 @@ class OrchestrationAPI:
             if not auth_token:
                 raise ValueError(f"Environment variable '{var_name}' not set for auth_token")
 
-        if host not in ("127.0.0.1", "localhost", "::1") and not auth_token:
+        if auth_token is not None and not auth_token.strip():
+            raise ValueError("OrchestrationAPI: auth_token must be a non-empty string (or None)")
+        self._loopback = is_loopback(host)
+        if not self._loopback and not auth_token:
             raise ValueError(
                 "OrchestrationAPI: auth_token is required when binding to "
                 f"non-localhost address '{host}'. Set auth_token to secure "
@@ -105,14 +199,65 @@ class OrchestrationAPI:
         self._app: web.Application | None = None
         self._runner: web.AppRunner | None = None
 
+    @property
+    def port(self) -> int:
+        """The port the API listens on.
+
+        With ``port=0`` the OS picks a free port; after :meth:`start` this
+        returns the port actually bound.
+        """
+        if self._port == 0 and self._runner is not None:
+            for address in self._runner.addresses:
+                if isinstance(address, tuple) and len(address) >= 2:
+                    return int(address[1])
+        return self._port
+
     def _check_auth(self, request: web.Request) -> bool:
         """Verify Bearer token (timing-safe)."""
         if self._auth_token is None:
-            return True  # Localhost — no auth
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return False
-        return _hmac_mod.compare_digest(auth_header[7:], self._auth_token)
+            return True  # Loopback bind without a token
+        return bearer_token_matches(request.headers.get("Authorization", ""), self._auth_token)
+
+    @web.middleware
+    async def _guard(
+        self,
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        """Host/Origin checks (loopback binds), auth and JSON-object bodies."""
+        if self._loopback:
+            problem = loopback_request_problem(
+                request.headers.get("Host", ""), request.headers.get("Origin")
+            )
+            if problem is not None:
+                status, message = problem
+                code = "MISDIRECTED_REQUEST" if status == 421 else "CROSS_ORIGIN_REFUSED"
+                return _error_response(code, message, status)
+        if request.path not in _PUBLIC_PATHS and not self._check_auth(request):
+            return _error_response("UNAUTHORIZED", "Invalid or missing auth token", 401)
+        if request.method in _BODY_METHODS and request.can_read_body:
+            raw = await request.read()
+            if raw.strip():
+                try:
+                    body = json.loads(raw)
+                except ValueError:
+                    return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
+                if not isinstance(body, dict):
+                    return _error_response(
+                        "INVALID_JSON", "Request body must be a JSON object", 400
+                    )
+        return await handler(request)
+
+    async def _json_body(self, request: web.Request) -> dict[str, Any]:
+        """The request's JSON object body (``{}`` when the body is empty).
+
+        :meth:`_guard` has already refused bodies that aren't JSON objects.
+        """
+        raw = await request.read()
+        if not raw.strip():
+            return {}
+        body = json.loads(raw)
+        return body if isinstance(body, dict) else {}
 
     def _require_auth(self, request: web.Request) -> web.Response | None:
         """Return error response if auth fails, None if OK."""
@@ -130,7 +275,7 @@ class OrchestrationAPI:
 
     async def start(self) -> None:
         """Start the API server."""
-        self._app = web.Application()
+        self._app = web.Application(middlewares=[self._guard])
         self._setup_routes()
 
         self._runner = web.AppRunner(self._app)
@@ -140,7 +285,7 @@ class OrchestrationAPI:
         logger.info(
             "OrchestrationAPI started on %s:%d (%s)",
             self._host,
-            self._port,
+            self.port,
             "authenticated" if self._auth_token else "no auth (localhost)",
         )
 
@@ -283,7 +428,7 @@ class OrchestrationAPI:
             return auth_err
 
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
 
@@ -422,7 +567,7 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
 
@@ -455,19 +600,15 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
 
         try:
             process = self._get_process(name)
-
-            # Only allow declared BudgetConfig fields (not internal Pydantic attrs)
-            budget = process.config.budget
-            allowed = set(budget.model_fields.keys()) if hasattr(budget, "model_fields") else set()
-            for key, value in body.items():
-                if key in allowed:
-                    setattr(budget, key, value)
+            error = _apply_patch(process.config.budget, body)
+            if error is not None:
+                return error
 
             return _json_response(
                 {
@@ -485,17 +626,15 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
 
         try:
             process = self._get_process(name)
-            health = process.config.health
-            allowed = set(health.model_fields.keys()) if hasattr(health, "model_fields") else set()
-            for key, value in body.items():
-                if key in allowed:
-                    setattr(health, key, value)
+            error = _apply_patch(process.config.health, body)
+            if error is not None:
+                return error
 
             return _json_response(
                 {
@@ -513,19 +652,15 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
 
         try:
             process = self._get_process(name)
-            mission = process.config.mission
-            allowed = (
-                set(mission.model_fields.keys()) if hasattr(mission, "model_fields") else set()
-            )
-            for key, value in body.items():
-                if key in allowed:
-                    setattr(mission, key, value)
+            error = _apply_patch(process.config.mission, body)
+            if error is not None:
+                return error
 
             return _json_response(
                 {
@@ -547,7 +682,7 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
             process = self._get_process(name)
 
             if not hasattr(process, "_inbox") or process._inbox is None:
@@ -609,7 +744,7 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
             process = self._get_process(name)
 
             if not hasattr(process, "_inbox") or process._inbox is None:
@@ -728,7 +863,7 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
         try:
@@ -795,7 +930,7 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
         try:
@@ -886,7 +1021,7 @@ class OrchestrationAPI:
         name = request.match_info["name"]
         secret_name = request.match_info["secret_name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             return _error_response("INVALID_JSON", "Request body must be valid JSON", 400)
         try:
@@ -997,7 +1132,7 @@ class OrchestrationAPI:
             return auth_err
         name = request.match_info["name"]
         try:
-            body = await request.json()
+            body = await self._json_body(request)
         except Exception:
             body = {}
         try:

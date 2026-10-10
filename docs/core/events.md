@@ -26,7 +26,7 @@ agent = await build_agent(
 
 ## Event Taxonomy
 
-20 event types across 9 categories:
+25 event types across 9 categories. Events marked *runtime* come from an [`AgentProcess`](../runtime/index.md); the rest come from any agent built with `events=`.
 
 | Category | Event Type | Severity | When it fires |
 |----------|-----------|----------|---------------|
@@ -34,22 +34,71 @@ agent = await build_agent(
 | | `invocation.complete` | info | Agent finishes successfully |
 | | `invocation.error` | error | Unhandled exception during invocation |
 | | `invocation.timeout` | error | Invocation exceeded `max_invocation_time` |
-| **Tools** | `tool.error` | error | A tool call fails |
-| | `tool.slow` | warning | Tool call exceeds latency threshold (default 5s) |
-| **Guardrails** | `guardrail.blocked` | warning | Input blocked by guardrails |
+| **Tools** | `tool.error` | error | A tool call raised, or an MCP tool returned an error result |
+| | `tool.slow` | warning | A tool call took longer than `slow_tool_threshold` (default 5s) |
+| | `tool.progress` | info | An MCP tool reports progress (`data`: `tool_name`, `progress`, `total`, `message`) |
+| **Guardrails** | `guardrail.blocked` | warning | Input (or streamed output) blocked by guardrails |
 | | `guardrail.redacted` | info | Output had PII/credentials redacted |
-| **Budget** | `budget.exceeded` | critical | Budget limit reached |
 | **Approval** | `approval.requested` | info | Human approval requested |
 | | `approval.granted` | info | Approval granted |
 | | `approval.denied` | warning | Approval denied or timed out |
-| **Mission** | `mission.progress` | info | Mission evaluation completed |
+| **Budget** *(runtime)* | `budget.warning` | warning | A budget limit is close to being reached |
+| | `budget.exceeded` | critical | Budget limit reached |
+| | `budget.daily_reset` | info | Daily budget counters were reset |
+| **Mission** *(runtime)* | `mission.progress` | info | Mission evaluation completed |
 | | `mission.complete` | info | Mission objective achieved |
 | | `mission.failed` | critical | Mission timed out or exceeded limits |
-| **Health** | `health.anomaly` | warning | Behavioral anomaly detected |
-| **Process** | `process.started` | info | Agent process started |
+| **Health** *(runtime)* | `health.anomaly` | warning | Behavioral anomaly detected |
+| | `health.recovered` | info | The process is healthy again after an anomaly |
+| **Process** *(runtime)* | `process.started` | info | Agent process started |
 | | `process.stopped` | info | Agent process stopped |
-| | `process.failed` | critical | Agent process entered FAILED state |
+| | `process.failed` | critical | Agent process entered FAILED state (failed start, or `max_consecutive_failures` reached) |
+| | `process.restarted` | warning | Restart policy is restarting the process (`attempt`, `max_restarts`, `reason`) |
 | **Cache** | `cache.purged` | info | User cache purged (GDPR) |
+
+`tool.error` and `tool.slow` are emitted whenever `events=` is set — they don't need `observe=True`.
+
+### What counts as a tool error
+
+`tool.error` fires when a tool call:
+
+- **raises** — any tool: MCP tools, `extra_tools`, sandbox and cross-agent tools;
+- **returns an MCP error result** — a result with `isError: true`, or the structured error a Promptise MCP server sends when a tool raises `ToolError` (`{"error": {"code": ..., "message": ..., "retryable": ...}}`). The model still sees the error text and can recover; the event tells *you* it happened.
+
+A tool that returns its own domain answer such as `{"error": "No invoice INV-404"}` (no `code`) is not a tool error.
+
+### Payloads
+
+The `data` of each event:
+
+| Event Type | `data` fields |
+|---|---|
+| `invocation.start` | `model`; `streaming` when streamed |
+| `invocation.complete` | `duration_ms`; `streaming` |
+| `invocation.error` | `error`, `error_type`; `streaming` |
+| `invocation.timeout` | `timeout_seconds` |
+| `tool.error` | `tool_name`, `error` (message), `error_type`, `duration_ms`; `code` and `retryable` when the tool reported them |
+| `tool.slow` | `tool_name`, `latency_ms`, `threshold_ms` |
+| `tool.progress` | `tool_name`, `progress`, `total`, `message` |
+| `guardrail.blocked` | `direction` (`input`/`output`), `error` (exception type), `reason`, `findings` (`detector`, `category`, `severity`, `description` per finding — never the matched text); `streaming` |
+| `guardrail.redacted` | `direction`; `streaming` |
+| `approval.requested` | `tool_name`, `request_id`, `timeout`, `arguments` (as the policy redacts them; `{}` with `include_arguments=False`) |
+| `approval.granted` | `tool_name`, `request_id`, `reviewer`, `modified_arguments` (names of the arguments the reviewer changed), `decided_by`; `classifier_layer` when a classifier decided |
+| `approval.denied` | `tool_name`, `request_id`, `reason`, `decided_by`; `classifier_layer` when a classifier decided |
+| `budget.warning` | `process_name`, `limit_type`, `current`, `limit`, `percentage` |
+| `budget.exceeded` | `process_name`, `limit_type`, `current`, `limit` |
+| `budget.daily_reset` | `process_name` |
+| `mission.progress` | `process_name`, `confidence`, `achieved`, `invocations` |
+| `mission.complete` | `process_name`, `confidence`, `invocations` |
+| `mission.failed` | `process_name`, `reason` |
+| `health.anomaly` | `process_name`, `anomaly_type`, `details` |
+| `health.recovered` | `process_name` |
+| `process.started` / `process.stopped` | `process_name`, `process_id` |
+| `process.failed` | `process_name`, `process_id`, `reason`, `error` |
+| `process.restarted` | `process_name`, `process_id`, `reason`, `attempt`, `max_restarts` |
+| `cache.purged` | `user_id`, `entries_removed` |
+
+Approvals that an MCP server requests through elicitation (server-side gates) emit the same `approval.*` events with `source: "mcp_elicitation"` and `server`.
 
 ---
 
@@ -57,7 +106,7 @@ agent = await build_agent(
 
 ### WebhookSink
 
-HTTP POST to any URL. HMAC-SHA256 signed. Retry with exponential backoff. SSRF protection.
+HTTP POST to any URL. Signed with HMAC-SHA256 and a timestamp. Retry with exponential backoff. SSRF protection.
 
 ```python
 WebhookSink(
@@ -73,8 +122,45 @@ WebhookSink(
 ```
 
 Each request includes:
-- `X-Promptise-Signature`: HMAC-SHA256 of the JSON payload
-- `X-Promptise-Event`: The event type (e.g. `invocation.error`)
+
+- `X-Promptise-Signature`: `t=<unix seconds>,v1=<hex>` — HMAC-SHA256 over `<t>.` followed by the exact body bytes
+- `X-Promptise-Timestamp`: the same `t`
+- `X-Promptise-Event`: the event type (e.g. `invocation.error`)
+- `X-Promptise-Delivery`: an id that stays the same across retries of one event, for de-duplication
+
+#### Verifying a delivery
+
+Verify against the **raw** request body, before parsing it. `verify_event_signature()` checks the HMAC in constant time and rejects signatures older than five minutes (replays):
+
+```python
+from promptise import verify_event_signature
+
+# In your web framework's handler (Flask shown):
+raw = request.get_data()                      # bytes, exactly as received
+if not verify_event_signature(raw, request.headers.get("X-Promptise-Signature"), SECRET):
+    abort(401)
+event = json.loads(raw)
+```
+
+| Parameter | Default | Description |
+|---|---|---|
+| `body` | required | Raw body (`bytes`, or `str` encoded as UTF-8) |
+| `signature` | required | The `X-Promptise-Signature` header |
+| `secret` | required | The sink's secret, or a list of secrets while rotating |
+| `tolerance` | `300.0` | Maximum age in seconds; `None` or `0` turns the replay check off |
+
+Without Promptise on the receiving side, compute `hex(HMAC_SHA256(secret, f"{t}." + raw_body))` and compare it to `v1` with a constant-time comparison, then check that `t` is recent. If you don't pass a `secret`, the sink generates one; read it from `sink.secret`.
+
+!!! note "Changed in the next release"
+    Earlier versions sent `X-Promptise-Signature` as a bare hex HMAC over `json.dumps(payload, sort_keys=True)`, with no timestamp. Receivers built for that format must switch to `verify_event_signature()` (or the recipe above).
+
+#### Private networks
+
+WebhookSink refuses `localhost` and every address that is not public unicast by default (SSRF protection): loopback, private ranges, link-local (cloud metadata at `169.254.169.254`), shared/carrier-grade NAT space (`100.64.0.0/10`), `0.0.0.0`, multicast and reserved ranges. The check runs when the sink is created and again before every delivery: the host is resolved, every address is checked, and the request goes to the checked address, so a DNS record that later points at an internal address (DNS rebinding) is not followed. Redirects are never followed. For a receiver on your own machine or private network, opt in:
+
+```python
+WebhookSink(url="http://127.0.0.1:8390/promptise", allow_private_networks=True)
+```
 
 ### CallbackSink
 
@@ -113,20 +199,22 @@ EventBusSink(event_bus, events=["health.anomaly", "mission.complete"])
 
 ## EventNotifier
 
-The central coordinator. Routes events to configured sinks via an async queue.
+The central coordinator. Routes events to configured sinks.
 
 ```python
 notifier = EventNotifier(
     sinks=[sink_a, sink_b, sink_c],
-    max_queue_size=1000,  # Drop events when queue is full (never block)
+    max_queue_size=1000,      # Per sink: drop events when its queue is full (never block)
+    shutdown_timeout=10.0,    # How long stop() waits for queued events
+    slow_tool_threshold=5.0,  # Seconds before tool.slow fires (None = off)
 )
 ```
 
-**Fire-and-forget**: `emit()` puts the event on a queue and returns immediately. A background task delivers to sinks. The agent never blocks waiting for event delivery.
+**Fire-and-forget**: `emit()` queues the event and returns immediately. The agent never blocks waiting for event delivery.
 
-**Sink isolation**: If one sink fails (webhook returns 500), other sinks still receive the event. Failures are logged, never propagated.
+**Sink isolation**: every sink has its own queue and delivery task. A webhook that is down and retrying with backoff delays only its own deliveries — other sinks get every event immediately. Within one sink, events arrive in order. Sink failures are logged, never propagated.
 
-**Graceful shutdown**: `agent.shutdown()` automatically drains remaining events before stopping.
+**Graceful shutdown**: `agent.shutdown()` stops the notifier, which waits up to `shutdown_timeout` seconds for queued events to be delivered. Whatever is still undelivered then is dropped and **logged** (sink, count and event types) and counted in `notifier.dropped_count`. Size the timeout to your webhook retries: with the defaults, a retrying webhook needs about 7 seconds of backoff plus request time.
 
 ---
 
@@ -156,21 +244,29 @@ Every event is an `AgentEvent` dataclass:
 | `event_type` | `str` | Dotted event name (e.g. `invocation.complete`) |
 | `severity` | `str` | `info`, `warning`, `error`, or `critical` |
 | `timestamp` | `float` | When the event occurred (`time.time()`) |
-| `agent_id` | `str \| None` | Agent or process identifier |
-| `user_id` | `str \| None` | From CallerContext (multi-user) |
-| `session_id` | `str \| None` | Conversation session ID |
-| `data` | `dict` | Event-specific payload |
-| `metadata` | `dict` | Agent config, model ID, etc. |
+| `agent_id` | `str \| None` | Who emitted it — see below |
+| `user_id` | `str \| None` | From `CallerContext` (multi-user) |
+| `session_id` | `str \| None` | The `chat()` session, else `caller.metadata["session_id"]` |
+| `data` | `dict` | Event-specific payload ([Payloads](#payloads)) |
+| `metadata` | `dict` | Context: `model` and `invocation_id` on agent events; `process_name`, `process_id` (and `trigger_type`) on runtime events |
+
+**`agent_id`** is the same on every event an agent emits: `observer_agent_id` when you pass it to `build_agent()`, else the [identity's](../identity/overview.md) `agent_id` (or IdP subject). Agents run by an `AgentProcess` use the process name. Without any of these it is the model name. The model is also in `metadata["model"]`.
+
+```python
+agent = await build_agent(..., events=notifier, observer_agent_id="billing-agent")
+```
+
+**`metadata["invocation_id"]`** is the same for every event of one `ainvoke()`/`chat()`/stream call, so you can group `invocation.start`, the `tool.error`s and `invocation.complete` of one run.
 
 ---
 
 ## Security
 
-- **SSRF protection**: WebhookSink validates URLs at construction — rejects private IPs, loopback, cloud metadata endpoints
-- **HMAC signing**: Every webhook includes `X-Promptise-Signature` for tamper verification
-- **Payload redaction**: WebhookSink scans payloads for PII/credentials before sending (uses guardrails regex patterns, no ML models)
-- **Queue bounds**: `max_queue_size` prevents memory exhaustion. When full, events are dropped with a warning log
-- **Sink isolation**: One failing sink never affects others
+- **SSRF protection**: WebhookSink validates URLs at construction and again, against the address it connects to, before every delivery — rejects private, loopback, link-local (cloud metadata), CGNAT and other non-public addresses unless `allow_private_networks=True`
+- **Signing with replay protection**: every webhook carries `X-Promptise-Signature` (HMAC over timestamp + raw body); verify with `verify_event_signature()`
+- **Payload redaction**: WebhookSink scans the whole payload — `data`, `user_id`, `session_id`, `metadata` — for PII/credentials before sending (regex patterns, no ML models). A `user_id` that is an email address arrives as `[EMAIL]`; pass `redact_sensitive=False` if your receiver needs it
+- **Queue bounds**: `max_queue_size` prevents memory exhaustion. When a sink's queue is full, events are dropped for that sink with a warning log
+- **Sink isolation**: One failing or slow sink never affects others
 
 ---
 
@@ -178,11 +274,16 @@ Every event is an `AgentEvent` dataclass:
 
 ```yaml
 events:
+  shutdown_timeout: 10      # optional
+  slow_tool_threshold: 5    # optional; null turns tool.slow off
   sinks:
     - type: webhook
       url: https://hooks.slack.com/services/...
       events: [invocation.error, budget.exceeded]
       min_severity: warning
+    - type: webhook
+      url: http://127.0.0.1:8390/promptise
+      allow_private_networks: true
     - type: log
       events: [invocation.complete]
 ```
@@ -191,25 +292,30 @@ events:
 
 ## EventNotifier Lifecycle
 
-The notifier must be started before events can be delivered, and stopped to drain remaining events:
+The notifier starts itself when the first event is emitted, and must be stopped to deliver what is still queued:
 
 ```python
 notifier = EventNotifier(sinks=[...])
-await notifier.start()   # Start background drain task
+await notifier.start()   # Start the delivery tasks (optional — emitting starts them)
 
 # ... agent runs, events are emitted ...
 
-await notifier.stop()    # Drain remaining events, stop background task
+await notifier.stop()    # Deliver queued events (up to shutdown_timeout), then stop
 ```
 
-When passed to `build_agent(events=notifier)`, `start()` is called automatically. `shutdown()` calls `stop()` automatically.
+When passed to `build_agent(events=notifier)`, `start()` is called automatically and `agent.shutdown()` calls `stop()`.
 
-| Method | Description |
+In the runtime, the process owns the notifier instead: `AgentProcess.stop()` emits `process.stopped` and then stops the notifier, so the last event is delivered too. A notifier shared by an `AgentRuntime` keeps running while single processes stop and is stopped by `runtime.stop_all()`.
+
+| Method / attribute | Description |
 |---|---|
-| `await start()` | Start the background event delivery task. Auto-called by `build_agent()`. |
-| `await stop()` | Drain remaining events and stop. Called by `agent.shutdown()`. |
-| `await emit(event)` | Queue an event for delivery (non-blocking). Auto-starts if not started. |
-| `emit_sync(event)` | Queue from synchronous code (used by LangChain callbacks). Silent on queue full. |
+| `await start()` | Start the delivery tasks. Auto-called by `build_agent()` and `AgentProcess.start()`. |
+| `await stop(timeout=None)` | Deliver queued events (up to `timeout`, default `shutdown_timeout`), log anything dropped, close sinks, stop. |
+| `await flush(timeout=None)` | Wait until everything queued is delivered, without stopping. Returns `False` on timeout. |
+| `await emit(event)` | Queue an event for delivery (non-blocking). |
+| `emit_sync(event)` | Queue from synchronous code, from any thread. Never raises. |
+| `dropped_count` | Events dropped so far (full queues, shutdown timeout). |
+| `is_running` | Whether the delivery tasks are running. |
 
 ---
 
@@ -236,11 +342,12 @@ emit_event(
 | `event_type` | `str` | required | Dotted event name |
 | `severity` | `str` | `"info"` | `info`, `warning`, `error`, `critical` |
 | `data` | `dict \| None` | `None` | Event payload |
-| `agent_id` | `str \| None` | `None` | Agent identifier |
-| `session_id` | `str \| None` | `None` | Session ID |
-| `metadata` | `dict \| None` | `None` | Additional metadata |
+| `agent_id` | `str \| None` | from context | Agent identifier |
+| `session_id` | `str \| None` | from context | Session ID |
+| `metadata` | `dict \| None` | `None` | Additional metadata, merged over the context's |
+| `user_id` | `str \| None` | from context | The user the event concerns |
 
-`emit_event()` is null-safe — passing `None` as the notifier does nothing. It automatically reads `user_id` from the current `CallerContext` if available.
+`emit_event()` is null-safe — passing `None` as the notifier does nothing. Called during an agent invocation (in a tool, for example), it fills `user_id` from the current `CallerContext` and `agent_id`, `session_id` and `metadata` from the running invocation.
 
 ---
 
@@ -253,12 +360,13 @@ emit_event(
 | `url` | `str` | required | Webhook URL (SSRF-protected) |
 | `events` | `list[str] \| None` | `None` | Event types to subscribe to (None = all) |
 | `headers` | `dict[str, str]` | `{}` | Custom HTTP headers |
-| `secret` | `str \| None` | auto-generated | HMAC signing secret |
+| `secret` | `str \| None` | auto-generated | HMAC signing secret (readable as `sink.secret`) |
 | `max_retries` | `int` | `3` | Retry attempts on failure |
 | `retry_delay` | `float` | `1.0` | Initial retry delay (doubles each retry) |
-| `redact_sensitive` | `bool` | `True` | Scan payloads for PII/credentials |
+| `redact_sensitive` | `bool` | `True` | Scan the whole payload for PII/credentials |
 | `min_severity` | `str \| None` | `None` | Minimum severity to emit |
-| `transform` | `Callable \| None` | `None` | Custom payload transformation |
+| `transform` | `Callable \| None` | `None` | Custom payload transformation (the signature covers the transformed body) |
+| `allow_private_networks` | `bool` | `False` | Allow `localhost` and private-network URLs |
 
 ### CallbackSink
 
@@ -282,6 +390,15 @@ emit_event(
 |---|---|---|---|
 | `event_bus` | `Any` | required | Object with `emit(event_type, data)` method |
 | `events` | `list[str] \| None` | `None` | Event filter |
+
+### EventNotifier
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `sinks` | `list[EventSink]` | required | At least one sink |
+| `max_queue_size` | `int` | `1000` | Undelivered events kept per sink |
+| `shutdown_timeout` | `float` | `10.0` | Seconds `stop()` waits for queued events |
+| `slow_tool_threshold` | `float \| None` | `5.0` | Seconds before a tool call emits `tool.slow`; `None` disables it |
 
 ---
 

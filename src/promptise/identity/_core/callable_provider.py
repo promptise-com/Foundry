@@ -34,6 +34,10 @@ class CallableTokenProvider(IdentityProvider):
             output. Concrete provider subclasses (Entra IMDS, AWS STS,
             GCP metadata, SPIFFE SDK, generic OIDC callable) pass
             their own label.
+        default_audience: The audience ``token_fn`` mints for when it is
+            called with ``None``. When given, ``token_fn`` always receives
+            an explicit audience, and asking for ``None`` or for this
+            audience shares one cached credential instead of fetching twice.
     """
 
     def __init__(
@@ -41,10 +45,12 @@ class CallableTokenProvider(IdentityProvider):
         *,
         token_fn: Callable[[str | None], str],
         provider_label: str = "callable",
+        default_audience: str | None = None,
     ) -> None:
         super().__init__()
         self._token_fn: Callable[[str | None], str] = token_fn
         self._provider_label: str = provider_label
+        self._default_audience = default_audience or None
 
     @property
     def provider_name(self) -> str:

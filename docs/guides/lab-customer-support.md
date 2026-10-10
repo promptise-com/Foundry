@@ -261,7 +261,7 @@ Prevent the agent from leaking PII or making unauthorized promises:
 ```python
 agent = await build_agent(
     ...,
-    guardrails=True,  # Enables all 6 detection heads
+    guardrails=True,  # PromptiseSecurityScanner.default(): injection + PII + credentials
 )
 ```
 

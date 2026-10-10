@@ -241,6 +241,18 @@ FanOutNode("gather", branches=[
 The core LLM reasoning node. Full prompt-assembly pipeline with tool calling, guards, strategies, and context management.
 
 ```python
+from pydantic import BaseModel
+
+from promptise.prompts import chain_of_thought
+from promptise.prompts.blocks import Identity, Rules
+from promptise.prompts.guards import SchemaStrictGuard
+
+
+class AnalysisOutput(BaseModel):
+    summary: str
+    complete: bool
+
+
 PromptNode("analyze",
     instructions="Analyze the data.",
     blocks=[Identity("Analyst"), Rules(["Cite sources"])],
@@ -252,7 +264,7 @@ PromptNode("analyze",
     inherit_context_from="search",
     preprocessor=enrich_fn,
     postprocessor=format_fn,
-    guards=[SchemaStrictGuard(AnalysisOutput)],
+    guards=[SchemaStrictGuard()],
     output_schema=AnalysisOutput,
     transitions={"complete": "report", "need_data": "search"},
     model_override="openai:gpt-4o-mini",
@@ -270,8 +282,8 @@ PromptNode("analyze",
 | `perspective` | `Any` | `None` | Perspective framing (Analyst, Critic, etc.) prepended to prompt |
 | `tools` | `list[BaseTool]` | `None` | LangChain tools bound to the model for this node |
 | `tool_choice` | `str` | `"auto"` | Tool calling mode (`"auto"`, `"required"`, `"none"`) |
-| `inject_tools` | `bool` | `False` | If True, receives all MCP tools discovered by `build_agent()` at runtime |
-| `output_schema` | `type` | `None` | Pydantic model for structured output via `with_structured_output()` |
+| `inject_tools` | `bool` | `False` | If True, receives the tools `build_agent()` discovered (or `PromptGraphEngine(tools=...)`) at runtime, merged with `tools` |
+| `output_schema` | `type` | `None` | Pydantic model or `TypedDict` for structured output via `with_structured_output()`. The output is stored as a plain dict (a Pydantic model is dumped), so transitions, edge conditions, `route` and `output_key` read it the same way |
 | `guards` | `list[Any]` | `None` | Output guards (ContentFilterGuard, SchemaStrictGuard, etc.) |
 | `model_override` | `Any` | `None` | Per-node model — a `BaseChatModel` instance or string like `"openai:gpt-4o-mini"` |
 | `context_layers` | `dict[str, int]` | `None` | Extra context keys to inject from state, with priority values |
@@ -281,7 +293,8 @@ PromptNode("analyze",
 | `output_key` | `str` | `None` | Write `result.output` to `state.context[output_key]` after execution |
 | `inherit_context_from` | `str` | `None` | Inject the output of another node (reads `state.context["{name}_output"]`) |
 | `context_scope` | `str` | `"full"` | Context lifecycle mode: `"auto"` (full→ledger automatically; the ReAct default), `"full"` (whole transcript), `"scoped"` (bounded working set), or `"ledger"` (deduplicated facts ledger) — see [Context scope](#context-scope) |
-| `auto_ledger_after` | `int` | `6` | For `context_scope="auto"`: number of accumulated tool results after which the node switches from full transcript to the bounded ledger |
+| `auto_ledger_after` | `int` | `None` | For `context_scope="auto"`: number of accumulated tool results after which the node switches from the full transcript to the compacted view (default 6, or the agent's `context_compaction` setting) |
+| `compaction` | `ContextCompaction \| bool \| int` | `None` | This node's [compaction settings](../guides/context-lifecycle.md#tune-it-or-turn-it-off); wins over `build_agent(context_compaction=...)`. `False` keeps an `"auto"` node on the full transcript |
 | `preprocessor` | `Callable` | `None` | Runs before the LLM call: `fn(state, config) -> None` |
 | `postprocessor` | `Callable` | `None` | Runs after: `fn(output, state, config) -> Any` |
 | `include_observations` | `bool` | `True` | Auto-inject recent tool results from `state.observations` |
@@ -289,7 +302,7 @@ PromptNode("analyze",
 | `include_reflections` | `bool` | `True` | Auto-inject past learnings from `state.reflections` |
 | `transitions` | `dict[str, str]` | `None` | Map output keys to next-node names (e.g. `{"proceed": "act"}`) |
 | `default_next` | `str` | `None` | Fallback node if no transition matches |
-| `max_iterations` | `int` | `10` | Max times this node can execute in one graph run |
+| `max_iterations` | `int` | `10` | Max times this node can execute in one graph run; each tool-loop round counts. The engine's `max_node_iterations` (25) caps it. Once used up, the node is not run again: the engine follows its `"error"` transition, else an `__error__` node, else ends the run |
 | `flags` | `set[NodeFlag]` | `None` | Typed flags controlling engine behavior |
 | `is_entry` | `bool` | `False` | Shorthand for adding `NodeFlag.ENTRY` |
 | `is_terminal` | `bool` | `False` | Shorthand for adding `NodeFlag.TERMINAL` |
@@ -329,8 +342,8 @@ no pattern to choose. The four modes:
 |------|--------------------|------------|
 | `"auto"` *(ReAct default)* | `"full"` while the tool loop is short, then `"ledger"` once it grows past `auto_ledger_after` (default 6) tool results | The smart default — simple tasks unchanged, deep tool loops bounded automatically |
 | `"full"` | The whole accumulated transcript | When every prior message must always be visible |
-| `"scoped"` | The node's system prompt (carrying any inherited/injected distilled state) + the original task + **only this node's own in-progress tool loop** | Multi-stage reasoning graphs — drops the verbose intermediate messages produced by *other* stages so tokens don't grow across stages |
-| `"ledger"` | System prompt + original task + the **most recent** assistant turn and its tool results + a compact **deduplicated "facts gathered" ledger** | Long single-node tool loops over an interconnected dataset, where the model otherwise re-queries the same facts dozens of times |
+| `"scoped"` | The node's system prompt (carrying any inherited/injected distilled state) + the input's system messages + the **current** user question + **only this node's own in-progress tool loop** | Multi-stage reasoning graphs — drops the verbose intermediate messages produced by *other* stages so tokens don't grow across stages |
+| `"ledger"` | System prompt + the input's system messages + a short note on earlier conversation + the **current** user question + the **most recent** assistant turn and its tool results + a compact **deduplicated "facts gathered" ledger** of older results | Long single-node tool loops over an interconnected dataset, where the model otherwise re-queries the same facts dozens of times |
 
 ```python
 # Default agents already get this — no configuration needed:
@@ -352,9 +365,10 @@ PromptNode("reason", inject_tools=True, context_scope="ledger")
 
 **How `"ledger"` works:**
 
-- The ledger is built from `state.observations` — one line per `tool(args) = result`, **last value wins** per `(tool, args)` so duplicates collapse.
+- The input's system messages (yours and runtime-injected ones such as `[Context State]`) and the **current** user question are always sent. Dict messages (`{"role": "user", ...}`) are converted to LangChain messages first, so every input form works; with chat history, the question is the *last* user message and earlier turns become a short note.
+- The ledger is built from the tool calls in the transcript older than the latest exchange — one line per `tool(args) = result`, **last value wins** per `(tool, args)` so duplicates collapse. Results longer than `keep_result_chars` (2,000) are cut to an excerpt that names the call; results shown in the latest exchange are not repeated.
 - It is placed **last**, immediately before the model's turn, where it is most salient — so the model consults it instead of re-calling a tool.
-- The most recent assistant turn and its tool results are kept *in-flow* so the model doesn't lose continuity and loop.
+- The most recent assistant turn and its tool results (a whole parallel batch) are kept *in-flow* so the model doesn't lose continuity and loop.
 - Tool execution is **cache-served**: if the node requests a `(tool, args)` pair already present in `state.observations`, the cached result is returned instead of re-executing — deep tasks otherwise re-fetch identical facts repeatedly.
 
 This is the mechanism behind the [`managed` prebuilt pattern](engine-prebuilts.md#managed-context-managed-tool-loop). It is an **efficiency primitive** — it bounds token growth and removes redundant tool calls without changing the answer the model produces.
@@ -406,8 +420,10 @@ RouterNode("route",
 Programmatic validation and gating with pass/fail routing.
 
 ```python
+from promptise.prompts.guards import ContentFilterGuard, LengthGuard
+
 GuardNode("check_quality",
-    guards=[LengthGuard(min_chars=100), ContentFilterGuard(blocked=["todo"])],
+    guards=[LengthGuard(min_length=100), ContentFilterGuard(blocked=["todo"])],
     target_key="draft",
     on_pass="publish",
     on_fail="revise",
@@ -582,6 +598,14 @@ class DatabaseNode(BaseNode):
         return NodeResult(node_name=self.name, output=result)
 ```
 
+When the graph is streamed (`astream()`, `astream_events()`,
+`agent.astream_with_tools()`), the engine calls the node's `stream()`. The
+default runs `execute()` once and yields an `on_node_end` event with the result,
+so a subclass only overrides `stream()` to emit events of its own — and then
+must end with `NodeEvent(event="on_node_end", node_name=self.name,
+data={"result": result})`. A stream that ends without the result fails the run;
+the engine never executes a node twice to get one.
+
 ### BaseNode Parameters
 
 All nodes inherit these parameters from BaseNode:
@@ -593,7 +617,7 @@ All nodes inherit these parameters from BaseNode:
 | `description` | `str` | `""` | Short description for visualization (defaults to first 80 chars of instructions) |
 | `transitions` | `dict[str, str]` | `None` | Output key to next-node mapping |
 | `default_next` | `str` | `None` | Fallback transition |
-| `max_iterations` | `int` | `10` | Max executions per graph run |
+| `max_iterations` | `int` | `10` | Max executions per graph run — enforced by the engine; when used up, the `"error"` transition is followed (else `__error__`, else the run ends) |
 | `metadata` | `dict` | `None` | Arbitrary metadata for hooks and observability |
 | `is_entry` | `bool` | `False` | Adds `NodeFlag.ENTRY` |
 | `is_terminal` | `bool` | `False` | Adds `NodeFlag.TERMINAL` |
@@ -615,7 +639,7 @@ PromptNode("critical_step", flags={NodeFlag.CRITICAL})             # Abort on er
 PromptNode("optional", flags={NodeFlag.SKIP_ON_ERROR, NodeFlag.LIGHTWEIGHT})
 ```
 
-16 built-in flags cover execution control, context isolation, model selection, observability, and output processing. See [Node Flags](engine-flags.md) for the full reference.
+18 built-in flags cover execution control, context isolation, model selection, observability, and output processing. See [Node Flags](engine-flags.md) for the full reference.
 
 ---
 

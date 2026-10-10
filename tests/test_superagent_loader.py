@@ -140,7 +140,7 @@ servers:
     url: "http://test"
     headers:
       Authorization: "Bearer ${TOKEN}"
-    auth: "${API_KEY}"
+    api_key: "${API_KEY}"
 """
     file_path = tmp_path / "test.superagent"
     file_path.write_text(config)
@@ -228,7 +228,9 @@ servers:
     transport: sse
     headers:
       X-Custom: "value"
-    auth: "secret"
+    api_key: "secret"
+    bearer_token: "tok"
+    audience: "api://tools"
 """
     file_path = tmp_path / "test.superagent"
     file_path.write_text(config)
@@ -242,7 +244,9 @@ servers:
     assert spec.url == "http://127.0.0.1:8000/mcp"
     assert spec.transport == "sse"
     assert spec.headers == {"X-Custom": "value"}
-    assert spec.auth == "secret"
+    assert spec.api_key is not None and spec.api_key.get_secret_value() == "secret"
+    assert spec.bearer_token is not None and spec.bearer_token.get_secret_value() == "tok"
+    assert spec.audience == "api://tools"
 
 
 def test_to_server_specs_stdio(tmp_path: Path) -> None:
@@ -504,7 +508,7 @@ servers:
   test:
     type: http
     url: "http://test"
-    auth: "${API_KEY}"
+    api_key: "${API_KEY}"
 """
     file_path = tmp_path / "test.superagent"
     file_path.write_text(config)
@@ -514,7 +518,7 @@ servers:
     assert main.resolved_schema is not None
     assert len(cross_agents) == 0
     specs = main.to_server_specs()
-    assert specs["test"].auth == "secret"
+    assert specs["test"].api_key.get_secret_value() == "secret"
 
 
 def test_load_superagent_file_with_cross_agents(tmp_path: Path) -> None:
@@ -563,7 +567,7 @@ servers:
   test:
     type: http
     url: "http://test"
-    auth: "${API_KEY}"
+    api_key: "${API_KEY}"
 """
     file_path = tmp_path / "test.superagent"
     file_path.write_text(config)

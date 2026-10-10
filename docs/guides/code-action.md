@@ -80,8 +80,10 @@ more reliable.
 The model writes code, so the code runs **contained**:
 
 - **Hardened sandbox** — the program executes in Promptise's Docker sandbox:
-  read-only rootfs, dropped capabilities, seccomp, resource limits, and
-  **`network="none"`** (auto-set for this pattern).
+  read-only rootfs, dropped capabilities, Docker's default seccomp profile,
+  CPU/memory/process limits, and **`network="none"`**. The network stays off
+  even when you pass your own `sandbox={...}` without a `network` key. When
+  `exec_timeout` expires the program's processes are killed.
 - **No direct host access** — the program's *only* reach to the outside world is
   your tools, via the bridge. It can't touch the host filesystem or network.
 - **Tools keep their protections** — each bridged call invokes the real
@@ -139,6 +141,25 @@ recovers the common "off-by-one in the parsing" class of errors without an
 unbounded loop.
 
 ## Configuration
+
+From `build_agent`, pass `code_action=` (a dict or a
+`promptise.engine.CodeActionConfig`; unknown keys are rejected):
+
+```python
+agent = await build_agent(
+    servers=my_servers,
+    model="openai:gpt-5-mini",
+    agent_pattern="code-action",
+    code_action={
+        "exec_timeout": 60,    # seconds the program may run (default 120)
+        "max_repairs": 2,      # stderr-driven self-repair attempts (default 1)
+        "max_tool_calls": 20,  # hard per-run cap on bridged tool calls (default 50)
+    },
+    sandbox={"memory_limit": "1G"},  # optional; network stays "none"
+)
+```
+
+For a custom graph, use the factory directly:
 
 ```python
 from promptise.engine import PromptGraph
