@@ -937,3 +937,10 @@
     margin: 0 1.5rem 2rem;
   }
 }
+
+/* Terminal screenshots exported by Textual (SVG without intrinsic size) */
+.md-typeset figure img.screenshot {
+  width: 100%;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
