@@ -95,6 +95,7 @@ agent = await build_agent(
 | `cache` | `SemanticCache \| None` | `None` | Semantic response cache. Serves similar queries from cache, reducing LLM costs by 30-50%. See [Cache](../cache.md). |
 | `approval` | `ApprovalPolicy \| None` | `None` | Human-in-the-loop approval for sensitive tools. See [Approval](../approval.md). |
 | `events` | `EventNotifier \| None` | `None` | Webhook/event notifications. Emits structured events on invocation, tool, guardrail, budget, and process events. See [Events](../events.md). |
+| `on_tool_progress` | `Callable \| None` | `None` | Called as `(tool_name, progress, total, message)` for each progress notification an MCP tool sends during a call; sync or async. Progress is also emitted as `tool.progress` events when `events` is set. See [Progress Reporting](../../mcp/server/resilience-patterns.md#receiving-progress-in-a-promptise-client-or-agent). |
 | `max_invocation_time` | `float` | `0` | Maximum seconds per invocation. Raises `TimeoutError` and emits `invocation.timeout` event when exceeded. `0` = unlimited. |
 
 ### The `PromptiseAgent` Class

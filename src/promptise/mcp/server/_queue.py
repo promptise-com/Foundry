@@ -19,22 +19,29 @@ Example::
 
     # MCPQueue auto-registers 5 tools on the server:
     #   queue_submit, queue_status, queue_result, queue_cancel, queue_list
+
+Jobs belong to the client (and tenant) that submitted them: the status,
+result, cancel and list tools only show a caller its own jobs, unless the
+caller holds the queue's admin role.  The default backend keeps jobs in
+process memory — they are lost on restart and not shared across replicas.
 """
 
 from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 import logging
 import secrets
 import time
 import typing
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from ._cancellation import CancellationToken, CancelledError
-from ._errors import ToolError
+from ._errors import ToolError, ValidationError
+from ._progress import ProgressReporter
 
 logger = logging.getLogger("promptise.server")
 
@@ -89,6 +96,10 @@ class Job:
         attempts: Number of execution attempts so far.
         max_retries: Maximum retry count for this job.
         timeout: Per-job timeout in seconds.
+        owner_client_id: ``client_id`` of the caller that submitted the
+            job (``None`` for unauthenticated callers and jobs submitted
+            from Python).
+        owner_tenant_id: Tenant of the submitting caller, if any.
     """
 
     id: str
@@ -106,6 +117,8 @@ class Job:
     attempts: int = 0
     max_retries: int = 0
     timeout: float | None = None
+    owner_client_id: str | None = None
+    owner_tenant_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -121,6 +134,13 @@ class JobDef:
         timeout: Default timeout in seconds.
         max_retries: Default max retry count.
         backoff_base: Exponential backoff base in seconds.
+        input_model: Pydantic model validating the job's arguments
+            (built from the handler signature, injected parameters
+            excluded).
+        input_schema: JSON Schema of the job's arguments, as shown to
+            clients in the ``queue_submit`` tool description.
+        injections: ``(parameter, kind)`` pairs for framework-injected
+            parameters; *kind* is ``"progress"`` or ``"cancel"``.
     """
 
     name: str
@@ -129,6 +149,41 @@ class JobDef:
     timeout: float = 300.0
     max_retries: int = 0
     backoff_base: float = 1.0
+    input_model: Any = None
+    input_schema: dict[str, Any] = field(default_factory=dict)
+    injections: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
+class QueueCaller:
+    """Identity a queue operation is performed for.
+
+    The queue's MCP tools build one from the request context, so each
+    caller only sees and controls its own jobs.  Python code calling
+    :class:`MCPQueue` methods directly passes ``caller=None`` (the
+    default) and is not restricted.
+
+    Attributes:
+        client_id: Authenticated ``client_id``, or ``None`` when the
+            request was not authenticated.
+        tenant_id: The caller's tenant, if any.
+        is_admin: Holds the queue's admin role — may see and cancel every
+            job in its own tenant, not just its own jobs.
+    """
+
+    client_id: str | None = None
+    tenant_id: str | None = None
+    is_admin: bool = False
+
+    def can_access(self, job: Job) -> bool:
+        """Whether this caller may see or cancel *job*.
+
+        Tenants never cross: the admin role widens access to every
+        client of the caller's own tenant, not to other tenants.
+        """
+        if job.owner_tenant_id != self.tenant_id:
+            return False
+        return self.is_admin or job.owner_client_id == self.client_id
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +242,9 @@ class InMemoryQueueBackend:
     """In-process queue backend using asyncio primitives.
 
     Uses ``asyncio.PriorityQueue`` for the pending queue and a dict
-    for job storage. Suitable for single-process deployments and testing.
+    for job storage. Suitable for single-process deployments and testing:
+    jobs live in this process only, so they are lost when it restarts and
+    are not visible to other replicas of the server.
 
     Args:
         max_size: Maximum number of pending jobs (0 = unlimited).
@@ -252,15 +309,25 @@ class InMemoryQueueBackend:
 # ---------------------------------------------------------------------------
 
 
-class _JobProgressReporter:
+class _JobProgressReporter(ProgressReporter):
     """Writes progress updates into a Job record.
 
-    This allows agents polling ``queue_status`` to see real-time progress.
+    This is what a job handler receives for a ``ProgressReporter``
+    parameter: instead of MCP progress notifications, progress is stored
+    on the job so agents polling ``queue_status`` see it.  Reports made
+    after the job was cancelled are ignored.
     """
 
-    def __init__(self, job: Job, backend: QueueBackend) -> None:
+    def __init__(
+        self,
+        job: Job,
+        backend: QueueBackend,
+        cancel_token: CancellationToken | None = None,
+    ) -> None:
+        super().__init__()
         self._job = job
         self._backend = backend
+        self._cancel_token = cancel_token
 
     async def report(
         self,
@@ -269,7 +336,9 @@ class _JobProgressReporter:
         total: float | None = None,
         message: str | None = None,
     ) -> None:
-        """Update job progress and persist to backend."""
+        """Update job progress (a fraction from 0.0 to 1.0) and persist it."""
+        if self._cancel_token is not None and self._cancel_token.is_cancelled:
+            return
         if total and total > 0:
             self._job.progress = min(progress / total, 1.0)
         else:
@@ -278,9 +347,98 @@ class _JobProgressReporter:
         await self._backend.update(self._job)
 
 
+def _injection_kind(annotation: Any, default: Any) -> str | None:
+    """Classify a job handler parameter as injected (``"progress"``/``"cancel"``) or not."""
+    dependency = getattr(default, "dependency", None)
+    for candidate in (annotation, dependency):
+        if isinstance(candidate, type):
+            if issubclass(candidate, ProgressReporter):
+                return "progress"
+            if issubclass(candidate, CancellationToken):
+                return "cancel"
+    return None
+
+
+def _build_job_input(func: Any) -> tuple[Any, dict[str, Any], tuple[tuple[str, str], ...]]:
+    """Build the argument model, its JSON Schema and the injections for a job handler.
+
+    Unknown arguments are rejected (``additionalProperties: false``)
+    unless the handler takes ``**kwargs``.
+    """
+    from pydantic import ConfigDict
+
+    from ._validation import build_input_model
+
+    try:
+        hints = typing.get_type_hints(func)
+    except Exception:
+        hints = {}
+    sig = inspect.signature(func)
+    injections: list[tuple[str, str]] = []
+    exclude: set[str] = set()
+    accepts_extra = False
+    for pname, param in sig.parameters.items():
+        if param.kind is inspect.Parameter.VAR_KEYWORD:
+            accepts_extra = True
+            exclude.add(pname)
+            continue
+        if param.kind is inspect.Parameter.VAR_POSITIONAL:
+            exclude.add(pname)
+            continue
+        kind = _injection_kind(hints.get(pname, param.annotation), param.default)
+        if kind is not None:
+            injections.append((pname, kind))
+            exclude.add(pname)
+        elif hasattr(param.default, "dependency"):
+            # Other Depends() markers are not resolved for jobs; keep them
+            # out of the client-facing schema.
+            exclude.add(pname)
+
+    # Untyped parameters accept anything, as they did before validation.
+    base, schema = build_input_model(func, exclude=exclude, untyped=Any)
+    extra: Literal["allow", "forbid"] = "allow" if accepts_extra else "forbid"
+    model = type(base.__name__, (base,), {"model_config": ConfigDict(extra=extra)})
+    if not accepts_extra:
+        schema["additionalProperties"] = False
+    return model, schema, tuple(injections)
+
+
+def _compact_schema(schema: dict[str, Any]) -> str:
+    """One-line JSON of an argument schema, without pydantic's ``title`` noise."""
+
+    def strip(node: Any, *, names: bool = False) -> Any:
+        # ``names``: the keys are parameter names (a ``properties`` map),
+        # so a parameter called "title" must survive.
+        if isinstance(node, dict):
+            return {
+                k: strip(v, names=k == "properties" and not names)
+                for k, v in node.items()
+                if names or k != "title"
+            }
+        if isinstance(node, list):
+            return [strip(v) for v in node]
+        return node
+
+    return json.dumps(strip(schema), separators=(",", ":"), sort_keys=True)
+
+
 # ---------------------------------------------------------------------------
 # MCPQueue
 # ---------------------------------------------------------------------------
+
+_SUBMIT_DESCRIPTION = (
+    "Submit a job to the background queue for async processing. "
+    "Returns a job_id for tracking. Use {prefix}_status to poll progress "
+    "and {prefix}_result to retrieve the output when complete. "
+    "Arguments are validated on submission against the job type's schema."
+)
+
+_TERMINAL = (
+    JobStatus.COMPLETED,
+    JobStatus.FAILED,
+    JobStatus.CANCELLED,
+    JobStatus.TIMEOUT,
+)
 
 
 class MCPQueue:
@@ -295,16 +453,33 @@ class MCPQueue:
     ``queue_cancel``, ``queue_list``) and hooks into the server lifecycle
     for worker management.
 
+    Jobs are owned by the client and tenant that submitted them.  The
+    status, result, cancel and list tools only expose a caller's own jobs;
+    a caller holding ``admin_role`` sees every job of its own tenant.
+    Ownership relies on authenticated tool calls — on a server without
+    ``require_auth=True``, pass ``auth=True`` so the queue tools
+    authenticate; unauthenticated callers all share one anonymous owner.
+
     Args:
         server: The MCPServer to attach to. When provided, tools and
             lifecycle hooks are registered immediately.
-        backend: Queue storage backend (default: InMemoryQueueBackend).
+        backend: Queue storage backend (default: InMemoryQueueBackend,
+            which is process-local: jobs are lost on restart and not
+            shared across replicas).
         max_workers: Maximum concurrent job workers.
         default_timeout: Default per-job timeout in seconds.
         result_ttl: How long to keep completed job results before
             auto-cleanup (seconds).
         cleanup_interval: Seconds between cleanup sweeps.
         tool_prefix: Prefix for auto-registered tool names.
+        auth: Require authentication on the queue tools (in addition to
+            the server's ``require_auth``).
+        admin_role: Role that may see and cancel other clients' jobs
+            within its own tenant.  ``None`` disables the override.
+        cancel_grace_period: Seconds a cancelled running job gets to stop
+            on its own (its ``CancellationToken`` is set immediately)
+            before its task is cancelled.  Default ``0``: the task is
+            cancelled right away.
 
     Example::
 
@@ -329,6 +504,9 @@ class MCPQueue:
         result_ttl: float = 3600.0,
         cleanup_interval: float = 60.0,
         tool_prefix: str = "queue",
+        auth: bool = False,
+        admin_role: str | None = "admin",
+        cancel_grace_period: float = 0.0,
     ) -> None:
         self._backend = backend or InMemoryQueueBackend()
         self._max_workers = max_workers
@@ -336,11 +514,21 @@ class MCPQueue:
         self._result_ttl = result_ttl
         self._cleanup_interval = cleanup_interval
         self._tool_prefix = tool_prefix
+        self._auth = auth
+        self._admin_role = admin_role
+        self._cancel_grace_period = cancel_grace_period
         self._job_defs: dict[str, JobDef] = {}
         self._workers: list[asyncio.Task[None]] = []
         self._cleanup_task: asyncio.Task[None] | None = None
         self._shutdown_event: asyncio.Event | None = None
         self._cancellation_tokens: dict[str, CancellationToken] = {}
+        # Handler tasks of running jobs, so queue_cancel can stop a job
+        # that never checks its CancellationToken.
+        self._job_tasks: dict[str, asyncio.Task[Any]] = {}
+        # Jobs waiting out a retry backoff (job id -> timer task).  Workers
+        # never sleep through a backoff; a timer re-enqueues the job.
+        self._retry_timers: dict[str, asyncio.Task[None]] = {}
+        self._servers: list[Any] = []
 
         if server is not None:
             self.register(server)
@@ -361,8 +549,11 @@ class MCPQueue:
 
         The decorated function runs in background workers, not inline
         with the tool call. It receives its arguments as keyword args,
-        and may optionally accept ``_JobProgressReporter`` or
-        ``CancellationToken`` parameters (detected by type annotation).
+        and may optionally accept ``ProgressReporter`` or
+        ``CancellationToken`` parameters (detected by type annotation or
+        a ``Depends(...)`` default).  Arguments are validated against the
+        handler signature when the job is submitted, and the resulting
+        schema is listed in the ``queue_submit`` tool description.
 
         Args:
             name: Job type name (defaults to function name).
@@ -379,7 +570,10 @@ class MCPQueue:
 
         def decorator(func: Any) -> Any:
             job_name = name or func.__name__
+            if job_name in self._job_defs:
+                raise ValueError(f"Job type '{job_name}' is already registered")
             description = (func.__doc__ or "").strip().split("\n")[0] or job_name
+            input_model, input_schema, injections = _build_job_input(func)
             job_def = JobDef(
                 name=job_name,
                 handler=func,
@@ -387,10 +581,13 @@ class MCPQueue:
                 timeout=timeout or self._default_timeout,
                 max_retries=max_retries,
                 backoff_base=backoff_base,
+                input_model=input_model,
+                input_schema=input_schema,
+                injections=injections,
             )
-            if job_name in self._job_defs:
-                raise ValueError(f"Job type '{job_name}' is already registered")
             self._job_defs[job_name] = job_def
+            for server in self._servers:
+                self._refresh_submit_tool(server)
             return func
 
         return decorator
@@ -411,25 +608,43 @@ class MCPQueue:
         """
         self._register_tools(server)
         self._register_lifecycle(server)
+        self._servers.append(server)
+        self._refresh_submit_tool(server)
+
+    def _caller_from_context(self) -> QueueCaller:
+        """Build the caller identity of the current tool call."""
+        from ._context import get_context
+
+        try:
+            ctx = get_context()
+        except RuntimeError:
+            # Only reachable when a tool handler is invoked outside the
+            # server pipeline: treat it as an anonymous, non-admin caller.
+            return QueueCaller()
+        client = ctx.client
+        roles = client.roles if client and client.roles else ctx.state.get("roles", set())
+        return QueueCaller(
+            client_id=ctx.client_id,
+            tenant_id=getattr(client, "tenant_id", None),
+            is_admin=self._admin_role is not None and self._admin_role in roles,
+        )
 
     def _register_tools(self, server: Any) -> None:
         """Auto-register the 5 queue management MCP tools."""
         prefix = self._tool_prefix
         queue_ref = self
+        auth = self._auth
 
         @server.tool(
             name=f"{prefix}_submit",
-            description=(
-                "Submit a job to the background queue for async processing. "
-                "Returns a job_id for tracking. Use queue_status to poll progress "
-                "and queue_result to retrieve the output when complete."
-            ),
+            description=_SUBMIT_DESCRIPTION.format(prefix=prefix),
             tags=["queue"],
+            auth=auth,
         )
         async def queue_submit(
             job_type: str,
             args: dict[str, Any] | None = None,
-            priority: str = "normal",
+            priority: Literal["low", "normal", "high", "critical"] = "normal",
         ) -> dict[str, Any]:
             """Submit a job for background processing.
 
@@ -442,15 +657,18 @@ class MCPQueue:
                 job_type,
                 args or {},
                 priority=JobPriority(priority),
+                caller=queue_ref._caller_from_context(),
             )
 
         @server.tool(
             name=f"{prefix}_status",
             description=(
                 "Check the current status and progress of a queued job. "
-                "Returns status, progress percentage, and progress message."
+                "Returns the status, progress as a fraction from 0.0 to 1.0, "
+                "and the latest progress message."
             ),
             tags=["queue"],
+            auth=auth,
         )
         async def queue_status(job_id: str) -> dict[str, Any]:
             """Get the status of a job.
@@ -458,7 +676,7 @@ class MCPQueue:
             Args:
                 job_id: The job identifier returned by queue_submit.
             """
-            return await queue_ref.status(job_id)
+            return await queue_ref.status(job_id, caller=queue_ref._caller_from_context())
 
         @server.tool(
             name=f"{prefix}_result",
@@ -467,6 +685,7 @@ class MCPQueue:
                 "running, returns the current status instead."
             ),
             tags=["queue"],
+            auth=auth,
         )
         async def queue_result(job_id: str) -> dict[str, Any]:
             """Get the result of a completed job.
@@ -474,12 +693,13 @@ class MCPQueue:
             Args:
                 job_id: The job identifier.
             """
-            return await queue_ref.get_result(job_id)
+            return await queue_ref.get_result(job_id, caller=queue_ref._caller_from_context())
 
         @server.tool(
             name=f"{prefix}_cancel",
             description="Cancel a pending or running job.",
             tags=["queue"],
+            auth=auth,
         )
         async def queue_cancel(job_id: str) -> dict[str, Any]:
             """Cancel a job.
@@ -487,18 +707,20 @@ class MCPQueue:
             Args:
                 job_id: The job identifier to cancel.
             """
-            return await queue_ref.cancel(job_id)
+            return await queue_ref.cancel(job_id, caller=queue_ref._caller_from_context())
 
         @server.tool(
             name=f"{prefix}_list",
             description=(
-                "List jobs in the queue, optionally filtered by status. "
+                "List your jobs in the queue, optionally filtered by status. "
                 "Returns job summaries with status and progress."
             ),
             tags=["queue"],
+            auth=auth,
         )
         async def queue_list(
-            status: str | None = None,
+            status: Literal["pending", "running", "completed", "failed", "cancelled", "timeout"]
+            | None = None,
             limit: int = 20,
             offset: int = 0,
         ) -> dict[str, Any]:
@@ -509,13 +731,44 @@ class MCPQueue:
                 limit: Maximum number of jobs to return (default 20).
                 offset: Number of jobs to skip for pagination (default 0).
             """
-            result = await queue_ref.list_jobs(
+            return await queue_ref.list_jobs(
                 status=JobStatus(status) if status else None,
-                limit=limit + offset,  # Fetch extra to handle offset
+                limit=limit,
+                offset=offset,
+                caller=queue_ref._caller_from_context(),
             )
-            if offset > 0 and isinstance(result, dict) and "jobs" in result:
-                result["jobs"] = result["jobs"][offset:]
-            return result
+
+    def _refresh_submit_tool(self, server: Any) -> None:
+        """Advertise the registered job types and their argument schemas.
+
+        ``queue_submit`` is registered before any ``@queue.job`` runs, so
+        its description and ``job_type`` enum are rebuilt whenever a job
+        type is added.
+        """
+        import copy
+        import dataclasses
+
+        from ._types import ToolDef
+
+        registry = getattr(server, "_tool_registry", None)
+        if registry is None:
+            return
+        tdef = registry.get(f"{self._tool_prefix}_submit")
+        if not isinstance(tdef, ToolDef):
+            return
+
+        description = _SUBMIT_DESCRIPTION.format(prefix=self._tool_prefix)
+        schema = copy.deepcopy(tdef.input_schema)
+        if self._job_defs:
+            lines = [description, "", "Job types (pass the arguments in `args`):"]
+            for jd in self._job_defs.values():
+                args_schema = _compact_schema(jd.input_schema)
+                lines.append(f"- {jd.name}: {jd.description} args schema: {args_schema}")
+            description = "\n".join(lines)
+            job_type_prop = schema.get("properties", {}).get("job_type")
+            if isinstance(job_type_prop, dict):
+                job_type_prop["enum"] = list(self._job_defs)
+        registry.replace(dataclasses.replace(tdef, description=description, input_schema=schema))
 
     def _register_lifecycle(self, server: Any) -> None:
         """Hook into server startup/shutdown to manage workers."""
@@ -539,6 +792,7 @@ class MCPQueue:
         args: dict[str, Any],
         *,
         priority: JobPriority = JobPriority.NORMAL,
+        caller: QueueCaller | None = None,
     ) -> dict[str, Any]:
         """Submit a job for background execution.
 
@@ -546,12 +800,17 @@ class MCPQueue:
             job_type: Registered job type name.
             args: Arguments for the job handler.
             priority: Scheduling priority.
+            caller: Identity that will own the job (``None`` for jobs
+                submitted from server code).
 
         Returns:
             Dict with job_id, status, and job_type.
 
         Raises:
-            ToolError: If the job type is not registered.
+            ToolError: If the job type is not registered
+                (``UNKNOWN_JOB_TYPE``) or the arguments do not match the
+                handler signature (``INVALID_JOB_ARGUMENTS``).  Neither
+                is retryable.
         """
         job_def = self._job_defs.get(job_type)
         if job_def is None:
@@ -563,6 +822,8 @@ class MCPQueue:
                 suggestion=f"Available job types: {available}",
             )
 
+        self._validate_args(job_def, args)
+
         job = Job(
             id=secrets.token_hex(8),
             job_type=job_type,
@@ -570,6 +831,8 @@ class MCPQueue:
             priority=priority,
             max_retries=job_def.max_retries,
             timeout=job_def.timeout,
+            owner_client_id=caller.client_id if caller else None,
+            owner_tenant_id=caller.tenant_id if caller else None,
         )
         await self._backend.enqueue(job)
         logger.info(
@@ -580,28 +843,63 @@ class MCPQueue:
         )
         return {"job_id": job.id, "status": job.status.value, "job_type": job_type}
 
-    async def status(self, job_id: str) -> dict[str, Any]:
-        """Get job status.
+    @staticmethod
+    def _validate_args(job_def: JobDef, args: dict[str, Any]) -> dict[str, Any]:
+        """Validate *args* against the job's signature; return the coerced kwargs."""
+        if job_def.input_model is None:
+            return dict(args)
+        from ._validation import validate_arguments
 
-        Args:
-            job_id: Job identifier.
+        try:
+            validated = validate_arguments(job_def.input_model, args)
+        except ValidationError as exc:
+            schema = _compact_schema(job_def.input_schema)
+            raise ToolError(
+                f"Invalid arguments for job type '{job_def.name}': "
+                f"{str(exc).removeprefix('Invalid input: ')}",
+                code="INVALID_JOB_ARGUMENTS",
+                retryable=False,
+                suggestion=f"Pass `args` matching this schema: {schema}",
+                details={"field_errors": exc.details.get("field_errors", {})},
+            ) from exc
+        # A handler taking **kwargs keeps the arguments it does not name.
+        for key, value in args.items():
+            validated.setdefault(key, value)
+        return validated
 
-        Returns:
-            Dict with job status information.
+    async def _get_visible(self, job_id: str, caller: QueueCaller | None) -> Job:
+        """Fetch a job the caller may access; otherwise raise ``JOB_NOT_FOUND``.
 
-        Raises:
-            ToolError: If the job is not found.
+        Another caller's job is reported exactly like a missing one, so
+        job ids cannot be probed.
         """
         job = await self._backend.get(job_id)
-        if job is None:
+        if job is None or (caller is not None and not caller.can_access(job)):
             raise ToolError(
                 f"Job not found: {job_id}",
                 code="JOB_NOT_FOUND",
                 retryable=False,
             )
+        return job
+
+    async def status(self, job_id: str, *, caller: QueueCaller | None = None) -> dict[str, Any]:
+        """Get job status.
+
+        Args:
+            job_id: Job identifier.
+            caller: Restrict to jobs this caller may access (``None`` =
+                unrestricted).
+
+        Returns:
+            Dict with job status information.
+
+        Raises:
+            ToolError: If the job is not found (or not visible to *caller*).
+        """
+        job = await self._get_visible(job_id, caller)
         return self._job_to_dict(job)
 
-    async def get_result(self, job_id: str) -> dict[str, Any]:
+    async def get_result(self, job_id: str, *, caller: QueueCaller | None = None) -> dict[str, Any]:
         """Get job result.
 
         If the job is still in progress, returns current status
@@ -609,20 +907,16 @@ class MCPQueue:
 
         Args:
             job_id: Job identifier.
+            caller: Restrict to jobs this caller may access (``None`` =
+                unrestricted).
 
         Returns:
             Dict with job result or status.
 
         Raises:
-            ToolError: If the job is not found.
+            ToolError: If the job is not found (or not visible to *caller*).
         """
-        job = await self._backend.get(job_id)
-        if job is None:
-            raise ToolError(
-                f"Job not found: {job_id}",
-                code="JOB_NOT_FOUND",
-                retryable=False,
-            )
+        job = await self._get_visible(job_id, caller)
         if job.status in (JobStatus.RUNNING, JobStatus.PENDING):
             return {
                 "job_id": job.id,
@@ -632,42 +926,52 @@ class MCPQueue:
             }
         return self._job_to_dict(job, include_result=True)
 
-    async def cancel(self, job_id: str) -> dict[str, Any]:
+    async def cancel(self, job_id: str, *, caller: QueueCaller | None = None) -> dict[str, Any]:
         """Cancel a job.
+
+        A pending job is never started.  A running job's
+        ``CancellationToken`` is set and its handler task is cancelled
+        (after ``cancel_grace_period``, if set), so even a handler that
+        never calls ``cancel.check()`` stops; anything it returns
+        afterwards is discarded and the job stays ``cancelled``.
 
         Args:
             job_id: Job identifier.
+            caller: Restrict to jobs this caller may access (``None`` =
+                unrestricted).
 
         Returns:
             Dict with cancellation result.
 
         Raises:
-            ToolError: If the job is not found.
+            ToolError: If the job is not found (or not visible to *caller*).
         """
-        job = await self._backend.get(job_id)
-        if job is None:
-            raise ToolError(
-                f"Job not found: {job_id}",
-                code="JOB_NOT_FOUND",
-                retryable=False,
-            )
-        if job.status in (
-            JobStatus.COMPLETED,
-            JobStatus.FAILED,
-            JobStatus.TIMEOUT,
-        ):
+        job = await self._get_visible(job_id, caller)
+        if job.status in _TERMINAL:
             return {
                 "job_id": job.id,
                 "status": job.status.value,
                 "message": "Job already finished.",
             }
-        # Signal cancellation to running worker
+        job.status = JobStatus.CANCELLED
+        job.completed_at = time.monotonic()
+        job.result = None
+        await self._backend.update(job)
+
+        # Stop the running handler: signal the token for cooperative
+        # handlers, then cancel the task for those that never check it.
         token = self._cancellation_tokens.get(job_id)
         if token is not None:
             token.cancel(reason="Cancelled by user")
-        job.status = JobStatus.CANCELLED
-        job.completed_at = time.monotonic()
-        await self._backend.update(job)
+        task = self._job_tasks.get(job_id)
+        if task is not None and not task.done():
+            if self._cancel_grace_period > 0:
+                asyncio.get_running_loop().call_later(self._cancel_grace_period, task.cancel)
+            else:
+                task.cancel()
+        timer = self._retry_timers.pop(job_id, None)
+        if timer is not None:
+            timer.cancel()
         logger.info("Job %s cancelled", job_id)
         return {"job_id": job.id, "status": "cancelled"}
 
@@ -675,20 +979,37 @@ class MCPQueue:
         self,
         status: JobStatus | None = None,
         limit: int = 20,
+        *,
+        offset: int = 0,
+        caller: QueueCaller | None = None,
     ) -> dict[str, Any]:
-        """List jobs.
+        """List jobs, newest first.
 
         Args:
             status: Optional status filter.
             limit: Maximum number of jobs to return.
+            offset: Number of jobs to skip (pagination).
+            caller: Only list jobs this caller may access (``None`` =
+                every job).
 
         Returns:
-            Dict with jobs list and total count.
+            Dict with the page of jobs and the total count of matching
+            jobs visible to *caller*.
         """
-        jobs = await self._backend.list_jobs(status=status, limit=limit)
+        limit = max(limit, 0)
+        offset = max(offset, 0)
+        if caller is None:
+            jobs = await self._backend.list_jobs(status=status, limit=offset + limit)
+            total = await self._backend.count(status)
+        else:
+            everything = await self._backend.list_jobs(
+                status=status, limit=max(await self._backend.count(status), 1)
+            )
+            jobs = [j for j in everything if caller.can_access(j)]
+            total = len(jobs)
         return {
-            "jobs": [self._job_to_dict(j) for j in jobs],
-            "total": await self._backend.count(status),
+            "jobs": [self._job_to_dict(j) for j in jobs[offset : offset + limit]],
+            "total": total,
         }
 
     # ------------------------------------------------------------------
@@ -715,7 +1036,12 @@ class MCPQueue:
         )
 
     async def stop(self) -> None:
-        """Gracefully stop all workers."""
+        """Gracefully stop all workers.
+
+        Jobs still running are cancelled.  Jobs waiting out a retry
+        backoff are put back on the queue, so a later :meth:`start` with
+        the same backend picks them up.
+        """
         if self._shutdown_event is not None:
             self._shutdown_event.set()
         for task in self._workers:
@@ -723,6 +1049,13 @@ class MCPQueue:
         if self._workers:
             await asyncio.gather(*self._workers, return_exceptions=True)
         self._workers.clear()
+        timers, self._retry_timers = self._retry_timers, {}
+        for timer in timers.values():
+            timer.cancel()
+        if timers:
+            await asyncio.gather(*timers.values(), return_exceptions=True)
+        for job_id in timers:
+            await self._requeue(job_id)
         if self._cleanup_task is not None:
             self._cleanup_task.cancel()
             try:
@@ -758,6 +1091,8 @@ class MCPQueue:
 
     async def _execute_job(self, job: Job, *, worker_id: int) -> None:
         """Execute a single job with timeout, cancellation, and retry."""
+        if job.status is not JobStatus.PENDING:
+            return  # cancelled between dequeue and now
         job_def = self._job_defs.get(job.job_type)
         if job_def is None:
             job.status = JobStatus.FAILED
@@ -766,106 +1101,143 @@ class MCPQueue:
             await self._backend.update(job)
             return
 
+        cancel_token = CancellationToken()
+        try:
+            handler_kwargs = self._validate_args(job_def, job.args)
+        except ToolError as exc:
+            # Validated on submit; only reachable if the job record was
+            # altered in the backend.  Not transient, so never retried.
+            job.status = JobStatus.FAILED
+            job.error = str(exc)
+            job.completed_at = time.monotonic()
+            await self._backend.update(job)
+            return
+        progress = _JobProgressReporter(job, self._backend, cancel_token)
+        for pname, kind in job_def.injections:
+            handler_kwargs[pname] = progress if kind == "progress" else cancel_token
+
         # Mark running
         job.status = JobStatus.RUNNING
         job.started_at = time.monotonic()
         job.attempts += 1
-        await self._backend.update(job)
-
-        # Create cancellation token
-        cancel_token = CancellationToken()
         self._cancellation_tokens[job.id] = cancel_token
+        await self._backend.update(job)
+        if cancel_token.is_cancelled:
+            # queue_cancel ran while the RUNNING state was being saved
+            self._cancellation_tokens.pop(job.id, None)
+            return
 
-        # Create progress reporter
-        progress = _JobProgressReporter(job, self._backend)
-
+        # The handler runs in its own task so cancellation can stop it
+        # even if it never checks the token, without stopping the worker.
+        timeout = job.timeout or job_def.timeout
+        task = asyncio.create_task(
+            self._invoke_handler(job_def.handler, handler_kwargs),
+            name=f"queue-job-{job.id}",
+        )
+        self._job_tasks[job.id] = task
         try:
-            # Build kwargs for the handler
-            handler_kwargs = dict(job.args)
-
-            # Inspect handler signature for injectable types.
-            # Use typing.get_type_hints() to resolve string annotations
-            # (from ``from __future__ import annotations``).
             try:
-                resolved_hints = typing.get_type_hints(job_def.handler)
-            except Exception:
-                resolved_hints = {}
-            sig = inspect.signature(job_def.handler)
-            for pname, param in sig.parameters.items():
-                if pname in handler_kwargs:
-                    continue  # Already supplied by job args
-                ann = resolved_hints.get(pname, param.annotation)
-                # Match by type annotation
-                if ann is _JobProgressReporter or (
-                    isinstance(ann, type)
-                    and ann.__name__ in ("ProgressReporter", "_JobProgressReporter")
-                ):
-                    handler_kwargs[pname] = progress
-                elif ann is CancellationToken:
-                    handler_kwargs[pname] = cancel_token
-                # Also support Depends() markers (check default value)
-                elif hasattr(param.default, "dependency"):
-                    dep = param.default.dependency
-                    if isinstance(dep, type) and dep.__name__ in (
-                        "ProgressReporter",
-                        "_JobProgressReporter",
-                    ):
-                        handler_kwargs[pname] = progress
-                    elif dep is CancellationToken:
-                        handler_kwargs[pname] = cancel_token
+                done, _ = await asyncio.wait({task}, timeout=timeout)
+            except asyncio.CancelledError:
+                # The worker itself is being stopped (queue.stop()).
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                if not cancel_token.is_cancelled:
+                    job.status = JobStatus.CANCELLED
+                    job.error = "Queue stopped before the job finished"
+                    job.completed_at = time.monotonic()
+                    await self._backend.update(job)
+                raise
 
-            # Execute with timeout
-            timeout = job.timeout or job_def.timeout
-            result = await asyncio.wait_for(
-                self._invoke_handler(job_def.handler, handler_kwargs),
-                timeout=timeout,
-            )
-
-            # Success
-            job.status = JobStatus.COMPLETED
-            job.result = result
-            job.progress = 1.0
-            job.completed_at = time.monotonic()
-
-        except asyncio.TimeoutError:
-            job.status = JobStatus.TIMEOUT
-            job.error = f"Job timed out after {job.timeout or job_def.timeout}s"
-            job.completed_at = time.monotonic()
-            logger.warning("Job %s timed out (worker %d)", job.id, worker_id)
-
-        except CancelledError:
-            job.status = JobStatus.CANCELLED
-            job.completed_at = time.monotonic()
-            logger.info("Job %s cancelled during execution", job.id)
-
-        except Exception as exc:
-            # Check if we should retry
-            if job.attempts < job_def.max_retries + 1:
-                backoff = job_def.backoff_base * (2 ** (job.attempts - 1))
-                job.status = JobStatus.PENDING
-                job.error = f"Attempt {job.attempts} failed: {exc}. Retrying in {backoff}s."
-                await self._backend.update(job)
-                self._cancellation_tokens.pop(job.id, None)
-                await asyncio.sleep(backoff)
-                await self._backend.enqueue(job)
-                logger.info(
-                    "Job %s retry %d/%d after %.1fs",
-                    job.id,
-                    job.attempts,
-                    job_def.max_retries,
-                    backoff,
-                )
+            if cancel_token.is_cancelled:
+                # Cancelled while running: cancel() already recorded the
+                # CANCELLED state.  Whatever the handler produced is dropped.
+                if not done:
+                    task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                logger.info("Job %s stopped after cancellation; result discarded", job.id)
                 return
-            else:
-                job.status = JobStatus.FAILED
-                job.error = str(exc)
-                job.completed_at = time.monotonic()
-                logger.error("Job %s failed (worker %d): %s", job.id, worker_id, exc)
 
+            if not done:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                job.status = JobStatus.TIMEOUT
+                job.error = f"Job timed out after {timeout}s"
+                job.completed_at = time.monotonic()
+                logger.warning("Job %s timed out (worker %d)", job.id, worker_id)
+            elif task.cancelled() or isinstance(task.exception(), CancelledError):
+                job.status = JobStatus.CANCELLED
+                job.completed_at = time.monotonic()
+                logger.info("Job %s cancelled during execution", job.id)
+            elif task.exception() is not None:
+                failure = task.exception()
+                if job.attempts < job_def.max_retries + 1:
+                    if not await self._cancelled_in_backend(job):
+                        await self._schedule_retry(job, job_def, failure)
+                    return
+                job.status = JobStatus.FAILED
+                job.error = str(failure)
+                job.completed_at = time.monotonic()
+                logger.error("Job %s failed (worker %d): %s", job.id, worker_id, failure)
+            else:
+                job.status = JobStatus.COMPLETED
+                job.result = task.result()
+                job.error = None  # earlier failed attempts no longer apply
+                job.progress = 1.0
+                job.completed_at = time.monotonic()
         finally:
             self._cancellation_tokens.pop(job.id, None)
+            self._job_tasks.pop(job.id, None)
 
+        if await self._cancelled_in_backend(job):
+            return
         await self._backend.update(job)
+
+    async def _cancelled_in_backend(self, job: Job) -> bool:
+        """Whether the stored record was cancelled behind this worker's back.
+
+        With a shared backend another process can cancel a job this one is
+        running; its outcome must not overwrite that.  (With the in-memory
+        backend the record is the worker's own object, and the local
+        cancellation token already covers it.)
+        """
+        stored = await self._backend.get(job.id)
+        if stored is None or stored is job or stored.status is not JobStatus.CANCELLED:
+            return False
+        logger.info("Job %s was cancelled elsewhere; outcome discarded", job.id)
+        return True
+
+    async def _schedule_retry(self, job: Job, job_def: JobDef, exc: BaseException | None) -> None:
+        """Put a failed job back to PENDING and re-enqueue it after the backoff.
+
+        The worker returns immediately; a timer task waits out the backoff.
+        """
+        backoff = job_def.backoff_base * (2 ** (job.attempts - 1))
+        job.status = JobStatus.PENDING
+        job.error = f"Attempt {job.attempts} failed: {exc}. Retrying in {backoff}s."
+        await self._backend.update(job)
+        logger.info(
+            "Job %s retry %d/%d after %.1fs",
+            job.id,
+            job.attempts,
+            job_def.max_retries,
+            backoff,
+        )
+
+        async def _requeue_after_backoff() -> None:
+            await asyncio.sleep(backoff)
+            self._retry_timers.pop(job.id, None)
+            await self._requeue(job.id)
+
+        self._retry_timers[job.id] = asyncio.create_task(
+            _requeue_after_backoff(), name=f"queue-retry-{job.id}"
+        )
+
+    async def _requeue(self, job_id: str) -> None:
+        """Enqueue a job again if it is still pending (not cancelled meanwhile)."""
+        job = await self._backend.get(job_id)
+        if job is not None and job.status is JobStatus.PENDING:
+            await self._backend.enqueue(job)
 
     async def _invoke_handler(
         self,
@@ -893,14 +1265,8 @@ class MCPQueue:
 
     async def _cleanup_expired(self) -> None:
         """Remove terminal jobs older than result_ttl."""
-        terminal = [
-            JobStatus.COMPLETED,
-            JobStatus.FAILED,
-            JobStatus.CANCELLED,
-            JobStatus.TIMEOUT,
-        ]
         now = time.monotonic()
-        for status in terminal:
+        for status in _TERMINAL:
             jobs = await self._backend.list_jobs(status=status, limit=1000)
             for job in jobs:
                 if job.completed_at and (now - job.completed_at) > self._result_ttl:

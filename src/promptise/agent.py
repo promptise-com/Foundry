@@ -8,7 +8,7 @@ import contextvars
 import json
 import logging
 import time
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeAlias, cast
@@ -2264,6 +2264,7 @@ async def build_agent(
     cache: Any | None = None,
     approval: Any | None = None,
     events: Any | None = None,
+    on_tool_progress: Callable[[str, float, float | None, str | None], Any] | None = None,
     max_invocation_time: float = 0,
     adaptive: Any | None = None,
     context_engine: Any | None = None,
@@ -2388,6 +2389,14 @@ async def build_agent(
             ``exec_timeout`` (seconds the program may run, default 120),
             ``max_repairs`` (default 1) and ``max_tool_calls`` (default 50).
             Raises ``ValueError`` with any other pattern.
+        events: Optional :class:`~promptise.events.EventNotifier`.  Besides
+            the agent's other events, it receives a ``tool.progress`` event
+            for each progress notification an MCP tool sends.
+        on_tool_progress: Optional callback for progress notifications
+            MCP servers send while a tool call runs (``ProgressReporter``
+            on a Promptise server), called as ``(tool_name, progress,
+            total, message)``; sync or async.  Progress is requested from
+            servers only when this, ``events`` or ``trace_tools`` is set.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -2477,6 +2486,24 @@ async def build_agent(
                 },
             )
 
+    def _progress(name: str, progress: float, total: float | None, message: str | None) -> Any:
+        if trace_tools:
+            of_total = f"/{total:g}" if total is not None else ""
+            print(f"… {name} progress {progress:g}{of_total}" + (f": {message}" if message else ""))
+        if events is not None:
+            from .events import emit_event
+
+            emit_event(
+                events,
+                "tool.progress",
+                "info",
+                {"tool_name": name, "progress": progress, "total": total, "message": message},
+                agent_id=_obs_aid,
+            )
+        if on_tool_progress is not None:
+            return on_tool_progress(name, progress, total, message)
+        return None
+
     def _error(name: str, exc: Exception) -> None:
         if trace_tools:
             print(f"✖ {name} error: {exc}")
@@ -2535,6 +2562,8 @@ async def build_agent(
         _cb_before = _before if _enable_callbacks else None
         _cb_after = _after if _enable_callbacks else None
         _cb_error = _error if _enable_callbacks else None
+        _wants_progress = trace_tools or events is not None or on_tool_progress is not None
+        _cb_progress = _progress if _wants_progress else None
 
         from .mcp.client import MCPClient, MCPMultiClient, MCPToolAdapter
 
@@ -2621,6 +2650,7 @@ async def build_agent(
             on_error=_cb_error,
             optimize=_opt_config,
             forward_caller_token=forward_to,
+            on_progress=_cb_progress,
         )
         try:
             discovered = await adapter.as_langchain_tools()

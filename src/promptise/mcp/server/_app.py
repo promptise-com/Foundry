@@ -84,6 +84,10 @@ class MCPServer:
             other middleware (not ``AuthMiddleware`` or its
             ``on_authenticate`` hook) cannot be evaluated at list time and
             hide their tool.
+        cancel_grace_period: When a client cancels a call to a tool that
+            takes a ``CancellationToken``, the token is set and the handler
+            gets this many seconds to stop on its own before its task is
+            cancelled.  The client is answered immediately either way.
     """
 
     def __init__(
@@ -97,6 +101,7 @@ class MCPServer:
         require_auth: bool = False,
         require_tenant: bool = False,
         hide_unauthorized_tools: bool = False,
+        cancel_grace_period: float = 5.0,
     ) -> None:
         self.name = name
         self.version = version
@@ -105,6 +110,12 @@ class MCPServer:
         self._require_auth = require_auth or require_tenant
         self._require_tenant = require_tenant
         self._hide_unauthorized_tools = hide_unauthorized_tools
+        self._cancel_grace_period = cancel_grace_period
+
+        # BackgroundTasks run after the response is sent, in tasks tracked
+        # here so shutdown can let them finish.
+        self._background_runs: set[asyncio.Task[None]] = set()
+        self._background_drain_registered = False
 
         self._tool_registry = ToolRegistry()
         self._resource_registry = ResourceRegistry()
@@ -728,6 +739,12 @@ class MCPServer:
             except ValueError:
                 pass  # Already registered (e.g. run_async called twice)
 
+        # Registered at build time, after the user's hooks, so it runs
+        # first on shutdown: background tasks finish before resources close.
+        if not self._background_drain_registered:
+            self._lifecycle.add_shutdown(self._drain_background_tasks)
+            self._background_drain_registered = True
+
         ll = LowLevelServer(self.name, self.version, instructions=self.instructions)
         self._register_tool_handlers(ll)
         self._register_resource_handlers(ll)
@@ -1053,15 +1070,24 @@ class MCPServer:
                 # Use pre-compiled middleware chain (avoids per-request
                 # closure construction)
                 chain_fn = _compiled_chains.get(name, _default_chain)
-                result = await chain_fn(ctx, effective_handler, arguments)
+                cancel_token = ctx.state.get("_cancellation_token")
+                if cancel_token is None:
+                    result = await chain_fn(ctx, effective_handler, arguments)
+                else:
+                    result = await _run_cancellable(
+                        chain_fn(ctx, effective_handler, arguments),
+                        cancel_token,
+                        grace_period=self._cancel_grace_period,
+                    )
 
                 # Serialise result
                 serialised = _serialise_result(result)
 
-                # Run background tasks (fire-and-forget, errors logged)
+                # Background tasks run after the response is sent — never
+                # while the client waits (errors are logged, not returned).
                 bg = ctx.state.get("_background_tasks")
-                if bg is not None:
-                    await bg.execute()
+                if bg is not None and bg.pending:
+                    self._run_background(bg)
 
                 return serialised
 
@@ -1092,6 +1118,28 @@ class MCPServer:
             finally:
                 await di_resolver.cleanup()
                 clear_context()
+
+    def _run_background(self, bg: Any) -> None:
+        """Run a request's ``BackgroundTasks`` in their own task.
+
+        The task inherits the request's context (``get_context()`` still
+        works in it) and starts once the handler has returned, so the
+        response is not held back.
+        """
+
+        async def _after_response() -> None:
+            await asyncio.sleep(0)  # let the response go out first
+            await bg.execute()
+
+        task = asyncio.create_task(_after_response(), name=f"{self.name}-background-tasks")
+        self._background_runs.add(task)
+        task.add_done_callback(self._background_runs.discard)
+
+    async def _drain_background_tasks(self) -> None:
+        """Shutdown hook: wait for background tasks still running."""
+        if self._background_runs:
+            logger.info("Waiting for %d background task run(s)", len(self._background_runs))
+            await asyncio.gather(*self._background_runs, return_exceptions=True)
 
     def _register_resource_handlers(self, ll: LowLevelServer) -> None:
         res_reg = self._resource_registry
@@ -1368,3 +1416,32 @@ def _prompt_to_mcp_def(p: Any, *, version: str | None = None) -> PromptDef:
         handler=handler,
         arguments=arguments,
     )
+
+
+async def _run_cancellable(work: Any, token: Any, *, grace_period: float) -> Any:
+    """Await a tool call so that MCP cancellation reaches its ``CancellationToken``.
+
+    When the client sends ``notifications/cancelled``, the MCP SDK cancels
+    the request's task.  The call runs in a child task instead, so on that
+    cancellation the token is set first and the handler gets
+    *grace_period* seconds to stop on its own (``cancel.check()``,
+    ``cancel.wait()``) before its task is cancelled too.  The cancellation
+    is then re-raised: the SDK has already answered the client.
+    """
+    import anyio
+
+    task = asyncio.ensure_future(work)
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        token.cancel(reason="Request cancelled by the client")
+        # Shielded: the request's cancel scope would otherwise interrupt
+        # the grace period immediately.
+        with anyio.CancelScope(shield=True):
+            done, _ = await asyncio.wait({task}, timeout=grace_period)
+            if not done:
+                task.cancel()
+                await asyncio.wait({task})
+        if not task.cancelled() and task.exception() is not None:
+            logger.debug("Cancelled tool call ended with %r", task.exception())
+        raise

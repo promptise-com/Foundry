@@ -295,7 +295,13 @@ async def create_employee(
     return {"id": emp_id, "name": name, "status": "created"}
 ```
 
-Background tasks run sequentially after the tool response is sent. If a task raises an exception, it's logged but remaining tasks still run.
+Background tasks start once the handler has returned, in a task of their own, so the client gets its response right away -- it never waits for the email. They run sequentially; if one raises, the error is logged (never sent to the client) and the remaining tasks still run.
+
+- **Request context:** `get_context()` still works inside a background task and returns the request that scheduled it.
+- **Dependencies:** dependencies with cleanup (`yield`) are closed when the call returns, before background tasks run. Pass background tasks plain values, not a request-scoped database session.
+- **Shutdown:** on graceful shutdown the server waits for background tasks still running (bounded by `shutdown_timeout`) before running your shutdown hooks.
+- **Not durable:** they live in the server process; a crash or restart drops them. Use [MCPQueue](queue.md) for work that must be tracked, retried or polled.
+- **Tests:** `TestClient` runs background tasks before `call_tool` returns, so a test can assert on their effects directly.
 
 ---
 
@@ -401,6 +407,42 @@ Progress notifications are sent via MCP's `notifications/progress`. The client r
 
 If the client doesn't support progress (no `progressToken` in the request), the `report()` calls are silently ignored.
 
+### Receiving progress in a Promptise client or agent
+
+A client asks for progress per call. With `MCPClient`, pass a `progress_callback`; it is awaited for every notification the server sends for that call:
+
+```python
+from promptise.mcp.client import MCPClient
+
+async def on_progress(progress: float, total: float | None, message: str | None) -> None:
+    print(f"{progress}/{total}: {message}")
+
+async with MCPClient(url="http://localhost:8080/mcp") as client:
+    result = await client.call_tool(
+        "process_dataset",
+        {"dataset_url": "s3://bucket/sales.csv"},
+        progress_callback=on_progress,
+    )
+```
+
+`MCPMultiClient.call_tool()` takes the same argument. Agents get it through `build_agent`:
+
+```python
+from promptise import build_agent
+from promptise.config import HTTPServerSpec
+
+def on_tool_progress(tool_name: str, progress: float, total: float | None, message: str | None):
+    print(f"[{tool_name}] {progress}/{total} {message or ''}")
+
+agent = await build_agent(
+    servers={"pipeline": HTTPServerSpec(url="http://localhost:8080/mcp")},
+    model="openai:gpt-5-mini",
+    on_tool_progress=on_tool_progress,  # sync or async
+)
+```
+
+With `events=EventNotifier(...)`, each notification is also emitted as a `tool.progress` event (`data`: `tool_name`, `progress`, `total`, `message`), and `trace_tools=True` prints it. A client only sends a progress token when one of these is set, so servers don't send progress nobody reads.
+
 ---
 
 ## Cancellation
@@ -427,6 +469,18 @@ async def long_running_task(
         cancel.check()  # Raises CancelledError if cancelled
         results.extend(await process_chunk(chunk))
     return {"processed": len(results)}
+```
+
+When the client cancels the call (an MCP `notifications/cancelled` for its request id), the client is answered `Request cancelled` straight away, and the server:
+
+1. sets the token (`cancel.is_cancelled` is `True`, `cancel.reason` is `"Request cancelled by the client"` -- the MCP SDK doesn't pass on the client's own reason),
+2. gives the handler `cancel_grace_period` seconds (default 5) to stop on its own -- `cancel.check()` raises, `cancel.wait()` returns `True`,
+3. then cancels the handler's task if it is still running.
+
+Whatever the handler returns after the cancellation is discarded. Tools that don't take a `CancellationToken` are cancelled immediately, as before. Tune or disable the grace period per server:
+
+```python
+server = MCPServer(name="data-pipeline", cancel_grace_period=1.0)  # 0 = cancel the task right away
 ```
 
 You can also wait for cancellation with a timeout:

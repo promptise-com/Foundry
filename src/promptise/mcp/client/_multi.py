@@ -22,6 +22,7 @@ from ._client import (
 
 if TYPE_CHECKING:
     from mcp.client.session import ElicitationFnT
+    from mcp.shared.session import ProgressFnT
 
 logger = logging.getLogger("promptise.mcp.client")
 
@@ -188,6 +189,7 @@ class MCPMultiClient:
         arguments: dict[str, Any] | None = None,
         *,
         bearer_token: str | None = None,
+        progress_callback: ProgressFnT | None = None,
     ) -> CallToolResult:
         """Call a tool, automatically routing to the correct server.
 
@@ -198,6 +200,8 @@ class MCPMultiClient:
                 instead of the server's configured credentials, over a
                 session dedicated to this token.  Ignored (with a one-time
                 warning) for stdio servers.
+            progress_callback: Receives the call's progress notifications;
+                see :meth:`MCPClient.call_tool`.
 
         Returns:
             MCP ``CallToolResult``.
@@ -214,7 +218,9 @@ class MCPMultiClient:
         client = self._clients[server_name]
         if bearer_token:
             if client.supports_bearer_token:
-                return await self._call_as(server_name, client, bearer_token, name, arguments)
+                return await self._call_as(
+                    server_name, client, bearer_token, name, arguments, progress_callback
+                )
             if server_name not in self._warned_no_headers:
                 self._warned_no_headers.add(server_name)
                 logger.warning(
@@ -225,6 +231,8 @@ class MCPMultiClient:
                     client.transport,
                 )
         try:
+            if progress_callback is not None:
+                return await client.call_tool(name, arguments, progress_callback=progress_callback)
             return await client.call_tool(name, arguments)
         except MCPClientError:
             # Invalidate stale tool mapping on connection failure —
@@ -239,12 +247,17 @@ class MCPMultiClient:
         bearer_token: str,
         name: str,
         arguments: dict[str, Any] | None,
+        progress_callback: ProgressFnT | None = None,
     ) -> CallToolResult:
         """Call *name* over the session that authenticates as *bearer_token*."""
         if not self._connected:
             raise MCPClientError("Not connected. Use 'async with multi:'")
         try:
             async with self._caller_sessions.lease(server_name, client, bearer_token) as session:
+                if progress_callback is not None:
+                    return await session.call_tool(
+                        name, arguments, progress_callback=progress_callback
+                    )
                 return await session.call_tool(name, arguments)
         except MCPConnectionRejectedError as exc:
             raise exc.for_server(server_name) from exc.__cause__

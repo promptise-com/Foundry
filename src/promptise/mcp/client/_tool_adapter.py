@@ -10,6 +10,8 @@ Uses the Promptise MCP Client for tool discovery and invocation.
 from __future__ import annotations
 
 import contextlib
+import inspect
+import logging
 from collections.abc import Callable, Collection
 from typing import Any
 
@@ -21,10 +23,14 @@ from ...tools import ToolInfo, _jsonschema_to_pydantic
 from ._client import MCPClientError
 from ._multi import MCPMultiClient
 
+logger = logging.getLogger("promptise.mcp.client")
+
 # Callback types
 OnBefore = Callable[[str, dict[str, Any]], None]
 OnAfter = Callable[[str, Any], None]
 OnError = Callable[[str, Exception], None]
+# (tool_name, progress, total, message); may return an awaitable
+OnProgress = Callable[[str, float, "float | None", "str | None"], Any]
 
 
 def _extract_text(result: CallToolResult) -> str:
@@ -66,6 +72,7 @@ class _PromptiseMCPTool(BaseTool):
     _on_after: OnAfter | None = PrivateAttr(default=None)
     _on_error: OnError | None = PrivateAttr(default=None)
     _forward_caller_token: bool = PrivateAttr(default=False)
+    _on_progress: OnProgress | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -79,6 +86,7 @@ class _PromptiseMCPTool(BaseTool):
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
         forward_caller_token: bool = False,
+        on_progress: OnProgress | None = None,
     ) -> None:
         super().__init__(name=name, description=description, args_schema=args_schema)
         self._tool_name = tool_name
@@ -87,6 +95,7 @@ class _PromptiseMCPTool(BaseTool):
         self._on_after = on_after
         self._on_error = on_error
         self._forward_caller_token = forward_caller_token
+        self._on_progress = on_progress
 
     def _caller_token(self) -> str | None:
         """The current caller's bearer token, when this tool forwards it."""
@@ -97,6 +106,19 @@ class _PromptiseMCPTool(BaseTool):
         caller = get_current_caller()
         return caller.bearer_token if caller is not None and caller.bearer_token else None
 
+    async def _report_progress(
+        self, progress: float, total: float | None, message: str | None
+    ) -> None:
+        """Forward one progress notification to ``on_progress`` (errors logged)."""
+        if self._on_progress is None:
+            return
+        try:
+            result = self._on_progress(self.name, progress, total, message)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.warning("on_progress callback failed for tool '%s'", self.name, exc_info=True)
+
     async def _arun(self, **kwargs: Any) -> Any:
         """Execute the MCP tool via the persistent multi-client."""
         if self._on_before:
@@ -105,7 +127,12 @@ class _PromptiseMCPTool(BaseTool):
 
         try:
             result = await self._multi.call_tool(
-                self._tool_name, kwargs, bearer_token=self._caller_token()
+                self._tool_name,
+                kwargs,
+                bearer_token=self._caller_token(),
+                progress_callback=(
+                    self._report_progress if self._on_progress is not None else None
+                ),
             )
         except Exception as exc:
             if self._on_error:
@@ -145,6 +172,10 @@ class MCPToolAdapter:
             credentials: ``True`` for every server, ``False`` for none
             (default), or a collection of server names.  stdio servers
             cannot receive it (see :meth:`MCPMultiClient.call_tool`).
+        on_progress: Callback fired for each progress notification a
+            server sends during a tool call, as ``(tool_name, progress,
+            total, message)``.  May be sync or async.  When ``None``, no
+            progress is requested from servers.
 
     Example::
 
@@ -164,12 +195,14 @@ class MCPToolAdapter:
         on_error: OnError | None = None,
         optimize: Any | None = None,
         forward_caller_token: bool | Collection[str] = False,
+        on_progress: OnProgress | None = None,
     ) -> None:
         self._multi = multi
         self._forward_caller_token = forward_caller_token
         self._on_before = on_before
         self._on_after = on_after
         self._on_error = on_error
+        self._on_progress = on_progress
         self._optimize = optimize
 
     async def as_langchain_tools(self) -> list[BaseTool]:
@@ -234,6 +267,7 @@ class MCPToolAdapter:
                     on_after=self._on_after,
                     on_error=self._on_error,
                     forward_caller_token=forward,
+                    on_progress=self._on_progress,
                 )
             )
 

@@ -485,12 +485,13 @@ class TestEngineToolSelector:
 class _FakeMulti:
     def __init__(self, tools: list[Tool]) -> None:
         self._tools = tools
+        self.tool_to_server: dict[str, str] = {}
         self.called: list[tuple[str, dict[str, Any]]] = []
 
     async def list_tools(self) -> list[Tool]:
         return self._tools
 
-    async def call_tool(self, name: str, args: dict[str, Any]) -> Any:
+    async def call_tool(self, name: str, args: dict[str, Any], **_: Any) -> Any:
         self.called.append((name, args))
         return type("R", (), {"content": []})()
 

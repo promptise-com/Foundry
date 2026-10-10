@@ -92,6 +92,7 @@ server = MCPServer(name="api", require_tenant=True)  # implies require_auth
 | Result caching | `CacheMiddleware` and `@cached` key every entry on the caller (issuer, tenant and client id) by default, so a result computed for one tenant is never served to another. Widen with `scope="tenant"` or `scope="shared"` only for data that does not depend on the caller — see [Caching](caching-performance.md#who-shares-a-cached-result) |
 | Tool access | `RequireTenant` / `HasTenant` guards, or the server-wide `require_tenant` invariant |
 | Tool listing | Every tool is listed to every client unless you build the server with `hide_unauthorized_tools=True` — see below |
+| Job queue | `MCPQueue` jobs record the submitting client and tenant; `queue_status`, `queue_result`, `queue_cancel` and `queue_list` only show a caller its own jobs, and the admin role widens that to its own tenant only ([Job ownership](queue.md#job-ownership)) |
 
 `SessionState` needs no tenant prefix: it is keyed by the live transport
 session, which is connection-scoped and therefore cannot be shared across
