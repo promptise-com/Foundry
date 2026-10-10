@@ -5,24 +5,32 @@ configuration files, including cross-agent reference resolution with cycle detec
 
 The loader supports:
 - Auto-detection of file format by extension (.superagent, .superagent.yaml, .superagent.yml)
-- Environment variable resolution using ${VAR} and ${VAR:-default} syntax
+- Environment variable resolution using ${VAR} and ${VAR:-default} syntax,
+  after loading the nearest ``.env`` file exactly like the ``promptise`` CLI
 - Cross-agent file reference resolution with circular reference detection
-- Path resolution relative to config file location
+- Path resolution relative to config file location (cross-agent files, and a
+  stdio server's working directory and relative command)
 - Conversion to Foundry native types (ServerSpec, model strings, etc.)
+- Building a whole team (an agent and every cross-agent it references, at any
+  depth) in one event loop with :func:`build_superagent`
 """
 
 from __future__ import annotations
 
+import warnings
+from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 from pydantic import ValidationError
 
 from .config import HTTPServerSpec, ServerSpec, StdioServerSpec
+from .cross_agent import DEFAULT_MAX_DELEGATION_DEPTH
 from .env_resolver import resolve_env_in_dict, validate_all_env_vars_available
 from .exceptions import SuperAgentError, SuperAgentValidationError
 from .superagent_schema import (
+    CrossAgentConfig,
     HTTPServerConfig,
     IdentityConfig,
     StdioServerConfig,
@@ -30,7 +38,19 @@ from .superagent_schema import (
 )
 
 if TYPE_CHECKING:
+    from .agent import PromptiseAgent
+    from .cross_agent import CrossAgent
     from .identity import AgentIdentity
+
+
+def _load_dotenv() -> None:
+    """Load ``.env`` with the CLI's rule (working directory upward, never overriding)."""
+    from .models import ModelSetupError, load_dotenv_if_present
+
+    try:
+        load_dotenv_if_present()
+    except ModelSetupError as exc:
+        raise SuperAgentError(str(exc)) from exc
 
 
 class SuperAgentLoader:
@@ -51,6 +71,8 @@ class SuperAgentLoader:
         file_path: Resolved absolute path to the .superagent file.
         schema: Parsed and validated SuperAgentSchema.
         resolved_schema: Schema with environment variables resolved (after resolve_env_vars()).
+        cross_loaders: Loaders of the referenced cross-agent files (after
+            resolve_cross_agents()), each with its own ``cross_loaders``.
 
     Examples:
         >>> loader = SuperAgentLoader.from_file("agent.superagent")
@@ -76,6 +98,7 @@ class SuperAgentLoader:
         self.schema = schema
         self._loading_chain = _loading_chain or {self.file_path}
         self.resolved_schema: SuperAgentSchema | None = None
+        self.cross_loaders: dict[str, SuperAgentLoader] | None = None
 
     @classmethod
     def from_file(
@@ -166,9 +189,13 @@ class SuperAgentLoader:
     def validate_env_vars(self) -> list[str]:
         """Check for missing environment variables.
 
-        Scans the schema for ${VAR} references and checks if each variable
-        is set in the environment. Variables with defaults (${VAR:-default})
-        are not reported as missing.
+        Loads the nearest ``.env`` file first — the same file, with the same
+        rule, as the ``promptise`` CLI: the working directory or a parent up
+        to the project root, never overriding a variable that is already
+        set, skipped when ``PROMPTISE_NO_DOTENV=1``. Then scans the schema
+        for ${VAR} references and checks if each variable is set in the
+        environment. Variables with defaults (${VAR:-default}) are not
+        reported as missing.
 
         Returns:
             List of missing environment variable names (empty if all available).
@@ -179,6 +206,7 @@ class SuperAgentLoader:
             >>> if missing:
             ...     print(f"Missing: {', '.join(missing)}")
         """
+        _load_dotenv()
         return validate_all_env_vars_available(self.schema.model_dump())
 
     def resolve_env_vars(self) -> SuperAgentLoader:
@@ -226,14 +254,21 @@ class SuperAgentLoader:
         self,
         *,
         recursive: bool = True,
+        resolve_env: bool = True,
     ) -> dict[str, SuperAgentLoader]:
         """Load and resolve cross-agent references.
 
         Loads .superagent files referenced in the cross_agents section,
-        with circular reference detection.
+        with circular reference detection. The result is also stored in
+        :attr:`cross_loaders`, and — when *recursive* — every loaded file's
+        own references in its ``cross_loaders``, so the whole team is
+        reachable from this loader.
 
         Args:
             recursive: If True, recursively load cross-agents of cross-agents.
+            resolve_env: If True, resolve each loaded file's environment
+                variables (raising if one is missing). ``promptise validate``
+                passes False to report missing variables instead.
 
         Returns:
             Mapping of cross-agent name to loaded SuperAgentLoader.
@@ -248,6 +283,7 @@ class SuperAgentLoader:
             ...     print(f"Loaded cross-agent: {name}")
         """
         if not self.schema.cross_agents:
+            self.cross_loaders = {}
             return {}
 
         cross_loaders: dict[str, SuperAgentLoader] = {}
@@ -271,10 +307,11 @@ class SuperAgentLoader:
                     _loading_chain=new_chain,
                 )
 
-                if recursive:
+                if resolve_env:
                     cross_loader.resolve_env_vars()
+                if recursive:
                     # Recursively resolve its cross-agents too
-                    cross_loader.resolve_cross_agents(recursive=True)
+                    cross_loader.resolve_cross_agents(recursive=True, resolve_env=resolve_env)
 
                 cross_loaders[name] = cross_loader
 
@@ -283,6 +320,7 @@ class SuperAgentLoader:
                     f"Failed to load cross-agent '{name}' from {ref_path}: {exc}"
                 ) from exc
 
+        self.cross_loaders = cross_loaders
         return cross_loaders
 
     def to_server_specs(self) -> dict[str, ServerSpec]:
@@ -290,6 +328,12 @@ class SuperAgentLoader:
 
         Converts the parsed YAML server configs to Foundry's native
         ServerSpec types (HTTPServerSpec and StdioServerSpec).
+
+        Paths in a stdio server are relative to the file's folder, not the
+        working directory: the server starts in the file's folder unless
+        ``cwd:`` says otherwise (a relative ``cwd:`` is resolved against the
+        file's folder too), and a relative ``command:`` that contains a path
+        separator (``./bin/server``) is resolved against the file's folder.
 
         Returns:
             Mapping of server name to ServerSpec.
@@ -305,22 +349,44 @@ class SuperAgentLoader:
 
         for name, config in schema.servers.items():
             if isinstance(config, HTTPServerConfig):
-                specs[name] = HTTPServerSpec(
-                    url=config.url,
-                    transport=config.transport,
-                    headers=config.headers,
-                    auth=config.auth,
+                specs[name] = HTTPServerSpec.model_validate(
+                    {
+                        "url": config.url,
+                        "transport": config.transport,
+                        "headers": config.headers,
+                        "bearer_token": config.bearer_token,
+                        "api_key": config.api_key,
+                        "audience": config.audience,
+                    }
                 )
             elif isinstance(config, StdioServerConfig):
                 specs[name] = StdioServerSpec(
-                    command=config.command,
+                    command=self._resolve_command(config.command),
                     args=config.args,
                     env=config.env,
-                    cwd=config.cwd,
+                    cwd=self._resolve_cwd(config.cwd),
                     keep_alive=config.keep_alive,
                 )
 
         return specs
+
+    def _resolve_cwd(self, cwd: str | None) -> str:
+        """The server's working directory: the file's folder, or *cwd* relative to it."""
+        base = self.file_path.parent
+        if cwd is None:
+            return str(base)
+        path = Path(cwd).expanduser()
+        return str(path if path.is_absolute() else (base / path).resolve())
+
+    def _resolve_command(self, command: str) -> str:
+        """Resolve a relative command path (``./bin/server``) against the file's folder.
+
+        A bare name (``python``, ``npx``) is looked up on ``PATH`` as usual.
+        """
+        if "/" not in command and "\\" not in command:
+            return command
+        path = Path(command).expanduser()
+        return str(path if path.is_absolute() else (self.file_path.parent / path).resolve())
 
     def to_model_string(self) -> str:
         """Convert model configuration to LangChain init string.
@@ -465,6 +531,9 @@ class SuperAgentLoader:
             trace=schema.agent.trace,
             identity=self.to_identity(),
             cross_agents=schema.cross_agents or {},
+            max_delegation_depth=schema.max_delegation_depth,
+            delegation_timeout=schema.delegation_timeout,
+            include_broadcast=schema.include_broadcast,
             sandbox=sandbox_config,
             memory=memory_config,
             observe=observe_config,
@@ -501,7 +570,11 @@ class SuperAgentConfig:
         servers: Mapping of server name to ServerSpec.
         instructions: Optional system prompt override.
         trace: Enable tool tracing.
-        cross_agents: Raw cross-agent configs (resolved separately).
+        cross_agents: Cross-agent references (``CrossAgentConfig``), built
+            into agents by :func:`build_superagent`.
+        max_delegation_depth: Nested-delegation limit passed to build_agent.
+        delegation_timeout: Default seconds to wait for a cross-agent.
+        include_broadcast: Add the ``broadcast_to_agents`` tool.
         sandbox: Optional sandbox configuration (bool or dict).
 
     Examples:
@@ -522,7 +595,10 @@ class SuperAgentConfig:
         instructions: str | None = None,
         trace: bool = True,
         identity: AgentIdentity | None = None,
-        cross_agents: dict[str, Any] | None = None,
+        cross_agents: dict[str, CrossAgentConfig] | None = None,
+        max_delegation_depth: int = DEFAULT_MAX_DELEGATION_DEPTH,
+        delegation_timeout: float | None = None,
+        include_broadcast: bool = False,
         sandbox: bool | dict[str, Any] | None = None,
         memory: dict[str, Any] | None = None,
         observe: bool | dict[str, Any] | None = None,
@@ -542,7 +618,10 @@ class SuperAgentConfig:
             servers: Mapping of server name to ServerSpec.
             instructions: Optional system prompt.
             trace: Enable tool tracing.
-            cross_agents: Cross-agent configuration dict.
+            cross_agents: Cross-agent references from the file.
+            max_delegation_depth: Nested-delegation limit.
+            delegation_timeout: Default seconds to wait for a cross-agent.
+            include_broadcast: Add the ``broadcast_to_agents`` tool.
             sandbox: Optional sandbox configuration (bool or dict).
             memory: Optional memory configuration dict.
             observe: Optional observability config (bool or dict).
@@ -556,6 +635,9 @@ class SuperAgentConfig:
         self.trace = trace
         self.identity = identity
         self.cross_agents = cross_agents or {}
+        self.max_delegation_depth = max_delegation_depth
+        self.delegation_timeout = delegation_timeout
+        self.include_broadcast = include_broadcast
         self.sandbox = sandbox
         self.memory = memory
         self.observe = observe
@@ -567,20 +649,28 @@ class SuperAgentConfig:
         self.guardrails = guardrails
         self.max_invocation_time = max_invocation_time
 
-    def to_build_kwargs(self) -> dict[str, Any]:
+    def to_build_kwargs(
+        self, *, cross_agents: Mapping[str, CrossAgent] | None = None
+    ) -> dict[str, Any]:
         """Convert to kwargs dict for build_agent().
+
+        Args:
+            cross_agents: The built peer agents for this file's
+                ``cross_agents:`` section. A cross-agent is an agent of its
+                own, so it cannot be built here; :func:`build_superagent`
+                builds the whole team and passes them in. When the file
+                declares cross-agents and none are given, a ``UserWarning``
+                says so and the agent is built without them.
 
         Returns:
             Dict ready to unpack: build_agent(**config.to_build_kwargs())
-
-        Note:
-            cross_agents needs special handling to build actual CrossAgent
-            objects - see CLI integration for example.
 
         Examples:
             >>> config = loader.to_agent_config()
             >>> kwargs = config.to_build_kwargs()
             >>> agent = await build_agent(**kwargs)
+            >>> # A file with cross_agents: build the whole team instead
+            >>> agent = await build_superagent("coordinator.superagent")
         """
         # When model_kwargs are present (temperature, max_tokens, etc.),
         # create an actual model instance so these params take effect.
@@ -590,14 +680,27 @@ class SuperAgentConfig:
 
             model = resolve_model(self.model, **self.model_kwargs)
 
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "model": model,
             "servers": self.servers,
             "instructions": self.instructions,
             "trace_tools": self.trace,
-            # Note: cross_agents needs special handling to build actual
-            # CrossAgent objects - see CLI integration
+            "max_delegation_depth": self.max_delegation_depth,
+            "delegation_timeout": self.delegation_timeout,
+            "include_broadcast": self.include_broadcast,
         }
+
+        if cross_agents is not None:
+            kwargs["cross_agents"] = cross_agents
+        elif self.cross_agents:
+            warnings.warn(
+                f"This file declares cross_agents ({', '.join(self.cross_agents)}), which "
+                "to_build_kwargs() cannot build: each is an agent of its own. Use "
+                "`await build_superagent(path)` to build the whole team, or pass "
+                "to_build_kwargs(cross_agents=...). Building without them.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         if self.identity is not None:
             kwargs["identity"] = self.identity
@@ -632,12 +735,15 @@ class SuperAgentConfig:
             handler_type = approval_data.pop("handler", "webhook")
             tools = approval_data.pop("tools")
             webhook_url = approval_data.pop("webhook_url", None)
+            webhook_secret = approval_data.pop("webhook_secret", None)
 
+            # ApprovalSection rejects the other combinations when the file is
+            # loaded; these checks cover a SuperAgentConfig built by hand.
             handler: WebhookApprovalHandler | QueueApprovalHandler
             if handler_type == "webhook":
                 if not webhook_url:
                     raise ValueError("approval.webhook_url required when handler is 'webhook'")
-                handler = WebhookApprovalHandler(url=webhook_url)
+                handler = WebhookApprovalHandler(url=webhook_url, secret=webhook_secret)
             elif handler_type == "queue":
                 handler = QueueApprovalHandler()
             else:
@@ -719,15 +825,17 @@ def load_superagent_file(
 ) -> tuple[SuperAgentLoader, dict[str, SuperAgentLoader]]:
     """Convenience function to load a .superagent file with all resolutions.
 
-    Loads the file, resolves environment variables, and optionally resolves
-    cross-agent references in a single call.
+    Loads the file, resolves environment variables (after loading the
+    nearest ``.env`` file, like the ``promptise`` CLI), and optionally
+    resolves cross-agent references — at every depth — in a single call.
 
     Args:
         file_path: Path to .superagent file.
         resolve_refs: If True, resolve cross-agent references.
 
     Returns:
-        Tuple of (main_loader, cross_agent_loaders).
+        Tuple of (main_loader, cross_agent_loaders). The cross-agent loaders
+        carry their own references in ``cross_loaders``.
 
     Raises:
         SuperAgentError: If loading or validation fails.
@@ -735,7 +843,7 @@ def load_superagent_file(
     Examples:
         >>> main, cross_agents = load_superagent_file("agent.superagent")
         >>> config = main.to_agent_config()
-        >>> # Build the agent
+        >>> # Build the agent (a file with cross_agents: use build_superagent)
         >>> agent = await build_agent(**config.to_build_kwargs())
     """
     loader = SuperAgentLoader.from_file(file_path)
@@ -746,3 +854,118 @@ def load_superagent_file(
         cross_loaders = loader.resolve_cross_agents(recursive=True)
 
     return loader, cross_loaders
+
+
+async def build_superagent(
+    source: str | Path | SuperAgentLoader,
+    *,
+    model: str | None = None,
+    instructions: str | None = None,
+    trace: bool | None = None,
+    extra_servers: Mapping[str, ServerSpec] | None = None,
+) -> PromptiseAgent:
+    """Build the agent in a ``.superagent`` file together with its whole team.
+
+    Every agent referenced under ``cross_agents:`` — and every agent *they*
+    reference, at any depth — is built with all of its own file's settings
+    (servers, approval, memory, guardrails, its own cross-agents, …) and
+    attached as a :class:`~promptise.cross_agent.CrossAgent` with the
+    reference's ``description`` and ``timeout``. Everything is built in the
+    running event loop, so stdio MCP sessions stay usable: build, use and
+    shut down the team in the same task (one ``asyncio.run``).
+
+    ``await agent.shutdown()`` on the returned agent shuts down the whole
+    team. If one agent fails to build, the ones already built are shut
+    down before the error is raised.
+
+    Args:
+        source: Path to the ``.superagent`` file, or a
+            :class:`SuperAgentLoader` (its environment variables and
+            cross-agent references are resolved if that has not happened).
+        model: Override the top agent's model (cross-agents keep theirs).
+        instructions: Override the top agent's instructions.
+        trace: Override the top agent's ``trace`` setting.
+        extra_servers: More MCP servers for the top agent.
+
+    Returns:
+        The top agent, a :class:`~promptise.agent.PromptiseAgent`.
+
+    Raises:
+        SuperAgentError: If a file cannot be loaded, or a cross-agent fails
+            to build (the message names the file).
+
+    Examples:
+        >>> agent = await build_superagent("coordinator.superagent")
+        >>> try:
+        ...     result = await agent.ainvoke({"messages": [{"role": "user", "content": "Hi"}]})
+        ... finally:
+        ...     await agent.shutdown()  # the coordinator and every specialist
+    """
+    if isinstance(source, SuperAgentLoader):
+        loader = source
+    else:
+        loader = SuperAgentLoader.from_file(source)
+    return await _build_team(
+        loader,
+        model=model,
+        instructions=instructions,
+        trace=trace,
+        extra_servers=extra_servers,
+    )
+
+
+async def _build_team(
+    loader: SuperAgentLoader,
+    *,
+    model: str | None = None,
+    instructions: str | None = None,
+    trace: bool | None = None,
+    extra_servers: Mapping[str, ServerSpec] | None = None,
+) -> PromptiseAgent:
+    from .agent import build_agent
+    from .cross_agent import CrossAgent
+
+    if loader.resolved_schema is None:
+        loader.resolve_env_vars()
+    if loader.cross_loaders is None:
+        loader.resolve_cross_agents(recursive=True)
+    children = loader.cross_loaders or {}
+
+    config = loader.to_agent_config()
+    if model is not None:
+        config.model = model
+    if instructions is not None:
+        config.instructions = instructions
+    if trace is not None:
+        config.trace = trace
+    if extra_servers:
+        config.servers = {**config.servers, **extra_servers}
+
+    built: list[PromptiseAgent] = []
+    peers: dict[str, CrossAgent] = {}
+    try:
+        for name, child in children.items():
+            try:
+                peer = await _build_team(child)
+            except SuperAgentError:
+                raise
+            except Exception as exc:
+                raise SuperAgentError(
+                    f"Failed to build cross-agent '{name}' from {child.file_path}: {exc}"
+                ) from exc
+            built.append(peer)
+            ref = config.cross_agents[name]
+            # PromptiseAgent is duck-typed as a Runnable (has ainvoke/astream).
+            peers[name] = CrossAgent(
+                agent=cast(Any, peer), description=ref.description, timeout=ref.timeout
+            )
+        agent = await build_agent(**config.to_build_kwargs(cross_agents=peers))
+    except BaseException:
+        for peer in reversed(built):
+            try:
+                await peer.shutdown()
+            except Exception:
+                pass
+        raise
+    agent._owned_agents.extend(built)
+    return agent

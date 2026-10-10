@@ -6,10 +6,11 @@ Supports the Promptise MCP Client with token-based authentication
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 
 class _BaseServer(BaseModel):
@@ -54,7 +55,9 @@ class HTTPServerSpec(_BaseServer):
         url: Full endpoint URL (e.g., ``http://127.0.0.1:8080/mcp``).
         transport: ``"http"``, ``"streamable-http"``, or ``"sse"``.
         headers: Extra HTTP headers sent on every request.
-        auth: Legacy auth hint.
+        auth: Deprecated and ignored — it was never sent to the server.
+            Setting it emits a ``FutureWarning``; use ``bearer_token`` or
+            ``api_key``.
         bearer_token: Pre-issued Bearer token.  When set, an
             ``Authorization: Bearer <token>`` header is created
             automatically.
@@ -112,6 +115,19 @@ class HTTPServerSpec(_BaseServer):
         description="Pre-shared API key for simple secret-based authentication. "
         "Injected as an x-api-key header.",
     )
+
+    @field_validator("auth")
+    @classmethod
+    def _warn_auth_ignored(cls, v: str | None) -> str | None:
+        if v is not None:
+            warnings.warn(
+                "HTTPServerSpec.auth is ignored (it is not sent to the server) and will be "
+                "removed. Use bearer_token= (sent as 'Authorization: Bearer <token>') or "
+                "api_key= (sent as 'x-api-key: <key>').",
+                FutureWarning,
+                stacklevel=2,
+            )
+        return v
 
 
 ServerSpec = StdioServerSpec | HTTPServerSpec

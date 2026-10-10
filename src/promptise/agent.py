@@ -18,7 +18,7 @@ from langchain_core.tools import BaseTool
 from promptise.engine import PromptGraph, PromptGraphEngine
 
 from .config import HTTPServerSpec, ServerSpec
-from .cross_agent import CrossAgent, make_cross_agent_tools
+from .cross_agent import DEFAULT_MAX_DELEGATION_DEPTH, CrossAgent, make_cross_agent_tools
 from .identity import AgentIdentity, IdentityError
 from .models import Model
 from .prompt import DEFAULT_SYSTEM_PROMPT
@@ -288,6 +288,10 @@ class PromptiseAgent:
         # Resolved attribution id (the agent's identifier, computed once by
         # build_agent). Used to attribute event notifications to the agent.
         self._actor_id: str | None = None
+
+        # Peer agents built for this agent (a .superagent team); shut down
+        # with it.
+        self._owned_agents: list[PromptiseAgent] = []
 
     def _actor(self) -> str | None:
         """Return the id to attribute the agent's events to.
@@ -1177,6 +1181,15 @@ class PromptiseAgent:
                 logger.debug("Sandbox manager cleanup error during shutdown", exc_info=True)
             self._sandbox_manager = None
 
+        # Shut down the peers built for this agent, after this agent, so no
+        # delegation call can reach a peer that is already closed.
+        owned, self._owned_agents = self._owned_agents, []
+        for peer in owned:
+            try:
+                await peer.shutdown()
+            except Exception:
+                logger.debug("Peer agent shutdown error", exc_info=True)
+
     # -----------------------------------------------------------------
     # Observability accessors
     # -----------------------------------------------------------------
@@ -1793,6 +1806,9 @@ async def build_agent(
     identity: AgentIdentity | None = None,
     trace_tools: bool = False,
     cross_agents: Mapping[str, CrossAgent] | None = None,
+    include_broadcast: bool = False,
+    max_delegation_depth: int = DEFAULT_MAX_DELEGATION_DEPTH,
+    delegation_timeout: float | None = None,
     sandbox: bool | dict[str, Any] | None = None,
     observer: Any | None = None,
     observer_agent_id: str | None = None,
@@ -1846,6 +1862,19 @@ async def build_agent(
         trace_tools: Print each tool invocation and result to stdout.
         cross_agents: Optional mapping of peer name → CrossAgent.  Each
             peer is exposed as an ``ask_agent_<name>`` tool.
+        include_broadcast: Also add a ``broadcast_to_agents`` tool that asks
+            several peers the same question in parallel.  Off by default.
+            A peer whose ``ask_agent_<name>`` tool needs ``approval`` is not
+            reachable through it (unless ``broadcast_to_agents`` needs
+            approval too).
+        max_delegation_depth: Most nested delegations one request may make
+            (this agent → peer → peer …).  A deeper call, or a call back into
+            a peer that is already working on the request, is refused with a
+            :class:`~promptise.cross_agent.DelegationError` the model sees as
+            the tool's error.  Default ``3``.
+        delegation_timeout: Seconds to wait for a peer's answer when its
+            :class:`CrossAgent` sets no ``timeout`` of its own.  ``None``
+            (default) = no limit beyond the peer's ``max_invocation_time``.
         memory: Optional :class:`~promptise.memory.MemoryProvider`.
             When provided, the agent automatically searches memory before
             each invocation and injects relevant context as a
@@ -1882,6 +1911,11 @@ async def build_agent(
     """
     if model is None:  # Defensive check; CLI/code must always pass a model now.
         raise ValueError("A model is required. Provide a model instance or a provider id string.")
+    # Checked before any MCP connection is opened, so a bad value leaks nothing.
+    if max_delegation_depth < 1:
+        raise ValueError(f"max_delegation_depth must be at least 1, got {max_delegation_depth}")
+    if delegation_timeout is not None and delegation_timeout <= 0:
+        raise ValueError(f"delegation_timeout must be positive, got {delegation_timeout}")
 
     # Attribute recorded events to the agent's identity by default, so the
     # observability timeline answers "which agent did what" without extra
@@ -1994,12 +2028,12 @@ async def build_agent(
     tools: list[BaseTool] = []
     _promptise_multi = None  # track for cleanup
 
-    if servers:
-        _enable_callbacks = trace_tools or _obs is not None
-        _cb_before = _before if _enable_callbacks else None
-        _cb_after = _after if _enable_callbacks else None
-        _cb_error = _error if _enable_callbacks else None
+    _enable_callbacks = trace_tools or _obs is not None
+    _cb_before = _before if _enable_callbacks else None
+    _cb_after = _after if _enable_callbacks else None
+    _cb_error = _error if _enable_callbacks else None
 
+    if servers:
         from .mcp.client import MCPClient, MCPMultiClient, MCPToolAdapter
 
         # When the agent carries a verifiable identity, present its identity
@@ -2074,7 +2108,20 @@ async def build_agent(
 
     # Attach cross-agent tools if provided
     if cross_agents:
-        tools.extend(make_cross_agent_tools(cross_agents, caller_identity=identity))
+        tools.extend(
+            make_cross_agent_tools(
+                cross_agents,
+                include_broadcast=include_broadcast,
+                caller_identity=identity,
+                timeout=delegation_timeout,
+                max_delegation_depth=max_delegation_depth,
+                on_before=_cb_before,
+                on_after=_cb_after,
+                on_error=_cb_error,
+                # A broadcast must not reach a peer whose ask tool needs approval.
+                requires_approval=getattr(approval, "requires_approval", None),
+            )
+        )
 
     # The code-action pattern REQUIRES a sandbox (the model writes a program we
     # run in a container). Auto-enable one — with no network, since the program

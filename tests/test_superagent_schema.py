@@ -149,7 +149,8 @@ def test_http_server_config() -> None:
     assert server.url == "http://127.0.0.1:8000/mcp"
     assert server.transport == "http"
     assert server.headers == {}
-    assert server.auth is None
+    assert server.bearer_token is None
+    assert server.api_key is None
 
 
 def test_http_server_config_with_headers() -> None:
@@ -458,7 +459,7 @@ def test_complex_schema_integration() -> None:
                 url="https://api.example.com/mcp",
                 transport="http",
                 headers={"Authorization": "Bearer ${API_TOKEN}"},
-                auth="${AUTH_SECRET}",
+                bearer_token="${AUTH_SECRET}",
             ),
             "local_server": StdioServerConfig(
                 type="stdio",

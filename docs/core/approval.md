@@ -507,6 +507,7 @@ approval:
     - "payment_*"
   handler: webhook
   webhook_url: https://your-api.com/approvals
+  webhook_secret: "${APPROVAL_WEBHOOK_SECRET}"   # signs X-Promptise-Signature
   timeout: 300
   on_timeout: deny
   max_pending: 10
@@ -514,10 +515,17 @@ approval:
   max_retries_after_deny: 3
 ```
 
-Supported handler types in YAML: `webhook` (requires `webhook_url`), `queue`.
+Supported handler types in YAML:
+
+| `handler` | Needs | Who answers |
+|---|---|---|
+| `webhook` | `webhook_url`; set `webhook_secret` so your service can verify `X-Promptise-Signature` (without it a random per-process secret is used) | Your approval service |
+| `queue` | — | Code in the same process reading `handler.request_queue`. `promptise agent` asks each request as a y/N question when you run it at a terminal; with piped input nobody can answer, so requests time out and `on_timeout` applies. |
+
+The file is checked when it is loaded (and by `promptise validate`): `handler: webhook` without `webhook_url`, `webhook_secret` with another handler, and `handler: callback` are validation errors.
 
 !!! note "Callback handler not available in YAML"
-    `CallbackApprovalHandler` requires a Python function, so it can only be configured programmatically. Use `webhook` or `queue` in YAML files.
+    `CallbackApprovalHandler` requires a Python function, so a `.superagent` file cannot configure it. Use `webhook` or `queue` in YAML, or build the agent in Python with `approval=ApprovalPolicy(handler=CallbackApprovalHandler(fn), ...)`.
 
 ---
 
@@ -583,6 +591,7 @@ Cached responses bypass approval entirely — tools aren't called on cache hits,
 | **Handler throws an exception** | Treated as denial: "Approval handler error: {error type}." Agent continues. |
 | **Reviewer modifies arguments to invalid values** | The tool executes with modified arguments. If the tool validates internally (Pydantic), it will fail with a tool error. |
 | **No CallerContext provided** | Approval still works. `caller_user_id` is `None` in the request. |
+| **Delegation to a peer agent** | `ask_agent_<name>` tools match patterns like any tool. `broadcast_to_agents` does not call a peer whose `ask_agent_<name>` needs approval (unless the broadcast tool needs approval itself). A peer's own policy applies inside the peer -- also for the cross-agents of a `.superagent` file, which `build_superagent()` and `promptise agent` build with their whole file. See [Cross-Agent Delegation](agents/cross-agent.md#approval-and-identity). |
 
 ---
 

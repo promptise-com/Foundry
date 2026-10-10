@@ -44,7 +44,7 @@ None of this is a reason to never split — it's a reason to split *deliberately
 
 ## Delegation without the ceremony (agent delegation tradeoffs)
 
-When the signals do fire, Promptise keeps delegation lightweight: you register peers on `build_agent()` through the `cross_agents` parameter, and the agent gets an `ask_agent_<name>` tool per peer plus a `broadcast_to_agents` fan-out tool — automatically. Your calling code doesn't change; the coordinator simply decides, per query, whether to answer directly or hand off.
+When the signals do fire, Promptise keeps delegation lightweight: you register peers on `build_agent()` through the `cross_agents` parameter, and the agent gets an `ask_agent_<name>` tool per peer automatically (plus a `broadcast_to_agents` fan-out tool with `include_broadcast=True`). Your calling code doesn't change; the coordinator simply decides, per query, whether to answer directly or hand off.
 
 ```python
 import asyncio

@@ -4,6 +4,38 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## v1.3.0 — unreleased
+
+### Added
+- **Core: `build_superagent()` builds a whole `.superagent` team** -- `await build_superagent("coordinator.superagent")` (also `from promptise import build_superagent`) builds the agent and every agent under `cross_agents:`, at any depth, each from its whole file (servers, approval, guardrails, memory, identity, its own cross-agents), in the running event loop. `shutdown()` on the result shuts down the whole team; if one agent fails to build, the ones already built are shut down and the error names the file. `SuperAgentLoader.cross_loaders` holds the resolved references at every depth, and `SuperAgentConfig.to_build_kwargs(cross_agents=...)` takes built peers.
+- **Cross-agent: delegation limits and timeouts set in Python** -- `build_agent(max_delegation_depth=3, delegation_timeout=None, include_broadcast=False)`, `CrossAgent(timeout=...)`, and the same in `.superagent` files (`max_delegation_depth:`, `delegation_timeout:`, `include_broadcast:`, and `timeout:` on each `cross_agents` entry). A call deeper than `max_delegation_depth`, or back into a peer that is already working on the request, raises `DelegationError` (exported from `promptise`), which the model sees as the tool's error. `promptise.cross_agent.get_delegation_chain()` returns the peers working on the current request. `CrossAgent` is exported from `promptise`.
+- **`.superagent` files: `bearer_token`, `api_key` and `audience` on HTTP servers, `webhook_secret` on approval** -- the credentials are sent as `Authorization: Bearer <token>` and `x-api-key: <key>` (both support `${ENV_VAR}`); `webhook_secret` is the HMAC secret the webhook handler signs `X-Promptise-Signature` with.
+- **CLI: `promptise validate --allow-missing-env`** -- report missing environment variables as a warning instead of failing.
+
+### Changed
+- **Cross-agent: `broadcast_to_agents` is opt-in in `build_agent()`** -- an agent with `cross_agents` now gets only its `ask_agent_<name>` tools; pass `include_broadcast=True` (or `include_broadcast: true` in a `.superagent` file) for the fan-out tool. `make_cross_agent_tools()` still includes it by default. The broadcast tool now takes `context` like the ask tools.
+- **Cross-agent: the model can no longer choose a timeout** -- `timeout_s` is gone from the `ask_agent_<name>` and `broadcast_to_agents` arguments; timeouts come from `CrossAgent.timeout` or `delegation_timeout`.
+- **`.superagent` files: `auth:` on an HTTP server is a validation error** -- it was accepted but never sent, so the server answered `401`; the error says to use `bearer_token:` or `api_key:`. `HTTPServerSpec(auth=...)` emits a `FutureWarning` that it is ignored, and `promptise run/list-tools --http "... auth=..."` is rejected (use `bearer_token=` or `api_key=`).
+- **`.superagent` files: approval settings that cannot be built are rejected at load** -- `handler: callback` (it needs a Python function), `handler: webhook` without `webhook_url`, and `webhook_secret` with another handler are validation errors, also in `promptise validate`.
+- **`.superagent` files: stdio servers start in the file's folder** -- a relative `cwd:` and a relative `command:` with a path separator (`./bin/server`) are resolved against the file's folder, so `promptise agent team/agent.superagent` works from any directory. Bare commands (`python`, `npx`) still come from `PATH`.
+- **`.superagent` files: the loader reads `.env`** -- like the CLI, `load_superagent_file()`, `resolve_env_vars()` and `validate_env_vars()` load the nearest `.env` first (never overriding a set variable; `PROMPTISE_NO_DOTENV=1` turns it off).
+- **CLI: `promptise validate` fails on missing environment variables** -- it exits 1 (pass `--allow-missing-env` to only warn, or `--no-check-env`), and it checks the references and environment variables of every cross-agent file at every depth, not only the first level.
+- **`SuperAgentConfig.to_build_kwargs()` warns when it drops `cross_agents`** -- it cannot build them (each is an agent of its own); the `UserWarning` points to `build_superagent()`.
+
+### Fixed
+- **Cross-agent: runaway delegation** -- nothing bounded delegation at run time, so an agent that kept delegating (to itself through a peer, or around a cycle) made well over a thousand model calls before stopping. Delegation is now limited by `max_delegation_depth` and loop detection (see Added).
+- **CLI: `promptise agent` teams with stdio servers failed with "Not connected"** -- cross-agents were built in one `asyncio.run` and used in another, so their stdio MCP sessions were dead; cross-agents of cross-agents were ignored, and a cross-agent got only its file's servers, model, instructions and trace setting. The command now builds the whole team with `build_superagent()` in the chat's event loop and shuts it down there.
+- **CLI: `promptise agent` with `approval.handler: queue` could not be answered** -- nobody read the queue, so every gated call waited for the timeout. At a terminal each request is now asked as a y/N question; with piped input the CLI says that requests will time out. A stdio server that fails to start is reported in one line instead of a traceback.
+- **Cross-agent: `trace_tools=True` and observability did not show delegation** -- `ask_agent_<name>` and `broadcast_to_agents` calls now print and record like any other tool call.
+
+### Security
+- **`promptise agent`: cross-agents ran without their own approval, guardrails and identity** -- each cross-agent was built from its file's servers, model, instructions and trace setting only, so a specialist whose file required approval for a tool ran that tool with no approval. Every cross-agent is now built from its whole file.
+- **Cross-agent: `broadcast_to_agents` bypassed approval of `ask_agent_<name>`** -- with `approval=ApprovalPolicy(tools=["ask_agent_payments"])`, the model could reach the payments agent through `broadcast_to_agents(peers=["payments"])` without a reviewer. The broadcast tool no longer calls a peer whose ask tool needs approval (its entry says to use `ask_agent_<name>`), unless the broadcast tool needs approval itself.
+- **Cross-agent: a nested hop reported an outer agent as the delegator** -- when an agent without an `identity` delegated further, the peer's observability recorded `delegated_by` as the identity of the agent further up the chain. Each hop now records its own delegator, or none.
+
+### Documentation
+- **`.superagent` files** -- `version:` was documented as required; it is optional and defaults to `"1.0"`. The schema reference now covers `approval:`, the delegation fields, the HTTP credentials and team building; the cross-agent page documents limits, timeouts, tracing and how approval and identity apply to delegation.
+
 ## v1.2.1 — 2026-10-10
 
 ### Fixed

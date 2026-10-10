@@ -142,13 +142,20 @@ class HTTPServerConfig(BaseModel):
         url: Full endpoint URL (supports ${ENV_VAR}).
         transport: Transport protocol ("http", "streamable-http", "sse").
         headers: Optional HTTP headers (values support ${ENV_VAR}).
-        auth: Optional auth token (supports ${ENV_VAR}).
+        bearer_token: Token sent as ``Authorization: Bearer <token>``
+            (supports ${ENV_VAR}).
+        api_key: Pre-shared key sent as ``x-api-key: <key>``
+            (supports ${ENV_VAR}).
+        audience: Resource audience for a credential minted from the
+            agent's ``identity:`` (used when no ``bearer_token`` is set).
+
+    The old ``auth:`` field is rejected: it was never sent to the server.
 
     Examples:
         >>> server = HTTPServerConfig(
         ...     type="http",
         ...     url="http://127.0.0.1:8000/mcp",
-        ...     headers={"Authorization": "Bearer ${API_TOKEN}"}
+        ...     api_key="${INCIDENTS_API_KEY}",
         ... )
     """
 
@@ -162,7 +169,27 @@ class HTTPServerConfig(BaseModel):
     headers: dict[str, str] = Field(
         default_factory=dict, description="HTTP headers (values support ${ENV_VAR})"
     )
-    auth: str | None = Field(None, description="Auth token (supports ${ENV_VAR})")
+    bearer_token: str | None = Field(
+        None, description="Sent as 'Authorization: Bearer <token>' (supports ${ENV_VAR})"
+    )
+    api_key: str | None = Field(
+        None, description="Sent as 'x-api-key: <key>' (supports ${ENV_VAR})"
+    )
+    audience: str | None = Field(
+        None, description="Audience of the identity credential presented to this server"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_auth(cls, data: Any) -> Any:
+        """Reject ``auth:``, which earlier versions accepted but never sent."""
+        if isinstance(data, dict) and "auth" in data:
+            raise ValueError(
+                "'auth' is not supported: it was never sent to the server. "
+                "Use 'bearer_token:' (sent as 'Authorization: Bearer <token>') or "
+                "'api_key:' (sent as 'x-api-key: <key>'), e.g. api_key: \"${MY_API_KEY}\""
+            )
+        return data
 
 
 class StdioServerConfig(BaseModel):
@@ -223,6 +250,8 @@ class CrossAgentConfig(BaseModel):
     Attributes:
         file: Path to referenced .superagent file (relative to current file).
         description: Human-readable description for tool discovery.
+        timeout: Seconds to wait for this agent's answer (overrides the
+            file's ``delegation_timeout``).
 
     Examples:
         >>> config = CrossAgentConfig(
@@ -235,6 +264,7 @@ class CrossAgentConfig(BaseModel):
 
     file: str = Field(..., description="Path to .superagent file")
     description: str = Field("", description="Agent description for tool discovery")
+    timeout: float | None = Field(None, gt=0, description="Seconds to wait for this agent's answer")
 
 
 # =============================================================================
@@ -437,8 +467,14 @@ class ApprovalSection(BaseModel):
 
     Attributes:
         tools: Glob patterns for tool names requiring approval.
-        handler: Handler type — ``"webhook"``, ``"callback"``, or ``"queue"``.
+        handler: Handler type — ``"webhook"`` or ``"queue"``. ``"callback"``
+            is rejected: a callback is a Python function, so pass
+            ``ApprovalPolicy(handler=CallbackApprovalHandler(fn))`` to
+            ``build_agent()`` instead.
         webhook_url: Webhook URL (required when handler is ``"webhook"``).
+        webhook_secret: HMAC secret the webhook handler signs requests with
+            (supports ${ENV_VAR}). Without it a random per-process secret is
+            used, which your approval service cannot verify.
         timeout: Seconds to wait for approval decision.
         on_timeout: Action when timeout expires — ``"deny"`` or ``"allow"``.
         max_pending: Maximum concurrent pending approvals.
@@ -452,11 +488,30 @@ class ApprovalSection(BaseModel):
         "webhook", description="Approval handler type"
     )
     webhook_url: str | None = Field(None, description="Webhook URL for approval requests")
+    webhook_secret: str | None = Field(
+        None, description="HMAC signing secret for webhook requests (supports ${ENV_VAR})"
+    )
     timeout: float = Field(300, gt=0, le=86400, description="Approval timeout in seconds")
     on_timeout: Literal["deny", "allow"] = Field("deny", description="Action on timeout")
     max_pending: int = Field(10, gt=0, description="Max concurrent pending approvals")
     redact_sensitive: bool = Field(True, description="Redact PII/credentials in requests")
     max_retries_after_deny: int = Field(3, gt=0, description="Max retries after denial")
+
+    @model_validator(mode="after")
+    def check_handler(self) -> ApprovalSection:
+        """Reject handler settings that cannot be built from a file."""
+        if self.handler == "callback":
+            raise ValueError(
+                "handler 'callback' needs a Python function, which a .superagent file "
+                "cannot provide. Use handler: webhook (with webhook_url) or handler: "
+                "queue, or build the agent in Python with "
+                "approval=ApprovalPolicy(handler=CallbackApprovalHandler(fn))"
+            )
+        if self.handler == "webhook" and not self.webhook_url:
+            raise ValueError("webhook_url is required when handler is 'webhook'")
+        if self.handler != "webhook" and self.webhook_secret:
+            raise ValueError("webhook_secret applies only to handler 'webhook'")
+        return self
 
 
 class EventSinkConfig(BaseModel):
@@ -723,7 +778,8 @@ class SuperAgentSchema(BaseModel):
     at least one of servers, cross_agents, or sandbox is configured.
 
     Attributes:
-        version: Schema version (currently "1.0").
+        version: Schema version. Optional; ``"1.0"`` (the only version) is
+            the default.
         agent: Agent-level configuration (model, instructions, trace).
         servers: Named MCP server configurations.
         cross_agents: Optional cross-agent references.
@@ -815,6 +871,22 @@ class SuperAgentSchema(BaseModel):
         0,
         ge=0,
         description="Max seconds per invocation (0 = unlimited).",
+    )
+    max_delegation_depth: int = Field(
+        3,
+        ge=1,
+        description=(
+            "Most nested cross-agent delegations one request may make (this agent → peer → peer …)."
+        ),
+    )
+    delegation_timeout: float | None = Field(
+        None,
+        gt=0,
+        description="Seconds to wait for a cross-agent's answer (per-agent 'timeout' wins).",
+    )
+    include_broadcast: bool = Field(
+        False,
+        description="Also give the agent a broadcast_to_agents tool for its cross_agents.",
     )
 
     @model_validator(mode="after")

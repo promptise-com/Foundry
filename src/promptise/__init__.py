@@ -47,6 +47,7 @@ from .conversations import (
 from .conversations import (
     Message as ConversationMessage,
 )
+from .cross_agent import CrossAgent, DelegationError
 
 # PromptGraph Engine
 from .engine import (
@@ -166,7 +167,12 @@ from .streaming import (
     ToolEndEvent,
     ToolStartEvent,
 )
-from .superagent import SuperAgentConfig, SuperAgentLoader, load_superagent_file
+from .superagent import (
+    SuperAgentConfig,
+    SuperAgentLoader,
+    build_superagent,
+    load_superagent_file,
+)
 from .superagent_schema import (
     AgentSection,
     CrossAgentConfig,
@@ -281,6 +287,10 @@ __all__ = [
     "SuperAgentLoader",
     "SuperAgentConfig",
     "load_superagent_file",
+    "build_superagent",
+    # Cross-agent delegation
+    "CrossAgent",
+    "DelegationError",
     "SuperAgentSchema",
     "AgentSection",
     "DetailedModelConfig",
