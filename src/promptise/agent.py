@@ -1785,6 +1785,40 @@ def _normalize_model(model: ModelLike) -> Runnable[Any, Any]:
     return cast(Runnable[Any, Any], model)
 
 
+#: Pattern names ``build_agent(agent_pattern=...)`` accepts as a string.
+#: Anything else is a :class:`~promptise.engine.PromptGraph` you build — for a
+#: sequential pipeline, ``agent_pattern=PromptGraph.pipeline(node_a, node_b)``.
+AGENT_PATTERNS: tuple[str, ...] = (
+    "react",
+    "managed",
+    "code-action",
+    "verify",
+    "peoatr",
+    "research",
+    "autonomous",
+    "deliberate",
+    "debate",
+)
+
+
+def _check_agent_pattern(agent_pattern: Any) -> None:
+    """Raise ``ValueError`` for an ``agent_pattern`` string that names no
+    built-in pattern (instead of silently running ReAct)."""
+    if not isinstance(agent_pattern, str) or agent_pattern in AGENT_PATTERNS:
+        return
+    valid = ", ".join(repr(name) for name in AGENT_PATTERNS)
+    if agent_pattern == "pipeline":
+        raise ValueError(
+            "agent_pattern='pipeline' needs the nodes to chain, so it can't be a "
+            "string: pass a graph, e.g. "
+            "agent_pattern=PromptGraph.pipeline(node_a, node_b, node_c). "
+            f"Pattern names: {valid}."
+        )
+    raise ValueError(
+        f"Unknown agent_pattern {agent_pattern!r}. Use one of {valid}, or pass a PromptGraph."
+    )
+
+
 async def build_agent(
     *,
     servers: Mapping[str, ServerSpec],
@@ -1874,6 +1908,14 @@ async def build_agent(
         conversation_max_messages: Maximum messages to keep per session
             when using the conversation store.  ``0`` = unlimited.
             Oldest messages are dropped when the limit is reached.
+        agent_pattern: The reasoning graph: a :class:`~promptise.engine.PromptGraph`,
+            or a pattern name from ``promptise.agent.AGENT_PATTERNS`` —
+            ``"react"`` (the default), ``"managed"``, ``"code-action"``,
+            ``"verify"``, ``"peoatr"``, ``"research"``, ``"autonomous"``,
+            ``"deliberate"`` or ``"debate"``. Nodes of a custom graph
+            created with ``inject_tools=True`` receive the discovered tools.
+            An unknown name raises ``ValueError``.
+        pattern: Deprecated alias for ``agent_pattern``.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -1882,6 +1924,9 @@ async def build_agent(
     """
     if model is None:  # Defensive check; CLI/code must always pass a model now.
         raise ValueError("A model is required. Provide a model instance or a provider id string.")
+
+    # Reject an unknown pattern name before connecting to any MCP server.
+    _check_agent_pattern(agent_pattern or pattern)
 
     # Attribute recorded events to the agent's identity by default, so the
     # observability timeline answers "which agent did what" without extra
@@ -2249,16 +2294,8 @@ async def build_agent(
                 ),
                 "debate": lambda: PromptGraph.debate(system_prompt=sys_prompt),
             }
-            builder = builders.get(_pattern)
-            if builder:
-                graph = builder()
-            else:
-                # Try dynamic lookup on PromptGraph
-                fn = getattr(PromptGraph, _pattern, None)
-                if fn:
-                    graph = fn(tools=graph_tools, system_prompt=sys_prompt)
-                else:
-                    graph = PromptGraph.react(tools=graph_tools, system_prompt=sys_prompt)
+            # _check_agent_pattern() validated the name at the top of build_agent.
+            graph = builders[_pattern]()
         # Priority 4: Duck-type PromptGraph-like object
         elif _pattern is not None and hasattr(_pattern, "_nodes"):
             graph = _pattern
@@ -2274,6 +2311,8 @@ async def build_agent(
                 graph=graph,
                 model=cast(BaseChatModel, chat),
                 max_iterations=max_agent_iterations,
+                # The discovered tools, for nodes created with inject_tools=True
+                tools=graph_tools,
             ),
         )
 

@@ -270,8 +270,8 @@ PromptNode("analyze",
 | `perspective` | `Any` | `None` | Perspective framing (Analyst, Critic, etc.) prepended to prompt |
 | `tools` | `list[BaseTool]` | `None` | LangChain tools bound to the model for this node |
 | `tool_choice` | `str` | `"auto"` | Tool calling mode (`"auto"`, `"required"`, `"none"`) |
-| `inject_tools` | `bool` | `False` | If True, receives all MCP tools discovered by `build_agent()` at runtime |
-| `output_schema` | `type` | `None` | Pydantic model for structured output via `with_structured_output()` |
+| `inject_tools` | `bool` | `False` | If True, receives the tools `build_agent()` discovered (or `PromptGraphEngine(tools=...)`) at runtime, merged with `tools` |
+| `output_schema` | `type` | `None` | Pydantic model or `TypedDict` for structured output via `with_structured_output()`. The output is stored as a plain dict (a Pydantic model is dumped), so transitions, edge conditions, `route` and `output_key` read it the same way |
 | `guards` | `list[Any]` | `None` | Output guards (ContentFilterGuard, SchemaStrictGuard, etc.) |
 | `model_override` | `Any` | `None` | Per-node model — a `BaseChatModel` instance or string like `"openai:gpt-4o-mini"` |
 | `context_layers` | `dict[str, int]` | `None` | Extra context keys to inject from state, with priority values |
@@ -289,7 +289,7 @@ PromptNode("analyze",
 | `include_reflections` | `bool` | `True` | Auto-inject past learnings from `state.reflections` |
 | `transitions` | `dict[str, str]` | `None` | Map output keys to next-node names (e.g. `{"proceed": "act"}`) |
 | `default_next` | `str` | `None` | Fallback node if no transition matches |
-| `max_iterations` | `int` | `10` | Max times this node can execute in one graph run |
+| `max_iterations` | `int` | `10` | Max times this node can execute in one graph run; each tool-loop round counts. The engine's `max_node_iterations` (25) caps it. Once used up, the node is not run again: the engine follows its `"error"` transition, else an `__error__` node, else ends the run |
 | `flags` | `set[NodeFlag]` | `None` | Typed flags controlling engine behavior |
 | `is_entry` | `bool` | `False` | Shorthand for adding `NodeFlag.ENTRY` |
 | `is_terminal` | `bool` | `False` | Shorthand for adding `NodeFlag.TERMINAL` |
@@ -593,7 +593,7 @@ All nodes inherit these parameters from BaseNode:
 | `description` | `str` | `""` | Short description for visualization (defaults to first 80 chars of instructions) |
 | `transitions` | `dict[str, str]` | `None` | Output key to next-node mapping |
 | `default_next` | `str` | `None` | Fallback transition |
-| `max_iterations` | `int` | `10` | Max executions per graph run |
+| `max_iterations` | `int` | `10` | Max executions per graph run — enforced by the engine; when used up, the `"error"` transition is followed (else `__error__`, else the run ends) |
 | `metadata` | `dict` | `None` | Arbitrary metadata for hooks and observability |
 | `is_entry` | `bool` | `False` | Adds `NodeFlag.ENTRY` |
 | `is_terminal` | `bool` | `False` | Adds `NodeFlag.TERMINAL` |
@@ -615,7 +615,7 @@ PromptNode("critical_step", flags={NodeFlag.CRITICAL})             # Abort on er
 PromptNode("optional", flags={NodeFlag.SKIP_ON_ERROR, NodeFlag.LIGHTWEIGHT})
 ```
 
-16 built-in flags cover execution control, context isolation, model selection, observability, and output processing. See [Node Flags](engine-flags.md) for the full reference.
+18 built-in flags cover execution control, context isolation, model selection, observability, and output processing. See [Node Flags](engine-flags.md) for the full reference.
 
 ---
 

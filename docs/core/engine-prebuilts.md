@@ -161,24 +161,26 @@ bridged tools.
 
 ## PEOATR
 
-Plan → Act → Think → Reflect. Four-stage structured reasoning with specialized nodes.
+Plan → Act → Think → Reflect → Answer. Structured reasoning with specialized nodes.
 
 ```mermaid
 graph TD
-    P[plan] -->|proceed| A[act]
-    P -->|replan| P
-    A -->|tool called| T[think]
-    A -->|final answer| END[__end__]
+    P[plan] -->|quality < 3| P
+    P --> A[act]
+    A -->|tool calls| A
+    A --> T[think]
     T -->|continue| A
     T -->|reflect| R[reflect]
     R -->|continue| A
     R -->|replan| P
-    R -->|answer| A
+    R -->|answer| ANS[answer]
+    ANS --> END[__end__]
 
     style P fill:#1e3a5f,stroke:#60a5fa,color:#fff
     style A fill:#1a2e1a,stroke:#4ade80,color:#fff
     style T fill:#2d1b4e,stroke:#c084fc,color:#fff
     style R fill:#3a2a0a,stroke:#fbbf24,color:#fff
+    style ANS fill:#1a2e1a,stroke:#4ade80,color:#fff
     style END fill:#1a1a1a,stroke:#666,color:#aaa
 ```
 
@@ -195,15 +197,19 @@ PromptGraph.peoatr(
     acting_instructions="",       # Extra instructions for the act node
     thinking_instructions="",     # Extra instructions for the think node
     reflecting_instructions="",   # Extra instructions for the reflect node
+    max_act_steps=12,             # Act budget per run (each tool-loop round counts)
 )
 ```
 
 Each stage has its own role:
 
-- **Plan** (PlanNode) — Create subgoals, self-evaluate quality, reject bad plans
-- **Act** (PromptNode) — Execute tools to achieve the active subgoal
-- **Think** (ThinkNode) — Analyze tool results, check if subgoal is complete
-- **Reflect** (ReflectNode) — Evaluate progress, route to continue/replan/answer
+- **Plan** (PlanNode) — Create subgoals and rate the plan; a plan rated below 3 is redone
+- **Act** (PromptNode) — Execute tools for the active subgoal, then summarize what it found
+- **Think** (ThinkNode) — Analyze the results: call another tool now (`continue`) or step back (`reflect`)
+- **Reflect** (ReflectNode) — Evaluate progress and route: `answer`, `replan` or `continue`
+- **Answer** (SynthesizeNode) — Write the final answer from the gathered results
+
+Plan, think and reflect return structured output (`PeoatrPlan`, `PeoatrThought`, `PeoatrReflection` in `promptise.engine.prebuilts`), so their routing decisions always reach the engine. Every stage has an iteration budget (plan 3, act and think `max_act_steps`, reflect 4). A stage that has used its budget hands over to `answer` (`plan` hands over to `act`), so a run always ends with a written answer instead of looping to the engine's step cap.
 
 ## Research
 

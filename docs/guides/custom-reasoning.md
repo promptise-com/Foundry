@@ -49,12 +49,12 @@ graph.add_node(PromptNode(
     "agent",
     instructions="You are a helpful assistant. Use tools to answer questions.",
     tools=my_tools,
-    default_next="agent",  # Loop back after tool calls
+    default_next="__end__",  # A tool-free answer ends the run
 ))
 graph.set_entry("agent")
 ```
 
-The engine handles everything: LLM calls, tool execution, re-entry, termination.
+The engine handles everything: LLM calls, tool execution, re-entry, termination. After a turn with tool calls the engine re-enters the node on its own, so `default_next` only decides what happens after the final answer.
 
 ## Example 2: Research Pipeline
 
@@ -220,18 +220,24 @@ graph TD
     style CR fill:#3a2a0a,stroke:#fbbf24,color:#fff
 ```
 
-The LLM decides where to go at each step:
+The LLM decides where to go at each step. Give the node an `output_schema` with a `route` field: the engine follows the transition whose key the model picks (a node name works too).
 
 ```python
+from typing import Literal
+
+from pydantic import BaseModel
+
+
+class Triage(BaseModel):
+    route: Literal["simple_answer", "research", "code_task", "creative"]
+
+
 graph = PromptGraph("dynamic-agent")
 
 graph.add_node(PromptNode(
     "triage",
-    instructions=(
-        "Analyze the user's request. Decide the approach.\n"
-        "Set 'route' to one of: simple_answer, research, code_task, creative"
-    ),
-    tools=None,
+    instructions="Analyze the user's request and decide the approach.",
+    output_schema=Triage,
     transitions={
         "simple_answer": "__end__",
         "research": "deep_research",
@@ -332,15 +338,16 @@ graph.add_node(PromptNode(
         Identity("Senior data analyst"),
         Rules(["Always cite sources", "Include confidence levels"]),
     ],
-    tools=None,  # Will be populated by build_agent from MCP servers
+    inject_tools=True,  # Receives the tools build_agent discovers
+    default_next="__end__",
 ))
 graph.set_entry("main")
 
-# Pass it to build_agent — tools from MCP servers are auto-injected
+# Pass it to build_agent — nodes with inject_tools=True get the MCP tools
 agent = await build_agent(
     model="openai:gpt-5-mini",
     servers={"analytics": HTTPServerSpec(url="http://localhost:8000/mcp")},
-    pattern=graph,
+    agent_pattern=graph,
 )
 
 result = await agent.ainvoke({"messages": [{"role": "user", "content": "Analyze Q4 trends"}]})
@@ -461,18 +468,20 @@ for node_name, stats in metrics.summary().items():
 
 ### Error Handling
 
+A run that ends on a failed node — a provider error, a CRITICAL node, a RETRYABLE node out of attempts — raises `GraphExecutionError`, which carries the run's report:
+
 ```python
-result = await agent.ainvoke({"messages": [...]})
-report = agent._inner.last_report
+from promptise.engine import GraphExecutionError
 
-# Check if a CRITICAL node caused early termination
-if report and report.error:
-    print(f"Graph aborted: {report.error}")
+try:
+    result = await agent.ainvoke({"messages": [...]})
+except GraphExecutionError as exc:
+    print(f"Graph failed at {exc.node_name}: {exc.error}")
+    report = exc.report
+else:
+    report = agent.last_report
 
-# Check individual node errors
-for nr in report.nodes_visited if report else []:
-    if hasattr(nr, 'error') and nr.error:
-        print(f"Node {nr.node_name} failed: {nr.error}")
+print(report.summary())  # path, tokens, tool calls, guards
 ```
 
 ## Best Practices

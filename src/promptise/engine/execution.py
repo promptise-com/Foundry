@@ -38,6 +38,7 @@ from uuid import uuid4
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.tools import BaseTool
 
 from .base import BaseNode
 from .graph import PromptGraph
@@ -90,8 +91,15 @@ class PromptGraphEngine:
         graph: The graph to traverse.
         model: LangChain ``BaseChatModel`` for LLM calls.
         max_iterations: Maximum total node executions per run.
-        max_node_iterations: Maximum times a single node can execute
-            (prevents infinite tool-calling loops).
+        max_node_iterations: Engine-wide ceiling on how many times a single
+            node can execute in one run (each tool-loop round counts). A
+            node's own ``max_iterations`` applies when it is lower. When a
+            node has used its budget, the engine does not run it again: it
+            follows the node's ``"error"`` transition, else an ``__error__``
+            node, else ends the run.
+        tools: Runtime tools for nodes created with ``inject_tools=True``
+            (``build_agent`` passes the tools it discovered from its MCP
+            servers). Injected alongside each node's own ``tools``.
         hooks: List of hook instances for interception.
         allow_self_modification: Allow the LLM to modify the graph
             via structured output ``_graph_action`` fields.
@@ -105,6 +113,7 @@ class PromptGraphEngine:
         *,
         max_iterations: int = 50,
         max_node_iterations: int = 25,
+        tools: list[BaseTool] | None = None,
         hooks: list[Any] | None = None,
         allow_self_modification: bool = True,
         max_mutations_per_run: int = 10,
@@ -114,6 +123,7 @@ class PromptGraphEngine:
         self.model = model
         self.max_iterations = max_iterations
         self.max_node_iterations = max_node_iterations
+        self.tools: list[BaseTool] = list(tools) if tools else []
         self.hooks = list(hooks) if hooks else []
         self.allow_self_modification = allow_self_modification
         self.max_mutations_per_run = max_mutations_per_run
@@ -139,16 +149,9 @@ class PromptGraphEngine:
         config["_max_iterations"] = self.max_iterations
         config["_engine_hooks"] = self.hooks
 
-        # Collect all tools from all nodes for runtime injection
+        # Tools injected into ``inject_tools=True`` nodes
         if "_engine_tools" not in config:
-            all_tools: list = []
-            seen_names: set[str] = set()
-            for node_obj in self.graph.nodes.values():
-                for tool in getattr(node_obj, "tools", []) or []:
-                    if tool.name not in seen_names:
-                        all_tools.append(tool)
-                        seen_names.add(tool.name)
-            config["_engine_tools"] = all_tools
+            config["_engine_tools"] = self._runtime_tools()
 
         run_start = time.monotonic()
         mutations_count = 0
@@ -172,6 +175,7 @@ class PromptGraphEngine:
         # decides: a failure the graph routed to a handler node that then
         # succeeded is recovery, not failure.
         last_failure: NodeResult | None = None
+        redirects = 0
 
         while state.current_node != "__end__":
             try:
@@ -185,6 +189,14 @@ class PromptGraphEngine:
                     live_graph.name,
                 )
                 break
+
+            # ── Per-node budget ──
+            if self._node_exhausted(node, state):
+                redirects += 1
+                if redirects > len(live_graph.nodes):
+                    break  # recovery routes lead only to exhausted nodes
+                state.current_node = self._handle_stuck_node(node, state, live_graph)
+                continue
             state.visited.append(state.current_node)
 
             # ── Pre-node hooks ──
@@ -289,19 +301,13 @@ class PromptGraphEngine:
 
             # ── Safety checks ──
             state.iteration += 1
-            node_count = state.increment_node_iteration(node.name)
+            state.increment_node_iteration(node.name)
 
             if state.iteration > self.max_iterations:
                 logger.warning(
                     "Max iterations (%d) reached in graph %r", self.max_iterations, live_graph.name
                 )
                 break
-
-            if node_count > self.max_node_iterations:
-                logger.warning(
-                    "Node %r exceeded max iterations (%d)", node.name, self.max_node_iterations
-                )
-                state.current_node = self._handle_stuck_node(node, state, live_graph)
 
         # ── Build report ──
         self._last_report = ExecutionReport(
@@ -353,16 +359,9 @@ class PromptGraphEngine:
         config["_max_iterations"] = self.max_iterations
         config["_engine_hooks"] = self.hooks
 
-        # Collect all tools for runtime injection
+        # Tools injected into ``inject_tools=True`` nodes
         if "_engine_tools" not in config:
-            all_tools_s: list = []
-            seen_s: set[str] = set()
-            for node_obj in self.graph.nodes.values():
-                for tool in getattr(node_obj, "tools", []) or []:
-                    if tool.name not in seen_s:
-                        all_tools_s.append(tool)
-                        seen_s.add(tool.name)
-            config["_engine_tools"] = all_tools_s
+            config["_engine_tools"] = self._runtime_tools()
 
         live_graph = self.graph.copy()
         if not live_graph.entry:
@@ -374,6 +373,7 @@ class PromptGraphEngine:
             graph=live_graph,
         )
         last_failure: NodeResult | None = None
+        redirects = 0
 
         while state.current_node != "__end__":
             try:
@@ -387,6 +387,14 @@ class PromptGraphEngine:
                     live_graph.name,
                 )
                 break
+
+            # ── Per-node budget ──
+            if self._node_exhausted(node, state):
+                redirects += 1
+                if redirects > len(live_graph.nodes):
+                    break
+                state.current_node = self._handle_stuck_node(node, state, live_graph)
+                continue
             state.visited.append(state.current_node)
 
             # Yield node_start
@@ -508,10 +516,9 @@ class PromptGraphEngine:
 
             # Safety
             state.iteration += 1
+            state.increment_node_iteration(node.name)
             if state.iteration > self.max_iterations:
                 break
-            if state.increment_node_iteration(node.name) > self.max_node_iterations:
-                state.current_node = self._handle_stuck_node(node, state, live_graph)
 
         if last_failure is not None:
             # Consumers have seen every event (including on_node_error);
@@ -551,12 +558,17 @@ class PromptGraphEngine:
             return result.next_node
 
         # 3. LLM-directed routing: if the output contains a _next or route
-        #    field that names a valid node, go there directly.
-        #    This makes every PromptNode a dynamic router.
+        #    field that names one of the node's transition keys, or a valid
+        #    node, go there directly. This makes every PromptNode a dynamic
+        #    router (a reflect node's {"route": "replan"} follows its
+        #    "replan" transition).
         if isinstance(result.output, dict):
             for route_key in ("_next", "route", "next_step", "goto"):
                 target = result.output.get(route_key)
                 if isinstance(target, str):
+                    if target in node.transitions:
+                        result.transition_reason = f"LLM routed via output.{route_key}={target!r}"
+                        return node.transitions[target]
                     if target == "__end__" or graph.has_node(target):
                         result.transition_reason = f"LLM routed via output.{route_key}={target!r}"
                         return target
@@ -593,13 +605,44 @@ class PromptGraphEngine:
     # Error recovery
     # ──────────────────────────────────────────────────────────────────
 
+    def _runtime_tools(self) -> list[BaseTool]:
+        """The engine's tools plus every node's own tools, deduplicated by
+        name — what ``inject_tools=True`` nodes receive."""
+        all_tools: list[BaseTool] = []
+        seen: set[str] = set()
+        node_tools = (
+            tool for node in self.graph.nodes.values() for tool in getattr(node, "tools", []) or []
+        )
+        for tool in (*self.tools, *node_tools):
+            if tool.name not in seen:
+                all_tools.append(tool)
+                seen.add(tool.name)
+        return all_tools
+
+    def _node_exhausted(self, node: BaseNode, state: GraphState) -> bool:
+        """Whether *node* has used its execution budget for this run: the
+        lower of its own ``max_iterations`` and the engine's
+        ``max_node_iterations``."""
+        limit = min(
+            getattr(node, "max_iterations", self.max_node_iterations), self.max_node_iterations
+        )
+        if state.node_iterations.get(node.name, 0) < limit:
+            return False
+        logger.warning(
+            "Node %r reached its iteration limit (%d) in graph %r — not running it again",
+            node.name,
+            limit,
+            state.graph.name if state.graph is not None else "?",
+        )
+        return True
+
     def _handle_stuck_node(
         self,
         node: BaseNode,
         state: GraphState,
         graph: PromptGraph,
     ) -> str:
-        """Recover when a node exceeds its iteration limit."""
+        """Route away from a node that has used its iteration budget."""
         # Try error transition
         if "error" in node.transitions:
             logger.info("Stuck node %r → using error transition", node.name)

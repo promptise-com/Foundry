@@ -104,11 +104,11 @@ When a node finishes, the engine resolves the next node in this order:
 graph TD
     NE[Node Executed] --> TC{Tool calls?}
     TC -->|yes| SAME[Re-enter same node]
-    TC -->|no| LLM{output.route<br/>set?}
-    LLM -->|yes| TARGET[Go to named node]
-    LLM -->|no| NR{NodeResult<br/>.next_node?}
+    TC -->|no| NR{NodeResult<br/>.next_node?}
     NR -->|yes| TARGET2[Go to next_node]
-    NR -->|no| EDGE{Conditional<br/>edges?}
+    NR -->|no| LLM{output.route<br/>set?}
+    LLM -->|yes| TARGET[Follow that transition<br/>or go to that node]
+    LLM -->|no| EDGE{Conditional<br/>edges?}
     EDGE -->|match| TARGET3[Follow edge]
     EDGE -->|no match| TR{Node transitions<br/>match output?}
     TR -->|yes| TARGET4[Follow transition]
@@ -122,8 +122,8 @@ graph TD
 ```
 
 1. **Tool loop** — If tools were called, re-enter the same node so the LLM sees tool results
-2. **LLM routing** — If output contains `route`, `_next`, `next_step`, or `goto` naming a valid node
-3. **NodeResult.next_node** — If the node explicitly set the next node in its execute() method
+2. **NodeResult.next_node** — If the node explicitly set the next node in its execute() method (`ValidateNode`'s pass/fail, `PlanNode`'s re-plan)
+3. **LLM routing** — If output contains `route`, `_next`, `next_step`, or `goto` naming one of the node's transition keys (follows that transition) or a node in the graph
 4. **Graph edges** — Conditional edges checked in priority order (highest first)
 5. **Node transitions** — Output keys matched against the node's `transitions` dict
 6. **default_next** — Fallback node from the node's configuration
@@ -145,16 +145,31 @@ graph.always("refine", "refine")  # default priority=0
 
 ## Dynamic LLM Routing
 
-The LLM can choose the next node by including a routing field in its output:
+The LLM can choose the next node by including a routing field in its output. Routing reads a structured output, so give the node an `output_schema` (a Pydantic model or a `TypedDict`) with a `route` field:
 
 ```python
-# The LLM outputs: {"route": "search", "reason": "Need more data"}
-# → Engine goes to "search" node
+from typing import Literal
+
+from pydantic import BaseModel
+
+
+class Decision(BaseModel):
+    route: Literal["search", "answer"]
+    reason: str
+
+
+graph.add_node(PromptNode(
+    "decide",
+    output_schema=Decision,
+    transitions={"search": "web_search", "answer": "write"},
+))
+# The LLM outputs {"route": "search", "reason": "Need more data"}
+# → the engine follows the "search" transition to "web_search"
 
 # Supported field names: route, _next, next_step, goto
 ```
 
-For this to work, the target node must exist in the graph (or be `__end__`). The engine injects available routes into the prompt when the node has transitions configured.
+A route value that is a transition key follows that transition; otherwise it must name a node in the graph (or `__end__`). When a node without tools has two or more transitions, the engine lists them in the prompt. The `"error"` transition is reserved: the engine follows it when the node has used its `max_iterations`, and never offers it to the model.
 
 ## Runtime Graph Mutation
 

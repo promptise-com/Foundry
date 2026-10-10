@@ -40,6 +40,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from .base import BaseNode
+from .nodes import token_usage
 from .state import GraphState, NodeResult
 
 logger = logging.getLogger("promptise.engine.code_action")
@@ -371,10 +372,9 @@ class CodeActionNode(BaseNode):
                 result.duration_ms = (time.monotonic() - start) * 1000
                 return result
             result.llm_duration_ms += (time.monotonic() - llm_start) * 1000
-            usage = getattr(response, "usage_metadata", None)
-            if usage:
-                result.prompt_tokens += getattr(usage, "input_tokens", 0) or 0
-                result.completion_tokens += getattr(usage, "output_tokens", 0) or 0
+            prompt_tokens, completion_tokens = token_usage(response)
+            result.prompt_tokens += prompt_tokens
+            result.completion_tokens += completion_tokens
             raw = response.content if isinstance(response.content, str) else str(response.content)
             code = extract_code(raw)
 

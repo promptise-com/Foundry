@@ -10,7 +10,7 @@ Every Promptise agent is powered by a Reasoning Graph. By default, `build_agent(
 
     The rest are specialized. Don't reach for a multi-stage pattern expecting more accuracy — on capable models they mostly add latency and tokens; the default plus `code-action` is the efficient path.
 
-You can replace the default with any of the 10 built-in patterns, or build your own.
+You can replace the default with any of the 9 built-in pattern names, a prebuilt graph such as `PromptGraph.pipeline(...)`, or a graph of your own. An unknown pattern name raises `ValueError` listing the valid names.
 
 ```mermaid
 graph TD
@@ -23,7 +23,7 @@ graph TD
     BA -->|'autonomous'| R4[Autonomous]
     BA -->|'deliberate'| R5[Deliberate]
     BA -->|'debate'| R6[Debate]
-    BA -->|'pipeline'| R7[Pipeline]
+    BA -->|PromptGraph.pipeline| R7[Pipeline]
     BA -->|PromptGraph| R8[Custom]
 
     subgraph Agent Wrapper
@@ -64,12 +64,14 @@ agent = await build_agent(..., agent_pattern="react")       # Tool-calling loop
 agent = await build_agent(..., agent_pattern="verify")      # Plan → Solve → Self-check (1 turn)
 agent = await build_agent(..., agent_pattern="managed")     # Tool loop with facts-ledger context
 agent = await build_agent(..., agent_pattern="code-action") # Writes ONE sandboxed program (1 turn)
-agent = await build_agent(..., agent_pattern="peoatr")      # Plan → Act → Think → Reflect
+agent = await build_agent(..., agent_pattern="peoatr")      # Plan → Act → Think → Reflect → Answer
 agent = await build_agent(..., agent_pattern="research")    # Search → Verify → Synthesize
 agent = await build_agent(..., agent_pattern="autonomous")  # Agent builds own path
 agent = await build_agent(..., agent_pattern="deliberate")  # Think → Plan → Act → Observe → Reflect
 agent = await build_agent(..., agent_pattern="debate")      # Proposer ↔ Critic → Judge
-agent = await build_agent(..., agent_pattern="pipeline")    # Sequential chain
+
+# Prebuilt graphs that take your nodes
+agent = await build_agent(..., agent_pattern=PromptGraph.pipeline(a, b, c))  # Sequential chain
 
 # Custom graph
 agent = await build_agent(..., agent_pattern=my_graph)
@@ -168,10 +170,12 @@ especially where a conversational loop would re-query facts and mis-aggregate.
 
 ### PEOATR
 
-Four specialized stages: Plan subgoals → Act with tools → Think about results → Reflect on progress. The reflect stage decides whether to continue, replan, or answer.
+Specialized stages: Plan subgoals → Act with tools → Think about results → Reflect on progress → Answer. The reflect stage decides whether to continue, replan, or answer; plan, think and reflect use structured output so those decisions always route, and every stage has a budget, so the run ends with a written answer.
 
 ```
-plan ──→ act ──→ think ──→ reflect ──→ (continue/replan/answer)
+plan ──→ act ──→ think ──→ reflect ──→ answer ──→ done
+          ↑        │           │
+          └────────┴───────────┘ (continue / replan → plan)
 ```
 
 **Best for:** Complex multi-step tasks, research, tasks requiring self-correction.
@@ -221,7 +225,15 @@ proposer ──→ critic ──→ (severity high) ──→ proposer
 
 ### Pipeline
 
-Simple sequential chain. Each node runs once in order. No loops, no conditions. Use when you need a fixed sequence of processing steps.
+Simple sequential chain. Each node runs once in order. No loops, no conditions. Use when you need a fixed sequence of processing steps. A pipeline needs your nodes, so it is a graph, not a pattern name:
+
+```python
+graph = PromptGraph.pipeline(
+    PromptNode("extract", instructions="Extract key facts."),
+    PromptNode("analyze", instructions="Analyze the facts."),
+)
+agent = await build_agent(..., agent_pattern=graph)
+```
 
 ```
 step1 ──→ step2 ──→ step3 ──→ done
@@ -322,7 +334,7 @@ PromptNode("stateless_classifier", flags={NodeFlag.NO_HISTORY})
 PromptNode("isolated", flags={NodeFlag.ISOLATED_CONTEXT}, input_keys=["query"])
 ```
 
-See [Node Flags](../engine-flags.md) for all 16 flags.
+See [Node Flags](../engine-flags.md) for all 18 flags.
 
 ### Data Flow Between Nodes
 
@@ -377,7 +389,7 @@ When you pass `agent_pattern=` to `build_agent()`:
 
 - [Reasoning Graph Overview](../engine.md) — Architecture and engine details
 - [All 20 Node Types](../engine-nodes.md) — Full parameter reference
-- [Node Flags](../engine-flags.md) — 16 typed execution flags
+- [Node Flags](../engine-flags.md) — 18 typed execution flags
 - [Prebuilt Patterns](../engine-prebuilts.md) — Pattern factory functions
 - [Skills Library](../engine-skills.md) — 15 pre-configured node factories
 - [Building Custom Reasoning Guide](../../guides/custom-reasoning.md) — Step-by-step examples
