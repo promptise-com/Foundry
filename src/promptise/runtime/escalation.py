@@ -61,31 +61,37 @@ async def escalate(
 async def _fire_webhook(url: str, payload: dict[str, Any]) -> None:
     """POST a JSON payload to a webhook URL.
 
-    Validates the URL against private IP ranges (SSRF protection)
-    and requires ``httpx``.
+    SSRF protection: the host is resolved on every call, the request is
+    refused if any address is private or internal, and it is sent to the
+    address that was checked (``Host`` header and TLS server name kept), so
+    the name cannot be re-resolved to an internal address in between (DNS
+    rebinding).  Redirects are not followed.  Requires ``httpx``.
     """
-    # SSRF protection
-    try:
-        from promptise.mcp.server._openapi import _validate_url_not_private
-
-        _validate_url_not_private(url)
-    except (ImportError, ValueError) as exc:
-        if isinstance(exc, ValueError):
-            logger.warning("Escalation SSRF blocked: %s", exc)
-            return
-
     try:
         import httpx
     except ImportError:
         logger.warning("httpx not installed — cannot send escalation webhook")
         return
 
+    from promptise._outbound import BlockedTarget, pin_target
+
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        target = await pin_target(url)
+    except BlockedTarget as exc:
+        logger.warning("Escalation SSRF blocked: %s", exc)
+        return
+    except OSError as exc:
+        logger.warning("Escalation webhook host did not resolve: %s", exc)
+        return
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
             await client.post(
-                url,
+                target.url,
                 json=payload,
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json", **target.headers},
+                extensions=target.extensions,
+                follow_redirects=False,
             )
     except Exception as exc:
         logger.debug("Webhook delivery failed: %s", exc, exc_info=True)

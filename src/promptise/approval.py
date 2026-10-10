@@ -52,6 +52,8 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from pydantic import PrivateAttr
 
+from ._outbound import pin_target
+
 if TYPE_CHECKING:
     from .approval_classifier import ClassifierDecisionTrace
 
@@ -274,6 +276,13 @@ class WebhookApprovalHandler:
             default (SSRF protection); turn it on when the approval service
             runs on your own network, e.g. ``https://ops.internal/approvals``.
 
+    Unless ``allow_private_networks`` is set, the host is resolved again
+    before the POST and before every poll, the request is refused if it
+    resolves to a non-public address, and it is sent to the address that
+    was checked (keeping the ``Host`` header and TLS server name), so a DNS
+    answer that changes after construction (DNS rebinding) cannot redirect
+    it to an internal service.  Redirects are never followed.
+
     Raises:
         ValueError: ``url`` or ``poll_url`` targets a private or internal
             address and ``allow_private_networks`` is not set.
@@ -303,6 +312,7 @@ class WebhookApprovalHandler:
                 _validate_url_not_private(poll_url, hint=hint)
 
         self._url = url
+        self._allow_private_networks = allow_private_networks
         self._secret = secret or secrets.token_hex(32)
         self._poll_url = poll_url
         self._poll_interval = max(0.5, poll_interval)
@@ -337,27 +347,40 @@ class WebhookApprovalHandler:
             should_close = True
 
         try:
-            # POST the approval request
+            # POST the approval request.  Every request resolves and checks
+            # the host again and connects to the checked address (DNS
+            # rebinding); a private answer raises BlockedTarget (fail closed).
+            target = await pin_target(
+                self._url, allow_private_networks=self._allow_private_networks
+            )
             resp = await client.post(
-                self._url,
+                target.url,
                 json=request.to_dict(),
-                headers=headers,
+                headers={**headers, **target.headers},
+                extensions=target.extensions,
+                follow_redirects=False,
             )
             resp.raise_for_status()
 
             # Poll for decision
-            poll_target = self._poll_url or f"{self._url}/{request.request_id}"
+            poll_url = self._poll_url or f"{self._url}/{request.request_id}"
             deadline = time.monotonic() + request.timeout
 
             while time.monotonic() < deadline:
                 await asyncio.sleep(self._poll_interval)
                 try:
+                    target = await pin_target(
+                        poll_url, allow_private_networks=self._allow_private_networks
+                    )
                     poll_resp = await client.get(
-                        poll_target,
+                        target.url,
                         headers={
                             "X-Promptise-Request-Id": request.request_id,
                             **self._headers,
+                            **target.headers,
                         },
+                        extensions=target.extensions,
+                        follow_redirects=False,
                     )
                     if poll_resp.status_code == 200:
                         data = poll_resp.json()
@@ -369,7 +392,9 @@ class WebhookApprovalHandler:
                                 reason=data.get("reason"),
                             )
                     # 202 = still pending, continue polling
-                except httpx.HTTPError:
+                except (httpx.HTTPError, OSError):
+                    # Transient (connection, DNS); a BlockedTarget is not
+                    # caught here, so a private answer ends the request.
                     logger.warning(
                         "Approval poll failed for %s, retrying",
                         request.request_id,
