@@ -34,6 +34,30 @@ from langchain_core.tools import BaseTool
 from .base import BaseNode
 from .state import GraphState, NodeEvent, NodeResult
 
+#: ``id`` of a leading :class:`SystemMessage` that carries the agent's
+#: per-turn prompt (e.g. a conversation flow's).  :class:`PromptNode`
+#: appends its own instructions and tool list to that message instead of
+#: adding a second system message.
+AGENT_PROMPT_MESSAGE_ID = "promptise-agent-prompt"
+
+
+def _is_agent_prompt(message: Any) -> bool:
+    return isinstance(message, SystemMessage) and message.id == AGENT_PROMPT_MESSAGE_ID
+
+
+def _place_node_prompt(messages: list[Any], node_sys_msg: SystemMessage) -> bool:
+    """Put a node's system message into *messages* (in place).
+
+    When *messages* starts with the agent's prompt, *node_sys_msg* already
+    carries it, so it replaces that message and the model gets one system
+    message.  Returns ``True`` in that case.
+    """
+    if messages and _is_agent_prompt(messages[0]):
+        messages[0] = node_sys_msg
+        return True
+    return False
+
+
 logger = logging.getLogger("promptise.engine")
 
 # A node records a failure as ``NodeResult.error`` (a string — what hooks,
@@ -508,20 +532,28 @@ class PromptNode(BaseNode):
             # (It is never in state.messages, so nothing there to replace;
             # replacing overwrote the input's second system message.)
             messages = list(state.messages)
-            if messages and isinstance(messages[0], SystemMessage):
+            if _place_node_prompt(messages, node_sys_msg):
+                pass
+            elif messages and isinstance(messages[0], SystemMessage):
                 messages.insert(1, node_sys_msg)
             else:
                 messages.insert(0, node_sys_msg)
         else:
             # First call for this node — build system prompt and cache it
             system_text = "\n\n".join(system_parts)
-            node_sys_msg = SystemMessage(content=system_text)
-
             messages = list(state.messages)
-            if messages and isinstance(messages[0], SystemMessage):
-                messages.insert(1, node_sys_msg)
+            if messages and _is_agent_prompt(messages[0]):
+                # One system message: the agent's prompt, then this node's.
+                agent_prompt = str(messages[0].content)
+                system_text = f"{agent_prompt}\n\n{system_text}" if system_text else agent_prompt
+                node_sys_msg = SystemMessage(content=system_text)
+                _place_node_prompt(messages, node_sys_msg)
             else:
-                messages.insert(0, node_sys_msg)
+                node_sys_msg = SystemMessage(content=system_text)
+                if messages and isinstance(messages[0], SystemMessage):
+                    messages.insert(1, node_sys_msg)
+                else:
+                    messages.insert(0, node_sys_msg)
 
             # ── 2. Resolve tools (runtime injection if flagged) ──
             active_tools = list(self.tools)
@@ -577,7 +609,9 @@ class PromptNode(BaseNode):
                 settings=self._compaction_settings(config),
                 scoped=_scope == "scoped",
             )
-            if messages and isinstance(messages[0], SystemMessage):
+            if _place_node_prompt(messages, node_sys_msg):
+                pass
+            elif messages and isinstance(messages[0], SystemMessage):
                 messages.insert(1, node_sys_msg)
             else:
                 messages.insert(0, node_sys_msg)

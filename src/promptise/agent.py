@@ -23,6 +23,7 @@ from .cross_agent import CrossAgent, make_cross_agent_tools
 from .identity import AgentIdentity, IdentityError
 from .models import Model
 from .prompt import DEFAULT_SYSTEM_PROMPT
+from .prompts.flows import FlowSessions
 
 
 @dataclass
@@ -116,6 +117,12 @@ class CallerContext:
 # Each concurrent ainvoke() gets its own copy via contextvars.
 _caller_ctx_var: contextvars.ContextVar[CallerContext | None] = contextvars.ContextVar(
     "promptise_caller", default=None
+)
+
+# Owner of the session that chat() is serving, when it was named with
+# ``user_id=`` rather than a CallerContext. Scopes per-session flow state.
+_session_owner_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "promptise_session_owner", default=None
 )
 
 
@@ -279,8 +286,8 @@ class PromptiseAgent:
         self._conversation_store = conversation_store
         self._conversation_max_messages = conversation_max_messages
 
-        # Conversation flow (Layer 2)
-        self._flow: Any | None = None
+        # Conversation flow (Layer 2): one flow per session or caller
+        self._flows: FlowSessions | None = None
 
         # Tool optimization — semantic selection
         self._tool_index = tool_index
@@ -346,6 +353,7 @@ class PromptiseAgent:
         config: dict[str, Any] | None = None,
         *,
         caller: CallerContext | None = None,
+        session_id: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """Invoke the agent asynchronously.
@@ -353,6 +361,9 @@ class PromptiseAgent:
         Args:
             input: LangGraph-style input dict with ``messages``.
             config: LangGraph config dict (callbacks, etc.).
+            session_id: Optional conversation ID.  With a conversation
+                ``flow``, each session (per caller) keeps its own flow
+                state.  :meth:`chat` passes its ``session_id`` here.
             caller: Optional :class:`CallerContext` with per-request
                 identity.  When provided, ``user_id`` is used for
                 conversation ownership and the full context is
@@ -384,7 +395,7 @@ class PromptiseAgent:
             if timeout and timeout > 0:
                 try:
                     return await asyncio.wait_for(
-                        self._ainvoke_inner(input, config, **kwargs),
+                        self._ainvoke_inner(input, config, session_id=session_id, **kwargs),
                         timeout=timeout,
                     )
                 except asyncio.TimeoutError:
@@ -400,7 +411,7 @@ class PromptiseAgent:
                         )
                     raise TimeoutError(f"Agent invocation exceeded {timeout}s timeout")
             else:
-                return await self._ainvoke_inner(input, config, **kwargs)
+                return await self._ainvoke_inner(input, config, session_id=session_id, **kwargs)
         except Exception as exc:
             # Emit invocation.error event on any unhandled exception
             if self._event_notifier is not None:
@@ -513,6 +524,8 @@ class PromptiseAgent:
         self,
         input: Any,
         config: dict[str, Any] | None = None,
+        *,
+        session_id: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """Inner implementation — runs with CallerContext in contextvar."""
@@ -572,6 +585,13 @@ class PromptiseAgent:
 
         user_text = _extract_user_text(input) if input else ""
 
+        # Step 0.5: Guards of a Prompt used as instructions check the user message
+        if self._prompt_config is not None and user_text:
+            checked_text = await self._check_prompt_input(user_text)
+            if checked_text != user_text:
+                input = _replace_last_user_text(input, checked_text)
+                user_text = checked_text
+
         # Step 1: Memory — search (always, for cache fingerprint) and inject (legacy only)
         _memory_results: list[Any] = []
         if self.provider is not None:
@@ -615,6 +635,13 @@ class PromptiseAgent:
                 self._context_engine, input, config, user_text, _memory_results
             )
 
+        # Step 1.4: Conversation flow — evolve system prompt (legacy path only).
+        # Before the cache check, so a cache hit still advances the flow and a
+        # reply cached under another phase's prompt is not served.
+        _flow_text = ""
+        if self._flows is not None and not _engine_active:
+            input, _flow_text = await self._inject_flow_context(input, session_id)
+
         # Step 1.5: Cache check — AFTER memory so fingerprint includes memory content
         if self._cache is not None:
             try:
@@ -626,7 +653,10 @@ class PromptiseAgent:
                     _cache_query = _ext_cache(input)
 
                 if _cache_query:
-                    _inst_hash = compute_instruction_hash(getattr(self, "_raw_instructions", None))
+                    _instructions = getattr(self, "_raw_instructions", None)
+                    if _flow_text:
+                        _instructions = f"{_flow_text}\n\n{_instructions or ''}"
+                    _inst_hash = compute_instruction_hash(_instructions)
                     _ctx_fp = compute_context_fingerprint(
                         memory_results=_memory_results,
                         conversation_length=len(input.get("messages", []))
@@ -659,6 +689,8 @@ class PromptiseAgent:
                                 checked = await self._guardrails.check_output(response_text)
                                 if isinstance(checked, str) and checked != response_text:
                                     output = self._replace_response_text(output, checked)
+                        if self._prompt_config is not None:
+                            output = await self._check_prompt_output(output)
                         return output
                     else:
                         # Record cache miss
@@ -676,10 +708,6 @@ class PromptiseAgent:
         # Step 1.5: Prompt framework — run context providers (legacy path only)
         if self._prompt_config is not None and not _engine_active:
             input = await self._inject_prompt_context(input, user_text)
-
-        # Step 1.6: Conversation flow — evolve system prompt (legacy path only)
-        if self._flow is not None and not _engine_active:
-            input = await self._inject_flow_context(input, user_text)
 
         # Step 1.8: Semantic tool selection — rebuild graph with relevant tools
         _invocation_graph = None
@@ -734,6 +762,10 @@ class PromptiseAgent:
                             "info",
                             {"direction": "output"},
                         )
+
+        # Step 3.6: Guards of a Prompt used as instructions check the reply
+        if self._prompt_config is not None:
+            output = await self._check_prompt_output(output)
 
         # Step 3.75: Store in cache AFTER guardrails (store post-redacted output)
         if self._cache is not None and _cache_query:
@@ -821,6 +853,7 @@ class PromptiseAgent:
         config: dict[str, Any] | None = None,
         *,
         caller: CallerContext | None = None,
+        session_id: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """Invoke the agent synchronously.
@@ -844,11 +877,15 @@ class PromptiseAgent:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(
                     asyncio.run,
-                    self.ainvoke(input, config=config, caller=caller, **kwargs),
+                    self.ainvoke(
+                        input, config=config, caller=caller, session_id=session_id, **kwargs
+                    ),
                 )
                 return future.result()
         else:
-            return asyncio.run(self.ainvoke(input, config=config, caller=caller, **kwargs))
+            return asyncio.run(
+                self.ainvoke(input, config=config, caller=caller, session_id=session_id, **kwargs)
+            )
 
     async def astream(
         self,
@@ -1004,6 +1041,23 @@ class PromptiseAgent:
                         )
                         return
 
+            # Step 0.5: Guards of a Prompt used as instructions
+            if self._prompt_config is not None:
+                from .memory import _extract_user_text as _ext_prompt
+
+                prompt_text = _ext_prompt(input)
+                if prompt_text:
+                    try:
+                        checked_text = await self._check_prompt_input(prompt_text)
+                    except Exception:
+                        yield ErrorEvent(
+                            message="Input blocked by prompt guard.",
+                            recoverable=False,
+                        )
+                        return
+                    if checked_text != prompt_text:
+                        input = _replace_last_user_text(input, checked_text)
+
             # Step 1: Memory injection
             if self.provider is not None:
                 from .memory import (
@@ -1150,6 +1204,20 @@ class PromptiseAgent:
                         return
                     # Other exceptions — log and continue with unredacted response
                     logger.warning("Output guardrail error in stream: %s", guard_exc)
+
+            if self._prompt_config is not None and final_response:
+                checked_output: Any = final_response
+                try:
+                    for g in self._prompt_guards("output"):
+                        checked_output = await g.check_output(checked_output)
+                except Exception:
+                    yield ErrorEvent(
+                        message="Output blocked by prompt guard.",
+                        recoverable=False,
+                    )
+                    return
+                if isinstance(checked_output, str):
+                    final_response = checked_output
 
             # Step 5: Memory auto-store
             if self.provider is not None and _cumulative:
@@ -1485,11 +1553,16 @@ class PromptiseAgent:
 
         lc_messages.append(HumanMessage(content=message))
 
-        # Step 4: Invoke the agent (the session id scopes approval-gate state)
+        # Step 4: Invoke the agent (the session id scopes approval-gate state
+        # and the conversation flow; the owner scopes flow sessions per user)
         _session_token = _session_ctx_var.set(session_id)
+        _owner_token = _session_owner_var.set(user_id)
         try:
-            output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+            output = await self.ainvoke(
+                {"messages": lc_messages}, caller=caller, session_id=session_id
+            )
         finally:
+            _session_owner_var.reset(_owner_token)
             _session_ctx_var.reset(_session_token)
 
         # Step 5: Extract assistant response text
@@ -1591,6 +1664,10 @@ class PromptiseAgent:
             existing = await self._conversation_store.get_session(session_id)
             if existing is not None:
                 self._enforce_ownership(existing, user_id)
+        if self._flows is not None:
+            self._flows.discard(
+                lambda key: isinstance(key, tuple) and key[0] == "session" and key[2] == session_id
+            )
         return await self._conversation_store.delete_session(session_id)
 
     async def update_session(
@@ -1709,6 +1786,52 @@ class PromptiseAgent:
                         break
         return output
 
+    def _prompt_guards(self, direction: str) -> list[Any]:
+        """Guards of the Prompt or PromptSuite used as instructions."""
+        from .prompts.core import Prompt
+        from .prompts.suite import PromptSuite
+
+        cfg = self._prompt_config
+        if isinstance(cfg, Prompt):
+            prompts = [cfg]
+        elif isinstance(cfg, PromptSuite):
+            prompts = list(cfg.prompts.values())
+        else:
+            return []
+        guards: list[Any] = []
+        seen: set[int] = set()
+        for p in prompts:
+            for g in p._input_guards if direction == "input" else p._output_guards:
+                if id(g) not in seen:
+                    seen.add(id(g))
+                    guards.append(g)
+        return guards
+
+    async def _check_prompt_input(self, user_text: str) -> str:
+        """Run the instruction Prompt's input guards on the user message.
+
+        A guard may transform the text or raise
+        :class:`~promptise.prompts.guards.GuardError` to reject it.
+        """
+        for g in self._prompt_guards("input"):
+            user_text = await g.check_input(user_text)
+        return user_text
+
+    async def _check_prompt_output(self, output: Any) -> Any:
+        """Run the instruction Prompt's output guards on the agent's reply."""
+        guards = self._prompt_guards("output")
+        if not guards:
+            return output
+        response_text = _extract_response_text(output)
+        if not response_text:
+            return output
+        checked: Any = response_text
+        for g in guards:
+            checked = await g.check_output(checked)
+        if isinstance(checked, str) and checked != response_text:
+            output = self._replace_response_text(output, checked)
+        return output
+
     async def _inject_prompt_context(self, input: Any, user_text: str) -> Any:
         """Run prompt context providers and inject dynamic context."""
         try:
@@ -1763,42 +1886,96 @@ class PromptiseAgent:
             logger.warning("Prompt context injection failed", exc_info=True)
             return input
 
-    async def _inject_flow_context(self, input: Any, user_text: str) -> Any:
-        """Run the conversation flow and inject its prompt as a SystemMessage.
+    def _flow_key(self, session_id: str | None) -> tuple[str, ...] | None:
+        """Identify the conversation whose flow state this call advances.
 
-        Callers must guard with ``self._flow is not None`` before invoking.
+        Flow state is kept per session (scoped to its owner) when a
+        ``session_id`` is given, otherwise per caller.  Calls with neither
+        get a throwaway flow, so state never leaks between conversations.
+        """
+        caller = _caller_ctx_var.get()
+        owner = caller.isolation_key if caller is not None else None
+        if owner is None:
+            owner = _session_owner_var.get()
+        if session_id is not None:
+            return ("session", owner or "", session_id)
+        if owner is not None:
+            return ("caller", owner)
+        return None
+
+    def get_flow(
+        self,
+        session_id: str | None = None,
+        *,
+        caller: CallerContext | None = None,
+        user_id: str | None = None,
+    ) -> Any | None:
+        """Return the conversation flow kept for a session or caller.
+
+        Use it to inspect a conversation's phase and prompt, e.g.
+        ``agent.get_flow("sess-1").get_prompt().included``.
+
+        Args:
+            session_id: The session passed to :meth:`chat` or :meth:`ainvoke`.
+            caller: The caller the session or calls were made with.
+            user_id: The ``user_id`` passed to :meth:`chat` (when no
+                ``caller`` was used).
+
+        Returns:
+            The :class:`~promptise.prompts.flows.ConversationFlow`, or
+            ``None`` if the agent has no flow or has not seen that
+            conversation.
+        """
+        if self._flows is None:
+            return None
+        owner = caller.isolation_key if caller is not None else None
+        if owner is None:
+            owner = user_id
+        if session_id is not None:
+            return self._flows.get(("session", owner or "", session_id))
+        if owner is not None:
+            return self._flows.get(("caller", owner))
+        return None
+
+    async def _inject_flow_context(self, input: Any, session_id: str | None) -> tuple[Any, str]:
+        """Advance this conversation's flow and put its prompt first.
+
+        Returns the new input and the flow's prompt text (``""`` if none).
+
+        The prompt goes in as a leading system message tagged
+        :data:`~promptise.engine.nodes.AGENT_PROMPT_MESSAGE_ID`; the
+        model node folds its own instructions and tool list into that
+        message, so the model gets one system prompt.
+
+        Callers must guard with ``self._flows is not None`` before invoking.
         """
         try:
-            from .prompts.flows import ConversationFlow
+            from langchain_core.messages import SystemMessage
 
-            assert self._flow is not None  # guarded by caller
-            flow: ConversationFlow = self._flow
-            if flow._current_phase is None:
-                # First turn — start the flow
-                assembled = await flow.start()
-            else:
-                assembled = await flow.next_turn(user_text)
+            from .engine.nodes import AGENT_PROMPT_MESSAGE_ID
+
+            assert self._flows is not None  # guarded by caller
+            _, assembled = await self._flows.advance(
+                self._flow_key(session_id), _user_messages(input)
+            )
 
             if not assembled.text:
-                return input
-
-            from langchain_core.messages import SystemMessage
+                return input, ""
 
             if isinstance(input, dict) and "messages" in input:
                 messages = list(input["messages"])
                 # Flow goes at index 0 — it defines the agent's current
                 # behavioral phase (e.g., "opening", "analysis", "conclusion")
                 # and has the highest effective priority in the context stack.
-                messages.insert(0, SystemMessage(content=assembled.text))
-                return {**input, "messages": messages}
+                messages.insert(
+                    0, SystemMessage(content=assembled.text, id=AGENT_PROMPT_MESSAGE_ID)
+                )
+                return {**input, "messages": messages}, assembled.text
 
-            return input
-        except ImportError:
-            logger.debug("Flows module not available, skipping flow injection")
-            return input
+            return input, ""
         except Exception:
             logger.warning("Flow context injection failed", exc_info=True)
-            return input
+            return input, ""
 
     # -----------------------------------------------------------------
     # Passthrough for inner graph attributes
@@ -1820,6 +1997,52 @@ class PromptiseAgent:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
+
+
+def _replace_last_user_text(input: Any, text: str) -> Any:
+    """Return *input* with its last user message's text set to *text*."""
+    if isinstance(input, str):
+        return text
+    if not isinstance(input, dict) or not input.get("messages"):
+        return input
+    messages = list(input["messages"])
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if isinstance(msg, dict) and msg.get("role") in ("user", "human"):
+            messages[i] = {**msg, "content": text}
+            break
+        if getattr(msg, "type", None) == "human" and hasattr(msg, "model_copy"):
+            messages[i] = msg.model_copy(update={"content": text})
+            break
+    return {**input, "messages": messages}
+
+
+def _user_messages(input: Any) -> list[str]:
+    """Return the text of every user message in an invocation input, in order."""
+    if isinstance(input, str):
+        return [input] if input else []
+    if not isinstance(input, dict):
+        return []
+    texts: list[str] = []
+    for msg in input.get("messages", []) or []:
+        if isinstance(msg, dict):
+            if msg.get("role") not in ("user", "human"):
+                continue
+            content = msg.get("content", "")
+        elif getattr(msg, "type", None) == "human":
+            content = getattr(msg, "content", "")
+        else:
+            continue
+        if isinstance(content, list):
+            # Multimodal content: keep the text parts.
+            content = " ".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+                if isinstance(part, str) or (isinstance(part, dict) and part.get("type") == "text")
+            )
+        if content:
+            texts.append(str(content))
+    return texts
 
 
 def _extract_response_text(output: Any) -> str:
@@ -1961,9 +2184,17 @@ async def build_agent(
         extra_tools: Optional additional :class:`BaseTool` instances to
             include alongside MCP-discovered tools.  Used by the runtime
             for meta-tools (open mode) and custom agent-created tools.
-        flow: Optional :class:`~promptise.prompts.flows.ConversationFlow`.
-            When provided, the system prompt evolves across turns based
-            on the flow's phase and active blocks.
+        flow: Optional :class:`~promptise.prompts.flows.ConversationFlow`
+            instance, subclass, or zero-argument factory.  The system
+            prompt then evolves across turns with the flow's phase and
+            active blocks.  Each conversation gets its own flow: per
+            ``session_id`` (see :meth:`PromptiseAgent.chat`), else per
+            :class:`CallerContext`; an instance is deep-copied as a
+            template.  Calls with neither get a throwaway flow built from
+            the messages passed in.  The flow's prompt comes first, and
+            ``instructions`` and the tool list are appended to it in the
+            same system message; with no ``instructions``, the default
+            system prompt is not added.
         conversation_store: Optional
             :class:`~promptise.conversations.ConversationStore`.  When
             provided, the agent's :meth:`~PromptiseAgent.chat` method
@@ -2006,6 +2237,10 @@ async def build_agent(
     """
     if model is None:  # Defensive check; CLI/code must always pass a model now.
         raise ValueError("A model is required. Provide a model instance or a provider id string.")
+
+    # Validate the flow before any server connects: a template that can't be
+    # copied per conversation fails here, not after resources are open.
+    _flow_sessions = FlowSessions(flow) if flow is not None else None
 
     # Attribute recorded events to the agent's identity by default, so the
     # observability timeline answers "which agent did what" without extra
@@ -2344,6 +2579,9 @@ async def build_agent(
                 sys_prompt = str(instructions)
         except ImportError:
             sys_prompt = str(instructions)
+    elif flow is not None:
+        # The flow supplies the prompt; don't append the generic default.
+        sys_prompt = instructions or ""
     else:
         sys_prompt = instructions or DEFAULT_SYSTEM_PROMPT
 
@@ -2612,8 +2850,8 @@ async def build_agent(
     agent._raw_instructions = sys_prompt if isinstance(sys_prompt, str) else str(instructions or "")
 
     # Attach conversation flow if provided
-    if flow is not None:
-        agent._flow = flow
+    if _flow_sessions is not None:
+        agent._flows = _flow_sessions
 
     # Attach sandbox for cleanup on shutdown
     if sandbox_session is not None:

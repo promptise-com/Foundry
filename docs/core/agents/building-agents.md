@@ -86,7 +86,7 @@ agent = await build_agent(
 | `observer_agent_id` | `str \| None` | `None` | Agent identifier for the shared observer's timeline entries. |
 | `cross_agents` | `Mapping[str, CrossAgent] \| None` | `None` | Peer agents exposed as `ask_agent_<name>` tools. See [Cross-Agent Delegation](cross-agent.md). |
 | `extra_tools` | `list[BaseTool] \| None` | `None` | Additional LangChain tools appended alongside MCP-discovered tools. |
-| `flow` | `ConversationFlow \| None` | `None` | A conversation flow that evolves the system prompt across turns. |
+| `flow` | `ConversationFlow \| type \| Callable \| None` | `None` | A conversation flow that evolves the system prompt across turns: an instance (used as a template), a subclass, or a factory. Each session or caller gets its own copy. See [ConversationFlow](../../prompting/flows.md#integration-with-build_agent). |
 | `guardrails` | `PromptiseSecurityScanner \| None` | `None` | Security scanner for input/output. Blocks injection attacks, redacts PII and credentials. See [Guardrails](../guardrails.md). |
 | `optimize_tools` | `str \| ToolOptimizationConfig \| None` | `None` | Semantic tool selection to reduce token costs. Pass `"semantic"` for defaults. See [Tool Optimization](../tool-optimization.md). |
 | `conversation_store` | `ConversationStore \| None` | `None` | Persistent conversation history. See [Conversations](../conversations.md). |
