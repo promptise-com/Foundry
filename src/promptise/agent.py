@@ -128,6 +128,12 @@ def get_current_caller() -> CallerContext | None:
     return _caller_ctx_var.get()
 
 
+# The ``chat()`` session id, while that session's invocation runs.
+_session_ctx_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "promptise_session", default=None
+)
+
+
 from .tools import MCPClientError
 
 # Model can be a provider string (handled by LangChain), a chat model instance, or a Runnable.
@@ -263,8 +269,15 @@ class PromptiseAgent:
         # Human-in-the-loop approval
         self._approval = approval
 
-        # Event notifications
+        # Event notifications. The agent stops the notifier on shutdown()
+        # unless something else (an AgentProcess, the runtime) owns it.
         self._event_notifier = event_notifier
+        self._owns_event_notifier = True
+        self._tool_event_handler: Any | None = None
+        if event_notifier is not None:
+            from .events import _ToolEventCallback
+
+            self._tool_event_handler = _ToolEventCallback(event_notifier)
 
         # Invocation timeout (0 = no limit)
         self._max_invocation_time: float = 0
@@ -292,13 +305,50 @@ class PromptiseAgent:
     def _actor(self) -> str | None:
         """Return the id to attribute the agent's events to.
 
-        When an identity is attached, this is the agent's resolved
-        identifier (``agent_id`` or the IdP subject); otherwise it is the
-        model name, so agents without an identity are unaffected.
+        This is ``observer_agent_id`` when set, else the identity's
+        resolved identifier (``agent_id`` or the IdP subject); an agent
+        run by an ``AgentProcess`` uses the process name.  Without any of
+        these it is the model name, as before.
         """
-        if self.identity is not None:
-            return self._actor_id or self.model_name
-        return self.model_name
+        return self._actor_id or self.model_name
+
+    def _push_event_scope(self) -> contextvars.Token[Any] | None:
+        """Attribute events emitted during this invocation to this agent."""
+        if self._event_notifier is None:
+            return None
+        import secrets
+
+        from .events import _push_scope
+
+        return _push_scope(
+            agent_id=self._actor(),
+            session_id=_session_ctx_var.get(),
+            metadata={"model": self.model_name, "invocation_id": secrets.token_hex(8)},
+        )
+
+    @staticmethod
+    def _pop_event_scope(token: contextvars.Token[Any] | None) -> None:
+        if token is not None:
+            from .events import _scope_var
+
+            _scope_var.reset(token)
+
+    def _with_callbacks(self, config: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Add the observability and tool-event callback handlers to *config*."""
+        handlers = [h for h in (self._handler, self._tool_event_handler) if h is not None]
+        if not handlers:
+            return config
+        config = dict(config) if config else {}
+        callbacks = config.get("callbacks")
+        if callbacks is not None and not isinstance(callbacks, list):
+            # A CallbackManager: add ours to it (on a copy).
+            manager = callbacks.copy()
+            for handler in handlers:
+                manager.add_handler(handler, inherit=True)
+            config["callbacks"] = manager
+        else:
+            config["callbacks"] = [*(callbacks or []), *handlers]
+        return config
 
     # -----------------------------------------------------------------
     # Core invocation methods
@@ -341,6 +391,7 @@ class PromptiseAgent:
         if caller is None:
             caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
+        _scope_token = self._push_event_scope()
         try:
             # Enforce max_invocation_time if configured
             timeout = getattr(self, "_max_invocation_time", 0)
@@ -378,6 +429,7 @@ class PromptiseAgent:
                 )
             raise
         finally:
+            self._pop_event_scope(_scope_token)
             _caller_ctx_var.reset(_ctx_token)
 
     async def _ainvoke_inner(
@@ -427,7 +479,7 @@ class PromptiseAgent:
                             self._event_notifier,
                             "guardrail.blocked",
                             "warning",
-                            {"direction": "input", "error": type(guard_exc).__name__},
+                            _guardrail_block_data("input", guard_exc),
                         )
                     raise  # Re-raise — don't swallow the violation
 
@@ -616,12 +668,8 @@ class PromptiseAgent:
             else self._inner
         )
 
-        # Step 2: Observability — inject callback handler
-        if self._handler is not None:
-            config = dict(config) if config else {}
-            callbacks = list(config.get("callbacks", []))
-            callbacks.append(self._handler)
-            config["callbacks"] = callbacks
+        # Step 2: Observability and tool events — inject callback handlers
+        config = self._with_callbacks(config)
 
         # Step 3: Delegate to inner graph
         output = await _active_graph.ainvoke(
@@ -776,10 +824,12 @@ class PromptiseAgent:
             caller: Optional :class:`CallerContext` for per-request identity.
         """
         _ctx_token = _caller_ctx_var.set(caller)
+        _scope_token = self._push_event_scope()
         try:
             async for chunk in self._astream_inner(input, config, **kwargs):
                 yield chunk
         finally:
+            self._pop_event_scope(_scope_token)
             _caller_ctx_var.reset(_ctx_token)
 
     async def _astream_inner(
@@ -803,12 +853,8 @@ class PromptiseAgent:
                 context = _format_memory_context(results)
                 input = _inject_memory_into_messages(input, context)
 
-        # Step 2: Observability — inject callback handler
-        if self._handler is not None:
-            config = dict(config) if config else {}
-            callbacks = list(config.get("callbacks", []))
-            callbacks.append(self._handler)
-            config["callbacks"] = callbacks
+        # Step 2: Observability and tool events — inject callback handlers
+        config = self._with_callbacks(config)
 
         # Step 3: Delegate to inner graph
         async for chunk in self._inner.astream(
@@ -870,6 +916,7 @@ class PromptiseAgent:
         )
 
         _ctx_token = _caller_ctx_var.set(caller)
+        _scope_token = self._push_event_scope()
         _start = time.monotonic()
         _cumulative = ""
         _tool_counter = 0
@@ -897,7 +944,7 @@ class PromptiseAgent:
                 if raw_text:
                     try:
                         await self._guardrails.check_input(raw_text)
-                    except Exception:
+                    except Exception as guard_exc:
                         if self._event_notifier is not None:
                             from .events import emit_event
 
@@ -905,7 +952,7 @@ class PromptiseAgent:
                                 self._event_notifier,
                                 "guardrail.blocked",
                                 "warning",
-                                {"direction": "input"},
+                                _guardrail_block_data("input", guard_exc, streaming=True),
                             )
                         yield ErrorEvent(
                             message="Input blocked by safety policy.",
@@ -927,12 +974,8 @@ class PromptiseAgent:
                     context = _format_memory_context(results)
                     input = _inject_memory_into_messages(input, context)
 
-            # Step 2: Inject callback handler
-            if self._handler is not None:
-                config = dict(config) if config else {}
-                callbacks = list(config.get("callbacks", []))
-                callbacks.append(self._handler)
-                config["callbacks"] = callbacks
+            # Step 2: Inject callback handlers (observability, tool events)
+            config = self._with_callbacks(config)
 
             # Step 3: Stream via LangGraph astream_events
             try:
@@ -1050,7 +1093,7 @@ class PromptiseAgent:
                                 self._event_notifier,
                                 "guardrail.blocked",
                                 "warning",
-                                {"direction": "output", "streaming": True},
+                                _guardrail_block_data("output", guard_exc, streaming=True),
                             )
                         yield ErrorEvent(
                             message="Output blocked by safety policy.",
@@ -1095,6 +1138,7 @@ class PromptiseAgent:
                 )
 
         finally:
+            self._pop_event_scope(_scope_token)
             _caller_ctx_var.reset(_ctx_token)
 
     # -----------------------------------------------------------------
@@ -1128,8 +1172,13 @@ class PromptiseAgent:
             except Exception:
                 logger.debug("Transporter flush error during shutdown", exc_info=True)
 
-        # Stop event notifier (drain remaining events)
-        if self._event_notifier is not None and hasattr(self._event_notifier, "stop"):
+        # Stop event notifier (drain remaining events) — unless an owner
+        # such as an AgentProcess stops it after its own final events.
+        if (
+            self._event_notifier is not None
+            and self._owns_event_notifier
+            and hasattr(self._event_notifier, "stop")
+        ):
             try:
                 await self._event_notifier.stop()
             except Exception:
@@ -1394,7 +1443,11 @@ class PromptiseAgent:
         lc_messages.append(HumanMessage(content=message))
 
         # Step 4: Invoke the agent
-        output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+        _session_token = _session_ctx_var.set(session_id)
+        try:
+            output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+        finally:
+            _session_ctx_var.reset(_session_token)
 
         # Step 5: Extract assistant response text
         response_text = _extract_response_text(output)
@@ -1726,6 +1779,28 @@ class PromptiseAgent:
         return getattr(self._inner, name)
 
 
+def _guardrail_block_data(direction: str, exc: BaseException, **extra: Any) -> dict[str, Any]:
+    """Payload for ``guardrail.blocked``: why it blocked, without the matched text."""
+    data: dict[str, Any] = {"direction": direction, "error": type(exc).__name__}
+    report = getattr(exc, "report", None)
+    blocked = list(getattr(report, "blocked", None) or [])
+    if blocked:
+        data["reason"] = "; ".join(str(getattr(f, "description", "")) for f in blocked[:3])[:300]
+        data["findings"] = [
+            {
+                "detector": getattr(f, "detector", None),
+                "category": getattr(f, "category", None),
+                "severity": str(getattr(getattr(f, "severity", None), "value", None) or ""),
+                "description": getattr(f, "description", None),
+            }
+            for f in blocked[:10]
+        ]
+    else:
+        data["reason"] = str(exc)[:300]
+    data.update(extra)
+    return data
+
+
 def _extract_response_text(output: Any) -> str:
     """Extract the assistant's response text from agent output.
 
@@ -1856,7 +1931,8 @@ async def build_agent(
         sandbox: Optional sandbox configuration (``True``, dict, or
             ``None``).
         observer: Optional :class:`ObservabilityCollector` to reuse.
-        observer_agent_id: Agent identifier for tool-event recording.
+        observer_agent_id: Agent identifier for tool-event recording.  Also
+            the ``agent_id`` of every event the agent emits (see ``events``).
         observe: Plug-and-play observability.  Can be:
             - ``True``: Enable with defaults (STANDARD level, HTML report).
             - :class:`ObservabilityConfig`: Full configuration.
@@ -1874,6 +1950,11 @@ async def build_agent(
         conversation_max_messages: Maximum messages to keep per session
             when using the conversation store.  ``0`` = unlimited.
             Oldest messages are dropped when the limit is reached.
+        events: Optional :class:`~promptise.events.EventNotifier`.  The
+            agent emits ``invocation.*``, ``tool.error``, ``tool.slow``,
+            ``guardrail.*``, ``approval.*`` and ``cache.*`` events to it,
+            whether or not ``observe`` is on, and stops it (delivering what
+            is queued) in :meth:`~PromptiseAgent.shutdown`.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -2424,10 +2505,9 @@ async def build_agent(
     if context_engine is not None:
         agent._context_engine = context_engine
 
-    # Wire event notifier to callback handler and cache
+    # Wire event notifier to the cache (tool events come from the agent's
+    # own tool-event handler, independent of observability)
     if events is not None:
-        if _callback_handler is not None:
-            _callback_handler._event_notifier = events
         if cache is not None:
             cache._event_notifier = events
         # Auto-start the notifier

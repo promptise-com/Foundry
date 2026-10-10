@@ -297,6 +297,13 @@ class AgentRuntime:
                     await process.stop()
                 except Exception as exc:
                     logger.error("AgentRuntime: failed to stop %s: %s", name, exc)
+        # The shared notifier outlives single processes; deliver what the
+        # processes emitted (process.stopped included) and stop it last.
+        if self._event_notifier is not None and hasattr(self._event_notifier, "stop"):
+            try:
+                await self._event_notifier.stop()
+            except Exception as exc:
+                logger.error("AgentRuntime: failed to stop event notifier: %s", exc)
 
     # ------------------------------------------------------------------
     # Status and monitoring

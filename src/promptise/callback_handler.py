@@ -63,10 +63,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         self.record_prompts = record_prompts
         self.level = level
 
-        # --- Event notifier (set externally by build_agent) ---
-        self._event_notifier: Any | None = None
-        self._slow_tool_threshold_ms: float = 5000.0
-
         # --- Failure collection for adaptive strategy ---
         self._current_failures: list[dict[str, Any]] = []
         self._last_tool_inputs: dict[str, str] = {}  # run_id → input preview
@@ -343,21 +339,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
             metadata=metadata,
         )
 
-        # Emit tool.slow event if latency exceeds threshold
-        if (
-            self._event_notifier is not None
-            and duration is not None
-            and (duration * 1000) > self._slow_tool_threshold_ms
-        ):
-            from .events import emit_event
-
-            emit_event(
-                self._event_notifier,
-                "tool.slow",
-                "warning",
-                {"tool_name": tool_name, "latency_ms": round(duration * 1000, 1)},
-            )
-
     def on_tool_error(
         self,
         error: BaseException,
@@ -383,21 +364,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
                 ),
             },
         )
-
-        # Emit tool.error event
-        if self._event_notifier is not None:
-            from .events import emit_event
-
-            emit_event(
-                self._event_notifier,
-                "tool.error",
-                "error",
-                {
-                    "tool_name": tool_name,
-                    "error": str(error)[:200],
-                    "error_type": type(error).__name__,
-                },
-            )
 
         # Collect failure for adaptive strategy
         self._current_failures.append(

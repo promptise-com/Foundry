@@ -578,7 +578,13 @@ class _ApprovalToolWrapper(BaseTool):
                 self._event_notifier,
                 "approval.requested",
                 "info",
-                {"tool_name": tool_name, "request_id": request_id, "timeout": self._policy.timeout},
+                {
+                    "tool_name": tool_name,
+                    "request_id": request_id,
+                    "timeout": self._policy.timeout,
+                    # As redacted by the policy ({} when include_arguments=False)
+                    "arguments": arguments,
+                },
             )
 
         # Send approval request

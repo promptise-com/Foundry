@@ -171,6 +171,11 @@ class AgentProcess:
         self.process_id = process_id or str(uuid4())
         self.config = config
         self._event_notifier = event_notifier
+        # A notifier shared through an AgentRuntime is stopped by the
+        # runtime (in stop_all()); otherwise this process stops it.
+        self._owns_event_notifier = event_notifier is not None and (
+            runtime is None or getattr(runtime, "_event_notifier", None) is not event_notifier
+        )
 
         # Message inbox (human-to-agent communication)
         self._inbox = None
@@ -333,6 +338,12 @@ class AgentProcess:
         async with self._lock:
             await self._lifecycle.transition(ProcessState.STARTING, reason="start() called")
 
+            # Start event delivery before anything can fail, so a
+            # process.failed from startup reaches the sinks.
+            if self._event_notifier is not None:
+                with contextlib.suppress(Exception):
+                    await self._event_notifier.start()
+
             try:
                 # 0. Resolve secrets before agent build
                 if self._secrets is not None:
@@ -382,6 +393,7 @@ class AgentProcess:
                         "info",
                         {"process_name": self.name, "process_id": self.process_id},
                         agent_id=self.name,
+                        metadata=self._event_metadata(),
                     )
 
             except Exception as exc:
@@ -399,6 +411,7 @@ class AgentProcess:
                         "critical",
                         {"process_name": self.name, "error": str(exc)[:200]},
                         agent_id=self.name,
+                        metadata=self._event_metadata(),
                     )
                 raise
 
@@ -485,10 +498,24 @@ class AgentProcess:
                         "info",
                         {"process_name": self.name, "process_id": self.process_id},
                         agent_id=self.name,
+                        metadata=self._event_metadata(),
                     )
             # For failed processes, we leave them in FAILED state
             # (they can be restarted via start())
+
+            # 8. Deliver queued events (process.stopped included) and stop
+            #    the notifier — last, so nothing emitted above is lost.
+            if self._event_notifier is not None and self._owns_event_notifier:
+                with contextlib.suppress(Exception):
+                    await self._event_notifier.stop()
             logger.info("AgentProcess %s stopped", self.name)
+
+    def _event_metadata(self) -> dict[str, Any]:
+        """Context attached to every event this process emits."""
+        meta: dict[str, Any] = {"process_name": self.name, "process_id": self.process_id}
+        if isinstance(self.config.model, str):
+            meta["model"] = self.config.model
+        return meta
 
     async def suspend(self) -> None:
         """Pause processing without tearing down the agent.
@@ -774,6 +801,9 @@ class AgentProcess:
         # Wire optional capabilities from ProcessConfig
         if self.config.identity is not None:
             build_kwargs["identity"] = self.config.identity
+        else:
+            # Attribute the agent's events (invocation.*, tool.*) to this process.
+            build_kwargs["observer_agent_id"] = self.name
         if self.config.approval is not None:
             build_kwargs["approval"] = self.config.approval
         if self._event_notifier is not None:
@@ -792,6 +822,9 @@ class AgentProcess:
             build_kwargs["max_invocation_time"] = self.config.max_invocation_time
 
         self._agent = await _build(**build_kwargs)
+        # The agent must not stop the notifier on shutdown: stop() still
+        # emits process.stopped afterwards, and a runtime's notifier is shared.
+        self._agent._owns_event_notifier = False
 
     def _create_triggers(self) -> list[BaseTrigger]:
         """Instantiate triggers from config."""
@@ -924,6 +957,7 @@ class AgentProcess:
                     "info",
                     {"process_name": self.name},
                     agent_id=self.name,
+                    metadata=self._event_metadata(),
                 )
             run_violation = await self._budget.record_run_start()
             if run_violation is not None and self._budget_enforcer is not None:
@@ -953,6 +987,7 @@ class AgentProcess:
                         "critical",
                         {"process_name": self.name, "reason": "timeout"},
                         agent_id=self.name,
+                        metadata=self._event_metadata(),
                     )
                 return None
 
@@ -1007,10 +1042,13 @@ class AgentProcess:
         if self._runtime_callback is not None:
             invoke_config["callbacks"] = [self._runtime_callback]
 
-        result = await self._agent.ainvoke(
-            {"messages": messages},
-            config=invoke_config if invoke_config else None,
-        )
+        from promptise.events import _event_scope
+
+        with _event_scope(metadata={**self._event_metadata(), "trigger_type": event.trigger_type}):
+            result = await self._agent.ainvoke(
+                {"messages": messages},
+                config=invoke_config if invoke_config else None,
+            )
 
         # 7. Update conversation buffer with this exchange
         await self._conversation_buffer.async_append(user_msg)
@@ -1090,6 +1128,7 @@ class AgentProcess:
                     "info",
                     {"process_name": self.name},
                     agent_id=self.name,
+                    metadata=self._event_metadata(),
                 )
 
         # -- Post-invoke: handle budget violations --
@@ -1114,6 +1153,7 @@ class AgentProcess:
                         "limit": violation.limit_value,
                     },
                     agent_id=self.name,
+                    metadata=self._event_metadata(),
                 )
             await self._budget_enforcer.handle_violation(violation, self)
 
@@ -1135,6 +1175,7 @@ class AgentProcess:
                         "percentage": bw.percentage,
                     },
                     agent_id=self.name,
+                    metadata=self._event_metadata(),
                 )
 
         # -- Post-invoke: handle health anomalies --
@@ -1158,6 +1199,7 @@ class AgentProcess:
                             "details": latest.details,
                         },
                         agent_id=self.name,
+                        metadata=self._event_metadata(),
                     )
 
                 action = self.config.health.on_anomaly
@@ -1215,6 +1257,7 @@ class AgentProcess:
                             "invocations": self._invocation_count,
                         },
                         agent_id=self.name,
+                        metadata=self._event_metadata(),
                     )
                 else:
                     emit_event(
@@ -1228,6 +1271,7 @@ class AgentProcess:
                             "invocations": self._invocation_count,
                         },
                         agent_id=self.name,
+                        metadata=self._event_metadata(),
                     )
 
             if evaluation.achieved:

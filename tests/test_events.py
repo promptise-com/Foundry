@@ -344,11 +344,14 @@ class TestEventNotifier:
             sinks=[CallbackSink(lambda e: received.append(e))],
             max_queue_size=2,
         )
-        # Don't start — queue will fill but not drain
+        # No await between emits — the delivery task gets no chance to drain
         for _ in range(5):
             notifier.emit_sync(AgentEvent(event_type="test"))
-        # Only 2 should be in queue
-        assert notifier._queue.qsize() <= 2
+        # Only 2 fit in the sink's queue; the rest are dropped and counted
+        assert notifier._queues[0].qsize() <= 2
+        assert notifier.dropped_count == 3
+        await notifier.stop()
+        assert len(received) == 2
 
     @pytest.mark.asyncio
     async def test_ordering(self):
