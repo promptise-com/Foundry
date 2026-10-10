@@ -1266,46 +1266,57 @@ class TestAuditedBehaviour:
         slow = json.dumps({**SPEC, "info": {**SPEC["info"], "title": "SLOW API"}}).encode()
 
         requested: list[str] = []
+        sent: list[str] = []
+        # The slow answer is held until the test releases it. A fixed delay
+        # raced the test on busy runners: when the second load started late,
+        # the first one had already (rightly) landed.
+        release = threading.Event()
 
         def respond(h: BaseHTTPRequestHandler) -> None:
             requested.append(h.path)
             if h.path == "/slow.json":
-                time.sleep(0.8)
+                release.wait(timeout=15)
                 _send(h, slow)
             else:
                 _send(h, fast)
+            sent.append(h.path)
 
         with _loopback(respond) as port:
             app = _app(tmp_path)
-            async with app.run_test(size=(100, 34)) as pilot:
-                await pilot.press("enter")
-                spec_input = app.query_one("#spec-input")
-                # Focus moves asynchronously in Textual; on a slow runner an
-                # Enter pressed before it lands goes to the app, not the field,
-                # and the second load never starts. Wait for each step instead
-                # of guessing how long it takes.
-                await _until(pilot, lambda: app.focused is spec_input)
-                spec_input.value = f"http://127.0.0.1:{port}/slow.json"
-                await pilot.press("enter")
-                await _until(pilot, lambda: "/slow.json" in requested)
-                # The wizard may move focus while a load runs; a user clicks back
-                # into the field before typing the next address, and so does the test.
-                spec_input.focus()
-                await _until(pilot, lambda: app.focused is spec_input)
-                spec_input.value = f"http://127.0.0.1:{port}/fast.json"
-                await pilot.press("enter")
-                await _until(pilot, lambda: app.parsed is not None)
-                # the first spec to land must be the newer one, never the superseded slow one
-                assert app.parsed is not None and app.parsed.title == "FAST API"
-                generation = app.spec_generation
-                await _settle(pilot, 1.2)  # the slow answer arrives now — and is dropped
-                assert app.parsed.title == "FAST API"
-                assert app.spec_generation == generation
-                assert app.settings.spec == f"http://127.0.0.1:{port}/fast.json"
-                assert "FAST API" in _text(app, "#spec-status")
-                await pilot.press("enter")
-                await pilot.pause()
-                assert app.pane.id == "model"
+            try:
+                async with app.run_test(size=(100, 34)) as pilot:
+                    await pilot.press("enter")
+                    spec_input = app.query_one("#spec-input")
+                    # Focus moves asynchronously in Textual; on a slow runner an
+                    # Enter pressed before it lands goes to the app, not the field,
+                    # and the second load never starts. Wait for each step instead
+                    # of guessing how long it takes.
+                    await _until(pilot, lambda: app.focused is spec_input)
+                    spec_input.value = f"http://127.0.0.1:{port}/slow.json"
+                    await pilot.press("enter")
+                    await _until(pilot, lambda: "/slow.json" in requested)
+                    # The wizard may move focus while a load runs; a user clicks back
+                    # into the field before typing the next address, and so does the test.
+                    spec_input.focus()
+                    await _until(pilot, lambda: app.focused is spec_input)
+                    spec_input.value = f"http://127.0.0.1:{port}/fast.json"
+                    await pilot.press("enter")
+                    await _until(pilot, lambda: app.parsed is not None)
+                    # the first spec to land must be the newer one, never the superseded slow one
+                    assert app.parsed is not None and app.parsed.title == "FAST API"
+                    generation = app.spec_generation
+                    release.set()  # the slow answer arrives now — and is dropped
+                    await _until(pilot, lambda: "/slow.json" in sent)
+                    await _settle(pilot, 0.5)
+                    assert app.parsed.title == "FAST API"
+                    assert app.spec_generation == generation
+                    assert app.settings.spec == f"http://127.0.0.1:{port}/fast.json"
+                    assert "FAST API" in _text(app, "#spec-status")
+                    await pilot.press("enter")
+                    await pilot.pause()
+                    assert app.pane.id == "model"
+            finally:
+                release.set()  # never leave the server thread blocked
 
     async def test_a_newer_load_cuts_the_old_download_short(self, tmp_path: Path) -> None:
         fast = json.dumps({**SPEC, "info": {**SPEC["info"], "title": "FAST API"}}).encode()
