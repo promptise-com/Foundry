@@ -4,6 +4,34 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **MCP server SDK: `CacheMiddleware` ignored the tool's arguments** -- the key read `ctx.state["arguments"]`, which the server never sets (it sets `_tool_arguments`), so every call to a tool returned the first cached answer: a caller asking for SKU-9 got the SKU-7 result cached for another tenant. Entries are now keyed on the server, the tool, the validated arguments and the caller (the same fix as the tenant-isolation change, which adds `scope=`). The docstring's opt-out (`tdef.cache = False`) did not exist: see `@server.tool(cache=False)` below.
+- **MCP server SDK: `@cached` on a tool with `ctx: RequestContext` never cached** -- the context, with a random request id, was part of the key. Injected parameters (`RequestContext`, `Depends(...)` values, `BackgroundTasks`, ...) are no longer part of the key, and the caller is (client by default; `scope="tenant"` / `"shared"` widen it).
+- **MCP server SDK: `max_concurrent` refusals opened the circuit breaker** -- the per-tool limiter that the server adds for `@server.tool(max_concurrent=...)` was appended after (inside) `CircuitBreakerMiddleware`, so "at capacity" refusals counted as failures: 8 parallel calls to a `max_concurrent=2` tool opened the circuit and paused the tool for everyone. The limiter now goes just in front of the first breaker, and the breaker no longer counts capacity or rate-limit refusals in any order.
+- **MCP server SDK: an open circuit reached the model as a non-retryable `INTERNAL_ERROR`** -- unless the server registered a handler, `CircuitOpenError` became the generic "An internal error occurred." (and under `TestClient`, the raw exception text). It is now an `MCPError` that serialises as code `CIRCUIT_OPEN`, `retryable: true`, with `details.retry_after_seconds` and a suggestion naming the wait. `@server.exception_handler(CircuitOpenError)` handlers still apply.
+- **MCP server SDK: the circuit breaker counted every error** -- a `ToolError` for bad input counted as a failure, so three bad lookups paused the tool for every caller. By default only unexpected exceptions and retryable `MCPError`s (such as `TIMEOUT`) count; non-retryable `ToolError`s, auth / access denials, validation errors, rate-limit and concurrency refusals, approval denials and `CircuitOpenError` don't, and leave the failure streak unchanged. `CircuitBreakerMiddleware(is_failure=...)` overrides the rule; the default is exported as `is_upstream_failure`.
+- **MCP server SDK: half-open let every waiting call through** -- the docs promise one probe call, but after `recovery_timeout` all concurrent calls reached the recovering tool (5 of 5 in the repro). Exactly one probe now runs; calls arriving meanwhile get `CIRCUIT_OPEN`. A probe that ends without a verdict (bad input, cancellation) leaves the circuit half-open for the next call. A failure re-opens the circuit from the time it failed, not from when the call started.
+- **MCP server SDK: `@server.tool(timeout=...)` did nothing without `TimeoutMiddleware`** -- a 0.2 s limit let a 1 s call finish. The server and `TestClient` now enforce a tool's declared timeout themselves, around the tool's guards and handler (not middleware in front of it, such as an approval gate). `async` tools only: a synchronous handler cannot be interrupted.
+- **MCP server SDK: `TestClient` ignored `max_concurrent` and leaked exception text** -- it now adds the per-tool limiter like the live server, and an unhandled exception returns the same generic `INTERNAL_ERROR` message as the live server instead of `str(exc)`.
+- **MCP server SDK: `InMemoryCache(max_size=...)` was documented as LRU but evicted the oldest insert** -- a hot entry was evicted while cold ones survived. Reads now refresh an entry, the least recently used one is evicted, and overwriting an existing key at capacity no longer evicts another entry.
+- **MCP server SDK: `RedisCache` rejected a TTL under one second** -- `setex(int(ttl))` sent `0`, which Redis refuses (`invalid expire time`). TTLs are now sent in milliseconds (`SET ... PX`); a non-positive TTL is not stored.
+- **MCP server SDK: rate-limit suggestion said "Wait 0 seconds"** -- waits under 0.5 s were rounded down. The suggestion now rounds up ("Wait 1 second before retrying.").
+- **MCP server SDK: the timeout suggestion told the model to "Try with simpler input"** -- unhelpful when an upstream service hangs. It now suggests retrying later or continuing without the tool.
+
+### Added
+
+- **MCP server SDK: `@server.tool(cache=False)`** -- keeps a server-wide `CacheMiddleware` from caching a tool (writes, things that must always be fresh). Tools annotated `destructive_hint=True` are never cached. Also on `MCPRouter.tool()`.
+- **MCP server SDK: request coalescing in `@cached`** -- identical calls that arrive while the first is still computing share its result (or its error) instead of each calling upstream, so a burst against a cold or expired entry costs one upstream call (5 concurrent cold calls: 5 upstream calls before, 1 now). Keyed on the full, caller-scoped cache key, so callers the cache keeps apart are never coalesced. Per process. `@cached(coalesce=False)` turns it off.
+- **MCP server SDK: `ConcurrencyLimitError` (`CONCURRENCY_LIMIT_EXCEEDED`)** -- `max_concurrent` and `ConcurrencyLimiter` refusals had the same code as rate limits (`RATE_LIMIT_EXCEEDED`), so an agent could not tell "busy, retry in a moment" from "over quota". **Behaviour change:** they now use their own code. `ConcurrencyLimitError` subclasses `RateLimitError`, so `except RateLimitError` still catches it.
+
+### Changed
+
+- **MCP server SDK: exception handlers for `MCPError` subclasses now apply** -- a handler registered for a specific `MCPError` subclass (`CircuitOpenError`, `RateLimitError`, `ToolError`, ...) is now consulted before the error is serialised; previously handlers only ran for non-`MCPError` exceptions. A catch-all `Exception` (or `MCPError`) handler still does not swallow structured errors.
+- **Docs: Caching & Performance and Resilience Patterns** -- request coalescing, the `cache=False` opt-out, LRU eviction, sub-second Redis TTLs, `CONCURRENCY_LIMIT_EXCEEDED` and limiter placement, per-tool timeouts without middleware, what the circuit breaker counts as a failure, the single half-open probe, and the default `CIRCUIT_OPEN` response.
+
 ## v1.2.1 — 2026-10-10
 
 ### Fixed

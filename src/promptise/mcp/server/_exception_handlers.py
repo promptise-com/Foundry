@@ -68,8 +68,16 @@ class ExceptionHandlerRegistry:
 
         Returns ``None`` if no handler is registered for any type
         in the exception's MRO.
+
+        An ``MCPError`` already serialises to a structured error, so for one
+        only handlers registered for an ``MCPError`` *subclass* (e.g.
+        ``CircuitOpenError``, ``RateLimitError``) apply — a catch-all
+        ``Exception`` handler does not swallow it.
         """
+        structured = isinstance(exc, MCPError)
         for cls in type(exc).__mro__:
+            if structured and (cls is MCPError or not issubclass(cls, MCPError)):
+                return None
             if cls in self._handlers:
                 return self._handlers[cls]
         return None

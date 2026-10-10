@@ -231,6 +231,7 @@ def build_tool_def(
     annotations: Any | None = None,
     max_concurrent: int | None = None,
     requires_approval: bool = False,
+    cache: bool = True,
 ) -> ToolDef:
     """Build a ``ToolDef`` from a decorated function."""
     tool_name = name or func.__name__
@@ -264,6 +265,7 @@ def build_tool_def(
         annotations=annotations,
         max_concurrent=max_concurrent,
         requires_approval=requires_approval,
+        cache=cache,
     )
 
 

@@ -54,13 +54,68 @@ stateDiagram-v2
 
 | State | Behavior |
 |-------|----------|
-| **Closed** | Normal operation. Failures increment a counter. |
+| **Closed** | Normal operation. Each [failure](#what-counts-as-a-failure) increments a counter; a success resets it. |
 | **Open** | All calls rejected immediately with `CircuitOpenError`. |
-| **Half-Open** | One probe call allowed through. Success → Closed. Failure → Open. |
+| **Half-Open** | Exactly one probe call is let through; calls arriving while it runs are rejected with `CircuitOpenError`. Success → Closed. Failure → Open for another `recovery_timeout`. A probe that ends without a verdict (the tool rejected bad input, or the call was cancelled) leaves the circuit half-open, and the next call probes. |
+
+State is per tool: one failing tool doesn't pause the others.
+
+### What counts as a failure
+
+A circuit breaker should pause a tool when the tool or what it depends on is
+unhealthy, not when one caller sends a bad request. By default only these
+count towards `failure_threshold`:
+
+- **Unexpected exceptions**: anything that isn't an `MCPError` (a crash, a
+  `ConnectionError`, an upstream SDK raising).
+- **Retryable `MCPError`s** that signal a transient failure: a `TIMEOUT`
+  (from `@server.tool(timeout=...)` or `TimeoutMiddleware`), or your own
+  `ToolError("Upstream unavailable", retryable=True)`.
+
+These never count:
+
+- A non-retryable `ToolError`: the tool worked and rejected this input
+  (`ToolError(f"No product {sku}")`).
+- Authentication and access denials, validation errors, approval denials.
+- Rate-limit and concurrency refusals (`RATE_LIMIT_EXCEEDED`,
+  `CONCURRENCY_LIMIT_EXCEEDED`), so a burst that hits `max_concurrent` doesn't
+  open the circuit.
+- `CircuitOpenError` itself.
+
+An error that doesn't count leaves the failure streak as it is. To decide
+differently, pass `is_failure`, a function from the exception to `bool`. The
+default is exported as `is_upstream_failure`, so you can extend it:
+
+```python
+from promptise.mcp.server import CircuitBreakerMiddleware, is_upstream_failure
+
+def is_failure(exc: BaseException) -> bool:
+    if isinstance(exc, PaymentDeclinedError):   # the customer's problem, not Stripe's
+        return False
+    return is_upstream_failure(exc)
+
+server.add_middleware(CircuitBreakerMiddleware(is_failure=is_failure))
+```
 
 ### Handling `CircuitOpenError`
 
-Agents receive a structured error when the circuit is open:
+With no extra code, a call rejected by an open circuit reaches the agent as a
+retryable error that says how long to wait:
+
+```json
+{
+  "error": {
+    "code": "CIRCUIT_OPEN",
+    "message": "Circuit open for tool 'charge_card'. Retry after 42.0s.",
+    "retryable": true,
+    "suggestion": "'charge_card' is paused after repeated failures. Wait about 42s before calling it again, or continue without it.",
+    "details": {"tool": "charge_card", "retry_after_seconds": 42.0}
+  }
+}
+```
+
+`CircuitOpenError` is an `MCPError` with `tool` and `retry_after` attributes.
+Register an exception handler to reshape it:
 
 ```python
 from promptise.mcp.server import CircuitOpenError
@@ -82,6 +137,7 @@ async def handle_circuit_open(ctx, exc):
 | `failure_threshold` | `5` | Consecutive failures before opening |
 | `recovery_timeout` | `60.0` | Seconds before probing recovery |
 | `excluded_tools` | `set()` | Tools exempt from circuit breaking |
+| `is_failure` | `is_upstream_failure` | `(exc) -> bool`: whether an exception counts towards opening the circuit |
 
 ### Programmatic control
 
@@ -293,6 +349,17 @@ The handler receives the `RequestContext` and the exception. It returns a `ToolE
 
 **MRO-based matching**: If you register a handler for `ValueError` and throw a `SpecificValueError(ValueError)`, the `ValueError` handler catches it. The most specific handler in the MRO wins.
 
+**Structured errors**: an `MCPError` (`ToolError`, `RateLimitError`,
+`CircuitOpenError`, ...) is already a structured response, so it is only
+passed to a handler registered for its own class or another `MCPError`
+subclass, such as `@server.exception_handler(CircuitOpenError)`. A catch-all
+`@server.exception_handler(Exception)` doesn't swallow it.
+
+**Unhandled exceptions** reach the client as
+`{"code": "INTERNAL_ERROR", "message": "An internal error occurred."}`; the
+exception text (which may hold connection strings or file paths) goes to the
+server log only. `TestClient` returns the same response.
+
 ---
 
 ## Progress Reporting
@@ -425,7 +492,8 @@ health.register_resources(server)
 | Symbol | Type | Description |
 |--------|------|-------------|
 | `CircuitBreakerMiddleware(...)` | Class | Circuit breaker for downstream protection |
-| `CircuitOpenError` | Exception | Raised when circuit is open |
+| `CircuitOpenError` | Exception | Raised when circuit is open; reaches the client as retryable `CIRCUIT_OPEN` with `retry_after_seconds` |
+| `is_upstream_failure(exc)` | Function | Default breaker failure classifier |
 | `CircuitState` | Enum | `CLOSED`, `OPEN`, `HALF_OPEN` |
 | `HealthCheck()` | Class | Health and readiness probe manager |
 | `WebhookMiddleware(url, events, ...)` | Class | Fire webhooks on tool events |
