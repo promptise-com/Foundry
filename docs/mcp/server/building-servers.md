@@ -41,13 +41,86 @@ Run this file and any MCP-compatible client can discover and call the `add` tool
 
 ### Basic tools
 
-Decorate any sync or async function with `@server.tool()`. The function name becomes the tool name, and the docstring becomes the description.
+Decorate any sync or async function with `@server.tool()`. The function name becomes the tool name, and the docstring's summary paragraph becomes the description.
 
 ```python
 @server.tool()
 async def search(query: str, limit: int = 10) -> list[dict]:
     """Search records by keyword."""
     return await db.search(query, limit)
+```
+
+### Describing parameters
+
+The model only sees what is in the tool's `inputSchema`, so describe every parameter whose meaning is not obvious from its name. There are two ways to do it.
+
+**`Annotated` with `Field`.** Put the description and any constraints on the type. They go into the schema and are enforced when the tool is called:
+
+```python
+from typing import Annotated
+
+from pydantic import Field
+
+@server.tool()
+async def get_order_status(
+    order_id: Annotated[str, Field(description='The order ID, for example "A-1001".')],
+    limit: Annotated[int, Field(ge=1, le=50, description="Max shipping events.")] = 10,
+) -> dict:
+    """Get the status of an order and its shipping events."""
+    ...
+```
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "order_id": {"type": "string", "title": "Order Id", "description": "The order ID, for example \"A-1001\"."},
+    "limit": {"type": "integer", "title": "Limit", "default": 10, "minimum": 1, "maximum": 50, "description": "Max shipping events."}
+  },
+  "required": ["order_id"]
+}
+```
+
+A `Field(...)` as the default works the same way: `order_id: str = Field(description="...")` is a required parameter, and `limit: int = Field(default=10, ge=1)` is an optional one.
+
+**The docstring `Args:` section.** Any parameter without a `Field` description takes its description from the docstring. Google style (`name: text` or `name (type): text` under `Args:`, `Arguments:` or `Parameters:`) and Sphinx style (`:param name: text`) are both read. A description that wraps onto indented continuation lines is joined into one line:
+
+```python
+@server.tool()
+async def get_order_status(order_id: str, include_items: bool = False) -> dict:
+    """Get the status of an order.
+
+    Args:
+        order_id: The order ID, for example "A-1001". Case
+            sensitive.
+        include_items: Also return the line items.
+    """
+    ...
+```
+
+If both are given, the `Field` description wins. Constraints from `Field` are kept when the description comes from the docstring. Injected parameters (`RequestContext`, `Depends(...)`) never appear in the schema, even if the docstring documents them. NumPy-style `Parameters` / `----------` blocks are not parsed. Use `Field` for those.
+
+### How the description is chosen
+
+The tool description is the first of these that applies:
+
+1. `description=` passed to `@server.tool()`.
+2. The docstring's **summary paragraph**: every line up to the first blank line, section header (`Args:`, `Returns:`, `Raises:`, `Example:`, ...) or Sphinx field (`:param ...:`). The lines are joined with single spaces, so a summary that wraps over two lines comes through as one sentence.
+3. The function name.
+
+Later paragraphs are **not** sent. In Python they are usually notes for maintainers (implementation details, caveats, examples), and every client gets the description with each `tools/list`. The `Args:` section goes into the parameter schema instead. To send more guidance to the model, such as when to use the tool or how it relates to others, put it in the summary paragraph or pass `description=`. Resources and prompts use the same rule, and prompt arguments read the `Args:` section the same way.
+
+```python
+@server.tool()
+async def get_order_status(order_id: str) -> dict:
+    """Get the current status of an order, including the carrier and
+    the expected delivery date.
+
+    Reads from the replica, so it can lag the primary by a few seconds.
+    """
+    ...
+
+# description: "Get the current status of an order, including the carrier and the expected delivery date."
 ```
 
 ### Custom name and description

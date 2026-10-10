@@ -5,12 +5,15 @@ Introspects function signatures at registration time:
 - Detects ``Depends()`` markers for dependency injection
 - Detects ``RequestContext`` typed parameters for auto-injection
 - Builds Pydantic models for input validation
-- Uses docstrings as descriptions when none provided
+- Uses docstrings as descriptions when none provided: the summary paragraph
+  becomes the tool/resource/prompt description, and the ``Args:`` section
+  (Google style, or Sphinx ``:param name:`` fields) describes parameters
 """
 
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Callable
 from typing import Any, get_type_hints
 
@@ -31,14 +34,150 @@ class _DependsMarker:
         self.use_cache = use_cache
 
 
+# Google-style section headers.  A line consisting of one of these followed
+# by ``:`` ends the summary paragraph; the parameter sections hold the
+# per-parameter descriptions.
+_PARAM_SECTIONS = frozenset(
+    {
+        "args",
+        "arguments",
+        "parameters",
+        "params",
+        "keyword args",
+        "keyword arguments",
+        "other parameters",
+    }
+)
+_SECTIONS = _PARAM_SECTIONS | {
+    "returns",
+    "return",
+    "yields",
+    "yield",
+    "raises",
+    "exceptions",
+    "example",
+    "examples",
+    "note",
+    "notes",
+    "warning",
+    "warnings",
+    "see also",
+    "attributes",
+    "todo",
+}
+
+# ``name: text`` or ``name (type): text`` inside an Args section.
+_GOOGLE_PARAM = re.compile(r"^\*{0,2}(\w+)\s*(?:\([^)]*\))?\s*:(.*)$")
+# ``:param name: text`` or ``:param type name: text``.
+_SPHINX_PARAM = re.compile(r"^:param\s+(?:[^:]*\s)?\*{0,2}(\w+)\s*:(.*)$")
+
+
+def _section_header(line: str) -> str | None:
+    """Return the lower-cased section name if *line* is a Google-style header."""
+    stripped = line.strip()
+    if not stripped.endswith(":"):
+        return None
+    name = stripped[:-1].strip().lower()
+    return name if name in _SECTIONS else None
+
+
+def _docstring_summary(doc: str) -> str:
+    """Return the summary paragraph of an ``inspect.getdoc()``-cleaned docstring.
+
+    The summary is every line up to the first blank line, section header
+    (``Args:``, ``Returns:``, ...), or Sphinx field (``:param x:``), joined
+    with single spaces so a summary wrapped over several lines reads as one
+    sentence.
+    """
+    parts: list[str] = []
+    for line in doc.splitlines():
+        stripped = line.strip()
+        if not stripped or _section_header(line) or stripped.startswith(":"):
+            break
+        parts.append(stripped)
+    return " ".join(parts)
+
+
 def _get_description(func: Callable[..., Any], explicit: str | None) -> str:
-    """Return *explicit* description, or fall back to the first line of the docstring."""
+    """Return *explicit*, else the docstring's summary paragraph, else the function name.
+
+    Only the summary paragraph is used: later paragraphs of a Python
+    docstring are usually written for maintainers, and the ``Args:`` section
+    goes into the parameter schema instead.  Pass ``description=`` to send
+    more text.
+    """
     if explicit:
         return explicit
     doc = inspect.getdoc(func)
     if doc:
-        return doc.split("\n")[0].strip()
+        summary = _docstring_summary(doc)
+        if summary:
+            return summary
     return func.__name__
+
+
+def _parse_param_docs(docstring: str) -> dict[str, str]:
+    """Extract parameter descriptions from a docstring.
+
+    Understands the Google style (an ``Args:`` / ``Arguments:`` /
+    ``Parameters:`` section with ``name: text`` or ``name (type): text``
+    entries) and Sphinx ``:param name:`` fields.  Continuation lines
+    indented under an entry are joined with single spaces.  ``*args`` and
+    ``**kwargs`` entries are keyed without their stars.
+    """
+    docs: dict[str, str] = {}
+    current: str | None = None  # parameter whose description is being read
+    current_indent = 0  # indentation of that parameter's entry line
+    section_indent: int | None = None  # indentation of the open Args header
+    entry_indent: int | None = None  # indentation of entries in that section
+
+    for line in docstring.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        indent = len(line) - len(line.lstrip())
+
+        header = _section_header(line)
+        if header is not None:
+            section_indent = indent if header in _PARAM_SECTIONS else None
+            entry_indent = None
+            current = None
+            continue
+
+        sphinx = _SPHINX_PARAM.match(stripped)
+        if sphinx:
+            current, current_indent = sphinx.group(1), indent
+            docs[current] = sphinx.group(2).strip()
+            section_indent = None
+            continue
+        if stripped.startswith(":"):
+            # Another Sphinx field (``:returns:``, ``:type x:``, ...)
+            current = None
+            continue
+
+        if section_indent is not None and indent <= section_indent:
+            # Dedented text closes the Args section.
+            section_indent = None
+            current = None
+
+        if section_indent is not None:
+            if entry_indent is None:
+                entry_indent = indent
+            if indent <= entry_indent:
+                google = _GOOGLE_PARAM.match(stripped)
+                if google:
+                    current, current_indent = google.group(1), indent
+                    docs[current] = google.group(2).strip()
+                else:
+                    current = None
+                continue
+
+        if current is not None and indent > current_indent:
+            docs[current] = f"{docs[current]} {stripped}".strip()
+        else:
+            current = None
+
+    return {name: text for name, text in docs.items() if text}
 
 
 def _excluded_params(func: Callable[..., Any]) -> set[str]:
@@ -105,7 +244,11 @@ def build_tool_def(
 
         parse_rate_limit(rate_limit)
 
-    _, schema = build_input_model(func, exclude=excluded)
+    _, schema = build_input_model(
+        func,
+        exclude=excluded,
+        param_docs=_parse_param_docs(inspect.getdoc(func) or ""),
+    )
 
     return ToolDef(
         name=tool_name,
@@ -160,14 +303,14 @@ def build_prompt_def(
     # Build argument list from signature (for MCP PromptArgument)
     sig = inspect.signature(func)
     excluded = _excluded_params(func)
+    # Per-param descriptions from the docstring (Args: section)
+    param_docs = _parse_param_docs(inspect.getdoc(func) or "")
     arguments: list[dict[str, Any]] = []
     for param_name, param in sig.parameters.items():
         if param_name in excluded:
             continue
         arg: dict[str, Any] = {"name": param_name}
-        doc = inspect.getdoc(func) or ""
-        # Try to extract per-param description from docstring (Args: section)
-        arg["description"] = _extract_param_doc(doc, param_name) or param_name
+        arg["description"] = param_docs.get(param_name) or param_name
         arg["required"] = param.default is inspect.Parameter.empty
         arguments.append(arg)
 
@@ -180,22 +323,8 @@ def build_prompt_def(
 
 
 def _extract_param_doc(docstring: str, param_name: str) -> str | None:
-    """Extract a parameter description from a Google-style docstring.
+    """Extract one parameter's description from a docstring.
 
-    Looks for ``param_name:`` or ``param_name (type):`` in an Args section.
+    See :func:`_parse_param_docs` for the supported formats.
     """
-    in_args = False
-    for line in docstring.split("\n"):
-        stripped = line.strip()
-        if stripped.lower().startswith("args:"):
-            in_args = True
-            continue
-        if in_args:
-            if not stripped or (not line.startswith(" ") and not line.startswith("\t")):
-                in_args = False
-                continue
-            # Match "param_name:" or "param_name (type):"
-            if stripped.startswith(f"{param_name}:") or stripped.startswith(f"{param_name} ("):
-                _, _, rest = stripped.partition(":")
-                return rest.strip() or None
-    return None
+    return _parse_param_docs(docstring).get(param_name)

@@ -17,6 +17,12 @@ Qwen Code) incorrectly serialise nested-object arguments as JSON *strings*
 instead of native dicts.  ``validate_arguments`` detects this and parses
 the string back before Pydantic validation.
 
+**Parameter metadata:** ``Annotated[T, Field(...)]`` metadata (``description``,
+``ge``, ``pattern``, ``examples``, ...) is kept, and a ``Field(...)`` used as
+the parameter default works the same way.  When neither carries a
+description, the one from the docstring's ``Args:`` section (passed in as
+*param_docs*) is used.
+
 **Performance note:** ``build_input_model`` detects at build time whether
 any parameter is a ``BaseModel`` subclass.  When all fields are primitives
 the faster ``model_dump()`` path is used; otherwise the ``getattr()`` loop
@@ -27,10 +33,12 @@ from __future__ import annotations
 
 import inspect
 import json as _json
-from typing import Any, get_args, get_origin, get_type_hints
+from collections.abc import Mapping
+from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel, Field, create_model
 from pydantic import ValidationError as PydanticValidationError
+from pydantic.fields import FieldInfo
 
 from ._errors import ValidationError
 
@@ -226,6 +234,22 @@ def _preparse_json_strings(
     return result
 
 
+def _has_description(annotation: Any, field_info: FieldInfo) -> bool:
+    """Return ``True`` if the field already carries a description.
+
+    Looks at the ``Field(...)`` default and at ``Field(...)`` entries in
+    ``Annotated[...]`` metadata (nested ``Annotated`` is flattened by
+    ``typing``, so one level is enough).
+    """
+    if field_info.description:
+        return True
+    if get_origin(annotation) is Annotated:
+        for meta in annotation.__metadata__:
+            if isinstance(meta, FieldInfo) and meta.description:
+                return True
+    return False
+
+
 # ------------------------------------------------------------------
 # Public API
 # ------------------------------------------------------------------
@@ -235,11 +259,17 @@ def build_input_model(
     func: Any,
     *,
     exclude: set[str] | None = None,
+    param_docs: Mapping[str, str] | None = None,
 ) -> tuple[type[BaseModel], dict[str, Any]]:
     """Build a Pydantic model and JSON Schema from a function signature.
 
     Parameters whose names are in *exclude* (e.g. dependency-injected
     params or ``RequestContext``) are skipped.
+
+    Field metadata is taken from ``Annotated[T, Field(...)]`` and from a
+    ``Field(...)`` default.  *param_docs* maps parameter names to
+    descriptions (usually parsed from the docstring's ``Args:`` section);
+    an entry is used only when the parameter has no ``Field`` description.
 
     The returned schema has all ``$ref`` / ``$defs`` inlined for maximum
     MCP client compatibility.
@@ -248,14 +278,16 @@ def build_input_model(
         ``(PydanticModel, json_schema_dict)``
     """
     exclude = exclude or set()
+    param_docs = param_docs or {}
     sig = inspect.signature(func)
     fields: dict[str, Any] = {}
 
     # Resolve stringified annotations from ``from __future__ import annotations``
     # so Pydantic receives real types (e.g. ``Optional[str]`` instead of the
-    # string ``'Optional[str]'``).
+    # string ``'Optional[str]'``).  ``include_extras`` keeps ``Annotated``
+    # metadata -- without it every ``Field(description=...)`` is dropped.
     try:
-        resolved_hints = get_type_hints(func)
+        resolved_hints = get_type_hints(func, include_extras=True)
     except Exception:
         resolved_hints = {}
 
@@ -267,11 +299,22 @@ def build_input_model(
         if annotation is inspect.Parameter.empty:
             annotation = str  # default to str if untyped
 
-        if param.default is inspect.Parameter.empty:
+        if isinstance(param.default, FieldInfo):
+            # ``order_id: str = Field(description=...)``
+            field_info = param.default
+        elif param.default is inspect.Parameter.empty:
             # Required field
-            fields[name] = (annotation, Field(...))
+            field_info = Field(...)
         else:
-            fields[name] = (annotation, Field(default=param.default))
+            field_info = Field(default=param.default)
+
+        doc = param_docs.get(name)
+        if doc and not _has_description(annotation, field_info):
+            # Annotated metadata merges with the assigned FieldInfo, so this
+            # adds the description without touching other constraints.
+            annotation = Annotated[annotation, Field(description=doc)]
+
+        fields[name] = (annotation, field_info)
 
     model = create_model(f"{func.__name__}_Input", **fields)
     schema = model.model_json_schema()
