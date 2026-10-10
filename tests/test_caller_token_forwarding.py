@@ -405,6 +405,7 @@ class _StubClient:
         self.entered = 0
         self.exited = 0
         self.calls: list[str] = []
+        self.session_generation = 0
 
     @property
     def supports_bearer_token(self) -> bool:

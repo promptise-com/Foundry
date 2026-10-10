@@ -193,10 +193,12 @@ This exposes two resources:
 
 | Resource URI | Purpose |
 |-------------|---------|
-| `health://live` | Liveness: is the server process running? |
-| `health://ready` | Readiness: are all required dependencies available? |
+| `health://liveness` | Liveness: is the server process running? |
+| `health://readiness` | Readiness: are all required dependencies available? |
 
-Agents or monitoring systems can read these resources to check server health.
+Agents and MCP clients can read these resources to check server health.
+
+Container and Kubernetes probes cannot speak MCP, so over HTTP and SSE the same checks back two plain routes: `GET /health` (liveness, always `200`) and `GET /health/ready` (`200` when every required check passes, `503` otherwise). They skip the auth gate and never include the text of an exception a check raised. See [Deployment — Health probes](deployment.md#health-probes).
 
 ---
 

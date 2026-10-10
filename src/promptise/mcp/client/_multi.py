@@ -45,6 +45,11 @@ class MCPMultiClient:
     different users never share headers.  stdio servers have no request
     headers: the token is ignored there and a warning is logged once.
 
+    **Server restarts**: when a server loses the session (restart,
+    redeploy), its ``MCPClient`` opens a new one and retries the call once;
+    this client then re-lists that server's tools so routing follows the
+    tools the new deployment serves.
+
     Args:
         clients: Mapping of server name → ``MCPClient`` instance.
         elicitation_callback: Default handler for MCP elicitation requests,
@@ -230,15 +235,35 @@ class MCPMultiClient:
                     server_name,
                     client.transport,
                 )
+        generation = client.session_generation
         try:
             if progress_callback is not None:
                 return await client.call_tool(name, arguments, progress_callback=progress_callback)
             return await client.call_tool(name, arguments)
-        except MCPClientError:
-            # Invalidate stale tool mapping on connection failure —
-            # the server may have restarted with different tools
-            self._tool_to_server.pop(name, None)
-            raise
+        finally:
+            if client.session_generation != generation:
+                await self._refresh_server_tools(server_name)
+
+    async def _refresh_server_tools(self, server_name: str) -> None:
+        """Re-list *server_name*'s tools after its session was re-opened.
+
+        A restarted server may serve a different tool set; routing is
+        updated for that server only.  Best-effort: a failure keeps the
+        previous routing and is logged.
+        """
+        try:
+            tools = await self._clients[server_name].list_tools()
+        except Exception as exc:
+            logger.warning("Could not re-list tools from server '%s': %s", server_name, exc)
+            return
+        for tool_name, owner in list(self._tool_to_server.items()):
+            if owner == server_name:
+                del self._tool_to_server[tool_name]
+        for tool in tools:
+            self._tool_to_server[tool.name] = server_name
+        logger.info(
+            "Server '%s' opened a new session; %d tool(s) re-discovered", server_name, len(tools)
+        )
 
     async def _call_as(
         self,

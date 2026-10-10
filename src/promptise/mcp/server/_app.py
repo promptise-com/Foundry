@@ -142,6 +142,10 @@ class MCPServer:
         # Token endpoint (None until enable_token_endpoint() is called)
         self._token_endpoint: Any = None
 
+        # Readiness checks behind GET /health/ready (set by
+        # HealthCheck.register_resources)
+        self._health_check: Any = None
+
         # Per-session state manager
         from ._session_state import SessionManager
 
@@ -573,7 +577,7 @@ class MCPServer:
         self,
         transport: str = "stdio",
         *,
-        host: str = "0.0.0.0",  # nosec B104 - public bind is explicit opt-in for server transports
+        host: str = "127.0.0.1",
         port: int = 8080,
         dashboard: bool = False,
         cors: Any = None,
@@ -582,9 +586,22 @@ class MCPServer:
     ) -> None:
         """Start the server (blocking).
 
+        Over HTTP/SSE the server also answers ``GET /health`` (liveness)
+        and ``GET /health/ready`` (readiness from a registered
+        :class:`HealthCheck`, ``503`` when a required check fails) for
+        container and Kubernetes probes.
+
         Args:
             transport: ``"stdio"``, ``"http"``, or ``"sse"``.
-            host: Bind host for HTTP/SSE transports.
+            host: Bind host for HTTP/SSE transports.  Defaults to
+                ``"127.0.0.1"`` (reachable from this machine only, with
+                Host/Origin validation on).  Pass ``"0.0.0.0"`` to listen on
+                every interface — in a container, for example — and name
+                the public host in ``allowed_hosts``; without it a
+                non-loopback bind does not validate ``Host`` and logs a
+                warning at startup.  A non-loopback bind without
+                ``AuthMiddleware`` also logs a warning: every tool is then
+                callable by anyone who can reach the address.
             port: Bind port for HTTP/SSE transports.
             dashboard: Enable live terminal monitoring dashboard.
             cors: Optional ``CORSConfig`` for HTTP/SSE transports.
@@ -616,7 +633,7 @@ class MCPServer:
         self,
         transport: str = "stdio",
         *,
-        host: str = "0.0.0.0",  # nosec B104 - public bind is explicit opt-in for server transports
+        host: str = "127.0.0.1",
         port: int = 8080,
         dashboard: bool = False,
         cors: Any = None,
@@ -695,11 +712,12 @@ class MCPServer:
         if not dashboard and transport != "stdio":
             self._print_banner(transport=transport, host=host, port=port)
 
+        # ---- Warn about an unauthenticated server reachable from the network ----
+        if transport_type != TransportType.STDIO:
+            self._warn_unauthenticated_bind(host, port)
+
         # ---- Auth gate for transport-level rejection ----
-        auth_gate = None
-        if self._require_auth and self._auth_provider:
-            if hasattr(self._auth_provider, "verify_token"):
-                auth_gate = self._auth_provider.verify_token
+        auth_gate = self._transport_auth_gate()
 
         # ---- Start ----
         try:
@@ -719,10 +737,134 @@ class MCPServer:
                 token_endpoint=self._token_endpoint,
                 cors=cors,
                 security_settings=security_settings,
+                health=self._health_check,
             )
         finally:
             if _dashboard_obj:
                 _dashboard_obj.stop()
+
+    def asgi_app(
+        self,
+        transport: str = "http",
+        *,
+        allowed_hosts: list[str] | None = None,
+        allowed_origins: list[str] | None = None,
+        cors: Any = None,
+        stateless: bool = False,
+    ) -> Any:
+        """Return the server as an ASGI application, for uvicorn, gunicorn or hypercorn.
+
+        Serves the same routes as :meth:`run` (``/mcp`` — or ``/sse`` and
+        ``/messages/`` — plus ``/health`` and ``/health/ready``) with the
+        same auth gate, token endpoint and CORS.  The app's lifespan runs
+        the server's startup and shutdown hooks and the MCP session
+        manager, so the ASGI server must run lifespan events (uvicorn's
+        default ``--lifespan auto`` does).
+
+        Example::
+
+            # app.py
+            app = server.asgi_app(allowed_hosts=["mcp.example.com"])
+
+            # uvicorn app:app --host 0.0.0.0 --port 8080
+            # gunicorn app:app -k uvicorn.workers.UvicornWorker -w 4
+
+        The bind address belongs to the ASGI server, so ``Host``
+        validation cannot follow it: the app always accepts the loopback
+        names, plus every value in ``allowed_hosts``.  Name the public host
+        your clients or proxy send, or every request through it is refused
+        with ``421``.
+
+        **Several workers or replicas.** Each process keeps its own MCP
+        sessions.  A request whose ``mcp-session-id`` belongs to another
+        process is answered ``404``; Promptise clients then open a new
+        session, so routing that is not sticky turns into a new session on
+        almost every call.  Route each ``mcp-session-id`` to one process
+        (sticky sessions), or pass ``stateless=True``.
+
+        Args:
+            transport: ``"http"`` (Streamable HTTP) or ``"sse"``.
+            allowed_hosts: ``Host`` header values to accept in addition to
+                the loopback names, e.g. ``["mcp.example.com"]``.
+            allowed_origins: ``Origin`` header values to accept for browser
+                clients, in addition to the loopback origins.
+            cors: Optional ``CORSConfig``.
+            stateless: Streamable HTTP only.  Serve each request without a
+                session, so any worker or replica can answer it.  Stateless
+                servers cannot send requests back to the client: MCP
+                elicitation and sampling (including elicitation approval
+                gates) and per-session state are unavailable.
+
+        Raises:
+            ValueError: An unknown or stdio *transport*, ``stateless`` with
+                SSE, or an empty ``allowed_hosts`` list.
+        """
+        from ._transport import build_http_app, build_sse_app, build_transport_security
+
+        transport_type = TransportType(transport)
+        if transport_type == TransportType.STDIO:
+            raise ValueError("asgi_app() serves HTTP; use run(transport='stdio') for stdio")
+        if stateless and transport_type != TransportType.HTTP:
+            raise ValueError("stateless=True applies to the Streamable HTTP transport only")
+
+        # The ASGI server owns the bind, so validate as a loopback bind does:
+        # loopback names always, plus the hosts the operator names.
+        security_settings = build_transport_security(
+            "127.0.0.1", allowed_hosts=allowed_hosts, allowed_origins=allowed_origins
+        )
+        ll_server = self._build_lowlevel_server()
+        common: dict[str, Any] = {
+            "shutdown_timeout": self._shutdown_timeout,
+            "auth_gate": self._transport_auth_gate(),
+            "token_endpoint": self._token_endpoint,
+            "cors": cors,
+            "security_settings": security_settings,
+            "health": self._health_check,
+        }
+        if transport_type == TransportType.HTTP:
+            return build_http_app(ll_server, self._lifecycle, stateless=stateless, **common)
+        return build_sse_app(
+            ll_server, ll_server.create_initialization_options(), self._lifecycle, **common
+        )
+
+    def _has_auth_middleware(self) -> bool:
+        """True when an ``AuthMiddleware`` is on the server or on any router's tools."""
+        from ._auth import AuthMiddleware
+
+        if any(isinstance(m, AuthMiddleware) for m in self._middlewares):
+            return True
+        return any(
+            isinstance(m, AuthMiddleware)
+            for tdef in self._tool_registry.list_all()
+            for m in tdef.router_middleware
+        )
+
+    def _warn_unauthenticated_bind(self, host: str, port: int) -> None:
+        """Log a warning when a non-loopback HTTP/SSE bind has no ``AuthMiddleware``.
+
+        Such a server answers every client that can reach the address:
+        anyone on the network can list and call its tools.
+        """
+        from ._transport import is_loopback_host
+
+        if is_loopback_host(host) or self._has_auth_middleware():
+            return
+        logger.warning(
+            "MCP server %r is bound to %s:%d, which is reachable from other machines, and "
+            "has no AuthMiddleware: anyone who can reach that address can list and call "
+            "every tool. Add AuthMiddleware (JWTAuth, APIKeyAuth, ...), front the server "
+            "with an authenticating gateway, or bind host='127.0.0.1' (the default).",
+            self.name,
+            host,
+            port,
+        )
+
+    def _transport_auth_gate(self) -> Callable[[str], bool] | None:
+        """Verifier for the HTTP auth gate when ``require_auth`` is on."""
+        if self._require_auth and self._auth_provider:
+            if hasattr(self._auth_provider, "verify_token"):
+                return cast("Callable[[str], bool]", self._auth_provider.verify_token)
+        return None
 
     # ------------------------------------------------------------------
     # Internal: build the mcp.server.lowlevel.Server
