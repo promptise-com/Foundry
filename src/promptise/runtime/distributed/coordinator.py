@@ -1,16 +1,22 @@
 """Cluster coordinator for distributed runtime.
 
 The :class:`RuntimeCoordinator` tracks runtime nodes, aggregates status
-across the cluster, monitors node health, and can redistribute processes
-when nodes fail.
+across the cluster, monitors node health, and runs remote operations
+(start / stop / inject events) on nodes.  It does not move processes by
+itself: when a node fails, your code decides which healthy node takes
+over (see :attr:`RuntimeCoordinator.healthy_nodes` and
+:meth:`RuntimeCoordinator.start_process_on_node`).
+
+Every request carries the node's bearer token, so nodes started with
+``RuntimeTransport(auth_token=...)`` can be managed.
 
 Example::
 
     from promptise.runtime.distributed.coordinator import RuntimeCoordinator
 
-    coordinator = RuntimeCoordinator()
+    coordinator = RuntimeCoordinator(auth_token="cluster-token")
     coordinator.register_node("node-1", "http://host1:9100")
-    coordinator.register_node("node-2", "http://host2:9100")
+    coordinator.register_node("node-2", "http://host2:9100", auth_token="node-2-token")
 
     # Check cluster health
     health = await coordinator.check_health()
@@ -60,7 +66,7 @@ class NodeInfo:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to JSON-compatible dict."""
+        """Serialize to JSON-compatible dict (never includes credentials)."""
         return {
             "node_id": self.node_id,
             "url": self.url,
@@ -83,7 +89,11 @@ class RuntimeCoordinator:
 
     Args:
         health_check_interval: Seconds between health checks.
-        node_timeout: Seconds before a node is considered unhealthy.
+        node_timeout: Seconds a healthy node may fail health checks
+            before it is marked unhealthy (a single missed check is
+            treated as transient).
+        auth_token: Default bearer token sent to every node (override
+            per node with ``register_node(..., auth_token=...)``).
     """
 
     def __init__(
@@ -91,10 +101,13 @@ class RuntimeCoordinator:
         *,
         health_check_interval: float = 15.0,
         node_timeout: float = 45.0,
+        auth_token: str | None = None,
     ) -> None:
         self._health_check_interval = health_check_interval
         self._node_timeout = node_timeout
+        self._default_token = auth_token
         self._nodes: dict[str, NodeInfo] = {}
+        self._tokens: dict[str, str | None] = {}
         self._health_task: asyncio.Task[None] | None = None
         self._running = False
 
@@ -107,6 +120,8 @@ class RuntimeCoordinator:
         node_id: str,
         url: str,
         metadata: dict[str, Any] | None = None,
+        *,
+        auth_token: str | None = None,
     ) -> NodeInfo:
         """Register a runtime node with the coordinator.
 
@@ -114,6 +129,8 @@ class RuntimeCoordinator:
             node_id: Unique node identifier.
             url: Base URL for the node's transport API.
             metadata: Optional additional metadata.
+            auth_token: Bearer token for this node's transport (defaults
+                to the coordinator's ``auth_token``).
 
         Returns:
             The registered :class:`NodeInfo`.
@@ -124,6 +141,7 @@ class RuntimeCoordinator:
             metadata=metadata or {},
         )
         self._nodes[node_id] = node
+        self._tokens[node_id] = auth_token
         logger.info("Coordinator: registered node %s at %s", node_id, url)
         return node
 
@@ -139,6 +157,7 @@ class RuntimeCoordinator:
         if node_id not in self._nodes:
             raise KeyError(f"Node {node_id!r} not registered")
         del self._nodes[node_id]
+        self._tokens.pop(node_id, None)
         logger.info("Coordinator: unregistered node %s", node_id)
 
     def get_node(self, node_id: str) -> NodeInfo:
@@ -196,7 +215,11 @@ class RuntimeCoordinator:
         """Background health check loop."""
         try:
             while self._running:
-                await self.check_health()
+                try:
+                    await self.check_health()
+                except Exception:
+                    # One bad round must not end monitoring for good.
+                    logger.exception("Coordinator: health check round failed")
                 await asyncio.sleep(self._health_check_interval)
         except asyncio.CancelledError:
             return
@@ -226,8 +249,21 @@ class RuntimeCoordinator:
 
             responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-            for (node_id, node), response in zip(self._nodes.items(), responses, strict=False):
-                if isinstance(response, Exception):
+            now = time.monotonic()
+            for (node_id, node), response in zip(
+                list(self._nodes.items()), responses, strict=False
+            ):
+                # BaseException: gather() also returns CancelledError here.
+                if isinstance(response, BaseException):
+                    if node.is_healthy and now - node.last_heartbeat < self._node_timeout:
+                        # A healthy node that just missed a check stays
+                        # healthy until node_timeout has passed.
+                        results[node_id] = {
+                            "status": "healthy",
+                            "missed_check": True,
+                            "error": str(response),
+                        }
+                        continue
                     node.status = "unhealthy"
                     results[node_id] = {
                         "status": "unhealthy",
@@ -241,13 +277,55 @@ class RuntimeCoordinator:
 
         return results
 
+    def _headers(self, node_id: str) -> dict[str, str]:
+        """Authorization header for a node (empty when it has no token)."""
+        token = self._tokens.get(node_id) or self._default_token
+        return {"Authorization": f"Bearer {token}"} if token else {}
+
+    async def _request(
+        self,
+        method: str,
+        node: NodeInfo,
+        path: str,
+        *,
+        timeout: float,
+        json_body: Any = None,
+        session: Any = None,
+    ) -> dict[str, Any]:
+        """Send an authenticated request to a node; raise on non-2xx."""
+        if not HAS_AIOHTTP:
+            raise RuntimeError("aiohttp required for remote operations")
+
+        async def _do(sess: Any) -> dict[str, Any]:
+            async with sess.request(
+                method,
+                f"{node.url}{path}",
+                headers=self._headers(node.node_id),
+                json=json_body,
+            ) as resp:
+                try:
+                    data = await resp.json(content_type=None)
+                except Exception:
+                    data = {"error": (await resp.text())[:200]}
+                if resp.status >= 400:
+                    detail = data.get("error") if isinstance(data, dict) else data
+                    raise RuntimeError(
+                        f"{method} {path} on node {node.node_id!r} failed: "
+                        f"{resp.status} {detail or ''}".rstrip()
+                    )
+                return data if isinstance(data, dict) else {"result": data}
+
+        if session is not None:
+            return await _do(session)
+        async with ClientSession(timeout=ClientTimeout(total=timeout)) as sess:
+            return await _do(sess)
+
     async def _check_node_health(self, session: Any, node: NodeInfo) -> dict[str, Any]:
         """Check health of a single node."""
-        url = f"{node.url}/health"
-        async with session.get(url) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"Health check failed: {resp.status}")
-            return await resp.json()
+        try:
+            return await self._request("GET", node, "/health", timeout=10, session=session)
+        except RuntimeError as exc:
+            raise RuntimeError(f"Health check failed: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Cluster status
@@ -292,16 +370,10 @@ class RuntimeCoordinator:
             RuntimeError: If aiohttp is not available.
         """
         node = self.get_node(node_id)
-
-        if not HAS_AIOHTTP:
-            raise RuntimeError("aiohttp required for remote status")
-
-        timeout = ClientTimeout(total=10)
-        async with ClientSession(timeout=timeout) as session:
-            async with session.get(f"{node.url}/status") as resp:
-                if resp.status != 200:
-                    raise RuntimeError(f"Status request failed: {resp.status}")
-                return await resp.json()
+        try:
+            return await self._request("GET", node, "/status", timeout=10)
+        except RuntimeError as exc:
+            raise RuntimeError(f"Status request failed: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Remote operations
@@ -316,16 +388,12 @@ class RuntimeCoordinator:
 
         Returns:
             Response from the node.
+
+        Raises:
+            RuntimeError: If the node rejects the request (non-2xx).
         """
         node = self.get_node(node_id)
-
-        if not HAS_AIOHTTP:
-            raise RuntimeError("aiohttp required for remote operations")
-
-        timeout = ClientTimeout(total=30)
-        async with ClientSession(timeout=timeout) as session:
-            async with session.post(f"{node.url}/processes/{process_name}/start") as resp:
-                return await resp.json()
+        return await self._request("POST", node, f"/processes/{process_name}/start", timeout=30)
 
     async def stop_process_on_node(self, node_id: str, process_name: str) -> dict[str, Any]:
         """Stop a process on a specific node.
@@ -336,16 +404,12 @@ class RuntimeCoordinator:
 
         Returns:
             Response from the node.
+
+        Raises:
+            RuntimeError: If the node rejects the request (non-2xx).
         """
         node = self.get_node(node_id)
-
-        if not HAS_AIOHTTP:
-            raise RuntimeError("aiohttp required for remote operations")
-
-        timeout = ClientTimeout(total=30)
-        async with ClientSession(timeout=timeout) as session:
-            async with session.post(f"{node.url}/processes/{process_name}/stop") as resp:
-                return await resp.json()
+        return await self._request("POST", node, f"/processes/{process_name}/stop", timeout=30)
 
     async def inject_event_on_node(
         self,
@@ -364,22 +428,18 @@ class RuntimeCoordinator:
 
         Returns:
             Response from the node.
+
+        Raises:
+            RuntimeError: If the node rejects the request (non-2xx).
         """
         node = self.get_node(node_id)
-
-        if not HAS_AIOHTTP:
-            raise RuntimeError("aiohttp required for remote operations")
-
-        timeout = ClientTimeout(total=10)
-        async with ClientSession(timeout=timeout) as session:
-            async with session.post(
-                f"{node.url}/processes/{process_name}/event",
-                json={
-                    "trigger_type": trigger_type,
-                    "payload": payload,
-                },
-            ) as resp:
-                return await resp.json()
+        return await self._request(
+            "POST",
+            node,
+            f"/processes/{process_name}/event",
+            timeout=10,
+            json_body={"trigger_type": trigger_type, "payload": payload},
+        )
 
     # ------------------------------------------------------------------
     # Context manager

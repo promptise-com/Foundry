@@ -30,8 +30,27 @@ Three detail levels control how much is recorded:
 | Level | What is recorded | When to use |
 |---|---|---|
 | `"none"` | Nothing | Fire-and-forget processes where history does not matter |
-| `"checkpoint"` | State snapshots after each trigger-invoke-result cycle | Default. Good balance of observability and storage efficiency |
-| `"full"` | Every side effect (tool calls, LLM responses, state mutations) | Debugging, audit trails, compliance requirements |
+| `"checkpoint"` | State transitions, invocation results and errors, restarts, and a state snapshot after each trigger-invoke-result cycle | Default for a `JournalConfig`. Good balance of observability and storage efficiency |
+| `"full"` | Everything above, plus each trigger event, invocation start, and every tool call and tool result | Debugging, audit trails, compliance requirements |
+
+### Journaling an agent process
+
+An `AgentProcess` writes its journal when `ProcessConfig.journal` sets a level. Journaling is **off by default** for a `ProcessConfig`; turn it on per process:
+
+```python
+from promptise.runtime import ProcessConfig
+from promptise.runtime.config import JournalConfig
+
+config = ProcessConfig(
+    model="openai:gpt-5-mini",
+    journal=JournalConfig(level="checkpoint", backend="file", path=".promptise/journal"),
+)
+```
+
+Entries are filed under the **process name** (not its internal ID), so `promptise runtime logs <name>` and recovery after a restart find them. Secret-access and mission-evaluation entries from the governance subsystems go to the same journal. Checkpoints hold `context_state`, `lifecycle_state`, `invocation_count`, the conversation buffer, and the budget and mission state when those are enabled. A failing journal backend is logged and never stops the process.
+
+!!! note "Changed in 1.3.0"
+    Earlier versions accepted `ProcessConfig.journal` but never wrote anything. Because a process journal is now real, the `ProcessConfig` default became `level="none"` so upgrading does not start writing files to `.promptise/journal`.
 
 ---
 
@@ -64,10 +83,12 @@ entry = JournalEntry(
 | `state_transition` | Process state change (from/to state) |
 | `trigger_event` | A trigger fired (trigger type, payload) |
 | `invocation_start` | Agent invocation began |
-| `invocation_result` | Agent invocation completed (result) |
+| `invocation_result` | Agent invocation completed (final reply, duration) |
 | `checkpoint` | Full state snapshot |
-| `context_update` | Context state key changed |
-| `error` | An error occurred |
+| `context_update` | Context state key changed (written by your code; replayed by `ReplayEngine`) |
+| `tool_call` / `tool_result` | A tool call and its result (`"full"` level) |
+| `restart` / `restart_exhausted` | Automatic restart attempt / `max_restarts` reached |
+| `error` | An invocation failed |
 
 ### Serialization
 
