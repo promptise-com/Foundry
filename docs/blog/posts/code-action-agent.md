@@ -91,7 +91,7 @@ The model writes one program: list the names, look each up, filter to Engineerin
 Here is the differentiator that makes code-action safe to reach for, not a footgun: **the sandbox provisions itself and is hardened by default.** You do not pass `sandbox=True`; selecting the pattern turns it on. And it isn't a permissive scratch container — the model's program runs with:
 
 - **`network="none"`** — auto-set for this pattern. The program's only reach to the outside world is your tools, via the bridge. It cannot phone home.
-- **Read-only rootfs and dropped capabilities** — roughly 40 Linux capabilities stripped, plus a seccomp syscall filter.
+- **Read-only rootfs and dropped capabilities** — roughly 40 Linux capabilities stripped, plus `no-new-privileges` and Docker's default seccomp profile.
 - **Resource limits** — CPU, memory, and an `exec_timeout` (default 120s) so a runaway program is killed, not left spinning.
 - **A hard `max_tool_calls` cap per run** — hook-independent, so a generated program can never loop a tool unbounded, even without the Agent Runtime attached.
 

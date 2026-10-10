@@ -28,7 +28,6 @@ This avoids granting the sandbox any network access.
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import logging
 import re
@@ -38,6 +37,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from pydantic import BaseModel, ConfigDict, Field
 
 from .base import BaseNode
 from .state import GraphState, NodeResult
@@ -79,6 +79,28 @@ def _call(_tool, _args):
         raise RuntimeError(_data["error"])
     return _data["result"]
 """
+
+
+class CodeActionConfig(BaseModel):
+    """Tuning knobs for the ``code-action`` pattern.
+
+    Pass it (or an equivalent dict) as ``build_agent(code_action=...)``.
+    Unknown keys are rejected.
+
+    Attributes:
+        exec_timeout: Max seconds the generated program may run in the
+            sandbox. When it expires the program's processes are killed.
+        max_repairs: How many times a crashing program's stderr is fed back
+            to the model for a fix.
+        max_tool_calls: Hard per-run cap on bridged tool calls. ``0``
+            disables the cap (not advised).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    exec_timeout: int = Field(120, gt=0, le=3600)
+    max_repairs: int = Field(1, ge=0, le=10)
+    max_tool_calls: int = Field(50, ge=0)
 
 
 # A factory that produces a ready sandbox session. The node owns the session
@@ -145,34 +167,83 @@ def parse_result(stdout: str, marker: str) -> str:
     return ""
 
 
+def _message_role(msg: Any) -> str | None:
+    """Return ``"system"``, ``"user"`` or ``"assistant"`` for a message (object or dict)."""
+    if isinstance(msg, SystemMessage):
+        return "system"
+    if isinstance(msg, HumanMessage):
+        return "user"
+    if isinstance(msg, AIMessage):
+        return "assistant"
+    if isinstance(msg, dict):
+        role = msg.get("role")
+        if role in ("system", "user", "assistant"):
+            return str(role)
+        if role == "human":
+            return "user"
+        if role == "ai":
+            return "assistant"
+    return None
+
+
+def _message_text(msg: Any) -> str:
+    content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", msg)
+    return content if isinstance(content, str) else str(content)
+
+
 def _extract_task(state: GraphState) -> str:
     """Get the user's latest question from the message list (objects or dicts)."""
     for msg in reversed(state.messages):
-        if isinstance(msg, HumanMessage):
-            content = msg.content
-            return content if isinstance(content, str) else str(content)
-        if isinstance(msg, dict) and msg.get("role") == "user":
-            return str(msg.get("content", ""))
+        if _message_role(msg) == "user":
+            return _message_text(msg)
     # Fallback: first message content.
     if state.messages:
-        first = state.messages[0]
-        if isinstance(first, dict):
-            return str(first.get("content", ""))
-        return str(getattr(first, "content", first))
+        return _message_text(state.messages[0])
     return ""
 
 
-async def write_text(session: Any, path: str, content: str) -> None:
-    """Write a file from *inside* the container (read-only-rootfs safe).
+def _extract_context(state: GraphState) -> tuple[list[str], list[Any]]:
+    """Split the conversation before the latest question into context.
 
-    Uses ``base64 -d`` so arbitrary content (quotes, newlines, shell metachars)
-    can never be interpreted by the shell.
+    Returns:
+        ``(system_texts, history)``: the content of every system message
+        (memory context, conversation-flow prompts, ``chat()`` system
+        prompts), and the earlier user/assistant turns as text-only
+        messages. Tool traffic and empty assistant turns are dropped.
     """
-    b64 = base64.b64encode(content.encode()).decode()
-    cmd = f"printf %s {shlex.quote(b64)} | base64 -d > {shlex.quote(path)}"
-    res = await session.execute(cmd)
-    if not res.success:
-        raise RuntimeError(f"sandbox write failed ({path}): {res.stderr[:200]}")
+    last_user = None
+    for index in range(len(state.messages) - 1, -1, -1):
+        if _message_role(state.messages[index]) == "user":
+            last_user = index
+            break
+    system_texts: list[str] = []
+    history: list[Any] = []
+    for index, msg in enumerate(state.messages):
+        role = _message_role(msg)
+        text = _message_text(msg).strip() if role else ""
+        if not text:
+            continue
+        if role == "system":
+            system_texts.append(text)
+        elif last_user is not None and index < last_user:
+            history.append(
+                HumanMessage(content=text) if role == "user" else AIMessage(content=text)
+            )
+    return system_texts, history
+
+
+async def write_text(session: Any, path: str, content: str) -> None:
+    """Write a file into the sandbox (read-only-rootfs safe).
+
+    Delegates to :meth:`SandboxSession.write_file`, which writes from
+    *inside* the container in base64 slices, so arbitrary content (quotes,
+    newlines, shell metachars) is never interpreted by the shell and large
+    files are not limited by the kernel's argument-size cap.
+    """
+    try:
+        await session.write_file(path, content)
+    except Exception as exc:
+        raise RuntimeError(f"sandbox write failed ({path}): {str(exc)[:200]}") from exc
 
 
 async def _read_text(session: Any, path: str) -> str | None:
@@ -229,9 +300,16 @@ class CodeActionNode(BaseNode):
         self.max_tool_calls = max_tool_calls
 
     # ── prompt assembly ──────────────────────────────────────────────────────
-    def _build_prompt(self, task: str, tools: list[Any]) -> list[Any]:
+    def _build_prompt(
+        self,
+        task: str,
+        tools: list[Any],
+        context: tuple[list[str], list[Any]] | None = None,
+    ) -> list[Any]:
         api = render_api_spec(tools)
-        system = (f"{self.system_prompt}\n\n" if self.system_prompt else "") + (
+        system_texts, history = context if context is not None else ([], [])
+        preamble = "\n\n".join(t for t in [self.system_prompt, *system_texts] if t)
+        system = (f"{preamble}\n\n" if preamble else "") + (
             "You answer the user's question by writing ONE Python 3 program.\n"
             "The following functions are already imported and available to call:\n\n"
             f"{api}\n\n"
@@ -245,8 +323,17 @@ class CodeActionNode(BaseNode):
             f"- Print the final answer on the last line as: {self.result_marker} <answer>\n"
             "- Output ONLY the program inside a single ```python code block, no prose.\n"
             "- Do not call input(); do not access the network."
+            + (
+                "\n- The earlier conversation is included for context; answer the latest question."
+                if history
+                else ""
+            )
         )
-        return [SystemMessage(content=system), HumanMessage(content=f"Question: {task}")]
+        return [
+            SystemMessage(content=system),
+            *history,
+            HumanMessage(content=f"Question: {task}"),
+        ]
 
     # ── tool bridge ──────────────────────────────────────────────────────────
     async def _invoke_tool(
@@ -358,7 +445,7 @@ class CodeActionNode(BaseNode):
         tools = self.tools or config.get("_engine_tools", []) or []
         tool_map = {getattr(t, "name", ""): t for t in tools}
         task = _extract_task(state)
-        messages = self._build_prompt(task, tools)
+        messages = self._build_prompt(task, tools, _extract_context(state))
 
         # 1. Generate the program (1 LLM turn; +1 per repair).
         code = ""

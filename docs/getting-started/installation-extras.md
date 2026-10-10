@@ -44,6 +44,12 @@ Adds the heavy dependencies that unlock everything optional. Recommended for pro
 | **Infrastructure** | `redis`, `docker` | `RedisConversationStore`, `RedisCache`, Docker sandbox |
 | **Observability** | `opentelemetry-*`, `prometheus_client` | OTel tracing, Prometheus `/metrics` |
 
+### `pip install "promptise[sandbox]"`
+
+Only the Docker client, for the code-execution sandbox (`build_agent(sandbox=...)`
+and `agent_pattern="code-action"`) without the rest of `[all]`. Docker itself must
+be installed and running. See [Sandbox](../core/sandbox.md).
+
 ## Contributors
 
 ```bash

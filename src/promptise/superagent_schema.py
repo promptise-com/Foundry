@@ -276,11 +276,11 @@ class SandboxConfigSection(BaseModel):
         image: Base container image.
         cpu_limit: Maximum CPU cores.
         memory_limit: Maximum memory (e.g., "4G").
-        disk_limit: Maximum disk space (e.g., "10G").
+        disk_limit: Size of the writable workspace (e.g., "1G").
+        pids_limit: Maximum number of processes and threads.
         network: Network isolation mode (none, restricted, full).
-        persistent: Keep workspace between runs.
+        persistent: Keep the container after the session ends.
         timeout: Max execution time in seconds.
-        tools: Pre-installed tools list.
         workdir: Working directory inside container.
         env: Additional environment variables.
         allow_sudo: Allow sudo access in container.
@@ -299,13 +299,13 @@ class SandboxConfigSection(BaseModel):
     image: str = Field("python:3.11-slim", description="Base container image")
     cpu_limit: int = Field(2, gt=0, le=32, description="Maximum CPU cores")
     memory_limit: str = Field("4G", description="Maximum memory")
-    disk_limit: str = Field("10G", description="Maximum disk space")
+    disk_limit: str = Field("1G", description="Size of the writable workspace")
+    pids_limit: int = Field(256, gt=0, le=65536, description="Maximum processes and threads")
     network: Literal["none", "restricted", "full"] = Field(
-        "restricted", description="Network isolation mode"
+        "none", description="Network isolation mode"
     )
-    persistent: bool = Field(False, description="Keep workspace between runs")
+    persistent: bool = Field(False, description="Keep the container after the session ends")
     timeout: int = Field(300, gt=0, le=3600, description="Max execution time in seconds")
-    tools: list[str] = Field(default_factory=lambda: ["python"], description="Pre-installed tools")
     workdir: str = Field("/workspace", description="Working directory")
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
     allow_sudo: bool = Field(False, description="Allow sudo access")

@@ -5,12 +5,13 @@ safely execute arbitrary commands and code. The sandbox is implemented using
 container technology with multiple security layers.
 
 Key Features:
-- Zero-config: Enable with sandbox=True
+- Zero-config: Enable with sandbox=True (install with ``promptise[sandbox]``)
 - Multiple backends: Docker (with optional gVisor runtime)
-- 7-layer security: gVisor, seccomp, AppArmor, capabilities, read-only FS, etc.
+- Layered security: no network by default, Docker's default seccomp profile,
+  dropped capabilities, no-new-privileges, read-only root filesystem,
+  optional gVisor
 - Full CLI access: Execute any command within the isolated environment
-- Resource limits: CPU, memory, disk, network quotas
-- Tool installation: Pre-configured Python, Node.js, Rust, Go, etc.
+- Resource limits: CPU, memory, processes, workspace size, execution time
 
 Example:
     >>> from promptise import build_agent
@@ -30,7 +31,7 @@ Example:
     ...         "backend": "gvisor",
     ...         "cpu_limit": 2,
     ...         "memory_limit": "4G",
-    ...         "network": "restricted"
+    ...         "network": "none",
     ...     }
     ... )
 """
