@@ -62,6 +62,7 @@ def build_manifest(server: Any) -> dict[str, Any]:
                 "name": rdef.name,
                 "description": rdef.description,
                 "mime_type": rdef.mime_type,
+                **_access(rdef),
             }
         )
 
@@ -73,6 +74,7 @@ def build_manifest(server: Any) -> dict[str, Any]:
                 "name": rdef.name,
                 "description": rdef.description,
                 "mime_type": rdef.mime_type,
+                **_access(rdef),
             }
         )
 
@@ -83,6 +85,7 @@ def build_manifest(server: Any) -> dict[str, Any]:
                 "name": pdef.name,
                 "description": pdef.description,
                 "arguments": pdef.arguments,
+                **_access(pdef),
             }
         )
 
@@ -97,6 +100,24 @@ def build_manifest(server: Any) -> dict[str, Any]:
         "resource_templates": templates,
         "prompts": prompts,
     }
+
+
+def _access(definition: Any) -> dict[str, Any]:
+    """Access-control fields of a resource or prompt, as listed for tools."""
+    info: dict[str, Any] = {}
+    if getattr(definition, "tags", None):
+        info["tags"] = definition.tags
+    if getattr(definition, "auth", False):
+        info["auth_required"] = True
+    if getattr(definition, "roles", None):
+        info["roles"] = definition.roles
+    if getattr(definition, "guards", None):
+        info["guards"] = [type(g).__name__ for g in definition.guards]
+    if getattr(definition, "rate_limit", None):
+        info["rate_limit"] = definition.rate_limit
+    if getattr(definition, "timeout", None):
+        info["timeout"] = definition.timeout
+    return info
 
 
 def register_manifest(server: Any) -> None:

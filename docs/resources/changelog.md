@@ -4,6 +4,32 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## Unreleased
+
+### Security
+
+- **MCP server SDK: resource reads and prompt requests skipped all middleware** -- `resources/read` and `prompts/get` called the handler directly, so logging, audit, rate limits, timeouts, `AuthMiddleware` and guards never ran for them: a resource or prompt served private data to any client, even on a server whose every tool required authentication. Both now run through the same pipeline as a tool call (argument conversion, dependency injection, middleware chain, guards, exception handlers). `@server.resource`, `@server.resource_template` and `@server.prompt` (and the `MCPRouter` equivalents) take `auth`, `roles`, `guards`, `rate_limit`, `timeout` and `tags` like `@server.tool`; `require_auth` / `require_tenant`, router `auth` / `guards` / `middleware`, and declared rate limits cover them too. A denied request is an MCP error and the handler never runs; unhandled handler errors return a generic message, never the exception text. Middleware tells the three apart with the new `ctx.request_type` (`"tool"`, `"resource"`, `"prompt"`); a resource read sets `ctx.state["resource_uri"]`, and `AuditMiddleware` records both.
+- **MCP server SDK: `CacheMiddleware` could serve a cached result past authentication and guards** -- a hit returned before the guards ran, and with `CacheMiddleware` added before `AuthMiddleware` before authentication too. Entries are now keyed on the request type, URI, validated arguments and the authenticated client and tenant (all calls to a tool used to share one entry, whatever their arguments); a hit re-checks the definition's guards; and a definition that requires authentication bypasses the cache while the caller is not identified yet.
+
+### Added
+
+- **MCP client: resources and prompts** -- `MCPClient` gains `list_resources()`, `list_resource_templates()`, `read_resource(uri)`, `list_prompts()` and `get_prompt(name, arguments)` (it had only `list_tools` and `call_tool`). The list methods fetch every page; `get_prompt` sends non-string arguments as JSON. `MCPMultiClient` gains the same, routing `read_resource` by URI (static resources, then the servers' URI templates) and `get_prompt` by name, discovering on first use, with `server=` to choose a server and `resource_to_server`, `template_to_server` and `prompt_to_server` views.
+- **`build_agent(expose_resources=True, expose_prompts=True)`** -- gives the agent `list_resources` / `read_resource` and `get_prompt` tools whose descriptions list what the connected MCP servers publish. They fire the agent's tool callbacks and read with each server's configured credentials.
+- **MCP server SDK: catch-all template placeholders** -- `{path*}` (or `{+path}`) matches the rest of the URI, slashes included (`docs://pages/{path*}` serves `docs://pages/guides/setup`); `{name}` still matches one path segment. Templates without a catch-all are tried first, and parameters are percent-decoded.
+- **MCP server SDK: `list_changed` notifications** -- the server advertises `listChanged` for tools, resources and prompts, and a registration made while serving sends `notifications/{tools,resources,prompts}/list_changed` to connected clients. `server.notify_tools_changed()`, `notify_resources_changed()` and `notify_prompts_changed()` send them on demand.
+- **`@prompt(description=...)`** and `Prompt.description` -- the description `MCPServer.include_prompts()` shows to MCP clients (a YAML prompt's `description` is used too).
+- **`TestClient.read_resource_contents(uri)`** returns the MCP contents with their `mimeType`; `read_resource`, `read_resource_contents` and `get_prompt` take `headers=`.
+
+### Fixed
+
+- **MCP server SDK: resources lost their MIME type and data** -- `read_resource` returned `str(result)`: a dict arrived as a Python repr, bytes as `"b'...'"`, and the declared `mime_type` was dropped. Dicts, lists and Pydantic models are now JSON, `bytes` are sent as a base64 blob (`BlobResourceContents`), and each content carries the declared MIME type. Without `mime_type=`, it is inferred from the return annotation (`application/json` for `dict` / `list` / a model, `application/octet-stream` for `bytes`, else `text/plain`). A handler can also return `ReadResourceContents` items for several contents. An unknown URI is the MCP "resource not found" error (`-32002`).
+- **MCP server SDK: prompts returning a list failed** -- a handler returning a list of `PromptMessage` failed Pydantic validation. A prompt may now return a `str`, a `PromptMessage`, a `{"role", "content"}` dict, an MCP content block, a list of any of those, or a `GetPromptResult`.
+- **MCP server SDK: prompt arguments and template parameters were always strings** -- they are now converted to the handler's type hints (`"3"` → `3`, `"true"` → `True`, JSON text → a `list`), with a validation error for a value that does not fit. A template whose `{placeholder}` names no handler parameter is refused at registration.
+- **`MCPServer.include_prompts()`** -- multi-line docstring templates kept the code's indentation and sent it to the model; they are dedented now (`PromptBuilder` templates are kept as written). Argument descriptions were the argument's own name; they now come from a YAML prompt's `arguments`, an `Annotated[..., Field(description=...)]` hint, or describe the placeholder, type and default (`Fills {max_words} in the prompt (int, default 50).`). String arguments are converted to the parameters' types before rendering.
+- **`TestClient.list_resources()` omitted the `docs://manifest` resource** the live server serves, and the docs named it `manifest://server`. The manifest now also lists each resource's and prompt's `auth_required`, `roles`, `guards`, `rate_limit` and `timeout`. `mount()` copies resources and prompts instead of sharing the child's definitions, and skips the child's manifest.
+
+---
+
 ## v1.2.1 — 2026-10-10
 
 ### Fixed

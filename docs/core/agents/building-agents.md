@@ -85,6 +85,8 @@ agent = await build_agent(
 | `observer` | `Any \| None` | `None` | Pass an existing `ObservabilityCollector` to reuse across multiple agents. Mutually exclusive with `observe`. |
 | `observer_agent_id` | `str \| None` | `None` | Agent identifier for the shared observer's timeline entries. |
 | `cross_agents` | `Mapping[str, CrossAgent] \| None` | `None` | Peer agents exposed as `ask_agent_<name>` tools. See [Cross-Agent Delegation](cross-agent.md). |
+| `expose_resources` | `bool` | `False` | Give the agent the MCP servers' resources: adds `read_resource` (its description lists the resources and URI templates) and `list_resources`. |
+| `expose_prompts` | `bool` | `False` | Give the agent the MCP servers' prompts: adds `get_prompt` (its description lists the prompts and their arguments), which returns the rendered prompt for the agent to follow. Both read with the credentials configured for each server, not a caller's. |
 | `extra_tools` | `list[BaseTool] \| None` | `None` | Additional LangChain tools appended alongside MCP-discovered tools. |
 | `flow` | `ConversationFlow \| None` | `None` | A conversation flow that evolves the system prompt across turns. |
 | `guardrails` | `PromptiseSecurityScanner \| None` | `None` | Security scanner for input/output. Blocks injection attacks, redacts PII and credentials. See [Guardrails](../guardrails.md). |

@@ -29,12 +29,13 @@ import logging
 from typing import Any
 
 from mcp.types import (
+    BlobResourceContents,
     GetPromptResult,
     PromptArgument,
-    PromptMessage,
     Resource,
     ResourceTemplate,
     TextContent,
+    TextResourceContents,
     Tool,
 )
 from mcp.types import (
@@ -129,8 +130,8 @@ class TestClient:
             headers: Simulated HTTP headers (e.g. ``{"x-api-key": "..."}``).
                 Merged with client-level meta (headers take precedence).
         """
-        # Tenant invariant parity with the live build path
-        if getattr(self._server, "_require_tenant", False):
+        # Auth/tenant invariant parity with the live build path
+        if getattr(self._server, "_require_auth", False):
             self._server._apply_require_tenant()
 
         tdef = self._server._tool_registry.get(name)
@@ -311,56 +312,136 @@ class TestClient:
     # Resource operations
     # ------------------------------------------------------------------
 
-    async def read_resource(self, uri: str) -> str:
-        """Read a resource by URI.
+    def _ensure_manifest(self) -> None:
+        """Register the ``docs://manifest`` resource, as the live server does at build."""
+        if getattr(self._server, "_auto_manifest", False):
+            from ._manifest import register_manifest
 
-        Supports both static resources and URI templates.
+            try:
+                register_manifest(self._server)
+            except ValueError:
+                pass  # already registered
+
+    def _meta_for(self, headers: dict[str, str] | None) -> dict[str, Any]:
+        from ._context import get_request_headers
+
+        return {**dict(get_request_headers()), **dict(self._meta), **(headers or {})}
+
+    def _declared_limits_for(self, definition: Any) -> list[Any]:
+        """Parity with the live server's auto-inserted declared rate limits."""
+        from ._rate_limit import DeclaredRateLimitMiddleware
+
+        if getattr(definition, "rate_limit", None) and not any(
+            isinstance(m, DeclaredRateLimitMiddleware) for m in self._server._middlewares
+        ):
+            return [self._declared_rate_limiter]
+        return []
+
+    async def read_resource_contents(
+        self,
+        uri: str,
+        *,
+        headers: dict[str, str] | None = None,
+    ) -> list[TextResourceContents | BlobResourceContents]:
+        """Read a resource and return its MCP contents, as a client receives them.
+
+        Runs the full pipeline (middleware, auth, guards, coercion of
+        template parameters).  Each item carries ``mimeType``; text arrives
+        as ``TextResourceContents.text``, bytes base64-encoded in
+        ``BlobResourceContents.blob``.
 
         Args:
             uri: The resource URI (e.g. ``"config://app"``).
+            headers: Simulated HTTP headers, merged with client-level meta.
 
         Raises:
             ValueError: If the resource is not found.
+            MCPError: What the pipeline raised (``AuthenticationError`` for a
+                missing credential or a denied guard, ``ValidationError``,
+                ``RateLimitError``, a handler's ``ResourceError`` ...).
         """
-        res_reg = self._server._resource_registry
+        import base64
 
-        # Try static resource first
-        rdef = res_reg.get(uri)
-        if rdef is not None:
-            ctx = RequestContext(server_name=self._server.name, tool_name=rdef.name)
-            set_context(ctx)
-            try:
-                result = rdef.handler()
-                if asyncio.iscoroutine(result):
-                    result = await result
-                return str(result)
-            finally:
-                clear_context()
+        from . import _dispatch
 
-        # Try template match
-        match = res_reg.match_template(uri)
-        if match is not None:
-            tmpl_def, params = match
-            ctx = RequestContext(
-                server_name=self._server.name,
-                tool_name=tmpl_def.name,
+        self._server._apply_require_tenant()
+        self._ensure_manifest()
+        definition = self._server._resource_registry.get(uri)
+        if definition is None:
+            match = self._server._resource_registry.match_template(uri)
+            definition = match[0] if match is not None else None
+        try:
+            contents = await _dispatch.read_resource(
+                self._server,
+                uri,
+                meta=self._meta_for(headers),
+                extra_middleware=self._declared_limits_for(definition),
             )
-            set_context(ctx)
-            try:
-                result = tmpl_def.handler(**params)
-                if asyncio.iscoroutine(result):
-                    result = await result
-                return str(result)
-            finally:
-                clear_context()
+        except MCPError as exc:
+            if exc.code == _dispatch.RESOURCE_NOT_FOUND:
+                raise ValueError(str(exc)) from exc
+            raise
 
-        raise ValueError(f"Resource not found: {uri}")
+        out: list[TextResourceContents | BlobResourceContents] = []
+        for item in contents:
+            if isinstance(item.content, bytes):
+                out.append(
+                    BlobResourceContents(
+                        uri=uri,  # type: ignore[arg-type]
+                        blob=base64.b64encode(item.content).decode(),
+                        mimeType=item.mime_type or "application/octet-stream",
+                    )
+                )
+            else:
+                out.append(
+                    TextResourceContents(
+                        uri=uri,  # type: ignore[arg-type]
+                        text=item.content,
+                        mimeType=item.mime_type or "text/plain",
+                    )
+                )
+        return out
+
+    async def read_resource(
+        self,
+        uri: str,
+        *,
+        headers: dict[str, str] | None = None,
+    ) -> str | bytes:
+        """Read a resource by URI.
+
+        Supports both static resources and URI templates, and runs the full
+        pipeline (see :meth:`read_resource_contents`).
+
+        Args:
+            uri: The resource URI (e.g. ``"config://app"``).
+            headers: Simulated HTTP headers, merged with client-level meta.
+
+        Returns:
+            The first content item: its text (a dict / list result arrives
+            as JSON text), or the raw ``bytes`` for a binary resource.
+
+        Raises:
+            ValueError: If the resource is not found.
+            MCPError: What the pipeline raised (see
+                :meth:`read_resource_contents`).
+        """
+        import base64
+
+        contents = await self.read_resource_contents(uri, headers=headers)
+        if not contents:
+            return ""
+        first = contents[0]
+        if isinstance(first, BlobResourceContents):
+            return base64.b64decode(first.blob)
+        return first.text
 
     async def list_resources(self) -> list[Resource]:
-        """List all registered static resources."""
+        """List all registered static resources (including ``docs://manifest``)."""
+        self._ensure_manifest()
         return [
             Resource(
-                uri=rdef.uri,
+                uri=rdef.uri,  # type: ignore[arg-type]
                 name=rdef.name,
                 description=rdef.description,
                 mimeType=rdef.mime_type,
@@ -387,41 +468,39 @@ class TestClient:
     async def get_prompt(
         self,
         name: str,
-        arguments: dict[str, str] | None = None,
+        arguments: dict[str, Any] | None = None,
+        *,
+        headers: dict[str, str] | None = None,
     ) -> GetPromptResult:
-        """Get a prompt result.
+        """Get a prompt result through the full pipeline.
 
         Args:
             name: Registered prompt name.
-            arguments: Prompt arguments (string-valued).
+            arguments: Prompt arguments.  MCP clients send strings; they are
+                coerced to the handler's type hints, as on the live server.
+            headers: Simulated HTTP headers, merged with client-level meta.
 
         Raises:
             ValueError: If the prompt is not found.
+            MCPError: What the pipeline raised (``ValidationError`` for a
+                missing or malformed argument, ``AuthenticationError`` ...).
         """
-        pdef = self._server._prompt_registry.get(name)
-        if pdef is None:
-            raise ValueError(f"Prompt not found: {name}")
+        from . import _dispatch
 
-        ctx = RequestContext(server_name=self._server.name, tool_name=name)
-        set_context(ctx)
+        self._server._apply_require_tenant()
+        definition = self._server._prompt_registry.get(name)
         try:
-            result = pdef.handler(**(arguments or {}))
-            if asyncio.iscoroutine(result):
-                result = await result
-
-            if isinstance(result, str):
-                return GetPromptResult(
-                    description=pdef.description,
-                    messages=[
-                        PromptMessage(
-                            role="user",
-                            content=TextContent(type="text", text=result),
-                        )
-                    ],
-                )
-            return result
-        finally:
-            clear_context()
+            return await _dispatch.get_prompt(
+                self._server,
+                name,
+                arguments,
+                meta=self._meta_for(headers),
+                extra_middleware=self._declared_limits_for(definition),
+            )
+        except MCPError as exc:
+            if exc.code == _dispatch.PROMPT_NOT_FOUND:
+                raise ValueError(str(exc)) from exc
+            raise
 
     async def list_prompts(self) -> list[Any]:
         """List all registered prompts."""

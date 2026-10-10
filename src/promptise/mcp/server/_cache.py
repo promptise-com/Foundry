@@ -229,8 +229,12 @@ def cached(
 class CacheMiddleware:
     """Server-wide caching middleware.
 
-    Caches all tool results based on tool name + arguments.
-    Opt-out individual tools by setting ``tdef.cache = False`` in state.
+    Caches tool results, resource reads and prompt results, keyed on the
+    name, request type, resource URI, validated arguments and the
+    authenticated client.  Install it after ``AuthMiddleware``: a
+    definition that requires authentication bypasses the cache while the
+    caller is unidentified.  A cache hit still checks the definition's
+    guards, so a cached result never reaches a caller they would deny.
 
     Args:
         backend: Cache backend.
@@ -251,7 +255,30 @@ class CacheMiddleware:
         ctx: Any,
         call_next: Callable[..., Any],
     ) -> Any:
-        cache_key = f"mw:{ctx.tool_name}:{json.dumps(ctx.state.get('arguments', {}), sort_keys=True, default=str)}"
+        tool_def = ctx.state.get("tool_def")
+        if getattr(tool_def, "auth", False) and getattr(ctx, "client_id", None) is None:
+            # Added before AuthMiddleware: the caller is not identified yet,
+            # so a hit here would skip authentication.  Bypass the cache.
+            return await call_next(ctx)
+
+        # The validated arguments of this call (or the template parameters of
+        # this resource read), plus the URI and request type — so two calls
+        # with different arguments, or a tool and a prompt sharing a name,
+        # never share an entry.  ``state["arguments"]`` is honoured when a
+        # custom middleware sets it.  The caller is part of the key too:
+        # guards run after this middleware, so a shared entry would hand one
+        # client's result to a client the guard would deny.
+        args = ctx.state.get("arguments")
+        if args is None:
+            args = ctx.state.get("_tool_arguments", {})
+        identity = {
+            "type": getattr(ctx, "request_type", "tool"),
+            "uri": ctx.state.get("resource_uri"),
+            "args": args,
+            "client": getattr(ctx, "client_id", None),
+            "tenant": getattr(getattr(ctx, "client", None), "tenant_id", None),
+        }
+        cache_key = f"mw:{ctx.tool_name}:{json.dumps(identity, sort_keys=True, default=str)}"
         # MD5 is used as a non-cryptographic fingerprint (short, fast, deterministic)
         # for the middleware cache key. Not a security boundary.
         key_hash = hashlib.md5(cache_key.encode(), usedforsecurity=False).hexdigest()[:16]
@@ -259,6 +286,14 @@ class CacheMiddleware:
 
         cached_value = await self.cache.get(final_key)
         if cached_value is not None:
+            # A hit skips the handler, and with it the guards (``roles=``,
+            # ``guards=``): check them here so a cached result is never
+            # returned to a caller the definition refuses.
+            guards = getattr(tool_def, "guards", None)
+            if guards:
+                from ._testing import check_guards
+
+                await check_guards(guards, ctx)
             return cached_value
 
         result = await call_next(ctx)

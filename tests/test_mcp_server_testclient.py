@@ -440,10 +440,9 @@ class TestResources:
 
         client = TestClient(server)
         resources = await client.list_resources()
-        assert len(resources) == 2
+        # The auto-registered manifest is listed, as on the live server
         uris = {str(r.uri) for r in resources}
-        assert "config://a" in uris
-        assert "config://b" in uris
+        assert uris == {"config://a", "config://b", "docs://manifest"}
 
     async def test_list_resource_templates(self):
         server = MCPServer(name="test")

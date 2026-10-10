@@ -247,13 +247,19 @@ class Prompt:
         *,
         model: str = "openai:gpt-5-mini",
         observe: bool = False,
+        description: str | None = None,
     ) -> None:
         self._fn = fn
         self._model = model
         self._observe = observe
         self._name = fn.__name__
-        self._template = (fn.__doc__ or "").strip()
+        # A docstring is indented like the code around it: clean it the way
+        # ``inspect.getdoc`` does, so a multi-line template does not send
+        # that indentation to the model.
+        self._template = inspect.cleandoc(fn.__doc__ or "")
         self._sig = inspect.signature(fn)
+        if description is not None:
+            self._description = description
 
         # Resolve return type
         try:
@@ -330,6 +336,12 @@ class Prompt:
         return self._template
 
     @property
+    def description(self) -> str | None:
+        """What the prompt is for (``@prompt(description=...)`` or a YAML file's
+        ``description``), or ``None``."""
+        return self._description
+
+    @property
     def return_type(self) -> type | None:
         """Declared return type."""
         return self._return_type
@@ -362,6 +374,10 @@ class Prompt:
         new._on_error = self._on_error
         new._observer = self._observer
         new.last_stats = None
+        # Metadata from @prompt(description=...) / the YAML loader, when set
+        for attr in ("_description", "_author", "_tags", "_version", "_argument_schemas"):
+            if attr in self.__dict__:
+                setattr(new, attr, self.__dict__[attr])
         return new
 
     def with_model(self, model: str) -> Prompt:
@@ -778,6 +794,7 @@ def prompt(
     *,
     observe: bool = False,
     inspect: _Inspector | None = None,
+    description: str | None = None,
 ) -> Callable[[Callable[..., Any]], Prompt]:
     """Decorator that turns a function into a :class:`Prompt`.
 
@@ -798,13 +815,15 @@ def prompt(
             ``"anthropic:claude-sonnet-4-20250514"``).
         observe: Enable observability recording.
         inspect: Optional :class:`PromptInspector` for assembly tracing.
+        description: What the prompt is for.  Shown to MCP clients when the
+            prompt is served with ``MCPServer.include_prompts()``.
 
     Returns:
         Decorator that produces a :class:`Prompt` instance.
     """
 
     def decorator(fn: Callable[..., Any]) -> Prompt:
-        p = Prompt(fn, model=model, observe=observe)
+        p = Prompt(fn, model=model, observe=observe, description=description)
         if inspect is not None:
             p._inspector = inspect
         return p

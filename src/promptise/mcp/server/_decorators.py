@@ -15,7 +15,7 @@ from __future__ import annotations
 import inspect
 import re
 from collections.abc import Callable
-from typing import Any, get_type_hints
+from typing import Any, get_origin, get_type_hints
 
 from ._context import _wants_request_context
 from ._types import PromptDef, ResourceDef, ToolDef
@@ -267,26 +267,107 @@ def build_tool_def(
     )
 
 
+def _infer_mime_type(func: Callable[..., Any]) -> str:
+    """Pick a resource MIME type from the handler's return annotation.
+
+    ``bytes`` → ``application/octet-stream``; ``dict`` / ``list`` (bare or
+    parameterised) or a Pydantic model → ``application/json``; anything
+    else → ``text/plain``.
+    """
+    try:
+        ret = get_type_hints(func).get("return")
+    except Exception:
+        ret = None
+    if ret is None:
+        return "text/plain"
+    target = get_origin(ret) or ret
+    if isinstance(target, type):
+        if issubclass(target, (bytes, bytearray)):
+            return "application/octet-stream"
+        if issubclass(target, (dict, list)):
+            return "application/json"
+        from pydantic import BaseModel
+
+        if issubclass(target, BaseModel):
+            return "application/json"
+    return "text/plain"
+
+
+def _guards_for(guards: list[Any] | None, roles: list[str] | None) -> list[Any]:
+    """Return *guards* plus a ``HasRole`` guard for the ``roles=`` shorthand."""
+    all_guards = list(guards or [])
+    if roles:
+        from ._guards import HasRole
+
+        all_guards.append(HasRole(*roles))
+    return all_guards
+
+
+def _template_params(uri_template: str) -> list[str]:
+    from ._registry import _PLACEHOLDER
+
+    return [m.group(2) for m in _PLACEHOLDER.finditer(uri_template)]
+
+
 def build_resource_def(
     func: Callable[..., Any],
     *,
     uri: str,
     name: str | None = None,
     description: str | None = None,
-    mime_type: str = "text/plain",
+    mime_type: str | None = None,
     is_template: bool = False,
+    tags: list[str] | None = None,
+    auth: bool = False,
+    rate_limit: str | None = None,
+    timeout: float | None = None,
+    guards: list[Any] | None = None,
+    roles: list[str] | None = None,
 ) -> ResourceDef:
-    """Build a ``ResourceDef`` from a decorated function."""
+    """Build a ``ResourceDef`` from a decorated function.
+
+    ``roles=`` adds a ``HasRole`` guard and forces ``auth=True`` (roles are
+    only known after authentication).  ``mime_type=None`` infers the type
+    from the return annotation (see :func:`_infer_mime_type`).
+
+    For a template, every ``{placeholder}`` must name a handler parameter,
+    and the parameters are coerced to their type hints on each read.
+    """
     res_name = name or func.__name__
     res_desc = _get_description(func, description)
+    if rate_limit is not None:
+        from ._rate_limit import parse_rate_limit
+
+        parse_rate_limit(rate_limit)
+
+    input_model = None
+    if is_template:
+        excluded = _excluded_params(func)
+        params = inspect.signature(func).parameters
+        accepts_kwargs = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
+        missing = [p for p in _template_params(uri) if p not in params or p in excluded]
+        if missing and not accepts_kwargs:
+            raise ValueError(
+                f"Resource template {uri!r}: handler {func.__name__}() has no "
+                f"parameter for {', '.join('{' + m + '}' for m in missing)}"
+            )
+        if not accepts_kwargs:
+            input_model, _ = build_input_model(func, exclude=excluded)
 
     return ResourceDef(
         uri=uri,
         name=res_name,
         description=res_desc,
         handler=func,
-        mime_type=mime_type,
+        mime_type=mime_type or _infer_mime_type(func),
         is_template=is_template,
+        tags=list(tags or []),
+        auth=auth or bool(roles),
+        rate_limit=rate_limit,
+        timeout=timeout,
+        guards=_guards_for(guards, roles),
+        roles=list(roles or []),
+        input_model=input_model,
     )
 
 
@@ -295,10 +376,25 @@ def build_prompt_def(
     *,
     name: str | None = None,
     description: str | None = None,
+    tags: list[str] | None = None,
+    auth: bool = False,
+    rate_limit: str | None = None,
+    timeout: float | None = None,
+    guards: list[Any] | None = None,
+    roles: list[str] | None = None,
 ) -> PromptDef:
-    """Build a ``PromptDef`` from a decorated function."""
+    """Build a ``PromptDef`` from a decorated function.
+
+    MCP sends every prompt argument as a string; the returned definition
+    carries a Pydantic model that coerces them to the handler's type hints
+    (``"3"`` → ``3`` for an ``int`` parameter, JSON text for a ``list``).
+    """
     prompt_name = name or func.__name__
     prompt_desc = _get_description(func, description)
+    if rate_limit is not None:
+        from ._rate_limit import parse_rate_limit
+
+        parse_rate_limit(rate_limit)
 
     # Build argument list from signature (for MCP PromptArgument)
     sig = inspect.signature(func)
@@ -307,18 +403,34 @@ def build_prompt_def(
     param_docs = _parse_param_docs(inspect.getdoc(func) or "")
     arguments: list[dict[str, Any]] = []
     for param_name, param in sig.parameters.items():
-        if param_name in excluded:
+        if param_name in excluded or param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
             continue
         arg: dict[str, Any] = {"name": param_name}
         arg["description"] = param_docs.get(param_name) or param_name
         arg["required"] = param.default is inspect.Parameter.empty
         arguments.append(arg)
 
+    has_var_args = any(
+        p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        for p in sig.parameters.values()
+    )
+    input_model = None if has_var_args else build_input_model(func, exclude=excluded)[0]
+
     return PromptDef(
         name=prompt_name,
         description=prompt_desc,
         handler=func,
         arguments=arguments,
+        tags=list(tags or []),
+        auth=auth or bool(roles),
+        rate_limit=rate_limit,
+        timeout=timeout,
+        guards=_guards_for(guards, roles),
+        roles=list(roles or []),
+        input_model=input_model,
     )
 
 
