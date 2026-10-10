@@ -41,6 +41,8 @@ from uuid import UUID
 
 from langchain_core.callbacks import AsyncCallbackHandler
 
+from ._outbound import BlockedTarget, pin_target
+
 logger = logging.getLogger("promptise.events")
 
 __all__ = [
@@ -264,10 +266,6 @@ _PRIVATE_NETWORK_HINT = (
 )
 
 
-class _BlockedTarget(Exception):
-    """The webhook host resolved to a private or internal address."""
-
-
 class WebhookSink:
     """Deliver events via HTTP POST to a webhook URL.
 
@@ -323,7 +321,7 @@ class WebhookSink:
             raise ValueError(f"WebhookSink needs an http(s) URL, got {url!r}")
         if not allow_private_networks:
             # SSRF protection.  Checked again on every delivery, against the
-            # address actually connected to (see _pinned_target).
+            # address actually connected to (see promptise._outbound).
             from promptise.mcp.server._openapi import _validate_url_not_private
 
             _validate_url_not_private(url, hint=_PRIVATE_NETWORK_HINT)
@@ -366,48 +364,6 @@ class WebhookSink:
         if not self._redact_sensitive:
             return payload
         return default_pii_sanitizer(dict(payload))
-
-    async def _pinned_target(self) -> tuple[str, dict[str, str], dict[str, Any]]:
-        """Resolve the host now and connect to the address that was checked.
-
-        Returns the URL to request, extra headers and httpx request
-        extensions.  The construction-time check alone is not enough: DNS
-        can answer differently later (DNS rebinding, a host that did not
-        resolve at startup), so the host is resolved on every attempt,
-        every address is checked, and the request goes to that IP with
-        the original ``Host`` header and TLS server name — httpx never
-        resolves the name again.
-
-        Raises:
-            _BlockedTarget: An address is private or internal.
-        """
-        parsed = urlparse(self._url)
-        if self._allow_private_networks:
-            return self._url, {}, {}
-        import ipaddress
-        import socket
-
-        from promptise.mcp.server._openapi import _is_private_ip
-
-        host = parsed.hostname or ""
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        infos = await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        addresses = [ipaddress.ip_address(str(info[4][0]).split("%", 1)[0]) for info in infos]
-        if not addresses:
-            raise OSError(f"{host!r} did not resolve")
-        for ip in addresses:
-            if _is_private_ip(ip):
-                raise _BlockedTarget(f"{host!r} resolves to private/internal IP {ip}")
-        ip = addresses[0]
-        netloc = f"[{ip}]" if ip.version == 6 else str(ip)
-        if parsed.port:
-            netloc += f":{parsed.port}"
-        userinfo, at, _ = parsed.netloc.rpartition("@")
-        if at:
-            netloc = f"{userinfo}@{netloc}"
-        extensions: dict[str, Any] = {"sni_hostname": host} if parsed.scheme == "https" else {}
-        host_header = parsed.netloc.rpartition("@")[2]
-        return parsed._replace(netloc=netloc).geturl(), {"Host": host_header}, extensions
 
     async def emit(self, event: AgentEvent) -> None:
         """POST the event to the webhook URL with retries."""
@@ -454,16 +410,20 @@ class WebhookSink:
                 **self._headers,
             }
             try:
-                url, host_header, extensions = await self._pinned_target()
+                # Resolved and checked on every attempt (DNS rebinding).
+                target = await pin_target(
+                    self._url, allow_private_networks=self._allow_private_networks
+                )
                 resp = await client.post(
-                    url,
+                    target.url,
                     content=body,
-                    headers={**headers, **host_header},
-                    extensions=extensions,
+                    headers={**headers, **target.headers},
+                    extensions=target.extensions,
+                    follow_redirects=False,
                 )
                 resp.raise_for_status()
                 return  # Success
-            except _BlockedTarget as exc:
+            except BlockedTarget as exc:
                 logger.warning(
                     "WebhookSink: not delivering %s: %s. %s",
                     event.event_type,

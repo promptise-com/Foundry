@@ -248,6 +248,8 @@ Escalation sends a POST to the configured webhook URL with violation details:
 }
 ```
 
+The webhook URL must resolve to a public address (SSRF protection). The host is resolved before every notification, the notification is dropped with a warning if any address is private, loopback, link-local (cloud metadata) or otherwise internal, and the POST goes to the address that was checked, so a DNS record that changes in between (DNS rebinding) cannot send it to an internal service. Redirects are not followed. The same applies to health and mission escalations.
+
 ---
 
 ## Irreversible action tracking
