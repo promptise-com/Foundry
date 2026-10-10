@@ -125,7 +125,7 @@ Two things make this a SOC 2 setup rather than a debug log. First, `HasRole("bil
 
 ## Manage the secret with PROMPTISE_AUDIT_SECRET
 
-The HMAC chain is only as trustworthy as the key behind it, so managing `PROMPTISE_AUDIT_SECRET` is the one operational step you can't skip. The `hmac_secret` resolves in a defined order: the constructor argument first, then the `PROMPTISE_AUDIT_SECRET` environment variable, and only if neither is set does the middleware fall back to a random per-process secret — with a warning, because a random secret can't verify the chain across restarts or across instances.
+The HMAC chain is only as trustworthy as the key behind it, so managing `PROMPTISE_AUDIT_SECRET` is the one operational step you can't skip. The `hmac_secret` resolves in a defined order: the constructor argument first, then the `PROMPTISE_AUDIT_SECRET` environment variable, and if neither is set, a signed log file refuses to start (`ValueError`), because a random per-process secret would leave a file nobody can verify. Only an in-memory chain, without `log_path`, falls back to a random secret, with a warning.
 
 For an audit that has to hold up months later, that matters:
 

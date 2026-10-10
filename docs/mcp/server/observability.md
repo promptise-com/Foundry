@@ -278,6 +278,7 @@ Each entry in `audit.jsonl`:
     "audience": "api://medical-records-api",
     "roles": ["records.read"]
   },
+  "seq": 0,
   "prev_hash": "0000...0000",
   "hmac": "a1b2c3d4..."
 }
@@ -287,23 +288,109 @@ When the caller authenticated with a JWT (e.g. [`JwksAuth`](auth-security.md#jwk
 
 ### HMAC chain integrity
 
-Each entry's `hmac` is computed over the entry + the previous entry's `hmac`, forming a chain. If anyone modifies a past entry, the chain breaks:
+Each entry's `hmac` is an HMAC-SHA256, under your key, over the entry's fields including `prev_hash` — the previous entry's `hmac` (64 zeros for the first entry) — and `seq`, the entry's position in the chain. Editing, deleting, inserting or reordering entries breaks the chain, and without the key nobody can sign a replacement.
+
+The key must be one you keep: `hmac_secret=` or `PROMPTISE_AUDIT_SECRET`. A signed log file without either raises `ValueError` when the middleware is created, because a random per-process key would make the file impossible to verify. (Without `log_path`, the in-memory chain still falls back to a random key, with a warning.)
+
+**Restarts.** A server that starts on an existing log file continues the chain from the file's last entry, so one key verifies the whole file across restarts. The first entry after a restart carries `"resumed": true`.
+
+**Crashes.** Each entry is written with a single append, in chain order. If the process dies during a write, the last line is left incomplete. On the next start, the server closes that line and continues the chain from the entry before it, and the verifier reports the fragment as a warning, not as tampering. If the chain advanced but the write failed (a full disk, for example), the entry is not recorded: the error is logged and the chain stays where it was, so the file never shows a gap.
+
+**Key rotation.** Start a new log file with the new key. If you keep the same file, the server warns at startup and continues the chain, and you verify the file with both keys (`verify_audit_log(path, [new_key, old_key])`, or `--key-env` twice).
+
+**Rotating the file.** If a log rotator moves the file while the server runs, the next file continues the chain. Verify the files together, oldest first: `verify_audit_log([rotated, current], key)`.
+
+Run one writer per file. Two processes appending to the same file fork the chain, so give each worker its own `log_path`.
+
+`audit.verify_chain()` checks the entries the middleware keeps in memory (the most recent `max_memory_entries`). To check a file, use the verifier.
+
+### Verifying a log file
+
+`verify_audit_log(path, key)` reads the file, checks every entry's signature and its link to the entry before it, and reports where the first break is and what kind of change it is:
 
 ```python
-# After collecting entries, verify the chain hasn't been tampered with
-audit = server._middleware[0]  # Get your AuditMiddleware instance
-assert audit.verify_chain()    # Returns False if any entry was modified
+import asyncio
+import os
+from pathlib import Path
+
+from promptise.mcp.server import AuditMiddleware, MCPServer, TestClient, verify_audit_log
+
+os.environ.setdefault("PROMPTISE_AUDIT_SECRET", "change-me")  # in production: from your secrets manager
+key = os.environ["PROMPTISE_AUDIT_SECRET"]
+log = Path("audit.jsonl")
+log.unlink(missing_ok=True)
+
+server = MCPServer(name="records")
+server.add_middleware(AuditMiddleware(log_path=str(log), include_args=True))
+
+
+@server.tool()
+async def view_record(patient_id: str) -> str:
+    return f"record {patient_id}"
+
+
+async def main() -> None:
+    client = TestClient(server)
+    for patient in ("P-1", "P-2", "P-3"):
+        await client.call_tool("view_record", {"patient_id": patient})
+
+    report = verify_audit_log(log, key)
+    print(report.ok, report.entries)  # True 3
+
+    # Someone deletes the second entry
+    lines = log.read_text().splitlines(keepends=True)
+    log.write_text(lines[0] + lines[2])
+
+    report = verify_audit_log(log, key)
+    print(report.ok, report.first_problem)
+    # False audit.jsonl:2: deleted: 1 entry deleted between line 1 and this line (seq 0 -> 2)
+
+
+asyncio.run(main())
 ```
+
+`AuditVerification` has:
+
+| Field | Meaning |
+|-------|---------|
+| `ok` | `False` if the log was tampered with |
+| `entries` | Number of entries read |
+| `first_problem` / `problems` | Each an `AuditIssue` with `kind`, `path`, `line` and `message` |
+| `warnings` | Findings that are not tampering (below) |
+| `truncated` | The last line is incomplete: the process stopped during a write |
+| `continuous` | One unbroken chain from the first entry to the last |
+| `restarts` | `(path, line)` of each entry where a restarted server continued the chain |
+| `last_hash` / `last_seq` | The last entry's `hmac` and `seq` |
+
+Problem kinds: `modified` (an entry edited after signing), `inserted` (a forged entry, or one copied from another log signed with the same key), `duplicate` (a second copy of an entry), `reordered`, `deleted` (with the number of missing entries), `missing_start` (the first entries are gone), `malformed` (a line that is not JSON), `unsigned`, `bad_signature` (modified or forged, when the two can't be told apart), `wrong_key` (no entry verifies) and `anchor_missing`.
+
+Warnings: `truncated` (an incomplete last line with no newline, which is what a crash leaves), `crash_fragment` (such a line inside the log, followed by the restarted server's entry) and `chain_reset` (a new chain starts inside the file, as servers before 1.3.0 wrote on every restart).
+
+A hash chain can't show entries cut from the **end** of the log. To detect that, store `last_hash` somewhere the log writer can't reach, such as a ticket or a separate system, and pass it later as `verify_audit_log(path, key, anchor=saved_hash)`. The check fails with `anchor_missing` if that entry is gone.
+
+From the command line, the key comes from an environment variable and is never printed:
+
+```bash
+promptise audit verify audit.jsonl                        # key from PROMPTISE_AUDIT_SECRET
+promptise audit verify audit.jsonl --key-env AUDIT_KEY    # key from another variable
+promptise audit verify audit.1.jsonl audit.jsonl          # rotated files, oldest first
+promptise audit verify audit.jsonl --anchor <last_hash> --strict --json
+```
+
+It exits `0` when the log is intact, `1` when it was tampered with (also on warnings with `--strict`) and `2` when the file or the key can't be read. See the [CLI reference](../../core/cli.md#promptise-audit-verify-audit-log-integrity).
 
 ### Configuration
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `log_path` | `None` | File path for JSONL audit log |
-| `signed` | `True` | Enable HMAC chain |
-| `hmac_secret` | env or default | Secret for HMAC computation |
-| `include_args` | `False` | Log tool arguments (may contain PII) |
-| `include_result` | `False` | Log tool results |
+| `log_path` | `None` | File path for the JSONL audit log |
+| `signed` | `True` | Enable the HMAC chain |
+| `hmac_secret` | `PROMPTISE_AUDIT_SECRET` | Key for the HMAC chain. Required with `log_path` when `signed=True` |
+| `include_args` | `False` | Log the tool's arguments (may contain PII) |
+| `include_result` | `False` | Log tool results (first 1000 characters) |
+| `max_memory_entries` | `10000` | Entries kept in memory for `audit.entries` / `verify_chain()`; `None` keeps all. The file keeps every entry |
+
+The log never contains the key, the caller's token or its full claim set. With `include_args` or `include_result`, it contains whatever the tool receives or returns. An entry's `error` field holds the exception text, which the client never sees.
 
 ---
 
@@ -390,6 +477,7 @@ metrics.register_resource(server)
 | `PrometheusMiddleware(namespace, registry)` | Class | Prometheus metrics middleware |
 | `StructuredLoggingMiddleware()` | Class | JSON structured logging middleware |
 | `AuditMiddleware(log_path, signed, ...)` | Class | HMAC-chained audit log middleware |
+| `verify_audit_log(path, key, anchor=None)` | Function | Verify an audit log file; returns `AuditVerification` |
 | `ServerLogger` | Class | Send log messages to MCP client (via DI) |
 | `Dashboard` | Class | Live terminal monitoring dashboard |
 

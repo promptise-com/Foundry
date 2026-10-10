@@ -223,7 +223,8 @@ auth = JwksAuth.from_discovery(
 server.add_middleware(AuthMiddleware(auth))
 
 # Tamper-evident audit: each entry records the VERIFIED agent identity
-# (subject / issuer / audience / roles) inside an HMAC chain.
+# (subject / issuer / audience / roles) inside an HMAC chain. The key comes
+# from PROMPTISE_AUDIT_SECRET; check the file with `promptise audit verify`.
 server.add_middleware(AuditMiddleware(log_path="billing-audit.jsonl", signed=True))
 ```
 
