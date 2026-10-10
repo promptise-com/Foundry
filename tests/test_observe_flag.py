@@ -796,7 +796,9 @@ class TestCollectorSpan:
             time.sleep(0.01)
 
         assert entry.duration is not None
-        assert entry.duration >= 0.01
+        # time.sleep() and perf_counter() use different clocks on Windows, so
+        # a 10 ms sleep can measure a little under 10 ms there.
+        assert 0.005 <= entry.duration < 5
 
 
 class TestCollectorSerialization:
