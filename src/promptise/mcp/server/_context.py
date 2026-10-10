@@ -24,10 +24,11 @@ _current_context: ContextVar[RequestContext | None] = ContextVar(
     "promptise_server_ctx", default=None
 )
 
-# HTTP request headers — set by the transport layer (ASGI middleware),
-# read by call_tool to populate RequestContext.meta.  This bridges the
-# gap between transport-level HTTP headers and protocol-level tool
-# handling where the MCP SDK does not pass headers through.
+# HTTP request headers — set by the transport layer (ASGI middleware) and
+# re-bound by call_tool to the request carrying the current MCP message
+# (see ``bind_transport_request``), then read to populate
+# RequestContext.meta.  This bridges the gap between transport-level HTTP
+# headers and protocol-level tool handling.
 _request_headers: ContextVar[dict[str, str] | None] = ContextVar(
     "promptise_request_headers", default=None
 )
@@ -179,7 +180,8 @@ class RequestContext:
             Shortcut for ``self.client.client_id``.
         client: Structured client context with roles, scopes, claims, IP,
             and custom metadata.  Populated by :class:`AuthMiddleware`.
-        meta: Raw HTTP headers from the transport layer.
+        meta: Raw HTTP headers (lower-cased names) of the request that
+            carries this call — per request, not per MCP session.
         state: Arbitrary per-request state (middleware can read/write).
         logger: Pre-configured logger scoped to this request.
     """
@@ -298,8 +300,10 @@ def set_request_headers(headers: dict[str, str]) -> None:
 def get_request_headers() -> dict[str, str]:
     """Return HTTP request headers for the current async context.
 
-    Returns an empty dict when called outside an HTTP request
-    (e.g. stdio transport, tests).
+    Inside a tool handler on the HTTP/SSE transports these are the headers
+    of the request that carries the current call (not of the request that
+    opened the session).  Returns an empty dict when called outside an
+    HTTP request (e.g. stdio transport, tests).
     """
     return _request_headers.get() or {}
 
@@ -325,3 +329,44 @@ def get_request_client_info() -> tuple[str, int] | None:
 def clear_request_client_info() -> None:
     """Clear ASGI client info after the request completes."""
     _request_client_info.set(None)
+
+
+def bind_transport_request(request: Any | None) -> tuple[dict[str, str], tuple[str, int] | None]:
+    """Resolve the HTTP request that carries the *current* MCP message.
+
+    The Streamable HTTP and SSE transports attach the Starlette ``Request``
+    of every POST to the message the MCP SDK dispatches, so its headers and
+    peer address describe *this* call.  The contextvars set by the ASGI
+    layer cannot be trusted for that: under Streamable HTTP the session's
+    server task is spawned inside the ``initialize`` request, so their copy
+    would describe the request that opened the session for the session's
+    whole lifetime — and caller identity, tenant, roles and ``X-Request-ID``
+    would be bound to the session instead of the request.
+
+    When a per-message request is available, the contextvars are re-bound
+    to it for the current task so that every downstream reader
+    (:func:`get_request_headers`, :func:`get_request_client_info`, and
+    therefore ``ClientContext.ip_address``) observes the same request.
+    Without one (stdio, direct handler invocation in tests) the contextvars
+    remain the source of truth.
+
+    Args:
+        request: ``request_context.request`` of the MCP SDK for the message
+            being handled, or ``None`` when the transport carries none.
+
+    Returns:
+        ``(headers, client)`` — header names lower-cased, and the peer
+        ``(host, port)`` or ``None`` when the transport has no peer.
+    """
+    raw_headers = getattr(request, "headers", None)
+    if request is None or raw_headers is None:
+        return get_request_headers(), get_request_client_info()
+
+    headers = {str(k).lower(): str(v) for k, v in raw_headers.items()}
+    peer = getattr(request, "client", None)
+    client_info: tuple[str, int] | None = None
+    if peer is not None and getattr(peer, "host", None) is not None:
+        client_info = (str(peer.host), int(peer.port or 0))
+    set_request_headers(headers)
+    set_request_client_info(client_info)
+    return headers, client_info

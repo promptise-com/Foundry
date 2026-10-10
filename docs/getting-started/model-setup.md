@@ -1,112 +1,83 @@
 ---
-title: Model Setup — Use any LLM with Promptise Foundry (OpenAI, Anthropic, Ollama)
-description: Set up any LLM in Promptise Foundry with a single string — OpenAI GPT, Anthropic Claude, Ollama (local), Mistral, Google Gemini, or any LangChain BaseChatModel. Model-agnostic by design. Switch providers by changing one line.
-keywords: Promptise model setup, OpenAI agent, Anthropic agent, Ollama agent, Claude AI agent, local LLM agent, model agnostic AI agent
+title: Model Setup — use any LLM with Promptise Foundry in two minutes (Azure AI Foundry, OpenAI, Bedrock, Gemini, Ollama)
+description: Get a model working in two minutes — put the key in .env or pass it in code with Model(...), check what is missing with promptise models check, and ping it. Every provider works with the core install; the exact environment variable for each is in one table. The in-depth reference lives in Agent → Models & Providers.
+keywords: Promptise model setup, Azure AI Foundry Python, Azure OpenAI deployment, use any LLM, model agnostic AI agent, promptise models check
 ---
 
 # Model Setup
 
-Promptise supports any LLM provider that LangChain integrates with. Models are specified as a string in the format `"provider:model-name"`.
+Every place Promptise takes a model — `build_agent(model=...)`, `.superagent`
+and `.agent` files, `promptise mcpcast --model`, the CLI — takes it in one of
+three forms:
 
-## Provider String Format
+| Form | Example |
+|---|---|
+| **`Model(...)` in code** — credentials explicit | `Model("gpt-4o", provider="azure", deployment="chat-prod", endpoint=..., api_key=..., api_version=...)` |
+| **A `provider:model` string** — credentials from `.env` / environment | `"azure:chat-prod"`, `"openai:gpt-5-mini"` |
+| **A `model:` block** in a `.superagent` / `.agent` file | `provider: azure` / `model: gpt-4o` / `deployment: chat-prod` |
 
-```python
-agent = await build_agent(
-    model="openai:gpt-5-mini",   # provider:model-name
-    servers=...,
-)
+**Nothing to install per provider** — `pip install promptise` reaches all of
+them. This page gets you to a working model; the full reference — every word
+of `Model`, Azure AI Foundry in depth, every provider's section, custom and
+self-hosted endpoints, failover, per-node models — is
+[**Agent → Models & Providers**](../core/agents/models.md).
+
+## Two minutes to a working model
+
+**1. Pick the provider and see what it needs.** Nothing set yet:
+
+--8<-- "docs/.snippets/check-azure.txt"
+
+**2. Give it the values — in `.env`, or in code.**
+
+=== "In `.env` (loaded automatically)"
+
+    `promptise models env <provider>` prints the lines, with a note on where
+    each value is found in the provider's console:
+
+    ```bash
+    promptise models env azure >> .env    # then fill in the values
+    ```
+
+    --8<-- "docs/.snippets/env-azure.txt"
+
+=== "In code with `Model(...)`"
+
+    ```python
+    from promptise import Model, build_agent
+
+    agent = await build_agent(
+        model=Model(
+            "gpt-4o",                                         # the model
+            provider="azure",
+            deployment="chat-prod",                           # Foundry → Deployments → Name
+            endpoint="https://my-resource.openai.azure.com/", # your resource → Overview → Endpoint
+            api_key="...",                                    # your resource → Keys and Endpoint
+            api_version="2024-10-21",
+        ),
+        servers=...,
+    )
+    ```
+
+    A value given in code counts as provided — nothing needs to be in the
+    environment. Every word is explained in
+    [Models & Providers → In code: Model](../core/agents/models.md#in-code-model).
+
+**3. Check again, then ping.** `--ping` makes a real one-token call:
+
+```text
+$ promptise models check openai:gpt-5-mini --ping
+…
+Usable.
+Pinging… ok — replied 'ok'
 ```
 
-## Supported Providers
+## Every provider at a glance
 
-| Provider | Format | Example | Env Variable |
-|----------|--------|---------|--------------|
-| OpenAI | `openai:model` | `openai:gpt-5-mini` | `OPENAI_API_KEY` |
-| Anthropic | `anthropic:model` | `anthropic:claude-sonnet-4` | `ANTHROPIC_API_KEY` |
-| Google | `google:model` | `google:gemini-2.5-pro` | `GOOGLE_API_KEY` |
-| Ollama | `ollama:model` | `ollama:llama3` | _(local, no key needed)_ |
+--8<-- "docs/.snippets/providers-table.md"
 
-Set the appropriate environment variable for your provider:
+## Where next
 
-```bash
-# OpenAI
-export OPENAI_API_KEY=sk-...
-
-# Anthropic
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# Google
-export GOOGLE_API_KEY=AIza...
-```
-
-## The `ModelLike` Type
-
-The `model` parameter accepts three types:
-
-### 1. Provider String (recommended)
-
-The simplest option. Promptise uses LangChain's `init_chat_model` to resolve the string:
-
-```python
-agent = await build_agent(
-    model="openai:gpt-5-mini",
-    servers=my_servers,
-)
-```
-
-### 2. LangChain Chat Model Instance
-
-Pass a pre-configured `BaseChatModel` for full control over parameters like temperature, max tokens, and base URL:
-
-```python
-from langchain_openai import ChatOpenAI
-
-llm = ChatOpenAI(
-    model="gpt-5-mini",
-    temperature=0.2,
-    max_tokens=4096,
-)
-
-agent = await build_agent(
-    model=llm,
-    servers=my_servers,
-)
-```
-
-### 3. LangChain Runnable
-
-Any LangChain `Runnable` that accepts chat messages and returns a response. Useful for custom chains or model wrappers:
-
-```python
-from langchain_openai import ChatOpenAI
-
-llm = ChatOpenAI(model="gpt-5-mini").with_retry(max_retries=3)
-
-agent = await build_agent(
-    model=llm,
-    servers=my_servers,
-)
-```
-
-## Using Ollama (Local Models)
-
-Run models locally with [Ollama](https://ollama.com) -- no API key required:
-
-```bash
-# Install and start Ollama, then pull a model
-ollama pull llama3
-```
-
-```python
-agent = await build_agent(
-    model="ollama:llama3",
-    servers=my_servers,
-)
-```
-
-!!! warning "Local model limitations"
-    Local models vary in their ability to use tools reliably. For production agent systems with tool calling, cloud providers (OpenAI, Anthropic) provide the most consistent results.
-
-## Default Model
-
-All documentation examples use `openai:gpt-5-mini` as the default. It offers a good balance of capability, speed, and cost for development and testing.
+- [**Agent → Models & Providers**](../core/agents/models.md) — the in-depth reference: every `Model` word, [Azure AI Foundry](../core/agents/models.md#azure-ai-foundry), [every provider](../core/agents/models.md#every-provider), [custom and self-hosted endpoints](../core/agents/models.md#custom-self-hosted-and-inference-endpoints), failover, per-node models, troubleshooting
+- [Configuration & Secrets](configuration.md) — where keys live and the precedence between `.env`, environment, code and config files
+- [Quick Start](quickstart.md) — your first agent

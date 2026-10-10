@@ -7,6 +7,8 @@ Each adapter creates the appropriate read/write streams and calls
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import ipaddress
 import json as _json
 import logging
 from collections.abc import AsyncIterator, Callable
@@ -14,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from mcp.server.lowlevel import Server as LowLevelServer
+from mcp.server.transport_security import TransportSecuritySettings
 
 from ._types import TransportType
 
@@ -21,6 +24,150 @@ if TYPE_CHECKING:
     from ._lifecycle import LifecycleManager
 
 logger = logging.getLogger("promptise.server")
+
+
+# =====================================================================
+# Host / Origin validation (DNS rebinding protection)
+# =====================================================================
+
+LOOPBACK_ALLOWED_HOSTS: tuple[str, ...] = (
+    "127.0.0.1",
+    "127.0.0.1:*",
+    "localhost",
+    "localhost:*",
+    "[::1]",
+    "[::1]:*",
+)
+"""``Host`` header values a loopback-bound server accepts (any port)."""
+
+LOOPBACK_ALLOWED_ORIGINS: tuple[str, ...] = (
+    "http://127.0.0.1",
+    "http://127.0.0.1:*",
+    "http://localhost",
+    "http://localhost:*",
+    "http://[::1]",
+    "http://[::1]:*",
+    "https://127.0.0.1",
+    "https://127.0.0.1:*",
+    "https://localhost",
+    "https://localhost:*",
+    "https://[::1]",
+    "https://[::1]:*",
+)
+"""``Origin`` header values a loopback-bound server accepts (any port)."""
+
+
+def is_loopback_host(host: str) -> bool:
+    """True when *host* is a loopback bind address (``127.0.0.0/8``, ``::1``, ``localhost``).
+
+    Args:
+        host: Bind host as passed to ``MCPServer.run`` (an IPv6 literal may
+            be bracketed).
+    """
+    if host in ("localhost", "ip6-localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(host.strip("[]")).is_loopback
+    except ValueError:
+        return False
+
+
+def _host_pattern(host: str) -> str:
+    """``Host`` header base for *host* (IPv6 literals are bracketed)."""
+    bare = host.strip("[]")
+    return f"[{bare}]" if ":" in bare else bare
+
+
+def build_transport_security(
+    host: str,
+    *,
+    allowed_hosts: list[str] | None = None,
+    allowed_origins: list[str] | None = None,
+) -> TransportSecuritySettings | None:
+    """Decide the Host/Origin validation policy for an HTTP or SSE bind.
+
+    A loopback bind is protected against DNS rebinding by default: a page in
+    the operator's browser whose hostname was rebound to ``127.0.0.1`` sends
+    the attacker's ``Host``/``Origin``, and both are refused (``421`` /
+    ``403``) before any MCP message is processed.  The loopback names are
+    accepted on any port (plus the bind address itself when it is another
+    loopback address) — a request that names the bind address is by
+    definition not rebound, so an explicit list *adds* the names a reverse
+    proxy forwards (``Host: api.example.com``) without taking the loopback
+    names away from local clients and health checks.
+
+    A non-loopback bind is not restricted unless the operator names the
+    hosts it serves: the framework cannot know the public hostname, and a
+    wrong guess would refuse every request.  Pass ``allowed_hosts`` (and
+    ``allowed_origins`` for browser clients on another origin) to enable the
+    validation there, or terminate at a gateway that validates ``Host`` and
+    ``Origin``.  On such a bind the lists are used exactly as given.
+
+    Args:
+        host: Bind host.
+        allowed_hosts: ``Host`` values to accept, e.g. ``["api.example.com"]``
+            or ``["api.example.com:*"]`` (any port).
+        allowed_origins: ``Origin`` values to accept, e.g.
+            ``["https://app.example.com"]``.  A request without an ``Origin``
+            header (non-browser MCP clients) always passes this check.
+
+    Returns:
+        The settings to hand to the MCP SDK transports, or ``None`` when
+        validation stays off (non-loopback bind without an explicit list).
+
+    Raises:
+        ValueError: ``allowed_origins`` without ``allowed_hosts`` on a
+            non-loopback bind — the SDK validates ``Host`` whenever the
+            protection is on, and an empty host list would refuse every
+            request.
+    """
+    if allowed_hosts is not None and not allowed_hosts:
+        raise ValueError("allowed_hosts must name at least one Host value or be None")
+    if is_loopback_host(host):
+        base = _host_pattern(host)
+        hosts = list(LOOPBACK_ALLOWED_HOSTS)
+        origins = list(LOOPBACK_ALLOWED_ORIGINS)
+        for extra in (base, f"{base}:*", *(allowed_hosts or ())):
+            if extra not in hosts:
+                hosts.append(extra)
+        own_origins = [
+            f"{scheme}://{base}{suffix}" for scheme in ("http", "https") for suffix in ("", ":*")
+        ]
+        for extra in (*own_origins, *(allowed_origins or ())):
+            if extra not in origins:
+                origins.append(extra)
+        return TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=hosts,
+            allowed_origins=origins,
+        )
+    if allowed_hosts is None:
+        if allowed_origins is not None:
+            raise ValueError(
+                "allowed_origins requires allowed_hosts on a non-loopback bind: Host validation "
+                "cannot be skipped once the protection is on, and no Host value would be accepted."
+            )
+        return None
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=list(allowed_hosts),
+        allowed_origins=list(allowed_origins or []),
+    )
+
+
+def _log_transport_security(security: TransportSecuritySettings | None, host: str) -> None:
+    if security is None:
+        logger.info(
+            "Host/Origin validation off for non-loopback bind %s: front the server with a "
+            "gateway that validates Host and Origin, or pass allowed_hosts/allowed_origins",
+            host,
+        )
+        return
+    logger.info(
+        "Host/Origin validation on: hosts=%s origins=%s",
+        security.allowed_hosts,
+        security.allowed_origins,
+    )
 
 
 # =====================================================================
@@ -65,6 +212,31 @@ class CORSConfig:
 # =====================================================================
 
 
+def session_principal(scheme: str, credential: str) -> Any:
+    """The transport-level principal a verified *credential* represents.
+
+    Returned as the MCP SDK's ``AuthenticatedUser`` and stored on
+    ``scope["user"]`` so the SDK's Streamable HTTP and SSE transports bind
+    every session to the credential that opened it: a request that presents
+    a different credential for an existing session is answered ``404`` as
+    if the session did not exist, so a leaked ``mcp-session-id`` cannot be
+    ridden by another caller.  The principal is a fingerprint of the
+    credential bytes (never the credential itself) prefixed with its
+    scheme, so a bearer token and an API key can never collide.
+
+    Args:
+        scheme: ``"bearer"`` or ``"api-key"``.
+        credential: The verified token or key.
+    """
+    from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
+    from mcp.server.auth.provider import AccessToken
+
+    fingerprint = hashlib.sha256(credential.encode("utf-8")).hexdigest()
+    return AuthenticatedUser(
+        AccessToken(token=credential, client_id=f"{scheme}:{fingerprint}", scopes=[])
+    )
+
+
 class _AuthGateASGI:
     """ASGI middleware that rejects HTTP requests without valid auth.
 
@@ -76,6 +248,10 @@ class _AuthGateASGI:
 
     1. **Bearer token** (JWT): ``Authorization: Bearer <token>``
     2. **API key**: ``x-api-key: <key>``
+
+    A request that passes is tagged with the principal of its credential
+    (see :func:`session_principal`), which the MCP SDK transports compare
+    against the principal that created the session the request addresses.
 
     Args:
         app: The inner ASGI application.
@@ -117,10 +293,11 @@ class _AuthGateASGI:
             headers = dict(scope.get("headers", []))
 
             # Try Bearer token first (Authorization: Bearer <token>)
-            auth_value = headers.get(b"authorization", b"").decode()
+            auth_value = headers.get(b"authorization", b"").decode("latin-1")
             if auth_value and auth_value.startswith("Bearer "):
                 token = auth_value[7:]
                 if self._verify(token):
+                    scope["user"] = session_principal("bearer", token)
                     await self.app(scope, receive, send)
                     return
                 await _send_json(
@@ -134,10 +311,11 @@ class _AuthGateASGI:
                 return
 
             # Try API key (x-api-key header)
-            api_key = headers.get(b"x-api-key", b"").decode()
+            api_key = headers.get(b"x-api-key", b"").decode("latin-1")
             if api_key:
                 verify_key = self._verify_api_key or self._verify
                 if verify_key(api_key):
+                    scope["user"] = session_principal("api-key", api_key)
                     await self.app(scope, receive, send)
                     return
                 await _send_json(
@@ -236,6 +414,7 @@ async def run_http(
     auth_gate: Callable[[str], bool] | None = None,
     token_endpoint: Any = None,
     cors: CORSConfig | None = None,
+    security_settings: TransportSecuritySettings | None = None,
 ) -> None:
     """Run the server over Streamable HTTP.
 
@@ -251,16 +430,20 @@ async def run_http(
             lack a valid ``Authorization: Bearer <token>`` header or
             ``x-api-key`` header.  Bearer tokens are checked first; if
             absent, the ``x-api-key`` header is tried.
+        security_settings: Host/Origin validation policy from
+            :func:`build_transport_security`; ``None`` leaves it off.
     """
     from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
     from starlette.applications import Starlette
     from starlette.routing import Route
 
+    _log_transport_security(security_settings, host)
     session_manager = StreamableHTTPSessionManager(
         app=server,
         event_store=None,
         json_response=False,
         stateless=False,
+        security_settings=security_settings,
     )
 
     # Starlette Route wraps functions/methods in request_response(),
@@ -373,30 +556,53 @@ async def run_sse(
     auth_gate: Callable[[str], bool] | None = None,
     token_endpoint: Any = None,
     cors: CORSConfig | None = None,
+    security_settings: TransportSecuritySettings | None = None,
 ) -> None:
     """Run the server over Server-Sent Events (legacy transport).
 
     Uses the MCP SDK's ``SseServerTransport``.
+
+    Args:
+        security_settings: Host/Origin validation policy from
+            :func:`build_transport_security`; ``None`` leaves it off.  It
+            is enforced on the ``/sse`` stream and on every ``/messages/``
+            POST.
     """
     from mcp.server.sse import SseServerTransport
+    from mcp.server.transport_security import TransportSecurityMiddleware
     from starlette.applications import Starlette
+    from starlette.requests import Request
     from starlette.routing import Mount, Route
 
-    sse = SseServerTransport("/messages/")
+    _log_transport_security(security_settings, host)
+    sse = SseServerTransport("/messages/", security_settings=security_settings)
+    stream_security = TransportSecurityMiddleware(security_settings)
 
-    async def handle_sse(request: Any) -> Any:
-        # Bridge HTTP headers and client info for SSE connection
-        from ._context import set_request_client_info, set_request_headers
+    # Raw ASGI endpoint (a callable instance bypasses Starlette's
+    # request_response wrapper): the SSE stream is the whole response, so
+    # there is nothing to return once it ends.
+    class _SseEndpoint:
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            # Validate Host/Origin before opening the stream: ``connect_sse``
+            # answers a failing request itself and then raises, which would
+            # surface as a spurious application error after the response.
+            refused = await stream_security.validate_request(Request(scope, receive), is_post=False)
+            if refused is not None:
+                await refused(scope, receive, send)
+                return
 
-        raw_headers = request.scope.get("headers", [])
-        headers = {k.decode("latin-1"): v.decode("latin-1") for k, v in raw_headers}
-        set_request_headers(headers)
-        client = request.scope.get("client")
-        if client:
-            set_request_client_info(tuple(client))
+            # Bridge HTTP headers and client info for SSE connection
+            from ._context import set_request_client_info, set_request_headers
 
-        async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
-            await server.run(streams[0], streams[1], init_options, raise_exceptions=False)
+            raw_headers = scope.get("headers", [])
+            headers = {k.decode("latin-1"): v.decode("latin-1") for k, v in raw_headers}
+            set_request_headers(headers)
+            client = scope.get("client")
+            if client:
+                set_request_client_info(tuple(client))
+
+            async with sse.connect_sse(scope, receive, send) as streams:
+                await server.run(streams[0], streams[1], init_options, raise_exceptions=False)
 
     async def handle_messages(scope: Any, receive: Any, send: Any) -> None:
         # Bridge HTTP headers and client info for message POST requests
@@ -420,7 +626,7 @@ async def run_sse(
             await lifecycle.shutdown(timeout=shutdown_timeout)
 
     routes = [
-        Route("/sse", endpoint=handle_sse),
+        Route("/sse", endpoint=_SseEndpoint(), methods=["GET"]),
         Mount("/messages/", app=handle_messages),
     ]
 

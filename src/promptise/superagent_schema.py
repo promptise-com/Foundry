@@ -47,17 +47,49 @@ class DetailedModelConfig(BaseModel):
         ...     api_key="${OPENAI_API_KEY}",
         ...     temperature=0.7
         ... )
+
+    Azure OpenAI — the model, the deployment you named it, and where it lives
+    are separate fields::
+
+        model:
+          provider: azure
+          model: gpt-4o
+          deployment: chat-prod
+          endpoint: https://my-resource.openai.azure.com/
+          api_key: ${AZURE_OPENAI_API_KEY}
+          api_version: "2024-10-21"
+
+    The common words (``deployment``, ``api_key``, ``endpoint``,
+    ``api_version``, ``region``, ``project``) are translated to each
+    provider's own keyword arguments exactly like
+    :class:`promptise.models.Model`; a value set here counts as provided, so
+    the matching environment variable is not required.  ``name:`` and
+    ``model:`` are synonyms.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    provider: str = Field(..., description="Model provider name")
-    name: str = Field(..., description="Model name or ID")
+    provider: str = Field(..., description="Model provider name (any prefix or alias)")
+    name: str = Field(..., alias="model", description="Model name (also accepted as `model:`)")
+    deployment: str | None = Field(
+        None,
+        description="Azure OpenAI deployment name (what you named the model in Azure AI Foundry)",
+    )
     api_key: str | None = Field(None, description="API key (supports ${ENV_VAR})")
     temperature: float | None = Field(None, ge=0.0, le=2.0)
     max_tokens: int | None = Field(None, gt=0)
     timeout: int | None = Field(None, gt=0, description="Request timeout in seconds")
-    base_url: str | None = Field(None, description="Custom API base URL")
+    base_url: str | None = Field(None, description="Custom API base URL (same as endpoint)")
+    endpoint: str | None = Field(
+        None,
+        description=(
+            "Where to send requests: an Azure OpenAI resource endpoint, an Azure AI "
+            "Foundry inference endpoint, or the /v1 URL of an OpenAI-compatible server"
+        ),
+    )
+    api_version: str | None = Field(None, description="Azure OpenAI REST API version")
+    region: str | None = Field(None, description="Bedrock region or Vertex AI location")
+    project: str | None = Field(None, description="Google Cloud project id (Vertex AI)")
     extra: dict[str, Any] = Field(
         default_factory=dict, description="Additional provider-specific parameters"
     )

@@ -118,10 +118,11 @@ nav:
       - Installation: index.md
       - Installation Extras: getting-started/installation-extras.md
       - Quick Start: getting-started/quickstart.md
+      - Configuration & Secrets: getting-started/configuration.md
+      - Model Setup: getting-started/model-setup.md
       - Cookbook (Recipes): getting-started/cookbook.md
       - Why Promptise Foundry: getting-started/why-promptise.md
       - What is MCP?: getting-started/what-is-mcp.md
-      - Model Setup: getting-started/model-setup.md
       - Best LLMs for Agents: getting-started/best-llms-for-agents.md
       - Key Concepts: getting-started/concepts.md
       - Glossary: getting-started/glossary.md
@@ -145,10 +146,22 @@ nav:
           - "Lab: Code Review Agent": guides/lab-code-review.md
           - "Lab: Pipeline Observer Agent": guides/lab-pipeline-observer.md
 
+  - MCPcast:
+      - End to End: mcpcast/index.md
+      - Guided Setup: mcpcast/guided-setup.md
+      - Reference: mcp/server/mcpcast.md
+      - Step-by-Step Guide: guides/mcpcast-existing-api.md
+      - Your Python API: guides/mcpcast-python-app.md
+      - "Recipes: Stripe, GitHub, your app": mcp/server/mcpcast-recipes.md
+      - "Lab: MCPcast Your SaaS API": guides/lab-mcpcast-storefront.md
+      - "Lab: The Guided Setup": guides/lab-mcpcast-wizard.md
+      - API Reference: api/mcpcast.md
+
   - Agent:
       - core/index.md
       - Setup:
           - Building Agents: core/agents/building-agents.md
+          - Models & Providers: core/agents/models.md
           - Server Configuration: core/agents/server-specs.md
           - Network Server: core/agents/network-server.md
           - SuperAgent Files: core/agents/superagent-files.md
@@ -293,6 +306,7 @@ nav:
       - Core:
           - Agent: api/agent.md
           - Configuration: api/config.md
+          - Models: api/models.md
           - Memory: api/memory.md
           - RAG: api/rag.md
           - Sandbox: api/sandbox.md

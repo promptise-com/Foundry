@@ -8,6 +8,14 @@ The engine exposes the standard agent interface:
 - ``ainvoke(input, config=config)`` → ``{"messages": [...]}``
 - ``astream_events(input, config=config, version="v2")`` → event stream
 
+A run that ends on a failed node — a model call the provider rejected, a
+CRITICAL node error, a RETRYABLE node out of attempts — raises
+:class:`GraphExecutionError` (chained to the provider exception) instead of
+returning the conversation as if it were an answer.  Node-level errors stay
+recorded in ``GraphState.node_history`` / ``ExecutionReport`` for hooks and
+observability; a graph that routes a failure to a handler node that
+succeeds is not a failed run.
+
 Key features:
 - **Adaptive traversal**: nodes can modify the graph at runtime
 - **Per-invocation isolation**: each ``ainvoke()`` works on a graph copy
@@ -33,9 +41,42 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from .base import BaseNode
 from .graph import PromptGraph
+from .nodes import failure_cause, record_failure
 from .state import ExecutionReport, GraphMutation, GraphState, NodeEvent, NodeFlag, NodeResult
 
 logger = logging.getLogger("promptise.engine")
+
+
+class GraphExecutionError(RuntimeError):
+    """A graph run ended on a node failure the graph did not recover from.
+
+    Raised by :meth:`PromptGraphEngine.ainvoke` and, after its events, by
+    :meth:`PromptGraphEngine.astream_events`.  The provider exception (a
+    rejected API key, a network failure…) is chained as ``__cause__`` when
+    the node recorded one.  ``PromptiseAgent.ainvoke()`` lets it propagate,
+    so a broken credential is an exception at the call site, never an
+    "answer" that echoes the question.
+
+    Attributes:
+        graph_name: Name of the graph that failed.
+        node_name: Node whose failure ended the run.
+        error: The node's recorded error text.
+        report: The :class:`ExecutionReport` of the failed run.
+    """
+
+    def __init__(
+        self,
+        graph_name: str,
+        node_name: str,
+        error: str,
+        *,
+        report: ExecutionReport | None = None,
+    ) -> None:
+        super().__init__(f"Graph {graph_name!r} failed at node {node_name!r}: {error}")
+        self.graph_name = graph_name
+        self.node_name = node_name
+        self.error = error
+        self.report = report
 
 
 class PromptGraphEngine:
@@ -127,6 +168,11 @@ class PromptGraphEngine:
             graph=live_graph,
         )
 
+        # The failure the run ended on, if any. Only the *last* executed node
+        # decides: a failure the graph routed to a handler node that then
+        # succeeded is recovery, not failure.
+        last_failure: NodeResult | None = None
+
         while state.current_node != "__end__":
             try:
                 node = live_graph.get_node(state.current_node)
@@ -168,14 +214,21 @@ class PromptGraphEngine:
                             node_name=node.name,
                             node_type=type(node).__name__.lower(),
                             iteration=state.iteration,
-                            error=f"{type(exc).__name__}: {exc}",
                         )
+                        record_failure(result, exc)
                         logger.error("Node %r execution failed: %s", node.name, exc)
 
                 # ── Post-execute flag processing ──
                 await self._post_execute_flags(node, result, state, config)
 
             result.duration_ms = (time.monotonic() - node_start) * 1000
+
+            # Did the node's own execution fail? Decided BEFORE post-node
+            # hooks: a hook may annotate a successful result (TimingHook /
+            # BudgetHook write ``error`` as a signal and BudgetHook stops the
+            # run) — that is governance, not a failed node — or recover a
+            # failed one by clearing ``error`` / setting ``error_recovered``.
+            node_failed = bool(result.error) and not result.error_recovered
 
             # ── CRITICAL flag — abort on error ──
             if node.has_flag(NodeFlag.CRITICAL) and result.error:
@@ -184,6 +237,7 @@ class PromptGraphEngine:
                 )
                 state.node_history.append(result)
                 state.record_node_timing(node.name, result.duration_ms)
+                last_failure = result
                 break
 
             # ── Runtime graph mutations ──
@@ -222,6 +276,9 @@ class PromptGraphEngine:
             state.total_tokens += result.total_tokens
             state.node_history.append(result)
             state.trim_messages()
+            last_failure = (
+                result if node_failed and result.error and not result.error_recovered else None
+            )
 
             # ── Resolve next node ──
             # If a hook forced __end__ (e.g. BudgetHook), respect it
@@ -247,14 +304,6 @@ class PromptGraphEngine:
                 state.current_node = self._handle_stuck_node(node, state, live_graph)
 
         # ── Build report ──
-        # Check if a CRITICAL node caused the abort
-        critical_error = None
-        if state.node_history and state.node_history[-1].error:
-            last_node_name = state.node_history[-1].node_name
-            last_node_obj = live_graph.nodes.get(last_node_name)
-            if last_node_obj and last_node_obj.has_flag(NodeFlag.CRITICAL):
-                critical_error = state.node_history[-1].error
-
         self._last_report = ExecutionReport(
             total_iterations=state.iteration,
             total_tokens=state.total_tokens,
@@ -264,8 +313,19 @@ class PromptGraphEngine:
             graph_mutations=mutations_count,
             guards_passed=sum(len(nr.guards_passed) for nr in state.node_history),
             guards_failed=sum(len(nr.guards_failed) for nr in state.node_history),
-            error=critical_error,
+            error=last_failure.error if last_failure is not None else None,
         )
+
+        if last_failure is not None:
+            # The run ended on a failure nothing recovered from: surface it.
+            # Returning the messages here would hand the caller its own
+            # question back as the "answer".
+            raise GraphExecutionError(
+                live_graph.name,
+                last_failure.node_name,
+                last_failure.error or "unknown error",
+                report=self._last_report,
+            ) from failure_cause(last_failure)
 
         return {"messages": state.messages}
 
@@ -313,6 +373,7 @@ class PromptGraphEngine:
             current_node=live_graph.entry,
             graph=live_graph,
         )
+        last_failure: NodeResult | None = None
 
         while state.current_node != "__end__":
             try:
@@ -372,8 +433,8 @@ class PromptGraphEngine:
                             node_name=node.name,
                             node_type=type(node).__name__.lower(),
                             iteration=state.iteration,
-                            error=f"{type(exc).__name__}: {exc}",
                         )
+                        record_failure(last_result, exc)
                         streaming_failed = True
                         yield {
                             "event": "on_node_error",
@@ -393,14 +454,19 @@ class PromptGraphEngine:
                         except Exception as exc:
                             last_result = NodeResult(
                                 node_name=node.name,
-                                error=str(exc),
+                                node_type=type(node).__name__.lower(),
+                                iteration=state.iteration,
                             )
+                            record_failure(last_result, exc)
 
                 # Post-execute flag processing (always runs — restores state)
                 await self._post_execute_flags(node, last_result, state, config)
 
             duration_ms = (time.monotonic() - node_start) * 1000
             last_result.duration_ms = duration_ms
+            last_failure = (
+                last_result if last_result.error and not last_result.error_recovered else None
+            )
 
             # ── CRITICAL flag — abort on error ──
             if node.has_flag(NodeFlag.CRITICAL) and last_result.error:
@@ -446,6 +512,13 @@ class PromptGraphEngine:
                 break
             if state.increment_node_iteration(node.name) > self.max_node_iterations:
                 state.current_node = self._handle_stuck_node(node, state, live_graph)
+
+        if last_failure is not None:
+            # Consumers have seen every event (including on_node_error);
+            # the run still failed, and that must not end as a silent stop.
+            raise GraphExecutionError(
+                live_graph.name, last_failure.node_name, last_failure.error or "unknown error"
+            ) from failure_cause(last_failure)
 
     # ──────────────────────────────────────────────────────────────────
     # Transition resolution
@@ -827,8 +900,8 @@ class PromptGraphEngine:
                     node_name=node.name,
                     node_type=type(node).__name__.lower(),
                     iteration=state.iteration,
-                    error=last_error,
                 )
+                record_failure(result, exc, last_error)
 
             # Enrich state for next attempt so the node can adapt
             state.context["_retry_attempt"] = attempt + 1

@@ -60,6 +60,13 @@ Core agent creation, invocation, identity, conversations, and the full reasoning
         - astream_events
         - last_report
 
+### GraphExecutionError
+
+::: promptise.engine.execution.GraphExecutionError
+    options:
+      show_source: false
+      heading_level: 4
+
 ### PromptGraph
 
 ::: promptise.engine.graph.PromptGraph

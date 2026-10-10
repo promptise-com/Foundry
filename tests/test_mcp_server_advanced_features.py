@@ -8,6 +8,7 @@ import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from mcp.types import ElicitResult
 
 from promptise.mcp.server._elicitation import Elicitor
 from promptise.mcp.server._openapi import OpenAPIProvider
@@ -21,7 +22,12 @@ from promptise.mcp.server._serve_cli import build_serve_parser, resolve_server
 
 
 class TestElicitor:
-    """Tests for the Elicitor class."""
+    """Tests for the Elicitor class.
+
+    The session is mocked at the SDK boundary: ``ServerSession.elicit`` —
+    the method that actually exists on the pinned mcp SDK — returning
+    :class:`mcp.types.ElicitResult` objects, exactly as a live session does.
+    """
 
     @pytest.mark.asyncio
     async def test_ask_returns_none_when_unbound(self) -> None:
@@ -31,53 +37,114 @@ class TestElicitor:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_ask_calls_session_elicitation(self) -> None:
+    async def test_ask_calls_session_elicit_with_sdk_keywords(self) -> None:
         elicitor = Elicitor()
         mock_session = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.content = {"confirm": True}
-        mock_session.send_elicitation_request = AsyncMock(return_value=mock_result)
+        mock_session.elicit = AsyncMock(
+            return_value=ElicitResult(action="accept", content={"confirm": True})
+        )
         elicitor._bind(mock_session, request_id="req-1")
 
-        result = await elicitor.ask(
-            "Confirm?",
-            schema={"type": "object", "properties": {"confirm": {"type": "boolean"}}},
-        )
+        schema = {"type": "object", "properties": {"confirm": {"type": "boolean"}}}
+        result = await elicitor.ask("Confirm?", schema=schema)
         assert result == {"confirm": True}
-        mock_session.send_elicitation_request.assert_called_once()
+        mock_session.elicit.assert_awaited_once_with(
+            message="Confirm?", requestedSchema=schema, related_request_id="req-1"
+        )
 
     @pytest.mark.asyncio
-    async def test_ask_returns_none_when_session_returns_none(self) -> None:
+    async def test_ask_defaults_to_empty_object_schema(self) -> None:
         elicitor = Elicitor()
         mock_session = AsyncMock()
-        mock_session.send_elicitation_request = AsyncMock(return_value=None)
+        mock_session.elicit = AsyncMock(return_value=ElicitResult(action="accept", content={}))
         elicitor._bind(mock_session)
 
-        result = await elicitor.ask("Confirm?")
-        assert result is None
+        assert await elicitor.ask("Confirm?") == {}
+        kwargs = mock_session.elicit.await_args.kwargs
+        assert kwargs["requestedSchema"] == {"type": "object", "properties": {}}
+        assert kwargs["related_request_id"] is None
 
     @pytest.mark.asyncio
-    async def test_ask_returns_none_on_attribute_error(self) -> None:
-        """When session doesn't support elicitation (AttributeError), return None."""
+    async def test_ask_returns_none_when_declined_or_cancelled(self) -> None:
+        for action in ("decline", "cancel"):
+            elicitor = Elicitor()
+            mock_session = AsyncMock()
+            mock_session.elicit = AsyncMock(return_value=ElicitResult(action=action))
+            elicitor._bind(mock_session)
+            assert await elicitor.ask("Confirm?") is None, action
+
+    @pytest.mark.asyncio
+    async def test_ask_returns_none_when_accepted_without_content(self) -> None:
         elicitor = Elicitor()
-        mock_session = MagicMock()
-        mock_session.send_elicitation_request = MagicMock(
-            side_effect=AttributeError("not supported")
+        mock_session = AsyncMock()
+        mock_session.elicit = AsyncMock(return_value=ElicitResult(action="accept", content=None))
+        elicitor._bind(mock_session)
+        assert await elicitor.ask("Confirm?") is None
+
+    @pytest.mark.asyncio
+    async def test_ask_returns_none_when_client_rejects_request(self) -> None:
+        """A client without the elicitation capability answers with a JSON-RPC
+        error, which the SDK raises as McpError — treated as a decline."""
+        from mcp.shared.exceptions import McpError
+        from mcp.types import INVALID_REQUEST, ErrorData
+
+        elicitor = Elicitor()
+        mock_session = AsyncMock()
+        mock_session.elicit = AsyncMock(
+            side_effect=McpError(ErrorData(code=INVALID_REQUEST, message="not supported"))
         )
         elicitor._bind(mock_session)
-
-        result = await elicitor.ask("Confirm?")
-        assert result is None
+        assert await elicitor.ask("Confirm?") is None
 
     @pytest.mark.asyncio
-    async def test_ask_returns_none_on_generic_exception(self) -> None:
+    async def test_ask_returns_none_on_transport_failure(self) -> None:
         elicitor = Elicitor()
         mock_session = AsyncMock()
-        mock_session.send_elicitation_request = AsyncMock(side_effect=Exception("network error"))
+        mock_session.elicit = AsyncMock(side_effect=ConnectionError("network error"))
+        elicitor._bind(mock_session)
+        assert await elicitor.ask("Confirm?") is None
+
+    @pytest.mark.asyncio
+    async def test_ask_times_out_and_cancels_the_request(self) -> None:
+        import asyncio
+
+        started = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def never_answers(**kwargs):
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+            raise AssertionError("unreachable")
+
+        elicitor = Elicitor(timeout=0.1)
+        mock_session = MagicMock()
+        mock_session.elicit = never_answers
         elicitor._bind(mock_session)
 
-        result = await elicitor.ask("Confirm?")
-        assert result is None
+        assert await asyncio.wait_for(elicitor.ask("Confirm?"), timeout=5) is None
+        assert started.is_set()
+        assert cancelled.is_set()
+
+    @pytest.mark.asyncio
+    async def test_ask_timeout_override(self) -> None:
+        import asyncio
+
+        async def never_answers(**kwargs):
+            await asyncio.Event().wait()
+
+        elicitor = Elicitor(timeout=60)
+        mock_session = MagicMock()
+        mock_session.elicit = never_answers
+        elicitor._bind(mock_session)
+        assert await asyncio.wait_for(elicitor.ask("Confirm?", timeout=0.1), timeout=5) is None
+
+    def test_rejects_non_positive_timeout(self) -> None:
+        with pytest.raises(ValueError, match="timeout"):
+            Elicitor(timeout=0)
 
     def test_bind_sets_session_and_request_id(self) -> None:
         elicitor = Elicitor()
@@ -86,17 +153,18 @@ class TestElicitor:
         assert elicitor._session is mock_session
         assert elicitor._request_id == "req-42"
 
-    @pytest.mark.asyncio
-    async def test_ask_handles_dict_content(self) -> None:
-        """When content is a dict, return it directly."""
-        elicitor = Elicitor()
-        mock_session = AsyncMock()
-        # Return a dict directly from the session
-        mock_session.send_elicitation_request = AsyncMock(return_value={"answer": "yes"})
-        elicitor._bind(mock_session)
+    def test_sdk_contract_server_session_has_elicit(self) -> None:
+        """The pinned SDK must expose ``ServerSession.elicit`` with the keyword
+        names Elicitor.ask() uses — a rename must fail here, not degrade into
+        a silent decline at runtime."""
+        import inspect
 
-        result = await elicitor.ask("Question?")
-        assert result == {"answer": "yes"}
+        from mcp.server.session import ServerSession
+
+        assert hasattr(ServerSession, "elicit")
+        inspect.signature(ServerSession.elicit).bind(
+            None, message="m", requestedSchema={"type": "object"}, related_request_id=1
+        )
 
 
 # ===========================================================================
@@ -115,33 +183,58 @@ class TestSampler:
 
     @pytest.mark.asyncio
     async def test_create_message_calls_session(self) -> None:
+        """The request reaches ServerSession.create_message with the SDK's real signature."""
+        from mcp.types import CreateMessageResult, TextContent
+
         sampler = Sampler()
         mock_session = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.content = MagicMock()
-        mock_result.content.text = "Generated response"
-        mock_session.create_message = AsyncMock(return_value=mock_result)
+        mock_session.create_message = AsyncMock(
+            return_value=CreateMessageResult(
+                role="assistant",
+                content=TextContent(type="text", text="Generated response"),
+                model="claude-sonnet-4.5",
+            )
+        )
         sampler._bind(mock_session, request_id="req-1")
 
-        # Patch the mcp.types imports inside the function
-        mock_sampling_msg = MagicMock()
-        mock_text_content = MagicMock()
-        with patch.dict(
-            "sys.modules",
-            {
-                "mcp": MagicMock(),
-                "mcp.types": MagicMock(
-                    SamplingMessage=mock_sampling_msg,
-                    TextContent=mock_text_content,
-                ),
-            },
-        ):
-            await sampler.create_message(
-                [{"role": "user", "content": "Summarize this."}],
-                max_tokens=100,
-            )
+        text = await sampler.create_message(
+            [{"role": "user", "content": "Summarize this."}],
+            max_tokens=100,
+            model="claude-sonnet-4.5",
+            system="Be brief.",
+            temperature=0.2,
+        )
 
-        mock_session.create_message.assert_called_once()
+        assert text == "Generated response"
+        mock_session.create_message.assert_awaited_once()
+        args, kwargs = mock_session.create_message.await_args
+        assert [m.role for m in args[0]] == ["user"]
+        assert args[0][0].content.text == "Summarize this."
+        assert kwargs["max_tokens"] == 100
+        assert kwargs["system_prompt"] == "Be brief."
+        assert kwargs["temperature"] == 0.2
+        assert kwargs["model_preferences"].hints[0].name == "claude-sonnet-4.5"
+        assert "model" not in kwargs and "system" not in kwargs  # not SDK keywords
+
+    @pytest.mark.asyncio
+    async def test_create_message_matches_the_sdk_signature(self) -> None:
+        """A contract test: the keywords we send must bind to the pinned SDK's method."""
+        import inspect
+
+        from mcp.server.session import ServerSession
+        from mcp.types import ModelHint, ModelPreferences, SamplingMessage, TextContent
+
+        sig = inspect.signature(ServerSession.create_message)
+        bound = sig.bind(
+            None,  # self
+            [SamplingMessage(role="user", content=TextContent(type="text", text="hi"))],
+            max_tokens=10,
+            system_prompt="sys",
+            temperature=0.1,
+            stop_sequences=["END"],
+            model_preferences=ModelPreferences(hints=[ModelHint(name="x")]),
+        )
+        assert bound.arguments["max_tokens"] == 10
 
     @pytest.mark.asyncio
     async def test_create_message_returns_none_on_import_error(self) -> None:

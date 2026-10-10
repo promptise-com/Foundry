@@ -148,6 +148,59 @@ The `model` field accepts either a simple string or a detailed configuration obj
         base_url: "https://custom-endpoint.example.com/v1"
     ```
 
+=== "Azure OpenAI"
+
+    ```yaml
+    agent:
+      model:
+        provider: azure                       # alias of azure_openai
+        name: chat-prod                       # your DEPLOYMENT name in Azure AI Foundry
+        api_key: "${AZURE_OPENAI_API_KEY}"
+        endpoint: "https://my-resource.openai.azure.com/"
+        api_version: "2024-10-21"
+    ```
+
+=== "Azure AI Foundry catalog"
+
+    ```yaml
+    agent:
+      model:
+        provider: foundry                     # alias of azure_ai -- Llama, Mistral, DeepSeek, Phi, ...
+        name: Llama-3.3-70B-Instruct
+        api_key: "${AZURE_INFERENCE_CREDENTIAL}"
+        endpoint: "https://my-resource.services.ai.azure.com/models"
+    ```
+
+=== "Bedrock"
+
+    ```yaml
+    agent:
+      model:
+        provider: bedrock
+        name: anthropic.claude-sonnet-4-20250514-v1:0
+        region: us-east-1                     # credentials from the boto3 chain (profile, SSO, role)
+    ```
+
+Both forms go through the same resolver as `build_agent(model=...)` (see [Model Setup](../../getting-started/model-setup.md)), so every provider prefix **and its aliases** work in `provider:` too -- `azure`, `foundry`, `gemini`, `vertex`, `bedrock`, `mistral`, `grok`, `hf`. The `provider` and `name` fields are joined into `provider:name`. The detailed form has these fields (`extra="forbid"`, so a typo is a validation error):
+
+| Field | Type | Description |
+|---|---|---|
+| `provider` | `str` | Provider prefix or alias (`openai`, `azure`, `foundry`, `bedrock`, ...). |
+| `name` (or `model`) | `str` | Model name -- or, for `azure`, your **deployment** name when `deployment` is omitted. `model:` is accepted as a synonym. |
+| `deployment` | `str \| None` | Azure OpenAI deployment name -- what you called the model in Azure AI Foundry. Lets `name` stay the real model (`gpt-4o`) while requests go to the deployment. |
+| `api_key` | `str \| None` | The provider's API key (Azure AI Foundry: the deployment key). Not applicable to `bedrock`, `vertex` and `ollama`. |
+| `endpoint` | `str \| None` | Where to send requests: an Azure OpenAI resource endpoint, an Azure AI Foundry inference endpoint, or the `/v1` URL of an OpenAI-compatible server. |
+| `base_url` | `str \| None` | Same as `endpoint` (kept for existing files). |
+| `api_version` | `str \| None` | Azure OpenAI REST API version (`"2024-10-21"`). |
+| `region` | `str \| None` | Bedrock region or Vertex AI location. |
+| `project` | `str \| None` | Google Cloud project id (Vertex AI). |
+| `temperature`, `max_tokens`, `timeout` | | Sampling and request settings. |
+| `extra` | `dict` | Provider-specific keyword arguments, passed through verbatim. |
+
+The same six words (`deployment`, `api_key`, `endpoint`, `api_version`, `region`, `project`) work for every provider and are translated to the provider's own keyword arguments exactly like [`promptise.models.Model`](../../api/models.md#model) -- `endpoint` becomes `azure_endpoint=` for Azure OpenAI and `base_url=` for OpenAI, `region` becomes `region_name=` for Bedrock and `location=` for Vertex AI. A word the provider has no setting for (`api_key` on Bedrock, `api_version` on OpenAI, `deployment` outside Azure OpenAI) is rejected with a `ModelSetupError` that says what to use instead.
+
+Credentials in the file **satisfy the environment check**: a provider's required variables are only demanded when neither the variable is set nor the matching field is given. In the Azure example above, `api_key` stands in for `AZURE_OPENAI_API_KEY`, `endpoint` for `AZURE_OPENAI_ENDPOINT` and `api_version` for `OPENAI_API_VERSION`, so the file works with nothing exported except `AZURE_OPENAI_API_KEY` for the `${...}` reference. A model that is still missing something fails when the agent is built (`to_build_kwargs()` / `build_agent()`) with a `ModelSetupError` naming the variable and where to find its value -- the same text `promptise models check azure:chat-prod` prints.
+
 #### `identity`
 
 Optional. Gives the agent a stable, traceable [Agent Identity](../../identity/overview.md)

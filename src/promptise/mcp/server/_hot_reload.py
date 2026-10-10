@@ -39,6 +39,8 @@ def hot_reload(
     watch_dirs: list[str] | None = None,
     poll_interval: float = 1.0,
     dashboard: bool = False,
+    allowed_hosts: list[str] | None = None,
+    allowed_origins: list[str] | None = None,
 ) -> None:
     """Run an MCP server with automatic restart on file changes.
 
@@ -58,6 +60,10 @@ def hot_reload(
         watch_dirs: Directories to watch (defaults to ``["."]``).
         poll_interval: Seconds between file change checks.
         dashboard: Enable dashboard in the child process.
+        allowed_hosts: ``Host`` header allow-list for the child server's
+            HTTP/SSE transport (see ``MCPServer.run``).
+        allowed_origins: ``Origin`` header allow-list for the child
+            server's HTTP/SSE transport (see ``MCPServer.run``).
 
     Example::
 
@@ -67,7 +73,14 @@ def hot_reload(
     # If we're already in the child process, just run the server
     if os.environ.get("_PROMPTISE_RELOAD_CHILD"):
         if server is not None:
-            server.run(transport=transport, host=host, port=port, dashboard=dashboard)
+            server.run(
+                transport=transport,
+                host=host,
+                port=port,
+                dashboard=dashboard,
+                allowed_hosts=allowed_hosts,
+                allowed_origins=allowed_origins,
+            )
         return
 
     dirs = watch_dirs or ["."]

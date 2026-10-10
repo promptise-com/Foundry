@@ -46,7 +46,21 @@ async def main():
 asyncio.run(main())
 ```
 
+!!! info "You need an API key first"
+    Every model provider needs a credential. Put it in a `.env` file in your project — Promptise loads it automatically, in scripts and in the CLI — or pass it in code with `Model(...)` — explained in [**Models & Providers → In code: Model**](../core/agents/models.md#in-code-model): `Model("gpt-4o-mini", provider="openai", api_key="...")`. The **exact variable name for every provider** (Azure AI Foundry, Bedrock, Gemini, Ollama, …) is in [**Configuration & Secrets → Every provider's variables**](../getting-started/configuration.md#every-providers-variables); self-hosted and inference endpoints are in [**Models & Providers → Custom, self-hosted and inference endpoints**](../core/agents/models.md#custom-self-hosted-and-inference-endpoints). `promptise models env <provider>` prints the lines a provider needs and `promptise models check <model>` tells you what is still missing.
+
 That's it -- the agent discovers tools from the server automatically, no manual wiring needed.
+
+## Already have an API? MCPcast it
+
+You don't have to hand-write a server for an API that already exists. `promptise mcpcast` takes an OpenAPI 3.x or Swagger 2 spec, classifies every operation's risk, curates a small tool surface an agent can use correctly, and emits an editable Promptise `MCPServer` project (`mcpcast.plan.yaml`, `server.py`, `README.md`). It is read-only by default; write, destructive and financial tools are only generated under `--profile standard` / `full` and are approval-gated server-side, so any MCP client -- Claude Desktop, Claude Code, Cursor, or a Promptise agent -- can use your product safely. Add `--eval` to score the result with a real agent. See the [MCPcast guide](server/mcpcast.md).
+
+```bash
+promptise mcpcast openapi.yaml --profile standard --review   # generate + review the plan
+promptise mcpcast openapi.yaml --no-curate --serve -t http   # deterministic, serve immediately
+```
+
+New to it? Follow [MCPcast an Existing API](../guides/mcpcast-existing-api.md) — the step-by-step walkthrough from a spec to a server an AI can drive. Already know the shape and want the specifics for your stack? See [MCPcast Recipes](server/mcpcast-recipes.md) for Stripe, GitHub and your own app.
 
 ## Developer Journey
 
@@ -57,6 +71,7 @@ Whether you're building a new tool server or connecting an agent to existing ser
 ```mermaid
 graph LR
     A["Step-by-Step Guide<br><i>Build your first server</i>"] --> B["Server Fundamentals<br><i>Tools, resources, prompts</i>"]
+    M["MCPcast an Existing API<br><i>Generate from OpenAPI</i>"] --> B
     B --> C["Routers & Middleware<br><i>Organize & add layers</i>"]
     C --> D["Auth & Security<br><i>JWT, guards, roles</i>"]
     D --> E["Production Features<br><i>Cache, rate limit, metrics</i>"]
@@ -221,6 +236,7 @@ Connect to one or many MCP servers with authentication and LangChain integration
 | Protect against downstream failures | `CircuitBreakerMiddleware` + `HealthCheck` ([Resilience](server/resilience-patterns.md)) |
 | Version tools or compose servers | `VersionedToolRegistry`, `mount()` ([Advanced Patterns](server/advanced-patterns.md)) |
 | Wrap a REST API as MCP tools | `OpenAPIProvider` ([Advanced Patterns](server/advanced-patterns.md)) |
+| Generate a safe, curated server from an OpenAPI spec | `promptise mcpcast` ([MCPcast](server/mcpcast.md), [step-by-step guide](../guides/mcpcast-existing-api.md), [recipes](server/mcpcast-recipes.md)) |
 | Deploy with HTTP, CORS, Docker | Transport config + `CORSConfig` ([Deployment](server/deployment.md)) |
 | Test my server without HTTP | `TestClient` ([Testing](server/testing.md)) |
 | Connect an agent to servers | `build_agent()` with `HTTPServerSpec` (simplest) |

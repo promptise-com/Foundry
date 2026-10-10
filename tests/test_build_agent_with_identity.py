@@ -374,3 +374,27 @@ async def test_explicit_observer_agent_id_wins() -> None:
             observe=True,
         )
     assert captured["agent_id"] == "explicit-id"
+
+
+@pytest.mark.asyncio
+async def test_agent_exposes_its_tools():
+    """`agent.tools` / `agent.tool_names` list every tool the model was bound to."""
+    from langchain_core.tools import tool
+
+    @tool
+    def ping(x: str) -> str:
+        """Ping."""
+        return x
+
+    # The model is patched like everywhere else in this file: constructing a real
+    # provider client needs a key CI does not have, and on macOS it initialises
+    # CoreFoundation, after which the subprocess-based hook tests fork-crash.
+    with (
+        patch("promptise.agent._normalize_model", return_value=MagicMock()),
+        patch("promptise.agent.PromptGraphEngine", return_value=_make_mock_inner()),
+        patch.dict("sys.modules", {"deepagents": None}),
+    ):
+        agent = await build_agent(servers={}, model="openai:gpt-5-mini", extra_tools=[ping])
+    assert agent.tool_names == ["ping"]
+    assert [t.name for t in agent.tools] == ["ping"]
+    await agent.shutdown()

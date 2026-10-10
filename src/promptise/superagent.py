@@ -357,20 +357,24 @@ class SuperAgentLoader:
         if isinstance(model_config, str):
             return {}
 
-        kwargs: dict[str, Any] = {}
-        if model_config.temperature is not None:
-            kwargs["temperature"] = model_config.temperature
-        if model_config.max_tokens is not None:
-            kwargs["max_tokens"] = model_config.max_tokens
-        if model_config.timeout is not None:
-            kwargs["timeout"] = model_config.timeout
-        if model_config.base_url is not None:
-            kwargs["base_url"] = model_config.base_url
-        if model_config.api_key is not None:
-            kwargs["api_key"] = model_config.api_key
-        if model_config.extra:
-            kwargs.update(model_config.extra)
-        return kwargs
+        # One translation for YAML and code: the same words, the same provider
+        # keyword arguments (endpoint -> azure_endpoint for Azure, …).
+        from .models import Model
+
+        return Model(
+            model_config.name,
+            provider=model_config.provider,
+            deployment=model_config.deployment,
+            api_key=model_config.api_key,
+            endpoint=model_config.endpoint or model_config.base_url,
+            api_version=model_config.api_version,
+            region=model_config.region,
+            project=model_config.project,
+            temperature=model_config.temperature,
+            max_tokens=model_config.max_tokens,
+            timeout=model_config.timeout,
+            extra=dict(model_config.extra),
+        ).kwargs()
 
     def to_identity(self) -> AgentIdentity | None:
         """Build the agent's :class:`~promptise.identity.AgentIdentity`.
@@ -582,9 +586,9 @@ class SuperAgentConfig:
         # create an actual model instance so these params take effect.
         model: Any = self.model
         if self.model_kwargs:
-            from langchain.chat_models import init_chat_model
+            from .models import resolve_model
 
-            model = init_chat_model(self.model, **self.model_kwargs)
+            model = resolve_model(self.model, **self.model_kwargs)
 
         kwargs = {
             "model": model,

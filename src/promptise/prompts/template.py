@@ -36,11 +36,14 @@ from __future__ import annotations
 
 import errno
 import re
+import shlex
 import string
 import subprocess
 import time
 from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
+
+from .._spawn import resolve_executable, spawn_options
 
 # fork()/spawn can transiently fail under heavy load ("Resource temporarily
 # unavailable"); these are worth a brief retry rather than a hard failure.
@@ -128,6 +131,14 @@ class SubprocessShellExecutor:
             merged_env = dict(os.environ)
             merged_env.update(self.env)
 
+        # Without a shell the command line is tokenized here and its executable
+        # resolved to a path, so the spawn can avoid fork() (see spawn_options).
+        argv: str | list[str] = cmd
+        if not self.shell:
+            try:
+                argv = resolve_executable(shlex.split(cmd))
+            except (ValueError, OSError) as exc:  # unbalanced quotes, unknown command
+                raise ShellExecutionError(f"shell command failed to start: {exc}") from exc
         result = None
         for attempt in range(3):
             try:
@@ -137,7 +148,7 @@ class SubprocessShellExecutor:
                 # allowlist. This is intentionally a *feature*, not a
                 # vulnerability — suppress bandit's generic warning here.
                 result = subprocess.run(  # noqa: S602  # nosec B602
-                    cmd,
+                    argv,
                     shell=self.shell,
                     capture_output=True,
                     text=True,
@@ -145,6 +156,7 @@ class SubprocessShellExecutor:
                     cwd=self.cwd,
                     env=merged_env,
                     check=False,
+                    **spawn_options(self.cwd),
                 )
                 break
             except subprocess.TimeoutExpired as exc:

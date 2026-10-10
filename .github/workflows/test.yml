@@ -15,14 +15,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -61,7 +61,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -110,9 +110,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # full history: the git-revision-date plugin warns on a shallow clone, and --strict fails on warnings
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -134,21 +136,31 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install bandit safety
+          # setuptools too: the runner's preinstalled copy carries advisories of its
+          # own (PYSEC-2026-3447 in 79.x), and pip-audit audits the whole environment
+          python -m pip install --upgrade pip "setuptools>=83"
+          pip install bandit pip-audit
+          pip install -e ".[all]"
 
       - name: Run Bandit security linter
         run: bandit -r src/ -ll
 
-      - name: Check for known vulnerabilities (safety)
+      # Fails the job on a known advisory in what `pip install promptise[all]`
+      # resolves to (--skip-editable leaves out the checkout itself, which is not
+      # on PyPI). Advisories without a fixed release are listed in
+      # .github/pip-audit-ignore.txt with the reason and a review date, so an
+      # unfixable one does not silently disable the gate for everything else.
+      - name: Audit dependencies for known vulnerabilities (pip-audit)
         run: |
-          pip freeze | safety check --stdin || true
+          IGNORES=$(grep -v '^[[:space:]]*#' .github/pip-audit-ignore.txt | grep -v '^[[:space:]]*$' | sed 's/^/--ignore-vuln=/' | tr '\n' ' ')
+          echo "ignoring: ${IGNORES:-(nothing)}"
+          pip-audit --skip-editable --progress-spinner off $IGNORES
 
   all-tests-passed:
     name: All Tests Passed

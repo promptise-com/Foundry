@@ -74,7 +74,7 @@ Discriminated union type: `HTTPServerConfig | StdioServerConfig`, selected by th
 
 #### ModelConfig
 
-Union type supporting both a simple string (e.g., `"openai:gpt-4.1"`) and a `DetailedModelConfig` object.
+Union type supporting both a simple string (e.g., `"openai:gpt-4.1"`) and a `DetailedModelConfig` object. Either form is resolved through [`promptise.models.resolve_model`](models.md#resolve_model), so provider aliases (`azure:`, `foundry:`, `gemini:`, `bedrock:`, ...) work in both, and credentials given in the file (`api_key`, `endpoint`, `api_version`, `region`, `project`) satisfy the provider's environment-variable check. See [SuperAgent Files](../core/agents/superagent-files.md#agent) for an Azure example.
 
 #### DetailedModelConfig
 

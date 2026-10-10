@@ -1,0 +1,16 @@
+# Advisories the `security` job in test.yml tolerates, with the reason and when
+# to look again. Everything else fails the job. Keep this list short: an entry
+# is a decision, not a silence.
+#
+# chromadb (optional extra `promptise[all]`, used by ChromaProvider): four
+# advisories with no fixed release — every version from 0.4.17 to the current
+# 1.5.9 is affected. They are server-side: code injection through the Chroma
+# HTTP API's collection endpoints and an RBAC provider that does not check
+# which tenant a permission applies to. Promptise embeds Chroma as a local
+# client (docs/core/memory.md says not to expose a shared Chroma server), so
+# the exploit path is not reachable from Promptise itself.
+# Review: when chromadb publishes a release that fixes them, or 2026-12-01.
+GHSA-36p7-vc44-83pf
+GHSA-f4j7-r4q5-qw2c
+GHSA-2wm9-hf6c-p5cr
+GHSA-xph7-9rjv-w5fr

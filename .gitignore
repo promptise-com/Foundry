@@ -121,3 +121,6 @@ RELEASE.md
 /observability/
 *-audit.jsonl
 *-audit-events.ndjson
+
+# Local scratch space (wizard trial runs etc.)
+.scratch/

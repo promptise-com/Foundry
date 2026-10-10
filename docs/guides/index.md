@@ -19,6 +19,7 @@ straight to the guide for the problem you're solving.
 1. Build an agent  →  2. Build the tools it uses  →  3. Secure & isolate it
         │                        │                            │
    Building AI Agents     Production MCP Servers      Multi-User / Multi-Tenant
+        │                 MCPcast an Existing API              │
         │                        │                            │
         └──────────── 4. Scale & automate ───────────────────┘
                    Runtime · Multi-Agent Coordination
@@ -60,6 +61,20 @@ Build a production-grade MCP server: tool registration, Pydantic validation, JWT
 auth with structured client context, scope-based authorization, routers,
 middleware, caching, and request tracing.
 **You'll learn:** `MCPServer`, tool/resource/prompt decorators, `AuthMiddleware`, `ClientContext`, guards, `on_authenticate`, `MCPRouter`, tracing.
+
+### [MCPcast an Existing API](mcpcast-existing-api.md)
+Already have an API? Don't hand-write the server. `promptise mcpcast` turns an
+OpenAPI 3.x or Swagger 2 spec into a curated, safe, agent-ready MCP server
+emitted as **editable code** — read-only by default, with every write gated by
+human approval the server enforces, so any MCP client can drive your product.
+**You'll learn:** `promptise mcpcast`, risk classification, safety profiles, LLM curation with code-enforced post-conditions, the plan file, auth modes, server-side approval, Agent Readiness Score.
+
+### [Make Your Python API MCP-Ready](mcpcast-python-app.md)
+You have an app, not a spec. Find the OpenAPI URL your framework already serves
+(FastAPI, Django Ninja, DRF, Flask, Litestar), rewrite the spec so a model can
+read it, generate the MCP server from the running app, map auth, wire up Claude
+and Cursor, gate writes behind approval, and ship with a CI guard and a Dockerfile.
+**You'll learn:** `operation_id`/`summary`/`Field` descriptions as the tool surface, `env-token` vs `passthrough` vs `api-key` auth, server-side approval, the readiness score as a quality bar.
 
 ---
 
@@ -107,6 +122,7 @@ server, a specialized reasoning pattern, and runnable code.
 - **[Data Analysis Agent](lab-data-analysis.md)** — questions → SQL, cross-table joins, accurate reports. *(Plan → Execute → Observe → Verify → Report)*
 - **[Code Review Agent](lab-code-review.md)** — security review via adversarial self-critique with line-referenced claims. *(Read → Analyze → Critique → Justify → Synthesize)*
 - **[Pipeline Observer Agent](lab-pipeline-observer.md)** — an autonomous runtime agent that watches a pipeline, reacts to events, and escalates.
+- **[MCPcast Your SaaS API](lab-mcpcast-storefront.md)** — a storefront API turned into agent tools end to end: risk-classified tools, a real agent completing a business task, a refund held by the server-side approval gate, and an Agent Readiness Score before and after fixing the plan.
 
 ---
 

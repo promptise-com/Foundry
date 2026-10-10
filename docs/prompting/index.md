@@ -26,6 +26,9 @@ async def analyze(text: str) -> str:
 result = await analyze("Q1 revenue: $2.3M, Q2: $2.8M, Q3: $3.1M")
 ```
 
+!!! info "You need an API key first"
+    Every model provider needs a credential. Put it in a `.env` file in your project — Promptise loads it automatically, in scripts and in the CLI — or pass it in code with `Model(...)` — explained in [**Models & Providers → In code: Model**](../core/agents/models.md#in-code-model): `Model("gpt-4o-mini", provider="openai", api_key="...")`. The **exact variable name for every provider** (Azure AI Foundry, Bedrock, Gemini, Ollama, …) is in [**Configuration & Secrets → Every provider's variables**](../getting-started/configuration.md#every-providers-variables); self-hosted and inference endpoints are in [**Models & Providers → Custom, self-hosted and inference endpoints**](../core/agents/models.md#custom-self-hosted-and-inference-endpoints). `promptise models env <provider>` prints the lines a provider needs and `promptise models check <model>` tells you what is still missing.
+
 The `@prompt` decorator turns any async function into an LLM-backed prompt. The docstring becomes the template, and `{text}` is filled from the function argument. The `@blocks` decorator attaches composable prompt components that are assembled into the system prompt at execution time.
 
 ## The 2-Layer Architecture

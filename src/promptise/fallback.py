@@ -44,6 +44,9 @@ from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import ChatResult
+from pydantic import ConfigDict
+
+from .models import Model
 
 logger = logging.getLogger("promptise.fallback")
 
@@ -153,12 +156,11 @@ class FallbackChain(BaseChatModel):
     _initialized: bool = False
     _last_serving_model: str = ""  # Tracks which model actually served the last request
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(
         self,
-        models: Sequence[str | BaseChatModel] | None = None,
+        models: Sequence[str | Model | BaseChatModel] | None = None,
         *,
         timeout_per_model: float = 0,
         global_timeout: float = 0,
@@ -196,7 +198,7 @@ class FallbackChain(BaseChatModel):
         if self._initialized:
             return
 
-        from langchain.chat_models import init_chat_model
+        from .models import Model, resolve_model
 
         # Build into temps — if any model fails to resolve, no partial state
         ids: list[str] = []
@@ -205,8 +207,12 @@ class FallbackChain(BaseChatModel):
 
         for m in self.models:
             if isinstance(m, str):
+                # Same resolver as build_agent(): aliases, .env and actionable errors.
                 model_id = m
-                model_obj = init_chat_model(m)
+                model_obj = resolve_model(m)
+            elif isinstance(m, Model):
+                model_id = m.spec
+                model_obj = m.resolve()
             elif (
                 hasattr(m, "_generate") or hasattr(m, "_agenerate") or isinstance(m, BaseChatModel)
             ):

@@ -6,6 +6,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 
 from promptise.engine import (
@@ -37,6 +38,17 @@ def _make_sequence_model(responses: list[str]):
     model.ainvoke = AsyncMock(side_effect=msgs)
     model.bind_tools = MagicMock(return_value=model)
     return model
+
+
+class _RejectedByProvider(BaseChatModel):
+    """A chat model whose provider rejects every call (a wrong API key)."""
+
+    @property
+    def _llm_type(self) -> str:
+        return "rejected-by-provider"
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        raise PermissionError("Error code: 401 - Incorrect API key provided: sk-inval**-key")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -113,6 +125,25 @@ class TestPromptNodeExecution:
 
         assert result.error is not None
         assert "Failed to initialize" in result.error
+
+    @pytest.mark.asyncio
+    async def test_model_override_failure_never_leaks_credentials(self, monkeypatch):
+        """The node error names the model by spec — a Model carries the API
+        key and the error string lands in logs, graph history and events."""
+        from promptise.models import Model
+
+        monkeypatch.setenv("PROMPTISE_NO_DOTENV", "1")
+        # region= is not an OpenAI setting → Model.resolve() raises
+        cfg = Model("gpt-5", provider="openai", api_key="sk-SECRET-abc123", region="us")
+        n = PromptNode("test", instructions="Go.", model_override=cfg)
+        state = GraphState(messages=[HumanMessage(content="go")])
+
+        result = await n.execute(state, {"_engine_model": _make_model()})
+
+        assert result.error is not None
+        assert "Failed to initialize model openai:gpt-5" in result.error
+        assert "region" in result.error
+        assert "sk-SECRET" not in result.error
 
     @pytest.mark.asyncio
     async def test_model_override_instance_used(self):
@@ -417,3 +448,115 @@ class TestEngineEdgeCases:
 
         # Hook forced end after first node — only 1 node visited
         assert engine.last_report.nodes_visited == ["step"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Failures reach the caller — never a silent "answer"
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestFailuresReachTheCaller:
+    """A provider error used to be stored on the NodeResult only, and
+    ``ainvoke()`` returned the input messages as the "answer"."""
+
+    @pytest.mark.asyncio
+    async def test_engine_raises_when_model_call_fails(self):
+        from promptise.engine.execution import GraphExecutionError
+
+        model = _make_model()
+        model.ainvoke = AsyncMock(side_effect=ConnectionError("provider unreachable"))
+        graph = PromptGraph("pipeline")
+        graph.add_node(PromptNode("reason", instructions="Go."))
+        graph.set_entry("reason")
+        engine = PromptGraphEngine(graph=graph, model=model)
+
+        with pytest.raises(GraphExecutionError) as info:
+            await engine.ainvoke({"messages": [HumanMessage(content="Say hi")]})
+
+        exc = info.value
+        assert exc.graph_name == "pipeline" and exc.node_name == "reason"
+        assert "Graph 'pipeline' failed at node 'reason'" in str(exc)
+        assert "ConnectionError: provider unreachable" in str(exc)
+        assert isinstance(exc.__cause__, ConnectionError)
+        # Node-level recording for hooks/observability is intact
+        assert engine.last_report is not None
+        assert engine.last_report.error == "ConnectionError: provider unreachable"
+        assert engine.last_report.nodes_visited == ["reason"]
+
+    @pytest.mark.asyncio
+    async def test_failure_routed_to_a_handler_node_is_recovery(self):
+        model = _make_model("Sorry, the upstream model is unavailable right now.")
+        model.ainvoke = AsyncMock(
+            side_effect=[ConnectionError("down"), AIMessage(content="fallback answer")]
+        )
+        graph = PromptGraph("handled")
+        graph.add_node(PromptNode("reason", instructions="Go.", default_next="apologize"))
+        graph.add_node(PromptNode("apologize", instructions="Apologize."))
+        graph.set_entry("reason")
+        engine = PromptGraphEngine(graph=graph, model=model)
+
+        out = await engine.ainvoke({"messages": [HumanMessage(content="hi")]})
+
+        assert out["messages"][-1].content == "fallback answer"
+        assert engine.last_report is not None
+        assert engine.last_report.error is None
+        assert engine.last_report.nodes_visited == ["reason", "apologize"]
+
+    @pytest.mark.asyncio
+    async def test_hook_recovery_suppresses_the_raise(self):
+        class Recover:
+            async def post_node(self, node, result, state):
+                if result.error:
+                    result.error_recovered = True
+                return result
+
+        model = _make_model()
+        model.ainvoke = AsyncMock(side_effect=ConnectionError("down"))
+        graph = PromptGraph("recovered")
+        graph.add_node(PromptNode("reason", instructions="Go."))
+        graph.set_entry("reason")
+        engine = PromptGraphEngine(graph=graph, model=model, hooks=[Recover()])
+
+        out = await engine.ainvoke({"messages": [HumanMessage(content="hi")]})
+        assert [type(m).__name__ for m in out["messages"]] == ["HumanMessage"]
+
+    @pytest.mark.asyncio
+    async def test_astream_events_raises_after_its_events(self):
+        from promptise.engine.execution import GraphExecutionError
+
+        model = MagicMock(spec=["ainvoke", "astream", "bind_tools", "with_structured_output"])
+
+        async def _boom(*args, **kwargs):
+            raise ConnectionError("stream down")
+            yield  # pragma: no cover - makes this an async generator
+
+        model.astream = _boom
+        model.ainvoke = AsyncMock(side_effect=ConnectionError("stream down"))
+        model.bind_tools = MagicMock(return_value=model)
+        graph = PromptGraph("streamed")
+        graph.add_node(PromptNode("reason", instructions="Go."))
+        graph.set_entry("reason")
+        engine = PromptGraphEngine(graph=graph, model=model)
+
+        events = []
+        with pytest.raises(GraphExecutionError, match="reason.*stream down") as info:
+            async for event in engine.astream_events({"messages": [HumanMessage(content="hi")]}):
+                events.append(event["event"])
+        assert "on_node_error" in events
+        assert isinstance(info.value.__cause__, ConnectionError)
+
+    @pytest.mark.asyncio
+    async def test_build_agent_ainvoke_raises_on_provider_failure(self, monkeypatch):
+        from promptise import build_agent
+        from promptise.engine.execution import GraphExecutionError
+
+        monkeypatch.setenv("PROMPTISE_NO_DOTENV", "1")
+        agent = await build_agent(model=_RejectedByProvider(), servers={})
+
+        with pytest.raises(GraphExecutionError) as info:
+            await agent.ainvoke({"messages": [HumanMessage(content="Say hi")]})
+
+        message = str(info.value)
+        assert "failed at node 'reason'" in message
+        assert "Incorrect API key" in message
+        assert isinstance(info.value.__cause__, PermissionError)

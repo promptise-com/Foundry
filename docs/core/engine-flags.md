@@ -31,7 +31,7 @@ if node.has_flag(NodeFlag.CRITICAL):
 |------|----------------|
 | `ENTRY` | Marks the graph's starting node. Set via `is_entry=True`. |
 | `TERMINAL` | Reaching this node can end the graph. Set via `is_terminal=True`. |
-| `CRITICAL` | If this node errors, the engine **aborts the entire graph** immediately. The error is captured in `ExecutionReport.error`. |
+| `CRITICAL` | If this node errors, the engine **aborts the entire graph** immediately. The error is captured in `ExecutionReport.error` and `ainvoke()` raises `GraphExecutionError` (the node's exception is its `__cause__`). |
 | `SKIP_ON_ERROR` | If the **previous** node produced an error, this node is skipped entirely. Useful for optional enrichment steps. |
 | `RETRYABLE` | On failure, the engine retries this node with exponential backoff (0.5s, 1s, 2s...) up to `max_iterations` times. Between retries, `state.context["_retry_error"]` contains the last error so the node can adapt. |
 | `REQUIRES_HUMAN` | Flags `state.context["_awaiting_human"]` with the node name. The node still executes, but downstream consumers can check this flag to pause for human input. |
