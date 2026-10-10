@@ -2819,6 +2819,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#scanner-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanner options
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3110,6 +3121,39 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#input-redaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input redaction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scanning-tool-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanning tool results
+      
+    </span>
+  </a>
   
 </li>
       
@@ -9603,6 +9647,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#scanner-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanner options
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9898,6 +9953,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#failure-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#input-redaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input redaction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scanning-tool-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanning tool results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pattern-introspection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10011,7 +10099,12 @@
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">guardrails</span><span class="o">=</span><span class="n">scanner</span><span class="p">,</span>
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>Input is scanned <strong>before</strong> it reaches the agent. Output is scanned <strong>after</strong> the agent responds. Injection attacks are blocked. PII and credentials are redacted. The user never sees leaked data. The agent never sees injected instructions.</p>
+<p>Input is scanned <strong>before</strong> it reaches the agent. Output is scanned <strong>after</strong> the agent responds. Injection attacks are blocked. PII and credentials in the agent's output are redacted, so the user never sees leaked data; on input they are logged as warnings unless you set <a href="#input-redaction"><code>redact_input=True</code></a>. Tool results can be scanned too, for injection planted in web pages, emails or tickets (<a href="#scanning-tool-results"><code>scan_tool_results=True</code></a>).</p>
+<p><code>build_agent(guardrails=True)</code> is shorthand for <code>guardrails=PromptiseSecurityScanner.default()</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Guardrails fail closed</p>
+<p>If a detector cannot run (its library is not installed, its model fails to load, Ollama or Azure is unreachable), the scan <strong>blocks</strong> with a <code>scanner_unavailable</code> finding instead of letting the text through unchecked. <code>PromptiseSecurityScanner.default()</code> and <code>guardrails=True</code> use the injection model, so they need <code>transformers</code> and <code>torch</code> (<code>pip install "promptise[all]"</code>). See <a href="#failure-handling">Failure handling</a>.</p>
+</div>
 <hr />
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Link to this section">&para;</a></h2>
 <p>The scanner is built from composable <strong>detectors</strong>. Each detector is a self-contained detection head with its own configuration. You pick the detectors you need — nothing more, nothing less.</p>
@@ -10029,7 +10122,7 @@
 <td><code>InjectionDetector</code></td>
 <td>Prompt injection, jailbreaks, system prompt extraction</td>
 <td>Local DeBERTa transformer model</td>
-<td>260 MB</td>
+<td>~750 MB</td>
 </tr>
 <tr>
 <td><code>PIIDetector</code></td>
@@ -10046,8 +10139,8 @@
 <tr>
 <td><code>NERDetector</code></td>
 <td>Person names, physical addresses, organizations</td>
-<td>GLiNER zero-shot NER model</td>
-<td>~200 MB</td>
+<td>GLiNER zero-shot NER model (<code>pip install gliner</code>)</td>
+<td>~500 MB</td>
 </tr>
 <tr>
 <td><code>ContentSafetyDetector</code></td>
@@ -10068,56 +10161,103 @@
 <h3 id="one-liner-all-defaults">One-liner — all defaults<a class="headerlink" href="#one-liner-all-defaults" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
 </span></code></pre></div>
-<p>Enables <code>InjectionDetector</code>, <code>PIIDetector</code>, and <code>CredentialDetector</code> with default settings.</p>
+<p>Enables <code>InjectionDetector</code>, <code>PIIDetector</code>, and <code>CredentialDetector</code> with default settings. Keyword arguments (<code>fail_open</code>, <code>redact_input</code>, <code>scan_tool_results</code>, <code>custom_rules</code>) are passed through:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">redact_input</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scan_tool_results</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
 <h3 id="composable-pick-what-you-need">Composable — pick what you need<a class="headerlink" href="#composable-pick-what-you-need" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">PromptiseSecurityScanner</span><span class="p">,</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">InjectionDetector</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">PIIDetector</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">CredentialDetector</span><span class="p">,</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">PIICategory</span><span class="p">,</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">CredentialCategory</span><span class="p">,</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="p">(</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">detectors</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="n">InjectionDetector</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.9</span><span class="p">),</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="n">PIIDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">PIICategory</span><span class="o">.</span><span class="n">CREDIT_CARDS</span><span class="p">,</span> <span class="n">PIICategory</span><span class="o">.</span><span class="n">SSN</span><span class="p">,</span> <span class="n">PIICategory</span><span class="o">.</span><span class="n">EMAIL</span><span class="p">}),</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">CredentialDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">CredentialCategory</span><span class="o">.</span><span class="n">AWS</span><span class="p">,</span> <span class="n">CredentialCategory</span><span class="o">.</span><span class="n">OPENAI</span><span class="p">}),</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="p">],</span>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">PromptiseSecurityScanner</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">InjectionDetector</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">PIIDetector</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">CredentialDetector</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">PIICategory</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">CredentialCategory</span><span class="p">,</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="p">(</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">detectors</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">InjectionDetector</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.9</span><span class="p">),</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="n">PIIDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">PIICategory</span><span class="o">.</span><span class="n">CREDIT_CARDS</span><span class="p">,</span> <span class="n">PIICategory</span><span class="o">.</span><span class="n">SSN</span><span class="p">,</span> <span class="n">PIICategory</span><span class="o">.</span><span class="n">EMAIL</span><span class="p">}),</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="n">CredentialDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">CredentialCategory</span><span class="o">.</span><span class="n">AWS</span><span class="p">,</span> <span class="n">CredentialCategory</span><span class="o">.</span><span class="n">OPENAI</span><span class="p">}),</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="p">],</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="wire-into-the-agent">Wire into the agent<a class="headerlink" href="#wire-into-the-agent" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">},</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">guardrails</span><span class="o">=</span><span class="n">scanner</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">},</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">guardrails</span><span class="o">=</span><span class="n">scanner</span><span class="p">,</span>   <span class="c1"># or guardrails=True for PromptiseSecurityScanner.default()</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="scanner-options">Scanner options<a class="headerlink" href="#scanner-options" title="Link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>detectors</code></td>
+<td><code>list</code></td>
+<td>—</td>
+<td>The detection heads to enable</td>
+</tr>
+<tr>
+<td><code>custom_rules</code></td>
+<td><code>list[CustomRule]</code></td>
+<td><code>None</code></td>
+<td>Your own regex rules</td>
+</tr>
+<tr>
+<td><code>fail_open</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Let text through when a head cannot run, instead of blocking. See <a href="#failure-handling">Failure handling</a></td>
+</tr>
+<tr>
+<td><code>redact_input</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Redact PII and credentials in the user's message before the model sees it. See <a href="#input-redaction">Input redaction</a></td>
+</tr>
+<tr>
+<td><code>scan_tool_results</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Scan every tool result before the model reads it. See <a href="#scanning-tool-results">Scanning tool results</a></td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Link to this section">&para;</a></h2>
 <h3 id="input-flow">Input flow<a class="headerlink" href="#input-flow" title="Link to this section">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>User message → [Scanner: check_input] → Memory → Tool Selection → LLM → Response
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>                       ↓
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>                  BLOCKED if injection detected
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>                  (GuardrailViolation raised)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>User message → [Scanner: check_input] → Memory → Tool Selection → LLM → Response
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>                       ↓
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>                  BLOCKED if injection detected
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>                  (GuardrailViolation raised)
 </span></code></pre></div>
 <p>The scanner runs before any processing — memory search, tool selection, LLM invocation. If the injection detector classifies the input as an attack, <code>GuardrailViolation</code> is raised immediately. The message never reaches the agent.</p>
+<p>Long messages are classified in overlapping windows across the whole text, so padding a message cannot push an attack past the model's 512-token input limit.</p>
+<p>PII and credentials found in input are recorded as <code>WARN</code> findings and the message is passed on unchanged, unless <code>redact_input=True</code>.</p>
 <h3 id="output-flow">Output flow<a class="headerlink" href="#output-flow" title="Link to this section">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>LLM response → [Scanner: check_output] → Redacted response → User
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>                       ↓
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>                  PII/credentials replaced with labels:
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>                  4532015112830366 → [CREDIT_CARD_VISA]
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>                  AKIAIOSFODNN7EXAMPLE → [AWS_ACCESS_KEY]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>LLM response → [Scanner: check_output] → Redacted response → User
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>                       ↓
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>                  PII/credentials replaced with labels:
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>                  4532015112830366 → [CREDIT_CARD_VISA]
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>                  AKIAIOSFODNN7EXAMPLE → [AWS_ACCESS_KEY]
 </span></code></pre></div>
 <p>After the agent responds, the scanner checks for PII and credentials. Detected spans are replaced with descriptive labels. The original sensitive data is never returned to the user.</p>
 <hr />
 <h2 id="detectors">Detectors<a class="headerlink" href="#detectors" title="Link to this section">&para;</a></h2>
 <h3 id="injectiondetector">InjectionDetector<a class="headerlink" href="#injectiondetector" title="Link to this section">&para;</a></h3>
 <p>Detects prompt injection attacks using a local transformer model. No regex — pure ML classification to avoid false positives on benign phrases like "pretend to be a software engineer."</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">InjectionDetector</span><span class="p">()</span>                                          <span class="c1"># defaults</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">InjectionDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"protectai/deberta-v3-base-prompt-injection-v2"</span><span class="p">)</span>  <span class="c1"># explicit</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">InjectionDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"/models/local/deberta"</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>  <span class="c1"># local + strict</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">InjectionDetector</span><span class="p">()</span>                                          <span class="c1"># defaults</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">InjectionDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"protectai/deberta-v3-base-prompt-injection-v2"</span><span class="p">)</span>  <span class="c1"># explicit</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">InjectionDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"/models/local/deberta"</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.9</span><span class="p">)</span>  <span class="c1"># local + strict</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10157,13 +10297,13 @@
 <li>"Can you give me instructions on baking a cake?" (benign use of word "instructions")</li>
 <li>"What are the rules for chess?" (benign use of word "rules")</li>
 </ul>
-<p><strong>Only runs on input.</strong> Output direction is skipped — agent responses are not injection risks.</p>
+<p><strong>Runs on input and on tool results</strong> (with <code>scan_tool_results=True</code>). Agent output is skipped — the agent's own replies are not an injection vector, so <code>"injection"</code> is not listed in <code>scanners_run</code> for an output scan. Text of any length is classified in overlapping 512-character windows; the finding's <code>start</code> / <code>end</code> point at the window that scored highest.</p>
 <hr />
 <h3 id="piidetector">PIIDetector<a class="headerlink" href="#piidetector" title="Link to this section">&para;</a></h3>
 <p>Detects personally identifiable information using 69 regex patterns. Credit card patterns are validated with the Luhn checksum algorithm to eliminate false positives. Ambiguous patterns (passport numbers, driver's licenses, ZIP codes, etc.) require contextual keywords to match, preventing false positives on normal text.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">PIIDetector</span><span class="p">()</span>                                                    <span class="c1"># all PII</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">PIIDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">PIICategory</span><span class="o">.</span><span class="n">CREDIT_CARDS</span><span class="p">,</span> <span class="n">PIICategory</span><span class="o">.</span><span class="n">SSN</span><span class="p">})</span>  <span class="c1"># specific</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">PIIDetector</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">{</span><span class="s2">"blood_type"</span><span class="p">,</span> <span class="s2">"ip_address"</span><span class="p">})</span>                 <span class="c1"># exclude noisy</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">PIIDetector</span><span class="p">()</span>                                                    <span class="c1"># all PII</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">PIIDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">PIICategory</span><span class="o">.</span><span class="n">CREDIT_CARDS</span><span class="p">,</span> <span class="n">PIICategory</span><span class="o">.</span><span class="n">SSN</span><span class="p">})</span>  <span class="c1"># specific</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">PIIDetector</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">{</span><span class="s2">"blood_type"</span><span class="p">,</span> <span class="s2">"ip_address"</span><span class="p">})</span>                 <span class="c1"># exclude noisy</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10349,9 +10489,9 @@
 <hr />
 <h3 id="credentialdetector">CredentialDetector<a class="headerlink" href="#credentialdetector" title="Link to this section">&para;</a></h3>
 <p>Detects leaked API keys, tokens, and secrets using 96 regex patterns sourced from <a href="https://github.com/gitleaks/gitleaks">gitleaks</a> (41k+ stars) and <a href="https://github.com/trufflesecurity/trufflehog">trufflehog</a> (17k+ stars).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">CredentialDetector</span><span class="p">()</span>                                              <span class="c1"># all credentials</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">CredentialDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">CredentialCategory</span><span class="o">.</span><span class="n">AWS</span><span class="p">,</span> <span class="n">CredentialCategory</span><span class="o">.</span><span class="n">GITHUB</span><span class="p">})</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">CredentialDetector</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">{</span><span class="s2">"firebase"</span><span class="p">})</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">CredentialDetector</span><span class="p">()</span>                                              <span class="c1"># all credentials</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">CredentialDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">CredentialCategory</span><span class="o">.</span><span class="n">AWS</span><span class="p">,</span> <span class="n">CredentialCategory</span><span class="o">.</span><span class="n">GITHUB</span><span class="p">})</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">CredentialDetector</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">{</span><span class="s2">"firebase"</span><span class="p">})</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10481,10 +10621,10 @@
 <hr />
 <h3 id="nerdetector">NERDetector<a class="headerlink" href="#nerdetector" title="Link to this section">&para;</a></h3>
 <p>Detects unstructured PII that regex cannot reliably catch — person names, physical addresses, organizations — using <a href="https://github.com/urchade/GLiNER">GLiNER</a>, a zero-shot Named Entity Recognition model.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">NERDetector</span><span class="p">()</span>                                                  <span class="c1"># default GLiNER PII model</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"/models/local/gliner"</span><span class="p">)</span>                      <span class="c1"># local path</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"person"</span><span class="p">,</span> <span class="s2">"address"</span><span class="p">,</span> <span class="s2">"organization"</span><span class="p">])</span>      <span class="c1"># specific entities</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>                                     <span class="c1"># stricter matching</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">NERDetector</span><span class="p">()</span>                                                  <span class="c1"># default GLiNER PII model</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"/models/local/gliner"</span><span class="p">)</span>                      <span class="c1"># local path</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">"person"</span><span class="p">,</span> <span class="s2">"address"</span><span class="p">,</span> <span class="s2">"organization"</span><span class="p">])</span>      <span class="c1"># specific entities</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>                                     <span class="c1"># stricter matching</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10524,21 +10664,25 @@
 </table>
 <div class="admonition note">
 <p class="admonition-title">Why NER in addition to regex?</p>
-<p>Regex catches structured PII with known formats (credit card numbers, SSNs). NER catches unstructured PII where the format varies (person names like "Dr. Sarah Chen", addresses like "742 Evergreen Terrace, Springfield"). GLiNER is a lightweight BERT-based model (~200MB) that runs on CPU.</p>
+<p>Regex catches structured PII with known formats (credit card numbers, SSNs). NER catches unstructured PII where the format varies (person names like "Dr. Sarah Chen", addresses like "742 Evergreen Terrace, Springfield"). The default GLiNER model is about 500 MB and runs on CPU.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Install GLiNER separately</p>
+<p><code>gliner</code> is not part of <code>promptise[all]</code>; install it with <code>pip install gliner</code>. Without it, a scanner with <code>NERDetector</code> fails closed (every scan is blocked) unless <code>fail_open=True</code>.</p>
 </div>
 <hr />
 <h3 id="contentsafetydetector">ContentSafetyDetector<a class="headerlink" href="#contentsafetydetector" title="Link to this section">&para;</a></h3>
 <p>Classifies content against 13 safety categories defined by the <a href="https://mlcommons.org/">MLCommons AI Safety taxonomy</a>. Covers everything toxicity detection covers and more — violence, self-harm, hate speech, weapons, elections, and specialized advice.</p>
 <p>Two providers: <strong>local</strong> (Llama Guard via Ollama) or <strong>cloud</strong> (Azure AI Content Safety).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Local — requires Ollama with llama-guard3</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">ContentSafetyDetector</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="s2">"local"</span><span class="p">)</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Azure AI Content Safety — cloud API</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">ContentSafetyDetector</span><span class="p">(</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">provider</span><span class="o">=</span><span class="s2">"azure"</span><span class="p">,</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">azure_endpoint</span><span class="o">=</span><span class="s2">"https://your-resource.cognitiveservices.azure.com"</span><span class="p">,</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">azure_key</span><span class="o">=</span><span class="s2">"$</span><span class="si">{AZURE_CONTENT_SAFETY_KEY}</span><span class="s2">"</span><span class="p">,</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Local — requires Ollama with llama-guard3</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">ContentSafetyDetector</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="s2">"local"</span><span class="p">)</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Azure AI Content Safety — cloud API</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">ContentSafetyDetector</span><span class="p">(</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">provider</span><span class="o">=</span><span class="s2">"azure"</span><span class="p">,</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">azure_endpoint</span><span class="o">=</span><span class="s2">"https://your-resource.cognitiveservices.azure.com"</span><span class="p">,</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">azure_key</span><span class="o">=</span><span class="s2">"$</span><span class="si">{AZURE_CONTENT_SAFETY_KEY}</span><span class="s2">"</span><span class="p">,</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10666,23 +10810,23 @@
 <hr />
 <h3 id="customrule">CustomRule<a class="headerlink" href="#customrule" title="Link to this section">&para;</a></h3>
 <p>Define your own regex detection rules for domain-specific patterns.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CustomRule</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Severity</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">CustomRule</span><span class="p">(</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"internal_id"</span><span class="p">,</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"INT-\d</span><span class="si">{8}</span><span class="s2">"</span><span class="p">,</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">HIGH</span><span class="p">,</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">action</span><span class="o">=</span><span class="n">Action</span><span class="o">.</span><span class="n">REDACT</span><span class="p">,</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">"Internal tracking ID"</span><span class="p">,</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="p">)</span>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="n">CustomRule</span><span class="p">(</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"classified"</span><span class="p">,</span>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"CLASSIFIED|TOP SECRET"</span><span class="p">,</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>    <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">,</span>
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>    <span class="n">action</span><span class="o">=</span><span class="n">Action</span><span class="o">.</span><span class="n">BLOCK</span><span class="p">,</span>
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">"Classified content detected"</span><span class="p">,</span>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CustomRule</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Severity</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">CustomRule</span><span class="p">(</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"internal_id"</span><span class="p">,</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"INT-\d</span><span class="si">{8}</span><span class="s2">"</span><span class="p">,</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">HIGH</span><span class="p">,</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">action</span><span class="o">=</span><span class="n">Action</span><span class="o">.</span><span class="n">REDACT</span><span class="p">,</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">"Internal tracking ID"</span><span class="p">,</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="p">)</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="n">CustomRule</span><span class="p">(</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"classified"</span><span class="p">,</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"CLASSIFIED|TOP SECRET"</span><span class="p">,</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="n">severity</span><span class="o">=</span><span class="n">Severity</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">,</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>    <span class="n">action</span><span class="o">=</span><span class="n">Action</span><span class="o">.</span><span class="n">BLOCK</span><span class="p">,</span>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">"Classified content detected"</span><span class="p">,</span>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10730,97 +10874,100 @@
 <hr />
 <h2 id="configuration-examples">Configuration Examples<a class="headerlink" href="#configuration-examples" title="Link to this section">&para;</a></h2>
 <h3 id="minimal-regex-only-no-models">Minimal — regex only, no models<a class="headerlink" href="#minimal-regex-only-no-models" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="p">(</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">detectors</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="n">PIIDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">PIICategory</span><span class="o">.</span><span class="n">CREDIT_CARDS</span><span class="p">,</span> <span class="n">PIICategory</span><span class="o">.</span><span class="n">SSN</span><span class="p">}),</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>        <span class="n">CredentialDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">CredentialCategory</span><span class="o">.</span><span class="n">AWS</span><span class="p">}),</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="p">],</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="p">(</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">detectors</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>        <span class="n">PIIDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">PIICategory</span><span class="o">.</span><span class="n">CREDIT_CARDS</span><span class="p">,</span> <span class="n">PIICategory</span><span class="o">.</span><span class="n">SSN</span><span class="p">}),</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>        <span class="n">CredentialDetector</span><span class="p">(</span><span class="n">categories</span><span class="o">=</span><span class="p">{</span><span class="n">CredentialCategory</span><span class="o">.</span><span class="n">AWS</span><span class="p">}),</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="p">],</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Zero model downloads. Sub-millisecond scans. Only detects structured patterns.</p>
 <h3 id="standard-injection-regex">Standard — injection + regex<a class="headerlink" href="#standard-injection-regex" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
 </span></code></pre></div>
-<p>Injection model (~260MB, downloaded once), plus all PII and credential regex patterns.</p>
+<p>Injection model (~750 MB, downloaded once), plus all PII and credential regex patterns.</p>
 <h3 id="enterprise-all-heads">Enterprise — all heads<a class="headerlink" href="#enterprise-all-heads" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="p">(</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="n">detectors</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>        <span class="n">InjectionDetector</span><span class="p">(),</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>        <span class="n">PIIDetector</span><span class="p">(),</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>        <span class="n">CredentialDetector</span><span class="p">(),</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>        <span class="n">NERDetector</span><span class="p">(),</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="n">ContentSafetyDetector</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="s2">"azure"</span><span class="p">,</span> <span class="n">azure_endpoint</span><span class="o">=</span><span class="s2">"https://..."</span><span class="p">),</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="p">],</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    <span class="n">custom_rules</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>        <span class="n">CustomRule</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"employee_id"</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"EMP-\d</span><span class="si">{6}</span><span class="s2">"</span><span class="p">),</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>        <span class="n">CustomRule</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"project_code"</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"PRJ-[A-Z]</span><span class="si">{3}</span><span class="s2">-\d</span><span class="si">{4}</span><span class="s2">"</span><span class="p">),</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>    <span class="p">],</span>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="p">(</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">detectors</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>        <span class="n">InjectionDetector</span><span class="p">(),</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>        <span class="n">PIIDetector</span><span class="p">(),</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>        <span class="n">CredentialDetector</span><span class="p">(),</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>        <span class="n">NERDetector</span><span class="p">(),</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>        <span class="n">ContentSafetyDetector</span><span class="p">(</span><span class="n">provider</span><span class="o">=</span><span class="s2">"azure"</span><span class="p">,</span> <span class="n">azure_endpoint</span><span class="o">=</span><span class="s2">"https://..."</span><span class="p">),</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="p">],</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>    <span class="n">custom_rules</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>        <span class="n">CustomRule</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"employee_id"</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"EMP-\d</span><span class="si">{6}</span><span class="s2">"</span><span class="p">),</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>        <span class="n">CustomRule</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"project_code"</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="sa">r</span><span class="s2">"PRJ-[A-Z]</span><span class="si">{3}</span><span class="s2">-\d</span><span class="si">{4}</span><span class="s2">"</span><span class="p">),</span>
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    <span class="p">],</span>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Full protection: ML injection detection, regex PII + credentials, NER for names/addresses, 13-category content safety via Azure, plus custom domain rules.</p>
 <hr />
 <h2 id="model-configuration">Model Configuration<a class="headerlink" href="#model-configuration" title="Link to this section">&para;</a></h2>
 <h3 id="default-models-auto-downloaded">Default models (auto-downloaded)<a class="headerlink" href="#default-models-auto-downloaded" title="Link to this section">&para;</a></h3>
 <p>Models download from HuggingFace on first use and cache at <code>~/.cache/huggingface/</code>. Subsequent runs load from cache instantly.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">scanner</span><span class="o">.</span><span class="n">warmup</span><span class="p">()</span>  <span class="c1"># Force download + load now (not on first message)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">scanner</span><span class="o">.</span><span class="n">warmup</span><span class="p">()</span>  <span class="c1"># Force download + load now (not on first message)</span>
 </span></code></pre></div>
+<p><code>warmup()</code> also fails fast: a missing library or model, or an unreachable Ollama for <code>ContentSafetyDetector</code>, raises there — whatever <code>fail_open</code> says — instead of on the first request.</p>
 <h3 id="swap-models">Swap models<a class="headerlink" href="#swap-models" title="Link to this section">&para;</a></h3>
 <p>Every detector that uses a model accepts a <code>model</code> parameter. Pass any HuggingFace model ID:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">InjectionDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"your-org/custom-injection-classifier"</span><span class="p">)</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"your-org/fine-tuned-gliner"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">InjectionDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"your-org/custom-injection-classifier"</span><span class="p">)</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"your-org/fine-tuned-gliner"</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="local-models-air-gapped-offline">Local models (air-gapped / offline)<a class="headerlink" href="#local-models-air-gapped-offline" title="Link to this section">&para;</a></h3>
 <p>For environments without internet access, pre-download models on a connected machine, then reference the local directory.</p>
 <p><strong>Step 1: Download (on a machine with internet)</strong></p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="s2">from transformers import pipeline</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="s2">pipeline('text-classification', model='protectai/deberta-v3-base-prompt-injection-v2') \</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="s2">    .save_pretrained('./models/injection')</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="s2">"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="s2">from transformers import pipeline</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="s2">pipeline('text-classification', model='protectai/deberta-v3-base-prompt-injection-v2') \</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="s2">    .save_pretrained('./models/injection')</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="s2">"</span>
 </span></code></pre></div>
 <p><strong>Step 2: Reference the local path</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">InjectionDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"/opt/models/injection"</span><span class="p">)</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"/opt/models/gliner-pii"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">InjectionDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"/opt/models/injection"</span><span class="p">)</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">NERDetector</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"/opt/models/gliner-pii"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>No internet access needed. Models load from disk. Works in air-gapped data centers, classified environments, and on-premise deployments.</p>
 <hr />
 <h2 id="scanreport">ScanReport<a class="headerlink" href="#scanreport" title="Link to this section">&para;</a></h2>
 <p>Every scan returns a detailed <code>ScanReport</code> with full analysis results.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">scanner</span><span class="o">.</span><span class="n">scan_text</span><span class="p">(</span><span class="s2">"My card is 4532015112830366"</span><span class="p">)</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">report</span><span class="o">.</span><span class="n">passed</span>          <span class="c1"># False</span>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="n">report</span><span class="o">.</span><span class="n">findings</span>        <span class="c1"># [SecurityFinding(...)]</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="n">report</span><span class="o">.</span><span class="n">duration_ms</span>     <span class="c1"># 1.23</span>
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">report</span><span class="o">.</span><span class="n">scanners_run</span>    <span class="c1"># ["injection", "pii", "credential"]</span>
-</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="n">report</span><span class="o">.</span><span class="n">text_length</span>     <span class="c1"># 28</span>
-</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="n">report</span><span class="o">.</span><span class="n">redacted_text</span>   <span class="c1"># "My card is [CREDIT_CARD_VISA]"</span>
-</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>
-</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="c1"># Caller attribution (snapshotted at scan time)</span>
-</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="n">report</span><span class="o">.</span><span class="n">user_id</span>         <span class="c1"># "alice" — from CallerContext.user_id</span>
-</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="n">report</span><span class="o">.</span><span class="n">session_id</span>      <span class="c1"># "sess-1" — from CallerContext.metadata["session_id"]</span>
-</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="n">report</span><span class="o">.</span><span class="n">caller_roles</span>    <span class="c1"># ("admin", "analyst") — sorted tuple</span>
-</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>
-</span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="c1"># Filtered views</span>
-</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a><span class="n">report</span><span class="o">.</span><span class="n">blocked</span>         <span class="c1"># findings with action=BLOCK</span>
-</span><span id="__span-19-17"><a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a><span class="n">report</span><span class="o">.</span><span class="n">redacted</span>        <span class="c1"># findings with action=REDACT</span>
-</span><span id="__span-19-18"><a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="n">report</span><span class="o">.</span><span class="n">warnings</span>        <span class="c1"># findings with action=WARN</span>
-</span></code></pre></div>
-<h3 id="multi-user-attribution">Multi-user attribution<a class="headerlink" href="#multi-user-attribution" title="Link to this section">&para;</a></h3>
-<p><code>scan_text</code> / <code>scan_input</code> / <code>scan_output</code> snapshot the current <code>CallerContext</code> at invocation time. The <code>ScanReport</code> holds those values directly, so audit logs can attribute findings to the right tenant even after the contextvar has been reset:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span><span class="p">,</span> <span class="n">_caller_ctx_var</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">scanner</span><span class="o">.</span><span class="n">scan_text</span><span class="p">(</span><span class="s2">"My card is 4532015112830366"</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s2">"output"</span><span class="p">)</span>
 </span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
-</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">token</span> <span class="o">=</span> <span class="n">_caller_ctx_var</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
-</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">roles</span><span class="o">=</span><span class="p">{</span><span class="s2">"analyst"</span><span class="p">},</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"session_id"</span><span class="p">:</span> <span class="s2">"sess-1"</span><span class="p">})</span>
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="p">)</span>
-</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">scanner</span><span class="o">.</span><span class="n">scan_text</span><span class="p">(</span><span class="n">user_input</span><span class="p">)</span>
-</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="k">finally</span><span class="p">:</span>
-</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>    <span class="n">_caller_ctx_var</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">report</span><span class="o">.</span><span class="n">passed</span>            <span class="c1"># True — REDACT findings don't fail a scan, only BLOCK ones do</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="n">report</span><span class="o">.</span><span class="n">findings</span>          <span class="c1"># [SecurityFinding(category="credit_card_visa", action=REDACT, ...)]</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="n">report</span><span class="o">.</span><span class="n">duration_ms</span>       <span class="c1"># 1.23</span>
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="n">report</span><span class="o">.</span><span class="n">scanners_run</span>      <span class="c1"># ["pii", "credential"] — injection skips output</span>
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="n">report</span><span class="o">.</span><span class="n">scanners_skipped</span>  <span class="c1"># {} — heads that could not run, with the reason</span>
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="n">report</span><span class="o">.</span><span class="n">text_length</span>       <span class="c1"># 27</span>
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="n">report</span><span class="o">.</span><span class="n">redacted_text</span>     <span class="c1"># "My card is [CREDIT_CARD_VISA]"</span>
 </span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>
-</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="c1"># Context is gone but the report still carries the snapshot.</span>
-</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="k">assert</span> <span class="n">report</span><span class="o">.</span><span class="n">user_id</span> <span class="o">==</span> <span class="s2">"alice"</span>
-</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="k">assert</span> <span class="n">report</span><span class="o">.</span><span class="n">caller_roles</span> <span class="o">==</span> <span class="p">(</span><span class="s2">"analyst"</span><span class="p">,)</span>
+</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="c1"># Caller attribution (snapshotted at scan time)</span>
+</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="n">report</span><span class="o">.</span><span class="n">user_id</span>         <span class="c1"># "alice" — from CallerContext.user_id</span>
+</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="n">report</span><span class="o">.</span><span class="n">session_id</span>      <span class="c1"># "sess-1" — from CallerContext.metadata["session_id"]</span>
+</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="n">report</span><span class="o">.</span><span class="n">caller_roles</span>    <span class="c1"># ("admin", "analyst") — sorted tuple</span>
+</span><span id="__span-20-15"><a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>
+</span><span id="__span-20-16"><a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a><span class="c1"># Filtered views</span>
+</span><span id="__span-20-17"><a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a><span class="n">report</span><span class="o">.</span><span class="n">blocked</span>         <span class="c1"># findings with action=BLOCK</span>
+</span><span id="__span-20-18"><a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a><span class="n">report</span><span class="o">.</span><span class="n">redacted</span>        <span class="c1"># findings with action=REDACT</span>
+</span><span id="__span-20-19"><a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a><span class="n">report</span><span class="o">.</span><span class="n">warnings</span>        <span class="c1"># findings with action=WARN</span>
+</span></code></pre></div>
+<p><code>direction</code> is <code>"input"</code> (the default), <code>"output"</code> or <code>"tool"</code> (a tool result). On input the same card number is a <code>WARN</code> finding: the report passes and <code>redacted_text</code> is <code>None</code>, unless the scanner has <code>redact_input=True</code>.</p>
+<h3 id="multi-user-attribution">Multi-user attribution<a class="headerlink" href="#multi-user-attribution" title="Link to this section">&para;</a></h3>
+<p><code>scan_text</code> (and <code>check_input</code> / <code>check_output</code> / <code>check_tool_result</code>, which call it) snapshots the current <code>CallerContext</code> at invocation time. The <code>ScanReport</code> holds those values directly, so audit logs can attribute findings to the right tenant even after the contextvar has been reset:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span><span class="p">,</span> <span class="n">_caller_ctx_var</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="n">token</span> <span class="o">=</span> <span class="n">_caller_ctx_var</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">roles</span><span class="o">=</span><span class="p">{</span><span class="s2">"analyst"</span><span class="p">},</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"session_id"</span><span class="p">:</span> <span class="s2">"sess-1"</span><span class="p">})</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="p">)</span>
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    <span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">scanner</span><span class="o">.</span><span class="n">scan_text</span><span class="p">(</span><span class="n">user_input</span><span class="p">)</span>
+</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>    <span class="n">_caller_ctx_var</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>
+</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a><span class="c1"># Context is gone but the report still carries the snapshot.</span>
+</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="k">assert</span> <span class="n">report</span><span class="o">.</span><span class="n">user_id</span> <span class="o">==</span> <span class="s2">"alice"</span>
+</span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="k">assert</span> <span class="n">report</span><span class="o">.</span><span class="n">caller_roles</span> <span class="o">==</span> <span class="p">(</span><span class="s2">"analyst"</span><span class="p">,)</span>
 </span></code></pre></div>
 <p>When no caller is set (e.g., system scans), <code>user_id</code>, <code>session_id</code>, and <code>caller_roles</code> default to <code>None</code>, <code>None</code>, and <code>()</code>.</p>
 <h3 id="securityfinding">SecurityFinding<a class="headerlink" href="#securityfinding" title="Link to this section">&para;</a></h3>
@@ -10837,7 +10984,7 @@
 <tr>
 <td><code>detector</code></td>
 <td><code>str</code></td>
-<td>Which head found this: <code>"injection"</code>, <code>"pii"</code>, <code>"credential"</code>, <code>"custom"</code></td>
+<td>Which head found this: <code>"injection"</code>, <code>"pii"</code>, <code>"credential"</code>, <code>"ner"</code>, <code>"content_safety"</code>, <code>"toxicity"</code>, <code>"custom"</code></td>
 </tr>
 <tr>
 <td><code>category</code></td>
@@ -10883,28 +11030,28 @@
 </table>
 <hr />
 <h2 id="guard-protocol">Guard Protocol<a class="headerlink" href="#guard-protocol" title="Link to this section">&para;</a></h2>
-<p><code>PromptiseSecurityScanner</code> implements the Guard protocol (<code>check_input</code> / <code>check_output</code>), so it works with both <code>build_agent(guardrails=...)</code> and the <code>@guard()</code> decorator on prompts.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Agent-level (recommended)</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">guardrails</span><span class="o">=</span><span class="n">scanner</span><span class="p">)</span>
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># Prompt-level</span>
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">prompt</span><span class="p">,</span> <span class="n">guard</span>
-</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
-</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="nd">@prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">)</span>
-</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="nd">@guard</span><span class="p">(</span><span class="n">scanner</span><span class="p">)</span>
-</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="w">    </span><span class="sd">"""Analyze: {text}"""</span>
+<p><code>PromptiseSecurityScanner</code> implements the Guard protocol (<code>check_input</code> / <code>check_output</code>, plus <code>check_tool_result</code> for tool results), so it works with both <code>build_agent(guardrails=...)</code> and the <code>@guard()</code> decorator on prompts.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Agent-level (recommended)</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">guardrails</span><span class="o">=</span><span class="n">scanner</span><span class="p">)</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Prompt-level</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">prompt</span><span class="p">,</span> <span class="n">guard</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="nd">@prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">)</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="nd">@guard</span><span class="p">(</span><span class="n">scanner</span><span class="p">)</span>
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">    </span><span class="sd">"""Analyze: {text}"""</span>
 </span></code></pre></div>
 <h3 id="guardrailviolation">GuardrailViolation<a class="headerlink" href="#guardrailviolation" title="Link to this section">&para;</a></h3>
 <p>When a scan finds content that should be blocked, <code>GuardrailViolation</code> is raised:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.guardrails</span><span class="w"> </span><span class="kn">import</span> <span class="n">GuardrailViolation</span>
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
-</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="n">user_input</span><span class="p">}]})</span>
-</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="k">except</span> <span class="n">GuardrailViolation</span> <span class="k">as</span> <span class="n">v</span><span class="p">:</span>
-</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Blocked (</span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">direction</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">report</span><span class="o">.</span><span class="n">blocked</span><span class="p">)</span><span class="si">}</span><span class="s2"> violation(s)"</span><span class="p">)</span>
-</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">report</span><span class="o">.</span><span class="n">blocked</span><span class="p">:</span>
-</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.guardrails</span><span class="w"> </span><span class="kn">import</span> <span class="n">GuardrailViolation</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="n">user_input</span><span class="p">}]})</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="k">except</span> <span class="n">GuardrailViolation</span> <span class="k">as</span> <span class="n">v</span><span class="p">:</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Blocked (</span><span class="si">{</span><span class="n">v</span><span class="o">.</span><span class="n">direction</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">report</span><span class="o">.</span><span class="n">blocked</span><span class="p">)</span><span class="si">}</span><span class="s2"> violation(s)"</span><span class="p">)</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">report</span><span class="o">.</span><span class="n">blocked</span><span class="p">:</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10923,18 +11070,55 @@
 <tr>
 <td><code>direction</code></td>
 <td><code>str</code></td>
-<td><code>"input"</code> or <code>"output"</code></td>
+<td><code>"input"</code>, <code>"output"</code> or <code>"tool"</code></td>
 </tr>
 </tbody>
 </table>
 <hr />
+<h2 id="failure-handling">Failure handling<a class="headerlink" href="#failure-handling" title="Link to this section">&para;</a></h2>
+<p>The ML and service-backed heads (<code>InjectionDetector</code>, toxicity, <code>NERDetector</code>, <code>ContentSafetyDetector</code>) can fail to run: <code>transformers</code> or <code>gliner</code> is not installed, a model fails to load or runs out of memory, Ollama is not running, Azure rejects the request. By default the scanner <strong>fails closed</strong>:</p>
+<ul>
+<li>the head is listed in <code>report.scanners_skipped</code> (with the reason), never in <code>scanners_run</code>;</li>
+<li>a <code>CRITICAL</code> <code>BLOCK</code> finding with category <code>scanner_unavailable</code> is added, so the scan fails and <code>check_input</code> / <code>check_output</code> raise <code>GuardrailViolation</code>.</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>   <span class="c1"># transformers not installed</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">scanner</span><span class="o">.</span><span class="n">scan_text</span><span class="p">(</span><span class="s2">"What time is it?"</span><span class="p">)</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="n">report</span><span class="o">.</span><span class="n">passed</span>            <span class="c1"># False</span>
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">report</span><span class="o">.</span><span class="n">scanners_skipped</span>  <span class="c1"># {"injection": "ImportError: transformers and torch are required ..."}</span>
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="n">report</span><span class="o">.</span><span class="n">blocked</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">category</span>  <span class="c1"># "scanner_unavailable"</span>
+</span></code></pre></div>
+<p>If you would rather keep serving traffic without a head, opt in to failing open. The head is still reported in <code>scanners_skipped</code>, and a warning is logged on every scan:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">fail_open</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Call <code>scanner.warmup()</code> at startup either way: it loads every model and checks Ollama, and raises if anything is missing.</p>
+<hr />
+<h2 id="input-redaction">Input redaction<a class="headerlink" href="#input-redaction" title="Link to this section">&para;</a></h2>
+<p>By default, PII and credentials in the <strong>user's message</strong> are <code>WARN</code> findings: they are logged and the message reaches the model unchanged. Set <code>redact_input=True</code> to apply each detector's action to input as well. <code>check_input</code> then returns the redacted text, and the agent sends that to the model — and stores it in conversation history — instead of the original:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">redact_input</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="k">await</span> <span class="n">scanner</span><span class="o">.</span><span class="n">check_input</span><span class="p">(</span><span class="s2">"Email me at maria.keller@example.com"</span><span class="p">)</span>
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="c1"># "Email me at [EMAIL]"</span>
+</span></code></pre></div>
+<p>A custom guard can do the same: whatever string <code>check_input</code> returns replaces the user's message. Only plain-text messages are rewritten; multimodal content is scanned but sent unchanged.</p>
+<hr />
+<h2 id="scanning-tool-results">Scanning tool results<a class="headerlink" href="#scanning-tool-results" title="Link to this section">&para;</a></h2>
+<p>A tool result is where <em>indirect</em> prompt injection arrives: a web page, an email or a support ticket carrying instructions for the model. Set <code>scan_tool_results=True</code> and <code>build_agent</code> wraps every tool so its result goes through <code>check_tool_result()</code> before the model reads it:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="n">scanner</span> <span class="o">=</span> <span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">scan_tool_results</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">},</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">guardrails</span><span class="o">=</span><span class="n">scanner</span><span class="p">)</span>
+</span></code></pre></div>
+<ul>
+<li>Every enabled head runs on the result, the injection model included.</li>
+<li>PII and credentials get their configured action (as on output), so a secret a tool returns is redacted before the model or <code>result["messages"]</code> holds it.</li>
+<li>A blocked result is replaced with a short <code>[Tool result withheld by guardrails: ...]</code> notice the model can see; the raw result is dropped. A <code>guardrail.blocked</code> event is emitted with <code>direction="tool"</code>.</li>
+</ul>
+<p>It is off by default because it adds a model pass to every tool call. A custom guard that sets <code>scan_tool_results = True</code> must implement <code>async check_tool_result(tool_name, result) -&gt; str</code>.</p>
+<hr />
 <h2 id="pattern-introspection">Pattern Introspection<a class="headerlink" href="#pattern-introspection" title="Link to this section">&para;</a></h2>
 <p>List all available pattern names for fine-grained control:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">list_pii_patterns</span><span class="p">()</span>
-</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="c1"># ['visa', 'mastercard', 'amex', 'ssn', 'email', 'phone_global', ...]</span>
-</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
-</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">list_credential_patterns</span><span class="p">()</span>
-</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="c1"># ['aws_access_key', 'github_pat', 'stripe_live', 'openai_key', ...]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">list_pii_patterns</span><span class="p">()</span>
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="c1"># ['visa', 'mastercard', 'amex', 'ssn', 'email', 'phone_global', ...]</span>
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="n">PromptiseSecurityScanner</span><span class="o">.</span><span class="n">list_credential_patterns</span><span class="p">()</span>
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="c1"># ['aws_access_key', 'github_pat', 'stripe_live', 'openai_key', ...]</span>
 </span></code></pre></div>
 <p>Use these names with <code>PIIDetector(exclude={"blood_type"})</code> or <code>CredentialDetector(exclude={"firebase"})</code> to disable specific patterns.</p>
 <hr />
@@ -10967,7 +11151,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 24, 2026 07:13:58 UTC">2026-04-24</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:41:49 UTC">2026-10-10</span>
   </span>
 
     

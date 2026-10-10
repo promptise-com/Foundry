@@ -6800,6 +6800,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#token-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Token Budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspecting-a-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspecting a Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6813,6 +6835,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Integration with build_agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-flow-per-conversation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One flow per conversation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-model-receives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the model receives
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9610,6 +9660,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#token-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Token Budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspecting-a-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspecting a Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9623,6 +9695,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Integration with build_agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-flow-per-conversation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One flow per conversation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-model-receives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the model receives
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9795,11 +9895,12 @@
 </span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">"resolve"</span><span class="p">,</span> <span class="s2">"Propose a concrete solution."</span><span class="p">))</span>
 </span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
 </span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">flow</span> <span class="o">=</span> <span class="n">SupportFlow</span><span class="p">()</span>
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>                        <span class="c1"># Enter greeting phase</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="s2">"Hi"</span><span class="p">)</span>                    <span class="c1"># Enter greeting phase with the first message</span>
 </span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">next_turn</span><span class="p">(</span><span class="s2">"My app crashed"</span><span class="p">)</span>    <span class="c1"># Process user message</span>
 </span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="s2">"investigate"</span><span class="p">)</span>               <span class="c1"># Move to investigate</span>
 </span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">next_turn</span><span class="p">(</span><span class="s2">"It crashes on login"</span><span class="p">)</span>
 </span></code></pre></div>
+<p>A flow instance holds the state of <strong>one</strong> conversation. To use a flow in an agent, pass it to <code>build_agent()</code>, which keeps a separate copy per session (<a href="#integration-with-build_agent">Integration with <code>build_agent</code></a>).</p>
 <h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
 <p>A <code>ConversationFlow</code> is a state machine where:</p>
 <ul>
@@ -9968,12 +10069,13 @@
 </span></code></pre></div>
 <h2 id="flow-lifecycle">Flow Lifecycle<a class="headerlink" href="#flow-lifecycle" title="Link to this section">&para;</a></h2>
 <h3 id="starting-the-flow">Starting the Flow<a class="headerlink" href="#starting-the-flow" title="Link to this section">&para;</a></h3>
-<p><code>start()</code> enters the initial phase, runs its handler, and returns the first assembled prompt:</p>
+<p><code>start()</code> enters the initial phase, runs its handler, and returns the first assembled prompt. Pass the conversation's first user message so the initial phase handler can act on it (it is recorded in <code>ctx.history</code> as turn 0):</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">flow</span> <span class="o">=</span> <span class="n">SupportFlow</span><span class="p">()</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="s2">"Hi, my app keeps crashing"</span><span class="p">)</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">prompt</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>              <span class="c1"># Full prompt with base + greeting blocks</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">prompt</span><span class="o">.</span><span class="n">included</span><span class="p">)</span>          <span class="c1"># ["identity", "rules", "greeting_instructions"]</span>
 </span></code></pre></div>
+<p><code>start()</code> with no argument still works and starts the flow before any message arrives.</p>
 <h3 id="processing-turns">Processing Turns<a class="headerlink" href="#processing-turns" title="Link to this section">&para;</a></h3>
 <p><code>next_turn()</code> records the user message in history, runs the current phase handler, and returns the updated prompt:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">next_turn</span><span class="p">(</span><span class="s2">"My app keeps crashing"</span><span class="p">)</span>
@@ -9999,91 +10101,165 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">flow</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># Flow is now back to its initial state, ready for start()</span>
 </span></code></pre></div>
-<h2 id="integration-with-build_agent">Integration with <code>build_agent</code><a class="headerlink" href="#integration-with-build_agent" title="Link to this section">&para;</a></h2>
-<p>Pass a <code>ConversationFlow</code> to <code>build_agent()</code> and the prompt auto-evolves on each <code>ainvoke()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">flow</span> <span class="o">=</span> <span class="n">SupportFlow</span><span class="p">()</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">build_agent</span><span class="p">(</span><span class="n">flow</span><span class="o">=</span><span class="n">flow</span><span class="p">)</span>
+<h3 id="token-budget">Token Budget<a class="headerlink" href="#token-budget" title="Link to this section">&para;</a></h3>
+<p>Cap the assembled prompt with <code>token_budget</code>, as a class attribute or a constructor argument. Over budget, blocks are dropped lowest-priority first, exactly as in <a href="../blocks/#token-budgeting"><code>PromptAssembler</code></a>. Dropped blocks are listed in <code>prompt.excluded</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">SupportFlow</span><span class="p">(</span><span class="n">ConversationFlow</span><span class="p">):</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="n">token_budget</span> <span class="o">=</span> <span class="mi">1500</span>          <span class="c1"># every instance</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="o">...</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">flow</span> <span class="o">=</span> <span class="n">SupportFlow</span><span class="p">(</span><span class="n">token_budget</span><span class="o">=</span><span class="mi">800</span><span class="p">)</span>   <span class="c1"># or per instance</span>
 </span></code></pre></div>
+<h3 id="inspecting-a-flow">Inspecting a Flow<a class="headerlink" href="#inspecting-a-flow" title="Link to this section">&para;</a></h3>
+<p>Give the flow a <a href="../inspector/"><code>PromptInspector</code></a> and every <code>start()</code>, <code>next_turn()</code> and <code>transition()</code> records a trace with the blocks included and excluded, the token estimate, the prompt text, and <code>flow_phase</code> / <code>flow_turn</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.inspector</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptInspector</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">inspector</span> <span class="o">=</span> <span class="n">PromptInspector</span><span class="p">()</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">flow</span> <span class="o">=</span> <span class="n">SupportFlow</span><span class="p">(</span><span class="n">inspector</span><span class="o">=</span><span class="n">inspector</span><span class="p">)</span>   <span class="c1"># or set `inspector = ...` on the class</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="s2">"Hi"</span><span class="p">)</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="n">trace</span> <span class="o">=</span> <span class="n">inspector</span><span class="o">.</span><span class="n">last</span><span class="p">()</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">prompt_name</span><span class="p">,</span> <span class="n">trace</span><span class="o">.</span><span class="n">flow_phase</span><span class="p">,</span> <span class="n">trace</span><span class="o">.</span><span class="n">flow_turn</span><span class="p">)</span>   <span class="c1"># SupportFlow greeting 0</span>
+</span></code></pre></div>
+<h2 id="integration-with-build_agent">Integration with <code>build_agent</code><a class="headerlink" href="#integration-with-build_agent" title="Link to this section">&para;</a></h2>
+<p>Pass a flow to <code>build_agent()</code> and the system prompt evolves with each message:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTTPServerSpec</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>        <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"support"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">)},</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="n">flow</span><span class="o">=</span><span class="n">SupportFlow</span><span class="p">(),</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>        <span class="n">instructions</span><span class="o">=</span><span class="s2">"Use the tools to look up orders."</span><span class="p">,</span>   <span class="c1"># optional</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="p">)</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"My mug arrived broken."</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="s2">"sess-1"</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"dana"</span><span class="p">)</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"The order is A-1001."</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="s2">"sess-1"</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"dana"</span><span class="p">)</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">get_flow</span><span class="p">(</span><span class="s2">"sess-1"</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"dana"</span><span class="p">)</span><span class="o">.</span><span class="n">get_prompt</span><span class="p">()</span><span class="o">.</span><span class="n">included</span><span class="p">)</span>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>    <span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span></code></pre></div>
+<h3 id="one-flow-per-conversation">One flow per conversation<a class="headerlink" href="#one-flow-per-conversation" title="Link to this section">&para;</a></h3>
+<p>A flow carries one conversation's phase, history, <code>ctx.state</code> and slot fills, so the agent never shares one between conversations. The flow you pass is a <strong>template</strong>: each conversation gets its own deep copy. You can also pass the class (<code>flow=SupportFlow</code>) or any zero-argument factory (<code>flow=lambda: SupportFlow(business_customer=True)</code>), which is called once per conversation. If your flow holds something that can't be deep-copied (a client, a lock), pass a factory: <code>build_agent()</code> raises <code>TypeError</code> otherwise.</p>
+<p>The agent picks the conversation from the call:</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Flow state kept per</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>agent.chat(msg, session_id=...)</code></td>
+<td>session, scoped to its <code>caller</code> / <code>user_id</code></td>
+</tr>
+<tr>
+<td><code>agent.ainvoke(input, session_id=...)</code></td>
+<td>session, scoped to its <code>caller</code></td>
+</tr>
+<tr>
+<td><code>agent.ainvoke(input, caller=CallerContext(user_id=...))</code></td>
+<td>caller (tenant and user)</td>
+</tr>
+<tr>
+<td><code>agent.ainvoke(input)</code> with neither</td>
+<td>nothing kept: a fresh flow built from the messages in <code>input</code></td>
+</tr>
+</tbody>
+</table>
+<p>When the agent first sees a conversation, it starts a new flow and feeds it every user message in the input, in order: the first message goes to <code>start()</code>, the rest to <code>next_turn()</code>. After that, each call feeds only the newest user message. So a conversation whose history is passed in (from a conversation store after a restart, or a full <code>messages</code> list with no <code>session_id</code>) resumes in the right phase. The agent keeps up to 10,000 flows; the least recently used is dropped and rebuilt the same way when that conversation continues. <code>delete_session()</code> drops the session's flow.</p>
+<div class="admonition note">
+<p class="admonition-title">Phase handlers replay</p>
+<p>Rebuilding a flow runs its phase handlers once per earlier user message. Keep handlers free of side effects (they should only read <code>ctx.history</code> and <code>ctx.state</code> and change blocks), or pass a <code>session_id</code> so the flow is built once.</p>
+</div>
+<p>Use <code>agent.get_flow(session_id, caller=..., user_id=...)</code> to read a conversation's flow, for example its phase (<code>flow.current_phase</code>) or its current prompt (<code>flow.get_prompt()</code>). The template you passed to <code>build_agent()</code> is never advanced.</p>
+<h3 id="what-the-model-receives">What the model receives<a class="headerlink" href="#what-the-model-receives" title="Link to this section">&para;</a></h3>
+<p>The model gets <strong>one</strong> system message: the flow's prompt for this turn, then your <code>instructions</code>, then the list of available tools. Without <code>instructions</code>, nothing is added to the flow's prompt; the generic default system prompt is only used when there is no flow.</p>
+<div class="admonition warning">
+<p class="admonition-title">Not on streaming calls</p>
+<p>Flows run on <code>ainvoke()</code>, <code>invoke()</code> and <code>chat()</code>. <code>astream()</code> and <code>astream_with_tools()</code> don't advance a flow, and neither does an agent built with a <code>context_engine</code>.</p>
+</div>
 <h2 id="full-example-customer-support-agent">Full Example: Customer Support Agent<a class="headerlink" href="#full-example-customer-support-agent" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">prompt</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.blocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span><span class="p">,</span> <span class="n">Rules</span><span class="p">,</span> <span class="n">Section</span><span class="p">,</span> <span class="n">OutputFormat</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.flows</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConversationFlow</span><span class="p">,</span> <span class="n">TurnContext</span><span class="p">,</span> <span class="n">phase</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">SupportFlow</span><span class="p">(</span><span class="n">ConversationFlow</span><span class="p">):</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">base_blocks</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>        <span class="n">Identity</span><span class="p">(</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>            <span class="s2">"Customer support specialist for TechCorp"</span><span class="p">,</span>
-</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>            <span class="n">traits</span><span class="o">=</span><span class="p">[</span><span class="s2">"empathetic"</span><span class="p">,</span> <span class="s2">"patient"</span><span class="p">,</span> <span class="s2">"solution-oriented"</span><span class="p">],</span>
-</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>        <span class="p">),</span>
-</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>        <span class="n">Rules</span><span class="p">([</span>
-</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>            <span class="s2">"Never blame the customer"</span><span class="p">,</span>
-</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>            <span class="s2">"Acknowledge frustration before problem-solving"</span><span class="p">,</span>
-</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>            <span class="s2">"Keep responses to 2-3 sentences"</span><span class="p">,</span>
-</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>        <span class="p">]),</span>
-</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>    <span class="p">]</span>
-</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
-</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>    <span class="nd">@phase</span><span class="p">(</span><span class="s2">"greeting"</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">greet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">TurnContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span>
-</span><span id="__span-12-22"><a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>            <span class="s2">"greeting_instructions"</span><span class="p">,</span>
-</span><span id="__span-12-23"><a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>            <span class="s2">"Warmly greet the customer. Ask how you can help today."</span><span class="p">,</span>
-</span><span id="__span-12-24"><a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>        <span class="p">))</span>
-</span><span id="__span-12-25"><a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a>
-</span><span id="__span-12-26"><a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>    <span class="nd">@phase</span><span class="p">(</span><span class="s2">"investigation"</span><span class="p">)</span>
-</span><span id="__span-12-27"><a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">investigate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">TurnContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-12-28"><a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">deactivate</span><span class="p">(</span><span class="s2">"greeting_instructions"</span><span class="p">)</span>
-</span><span id="__span-12-29"><a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span>
-</span><span id="__span-12-30"><a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>            <span class="s2">"investigation_instructions"</span><span class="p">,</span>
-</span><span id="__span-12-31"><a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>            <span class="s2">"Ask clarifying questions: what happened, when, what they tried."</span><span class="p">,</span>
-</span><span id="__span-12-32"><a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>        <span class="p">))</span>
-</span><span id="__span-12-33"><a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>
-</span><span id="__span-12-34"><a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a>    <span class="nd">@phase</span><span class="p">(</span><span class="s2">"resolution"</span><span class="p">)</span>
-</span><span id="__span-12-35"><a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">TurnContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-12-36"><a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">deactivate</span><span class="p">(</span><span class="s2">"investigation_instructions"</span><span class="p">)</span>
-</span><span id="__span-12-37"><a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">"resolution_instructions"</span><span class="p">,</span> <span class="s2">"Propose a concrete fix."</span><span class="p">))</span>
-</span><span id="__span-12-38"><a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">OutputFormat</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">"markdown"</span><span class="p">))</span>
-</span><span id="__span-12-39"><a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a>
-</span><span id="__span-12-40"><a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a>    <span class="nd">@phase</span><span class="p">(</span><span class="s2">"farewell"</span><span class="p">)</span>
-</span><span id="__span-12-41"><a id="__codelineno-12-41" name="__codelineno-12-41" href="#__codelineno-12-41"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">farewell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">TurnContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-12-42"><a id="__codelineno-12-42" name="__codelineno-12-42" href="#__codelineno-12-42"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">deactivate</span><span class="p">(</span><span class="s2">"resolution_instructions"</span><span class="p">)</span>
-</span><span id="__span-12-43"><a id="__codelineno-12-43" name="__codelineno-12-43" href="#__codelineno-12-43"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">deactivate</span><span class="p">(</span><span class="s2">"output_format"</span><span class="p">)</span>
-</span><span id="__span-12-44"><a id="__codelineno-12-44" name="__codelineno-12-44" href="#__codelineno-12-44"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">"farewell_instructions"</span><span class="p">,</span> <span class="s2">"Thank the customer."</span><span class="p">))</span>
-</span><span id="__span-12-45"><a id="__codelineno-12-45" name="__codelineno-12-45" href="#__codelineno-12-45"></a>
-</span><span id="__span-12-46"><a id="__codelineno-12-46" name="__codelineno-12-46" href="#__codelineno-12-46"></a><span class="nd">@prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">)</span>
-</span><span id="__span-12-47"><a id="__codelineno-12-47" name="__codelineno-12-47" href="#__codelineno-12-47"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">respond</span><span class="p">(</span><span class="n">system_prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">conversation</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-12-48"><a id="__codelineno-12-48" name="__codelineno-12-48" href="#__codelineno-12-48"></a><span class="w">    </span><span class="sd">"""{system_prompt}</span>
-</span><span id="__span-12-49"><a id="__codelineno-12-49" name="__codelineno-12-49" href="#__codelineno-12-49"></a>
-</span><span id="__span-12-50"><a id="__codelineno-12-50" name="__codelineno-12-50" href="#__codelineno-12-50"></a><span class="sd">Conversation so far:</span>
-</span><span id="__span-12-51"><a id="__codelineno-12-51" name="__codelineno-12-51" href="#__codelineno-12-51"></a><span class="sd">{conversation}</span>
-</span><span id="__span-12-52"><a id="__codelineno-12-52" name="__codelineno-12-52" href="#__codelineno-12-52"></a>
-</span><span id="__span-12-53"><a id="__codelineno-12-53" name="__codelineno-12-53" href="#__codelineno-12-53"></a><span class="sd">Respond as the support agent:"""</span>
-</span><span id="__span-12-54"><a id="__codelineno-12-54" name="__codelineno-12-54" href="#__codelineno-12-54"></a>
-</span><span id="__span-12-55"><a id="__codelineno-12-55" name="__codelineno-12-55" href="#__codelineno-12-55"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-12-56"><a id="__codelineno-12-56" name="__codelineno-12-56" href="#__codelineno-12-56"></a>    <span class="n">flow</span> <span class="o">=</span> <span class="n">SupportFlow</span><span class="p">()</span>
-</span><span id="__span-12-57"><a id="__codelineno-12-57" name="__codelineno-12-57" href="#__codelineno-12-57"></a>    <span class="n">assembled</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span id="__span-12-58"><a id="__codelineno-12-58" name="__codelineno-12-58" href="#__codelineno-12-58"></a>
-</span><span id="__span-12-59"><a id="__codelineno-12-59" name="__codelineno-12-59" href="#__codelineno-12-59"></a>    <span class="c1"># Greeting</span>
-</span><span id="__span-12-60"><a id="__codelineno-12-60" name="__codelineno-12-60" href="#__codelineno-12-60"></a>    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">respond</span><span class="p">(</span>
-</span><span id="__span-12-61"><a id="__codelineno-12-61" name="__codelineno-12-61" href="#__codelineno-12-61"></a>        <span class="n">system_prompt</span><span class="o">=</span><span class="n">assembled</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
-</span><span id="__span-12-62"><a id="__codelineno-12-62" name="__codelineno-12-62" href="#__codelineno-12-62"></a>        <span class="n">conversation</span><span class="o">=</span><span class="s2">"(Customer just connected)"</span><span class="p">,</span>
-</span><span id="__span-12-63"><a id="__codelineno-12-63" name="__codelineno-12-63" href="#__codelineno-12-63"></a>    <span class="p">)</span>
-</span><span id="__span-12-64"><a id="__codelineno-12-64" name="__codelineno-12-64" href="#__codelineno-12-64"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Agent: </span><span class="si">{</span><span class="n">response</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-12-65"><a id="__codelineno-12-65" name="__codelineno-12-65" href="#__codelineno-12-65"></a>
-</span><span id="__span-12-66"><a id="__codelineno-12-66" name="__codelineno-12-66" href="#__codelineno-12-66"></a>    <span class="c1"># Customer describes issue -&gt; transition to investigation</span>
-</span><span id="__span-12-67"><a id="__codelineno-12-67" name="__codelineno-12-67" href="#__codelineno-12-67"></a>    <span class="n">assembled</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">next_turn</span><span class="p">(</span>
-</span><span id="__span-12-68"><a id="__codelineno-12-68" name="__codelineno-12-68" href="#__codelineno-12-68"></a>        <span class="s2">"My app crashes on file upload"</span><span class="p">,</span>
-</span><span id="__span-12-69"><a id="__codelineno-12-69" name="__codelineno-12-69" href="#__codelineno-12-69"></a>        <span class="n">transition_to</span><span class="o">=</span><span class="s2">"investigation"</span><span class="p">,</span>
-</span><span id="__span-12-70"><a id="__codelineno-12-70" name="__codelineno-12-70" href="#__codelineno-12-70"></a>    <span class="p">)</span>
-</span><span id="__span-12-71"><a id="__codelineno-12-71" name="__codelineno-12-71" href="#__codelineno-12-71"></a>    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">respond</span><span class="p">(</span>
-</span><span id="__span-12-72"><a id="__codelineno-12-72" name="__codelineno-12-72" href="#__codelineno-12-72"></a>        <span class="n">system_prompt</span><span class="o">=</span><span class="n">assembled</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
-</span><span id="__span-12-73"><a id="__codelineno-12-73" name="__codelineno-12-73" href="#__codelineno-12-73"></a>        <span class="n">conversation</span><span class="o">=</span><span class="s2">"Customer: My app crashes on file upload"</span><span class="p">,</span>
-</span><span id="__span-12-74"><a id="__codelineno-12-74" name="__codelineno-12-74" href="#__codelineno-12-74"></a>    <span class="p">)</span>
-</span><span id="__span-12-75"><a id="__codelineno-12-75" name="__codelineno-12-75" href="#__codelineno-12-75"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Agent: </span><span class="si">{</span><span class="n">response</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-12-76"><a id="__codelineno-12-76" name="__codelineno-12-76" href="#__codelineno-12-76"></a>
-</span><span id="__span-12-77"><a id="__codelineno-12-77" name="__codelineno-12-77" href="#__codelineno-12-77"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">prompt</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.blocks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Identity</span><span class="p">,</span> <span class="n">Rules</span><span class="p">,</span> <span class="n">Section</span><span class="p">,</span> <span class="n">OutputFormat</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.prompts.flows</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConversationFlow</span><span class="p">,</span> <span class="n">TurnContext</span><span class="p">,</span> <span class="n">phase</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">SupportFlow</span><span class="p">(</span><span class="n">ConversationFlow</span><span class="p">):</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="n">base_blocks</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>        <span class="n">Identity</span><span class="p">(</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>            <span class="s2">"Customer support specialist for TechCorp"</span><span class="p">,</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>            <span class="n">traits</span><span class="o">=</span><span class="p">[</span><span class="s2">"empathetic"</span><span class="p">,</span> <span class="s2">"patient"</span><span class="p">,</span> <span class="s2">"solution-oriented"</span><span class="p">],</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>        <span class="p">),</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>        <span class="n">Rules</span><span class="p">([</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>            <span class="s2">"Never blame the customer"</span><span class="p">,</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>            <span class="s2">"Acknowledge frustration before problem-solving"</span><span class="p">,</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>            <span class="s2">"Keep responses to 2-3 sentences"</span><span class="p">,</span>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>        <span class="p">]),</span>
+</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>    <span class="p">]</span>
+</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>
+</span><span id="__span-14-19"><a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a>    <span class="nd">@phase</span><span class="p">(</span><span class="s2">"greeting"</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-14-20"><a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">greet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">TurnContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-14-21"><a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span>
+</span><span id="__span-14-22"><a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a>            <span class="s2">"greeting_instructions"</span><span class="p">,</span>
+</span><span id="__span-14-23"><a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a>            <span class="s2">"Warmly greet the customer. Ask how you can help today."</span><span class="p">,</span>
+</span><span id="__span-14-24"><a id="__codelineno-14-24" name="__codelineno-14-24" href="#__codelineno-14-24"></a>        <span class="p">))</span>
+</span><span id="__span-14-25"><a id="__codelineno-14-25" name="__codelineno-14-25" href="#__codelineno-14-25"></a>
+</span><span id="__span-14-26"><a id="__codelineno-14-26" name="__codelineno-14-26" href="#__codelineno-14-26"></a>    <span class="nd">@phase</span><span class="p">(</span><span class="s2">"investigation"</span><span class="p">)</span>
+</span><span id="__span-14-27"><a id="__codelineno-14-27" name="__codelineno-14-27" href="#__codelineno-14-27"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">investigate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">TurnContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-14-28"><a id="__codelineno-14-28" name="__codelineno-14-28" href="#__codelineno-14-28"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">deactivate</span><span class="p">(</span><span class="s2">"greeting_instructions"</span><span class="p">)</span>
+</span><span id="__span-14-29"><a id="__codelineno-14-29" name="__codelineno-14-29" href="#__codelineno-14-29"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span>
+</span><span id="__span-14-30"><a id="__codelineno-14-30" name="__codelineno-14-30" href="#__codelineno-14-30"></a>            <span class="s2">"investigation_instructions"</span><span class="p">,</span>
+</span><span id="__span-14-31"><a id="__codelineno-14-31" name="__codelineno-14-31" href="#__codelineno-14-31"></a>            <span class="s2">"Ask clarifying questions: what happened, when, what they tried."</span><span class="p">,</span>
+</span><span id="__span-14-32"><a id="__codelineno-14-32" name="__codelineno-14-32" href="#__codelineno-14-32"></a>        <span class="p">))</span>
+</span><span id="__span-14-33"><a id="__codelineno-14-33" name="__codelineno-14-33" href="#__codelineno-14-33"></a>
+</span><span id="__span-14-34"><a id="__codelineno-14-34" name="__codelineno-14-34" href="#__codelineno-14-34"></a>    <span class="nd">@phase</span><span class="p">(</span><span class="s2">"resolution"</span><span class="p">)</span>
+</span><span id="__span-14-35"><a id="__codelineno-14-35" name="__codelineno-14-35" href="#__codelineno-14-35"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">TurnContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-14-36"><a id="__codelineno-14-36" name="__codelineno-14-36" href="#__codelineno-14-36"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">deactivate</span><span class="p">(</span><span class="s2">"investigation_instructions"</span><span class="p">)</span>
+</span><span id="__span-14-37"><a id="__codelineno-14-37" name="__codelineno-14-37" href="#__codelineno-14-37"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">"resolution_instructions"</span><span class="p">,</span> <span class="s2">"Propose a concrete fix."</span><span class="p">))</span>
+</span><span id="__span-14-38"><a id="__codelineno-14-38" name="__codelineno-14-38" href="#__codelineno-14-38"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">OutputFormat</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">"markdown"</span><span class="p">))</span>
+</span><span id="__span-14-39"><a id="__codelineno-14-39" name="__codelineno-14-39" href="#__codelineno-14-39"></a>
+</span><span id="__span-14-40"><a id="__codelineno-14-40" name="__codelineno-14-40" href="#__codelineno-14-40"></a>    <span class="nd">@phase</span><span class="p">(</span><span class="s2">"farewell"</span><span class="p">)</span>
+</span><span id="__span-14-41"><a id="__codelineno-14-41" name="__codelineno-14-41" href="#__codelineno-14-41"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">farewell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">TurnContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-14-42"><a id="__codelineno-14-42" name="__codelineno-14-42" href="#__codelineno-14-42"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">deactivate</span><span class="p">(</span><span class="s2">"resolution_instructions"</span><span class="p">)</span>
+</span><span id="__span-14-43"><a id="__codelineno-14-43" name="__codelineno-14-43" href="#__codelineno-14-43"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">deactivate</span><span class="p">(</span><span class="s2">"output_format"</span><span class="p">)</span>
+</span><span id="__span-14-44"><a id="__codelineno-14-44" name="__codelineno-14-44" href="#__codelineno-14-44"></a>        <span class="n">ctx</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="n">Section</span><span class="p">(</span><span class="s2">"farewell_instructions"</span><span class="p">,</span> <span class="s2">"Thank the customer."</span><span class="p">))</span>
+</span><span id="__span-14-45"><a id="__codelineno-14-45" name="__codelineno-14-45" href="#__codelineno-14-45"></a>
+</span><span id="__span-14-46"><a id="__codelineno-14-46" name="__codelineno-14-46" href="#__codelineno-14-46"></a><span class="nd">@prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">)</span>
+</span><span id="__span-14-47"><a id="__codelineno-14-47" name="__codelineno-14-47" href="#__codelineno-14-47"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">respond</span><span class="p">(</span><span class="n">system_prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">conversation</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-14-48"><a id="__codelineno-14-48" name="__codelineno-14-48" href="#__codelineno-14-48"></a><span class="w">    </span><span class="sd">"""{system_prompt}</span>
+</span><span id="__span-14-49"><a id="__codelineno-14-49" name="__codelineno-14-49" href="#__codelineno-14-49"></a>
+</span><span id="__span-14-50"><a id="__codelineno-14-50" name="__codelineno-14-50" href="#__codelineno-14-50"></a><span class="sd">Conversation so far:</span>
+</span><span id="__span-14-51"><a id="__codelineno-14-51" name="__codelineno-14-51" href="#__codelineno-14-51"></a><span class="sd">{conversation}</span>
+</span><span id="__span-14-52"><a id="__codelineno-14-52" name="__codelineno-14-52" href="#__codelineno-14-52"></a>
+</span><span id="__span-14-53"><a id="__codelineno-14-53" name="__codelineno-14-53" href="#__codelineno-14-53"></a><span class="sd">Respond as the support agent:"""</span>
+</span><span id="__span-14-54"><a id="__codelineno-14-54" name="__codelineno-14-54" href="#__codelineno-14-54"></a>
+</span><span id="__span-14-55"><a id="__codelineno-14-55" name="__codelineno-14-55" href="#__codelineno-14-55"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-14-56"><a id="__codelineno-14-56" name="__codelineno-14-56" href="#__codelineno-14-56"></a>    <span class="n">flow</span> <span class="o">=</span> <span class="n">SupportFlow</span><span class="p">()</span>
+</span><span id="__span-14-57"><a id="__codelineno-14-57" name="__codelineno-14-57" href="#__codelineno-14-57"></a>    <span class="n">assembled</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-14-58"><a id="__codelineno-14-58" name="__codelineno-14-58" href="#__codelineno-14-58"></a>
+</span><span id="__span-14-59"><a id="__codelineno-14-59" name="__codelineno-14-59" href="#__codelineno-14-59"></a>    <span class="c1"># Greeting</span>
+</span><span id="__span-14-60"><a id="__codelineno-14-60" name="__codelineno-14-60" href="#__codelineno-14-60"></a>    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">respond</span><span class="p">(</span>
+</span><span id="__span-14-61"><a id="__codelineno-14-61" name="__codelineno-14-61" href="#__codelineno-14-61"></a>        <span class="n">system_prompt</span><span class="o">=</span><span class="n">assembled</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
+</span><span id="__span-14-62"><a id="__codelineno-14-62" name="__codelineno-14-62" href="#__codelineno-14-62"></a>        <span class="n">conversation</span><span class="o">=</span><span class="s2">"(Customer just connected)"</span><span class="p">,</span>
+</span><span id="__span-14-63"><a id="__codelineno-14-63" name="__codelineno-14-63" href="#__codelineno-14-63"></a>    <span class="p">)</span>
+</span><span id="__span-14-64"><a id="__codelineno-14-64" name="__codelineno-14-64" href="#__codelineno-14-64"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Agent: </span><span class="si">{</span><span class="n">response</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-14-65"><a id="__codelineno-14-65" name="__codelineno-14-65" href="#__codelineno-14-65"></a>
+</span><span id="__span-14-66"><a id="__codelineno-14-66" name="__codelineno-14-66" href="#__codelineno-14-66"></a>    <span class="c1"># Customer describes issue -&gt; transition to investigation</span>
+</span><span id="__span-14-67"><a id="__codelineno-14-67" name="__codelineno-14-67" href="#__codelineno-14-67"></a>    <span class="n">assembled</span> <span class="o">=</span> <span class="k">await</span> <span class="n">flow</span><span class="o">.</span><span class="n">next_turn</span><span class="p">(</span>
+</span><span id="__span-14-68"><a id="__codelineno-14-68" name="__codelineno-14-68" href="#__codelineno-14-68"></a>        <span class="s2">"My app crashes on file upload"</span><span class="p">,</span>
+</span><span id="__span-14-69"><a id="__codelineno-14-69" name="__codelineno-14-69" href="#__codelineno-14-69"></a>        <span class="n">transition_to</span><span class="o">=</span><span class="s2">"investigation"</span><span class="p">,</span>
+</span><span id="__span-14-70"><a id="__codelineno-14-70" name="__codelineno-14-70" href="#__codelineno-14-70"></a>    <span class="p">)</span>
+</span><span id="__span-14-71"><a id="__codelineno-14-71" name="__codelineno-14-71" href="#__codelineno-14-71"></a>    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">respond</span><span class="p">(</span>
+</span><span id="__span-14-72"><a id="__codelineno-14-72" name="__codelineno-14-72" href="#__codelineno-14-72"></a>        <span class="n">system_prompt</span><span class="o">=</span><span class="n">assembled</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
+</span><span id="__span-14-73"><a id="__codelineno-14-73" name="__codelineno-14-73" href="#__codelineno-14-73"></a>        <span class="n">conversation</span><span class="o">=</span><span class="s2">"Customer: My app crashes on file upload"</span><span class="p">,</span>
+</span><span id="__span-14-74"><a id="__codelineno-14-74" name="__codelineno-14-74" href="#__codelineno-14-74"></a>    <span class="p">)</span>
+</span><span id="__span-14-75"><a id="__codelineno-14-75" name="__codelineno-14-75" href="#__codelineno-14-75"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Agent: </span><span class="si">{</span><span class="n">response</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-14-76"><a id="__codelineno-14-76" name="__codelineno-14-76" href="#__codelineno-14-76"></a>
+</span><span id="__span-14-77"><a id="__codelineno-14-77" name="__codelineno-14-77" href="#__codelineno-14-77"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <h2 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Link to this section">&para;</a></h2>
 <h3 id="conversationflow">ConversationFlow<a class="headerlink" href="#conversationflow" title="Link to this section">&para;</a></h3>
@@ -10097,9 +10273,14 @@
 </thead>
 <tbody>
 <tr>
-<td><code>start()</code></td>
+<td><code>ConversationFlow(*, token_budget=None, inspector=None)</code></td>
+<td></td>
+<td>Create a flow; both default to the class attributes</td>
+</tr>
+<tr>
+<td><code>start(user_message=None)</code></td>
 <td><code>AssembledPrompt</code></td>
-<td>Enter initial phase and return first prompt</td>
+<td>Enter initial phase (with the first message) and return first prompt</td>
 </tr>
 <tr>
 <td><code>next_turn(user_message, ...)</code></td>
@@ -10120,6 +10301,11 @@
 <td><code>reset()</code></td>
 <td><code>None</code></td>
 <td>Reset to initial state</td>
+</tr>
+<tr>
+<td><code>current_phase</code></td>
+<td><code>str \| None</code></td>
+<td>Current phase name (property), <code>None</code> before <code>start()</code></td>
 </tr>
 </tbody>
 </table>
@@ -10164,6 +10350,7 @@
 <li>Phase handlers run on every turn within that phase -- use them to dynamically adjust blocks based on conversation progress.</li>
 <li>Blocks from <code>@phase(blocks=[...])</code> are automatically activated on phase entry and deactivated on exit. Blocks added via <code>ctx.activate()</code> persist until explicitly deactivated.</li>
 <li><code>flow._history</code> stores all user and assistant messages. Use <code>ctx.history</code> for a read-only copy inside handlers.</li>
+<li>Run a flow by hand (as in the full example) when you drive the model yourself. Create one flow per conversation and keep it with that conversation.</li>
 </ul>
 <h2 id="whats-next">What's Next?<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
 <ul>
@@ -10192,7 +10379,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:38:22 UTC">2026-10-10</span>
   </span>
 
     

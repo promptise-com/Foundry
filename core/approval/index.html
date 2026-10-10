@@ -2894,6 +2894,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ApprovalDecision — What the Handler Returns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recording-every-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recording every decision
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2927,6 +2944,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="WebhookApprovalHandler">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hmac-verification-on-your-approval-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HMAC verification on your approval service
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -3014,10 +3048,49 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#permanent-denial" class="md-nav__link">
+  <a href="#repeated-denials" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Permanent denial
+        Repeated denials
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-side-approval-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-side approval gates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Server-side approval gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-reviewer-sees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the reviewer sees
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security model
       
     </span>
   </a>
@@ -9698,6 +9771,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ApprovalDecision — What the Handler Returns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recording-every-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recording every decision
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9731,6 +9821,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="WebhookApprovalHandler">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hmac-verification-on-your-approval-service" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HMAC verification on your approval service
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -9818,10 +9925,49 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#permanent-denial" class="md-nav__link">
+  <a href="#repeated-denials" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Permanent denial
+        Repeated denials
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-side-approval-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server-side approval gates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Server-side approval gates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-reviewer-sees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the reviewer sees
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security model
       
     </span>
   </a>
@@ -10094,7 +10240,10 @@ MCP client (declared with <code>@server.tool(requires_approval=True)</code> and
 enforced by <code>ApprovalGateMiddleware</code>), see
 <a href="../../mcp/server/approval-gates/">Approval Gates (Server-Side HITL)</a>.
 Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code> /
-<code>ApprovalHandler</code> protocol, so handlers written for one work with the other.</p>
+<code>ApprovalHandler</code> protocol, so handlers written for one work with the other.
+When such a gate asks the calling client for confirmation, the agent's
+<code>approval=</code> handler answers it. See
+<a href="#server-side-approval-gates">Server-side approval gates</a> below.</p>
 </div>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span><span class="p">,</span> <span class="n">ApprovalPolicy</span><span class="p">,</span> <span class="n">CallbackApprovalHandler</span><span class="p">,</span> <span class="n">ApprovalDecision</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -10124,23 +10273,25 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>└─ MATCH → Approval flow begins:
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>       ↓
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>   1. Build ApprovalRequest (unique ID, tool name, redacted arguments, caller identity)
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>       ↓
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>   2. Send to ApprovalHandler (webhook POST / async callback / UI queue)
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>       ↓
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>   3. Agent execution PAUSES (event loop is free — other agents/requests continue)
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>       ↓
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>   4. Human reviews:
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>      "Agent 'billing-bot' wants to send_email(to='[EMAIL]', subject='Invoice')"
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>      [Approve] [Deny] [Approve with edits]
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>       ↓
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>   5. Decision received (or timeout triggers on_timeout action)
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>       ↓
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>   ┌─ APPROVED → tool executes with original (or modified) arguments → agent continues
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>   ├─ DENIED → tool returns "DENIED: reason" as result → agent adapts
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>   └─ TIMEOUT → on_timeout="deny" returns denial / on_timeout="allow" proceeds
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>   1. Build ApprovalRequest (unique ID, tool name, redacted arguments, caller identity,
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>      agent ID, last few conversation messages)
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>       ↓
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>   2. Send to ApprovalHandler (webhook POST / async callback / UI queue)
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>       ↓
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>   3. Agent execution PAUSES (event loop is free — other agents/requests continue)
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>       ↓
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>   4. Human reviews:
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>      "Agent 'billing-bot' wants to send_email(to='[EMAIL]', subject='Invoice')"
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>      [Approve] [Deny] [Approve with edits]
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>       ↓
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>   5. Decision received (or timeout triggers on_timeout action)
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>       ↓
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>   ┌─ APPROVED → tool executes with original (or modified) arguments → agent continues
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>   │             (modified: the result starts with a note naming the changes)
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>   ├─ DENIED → tool returns "DENIED: reason" as result → agent adapts
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>   └─ TIMEOUT → on_timeout="deny" returns denial / on_timeout="allow" proceeds
 </span></code></pre></div>
-<p><strong>Key principle:</strong> The LLM doesn't know approval exists. It calls tools normally. The approval wrapper intercepts matching tool calls transparently. On approval, the tool runs. On denial, the tool returns a "DENIED" message as its result — the LLM sees this and adapts (tries alternatives, asks for help, or reports it can't proceed).</p>
+<p><strong>Key principle:</strong> The LLM calls tools normally. The approval wrapper intercepts matching tool calls. On approval, the tool runs. On denial, the tool returns a "DENIED" message as its result — the LLM sees this and adapts (tries alternatives, asks for help, or reports it can't proceed). If the reviewer changed the arguments, the result says so, so the LLM doesn't mistake the edited outcome for the one it asked for.</p>
 <hr />
 <h2 id="setup-guide">Setup Guide<a class="headerlink" href="#setup-guide" title="Link to this section">&para;</a></h2>
 <h3 id="step-1-choose-which-tools-need-approval">Step 1: Choose which tools need approval<a class="headerlink" href="#step-1-choose-which-tools-need-approval" title="Link to this section">&para;</a></h3>
@@ -10195,8 +10346,12 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">include_arguments</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>       <span class="c1"># Show tool args to reviewer</span>
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">redact_sensitive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>        <span class="c1"># Redact PII/credentials in args</span>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">max_pending</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>               <span class="c1"># Max 10 concurrent pending approvals</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">max_retries_after_deny</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>     <span class="c1"># Permanent deny after 3 retries</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">max_retries_after_deny</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>     <span class="c1"># Stop asking after 3 denials...</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">deny_window</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>              <span class="c1"># ...within 10 minutes...</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">deny_scope</span><span class="o">=</span><span class="s2">"session"</span><span class="p">,</span>         <span class="c1"># ...for the same user and session</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">sequential</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>             <span class="c1"># Ask about parallel calls concurrently</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">context_messages</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>           <span class="c1"># Conversation messages shown to the reviewer</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="step-4-pass-to-build_agent">Step 4: Pass to build_agent<a class="headerlink" href="#step-4-pass-to-build_agent" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
@@ -10252,19 +10407,55 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <td><code>redact_sensitive</code></td>
 <td><code>bool</code></td>
 <td><code>True</code></td>
-<td>Run arguments through PII/credential detection before sending to the reviewer. Requires the guardrails module. Falls back to raw arguments if guardrails are not installed.</td>
+<td>Run the arguments and <code>context_summary</code> through PII/credential detection before sending them to the reviewer. Each string value is redacted on its own, so the arguments keep their structure. Only the reviewer's copy is redacted: <a href="../approval-classifier/#rules-see-the-real-arguments"><code>AutoApprovalClassifier</code></a> rules match the real arguments. See <a href="#argument-redaction">Argument Redaction</a>. If the scan fails, a warning is logged and the reviewer gets the raw arguments.</td>
 </tr>
 <tr>
 <td><code>max_pending</code></td>
 <td><code>int</code></td>
 <td><code>10</code></td>
-<td>Maximum concurrent pending approvals per agent. When reached, additional tool calls are auto-denied with "Too many pending approval requests."</td>
+<td>Maximum concurrent pending approvals per agent. When reached, additional tool calls are denied without asking the handler ("Too many pending approval requests", <code>decided_by="gate"</code>).</td>
 </tr>
 <tr>
 <td><code>max_retries_after_deny</code></td>
+<td><code>int \| None</code></td>
+<td><code>3</code></td>
+<td>After this many reviewer denials of the same tool, within <code>deny_window</code> and for the same <code>deny_scope</code>, the tool is denied without asking the handler (<code>decided_by="gate"</code>). Stops the LLM from retrying a denied tool in a loop. Denials by classifier rules don't count. <code>None</code> disables the limit. See <a href="#repeated-denials">Repeated denials</a>.</td>
+</tr>
+<tr>
+<td><code>deny_window</code></td>
+<td><code>float \| None</code></td>
+<td><code>600</code></td>
+<td>Seconds a denial counts towards <code>max_retries_after_deny</code>. <code>None</code> keeps denials until the agent is rebuilt.</td>
+</tr>
+<tr>
+<td><code>deny_scope</code></td>
+<td><code>"session" \| "user" \| "agent"</code></td>
+<td><code>"session"</code></td>
+<td>Whose denials count together: the same user in the same <code>chat()</code> session, the same user across sessions, or every caller of the agent.</td>
+</tr>
+<tr>
+<td><code>sequential</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Ask about one call at a time. When the model requests several gated calls in one turn, they run concurrently and their requests reach the handler together. With <code>True</code>, each request waits until the previous one in the same invocation is decided.</td>
+</tr>
+<tr>
+<td><code>context_messages</code></td>
 <td><code>int</code></td>
 <td><code>3</code></td>
-<td>After this many denials of the same tool name, return a permanent denial message. Prevents the LLM from retrying the same denied tool in an infinite loop.</td>
+<td>How many of the conversation's last user/assistant messages go into <code>context_summary</code>. <code>0</code> leaves it empty.</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td><code>dict \| Callable \| None</code></td>
+<td><code>None</code></td>
+<td>Extra <code>ApprovalRequest.metadata</code>: a dict, or a callable <code>(tool_name, arguments) -&gt; dict</code> (sync or async). The callable receives the <strong>unredacted</strong> arguments.</td>
+</tr>
+<tr>
+<td><code>on_decision</code></td>
+<td><code>Callable \| None</code></td>
+<td><code>None</code></td>
+<td>Called with <code>(request, decision)</code> for <strong>every</strong> decision before the tool runs: the handler's, a classifier rule's, and the gate's own (<code>max_pending</code>, the retry limit, a timeout, a handler error). Sync or async; errors are logged and ignored. Use it for the audit log — see <a href="#recording-every-decision">Recording every decision</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -10298,7 +10489,7 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <tr>
 <td><code>agent_id</code></td>
 <td><code>str \| None</code></td>
-<td>Agent or process identifier (set automatically in runtime).</td>
+<td>The agent's identifier: the <code>AgentIdentity</code>'s agent id, or <code>build_agent(observer_agent_id=...)</code>. In the <a href="#integration-with-agent-runtime">Agent Runtime</a>, it is the process name. <code>None</code> when the agent has neither.</td>
 </tr>
 <tr>
 <td><code>caller_user_id</code></td>
@@ -10308,7 +10499,7 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <tr>
 <td><code>context_summary</code></td>
 <td><code>str</code></td>
-<td>Brief context for the reviewer (can be customized).</td>
+<td>The last <code>context_messages</code> user/assistant messages of the conversation the invocation started from, one per line (<code>user: ...</code> / <code>assistant: ...</code>, each cut to 500 characters). Redacted like the arguments. Empty outside <code>ainvoke()</code> / <code>chat()</code> / <code>astream()</code> or with <code>context_messages=0</code>.</td>
 </tr>
 <tr>
 <td><code>timestamp</code></td>
@@ -10323,18 +10514,40 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <tr>
 <td><code>metadata</code></td>
 <td><code>dict</code></td>
-<td>Developer-provided custom data (passed through unchanged).</td>
+<td><code>source</code> (<code>"agent"</code>; server-side gates use <code>"mcp_elicitation"</code>), <code>session_id</code> (from <code>chat()</code> or <code>CallerContext.metadata["session_id"]</code>) and <code>tenant_id</code> when known, plus whatever <code>ApprovalPolicy(metadata=...)</code> adds.</td>
+</tr>
+<tr>
+<td><code>tool_annotations</code></td>
+<td><code>dict</code></td>
+<td>The tool's MCP annotations (<code>readOnlyHint</code>, <code>destructiveHint</code>, <code>idempotentHint</code>, <code>openWorldHint</code>, <code>title</code>) when the server sets them; empty otherwise. Hints, not guarantees.</td>
+</tr>
+<tr>
+<td><code>raw_arguments</code></td>
+<td><code>dict \| None</code></td>
+<td>The unredacted arguments, for in-process rule evaluation (<a href="../approval-classifier/#rules-see-the-real-arguments"><code>AutoApprovalClassifier</code></a> matches against them, and hands its fallback a copy without them). Not in <code>to_dict()</code>, the signature or <code>repr()</code>. Use <code>arguments</code> for anything you show or log.</td>
 </tr>
 </tbody>
 </table>
-<p><strong>HMAC signature:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Compute a signature for tamper-proof webhook delivery</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">signature</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">compute_hmac</span><span class="p">(</span><span class="s2">"your-secret-key"</span><span class="p">)</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Returns a hex string — include in X-Promptise-Signature header</span>
+<p>For a <code>chat("Refund order A-1001, the mug arrived broken", session_id="s-9", caller=CallerContext(user_id="alice"))</code> on an agent built with <code>observer_agent_id="support-bot"</code>, the handler receives:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">ApprovalRequest</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">request_id</span><span class="o">=</span><span class="s2">"6f1c…"</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">tool_name</span><span class="o">=</span><span class="s2">"issue_refund"</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">arguments</span><span class="o">=</span><span class="p">{</span><span class="s2">"order_id"</span><span class="p">:</span> <span class="s2">"A-1001"</span><span class="p">,</span> <span class="s2">"amount"</span><span class="p">:</span> <span class="mf">18.5</span><span class="p">,</span> <span class="s2">"reason"</span><span class="p">:</span> <span class="s2">"Item arrived broken"</span><span class="p">},</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">agent_id</span><span class="o">=</span><span class="s2">"support-bot"</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">caller_user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">context_summary</span><span class="o">=</span><span class="s2">"user: Refund order A-1001, the mug arrived broken"</span><span class="p">,</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mf">300.0</span><span class="p">,</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"source"</span><span class="p">:</span> <span class="s2">"agent"</span><span class="p">,</span> <span class="s2">"session_id"</span><span class="p">:</span> <span class="s2">"s-9"</span><span class="p">},</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="p">)</span>
 </span></code></pre></div>
+<p><strong>HMAC signature:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># The signature WebhookApprovalHandler sends as X-Promptise-Signature</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">signature</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">compute_hmac</span><span class="p">(</span><span class="s2">"your-secret-key"</span><span class="p">)</span>
+</span></code></pre></div>
+<p>It covers <code>request_id</code>, <code>tool_name</code>, <code>arguments</code>, <code>agent_id</code>, <code>caller_user_id</code> and <code>timestamp</code>. Check it on the receiving side with <a href="#hmac-verification-on-your-approval-service"><code>verify_webhook_signature()</code></a>.</p>
 <p><strong>Serialization:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Convert to JSON-safe dict (for webhook payloads)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">payload</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Convert to JSON-safe dict (for webhook payloads)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">payload</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
 </span></code></pre></div>
 <hr />
 <h2 id="approvaldecision-what-the-handler-returns">ApprovalDecision — What the Handler Returns<a class="headerlink" href="#approvaldecision-what-the-handler-returns" title="Link to this section">&para;</a></h2>
@@ -10358,7 +10571,7 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <td><code>modified_arguments</code></td>
 <td><code>dict \| None</code></td>
 <td><code>None</code></td>
-<td>If the reviewer edited the arguments. When set, the tool executes with these arguments instead of the originals.</td>
+<td>The reviewer's edits, <strong>merged onto the original arguments</strong>: each top-level field given here replaces the original value, and fields left out keep theirs. <code>{"amount": 9.25}</code> changes only the amount. A field sent back exactly as the request showed it (e.g. a redacted <code>"[EMAIL]"</code>) keeps its original value, so <code>{**request.arguments, "amount": 9.25}</code> is safe with redaction on. A nested value replaces the whole field. The merged arguments are validated against the tool's schema before the tool runs.</td>
 </tr>
 <tr>
 <td><code>reviewer_id</code></td>
@@ -10378,55 +10591,86 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <td><code>time.time()</code></td>
 <td>When the decision was made.</td>
 </tr>
+<tr>
+<td><code>decided_by</code></td>
+<td><code>"reviewer" \| "classifier" \| "gate"</code></td>
+<td><code>"reviewer"</code></td>
+<td>What decided: your handler (a person, or your own handler code), an <code>AutoApprovalClassifier</code> rule / read-only check / LLM classifier, or the gate itself (<code>max_pending</code>, the retry limit, a timeout, a handler error). Handlers leave the default.</td>
+</tr>
+<tr>
+<td><code>trace</code></td>
+<td><code>ClassifierDecisionTrace \| None</code></td>
+<td><code>None</code></td>
+<td>Set by <code>AutoApprovalClassifier</code>: the layer that decided (<code>trace.layer</code>) and the matched rule's reason. See <a href="../approval-classifier/#audit-which-layer-decided">Audit</a>.</td>
+</tr>
 </tbody>
 </table>
+<h3 id="recording-every-decision">Recording every decision<a class="headerlink" href="#recording-every-decision" title="Link to this section">&para;</a></h3>
+<p>Some decisions never reach your handler: the gate denies a call itself when <code>max_pending</code> requests are waiting or the <a href="#repeated-denials">repeated-denial limit</a> is reached, and it decides on timeouts and handler errors. A handler that writes the audit log misses those. <code>on_decision</code> sees them all:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">audit</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">decision</span><span class="p">):</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>        <span class="s2">"approval"</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>        <span class="n">extra</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>            <span class="s2">"request_id"</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>            <span class="s2">"tool"</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="p">,</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>            <span class="s2">"arguments"</span><span class="p">:</span> <span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="p">,</span>        <span class="c1"># redacted copy</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>            <span class="s2">"approved"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">approved</span><span class="p">,</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>            <span class="s2">"decided_by"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">decided_by</span><span class="p">,</span>     <span class="c1"># reviewer | classifier | gate</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>            <span class="s2">"layer"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">layer</span> <span class="k">if</span> <span class="n">decision</span><span class="o">.</span><span class="n">trace</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>            <span class="s2">"reason"</span><span class="p">:</span> <span class="n">decision</span><span class="o">.</span><span class="n">reason</span><span class="p">,</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>        <span class="p">},</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="p">)</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"*"</span><span class="p">],</span> <span class="n">handler</span><span class="o">=</span><span class="n">my_handler</span><span class="p">,</span> <span class="n">on_decision</span><span class="o">=</span><span class="n">audit</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The <code>approval.granted</code> / <code>approval.denied</code> events carry <code>decided_by</code> (and <code>classifier_layer</code> when a classifier decided) as well.</p>
 <hr />
 <h2 id="handlers-detailed-setup">Handlers — Detailed Setup<a class="headerlink" href="#handlers-detailed-setup" title="Link to this section">&para;</a></h2>
 <h3 id="callbackapprovalhandler">CallbackApprovalHandler<a class="headerlink" href="#callbackapprovalhandler" title="Link to this section">&para;</a></h3>
 <p>Wraps any Python async function. The simplest way to integrate.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallbackApprovalHandler</span><span class="p">,</span> <span class="n">ApprovalDecision</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># Full control — return an ApprovalDecision</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">slack_approver</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>        <span class="sa">f</span><span class="s2">"*Approval needed*</span><span class="se">\n</span><span class="s2">"</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="sa">f</span><span class="s2">"Agent wants to call `</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">`</span><span class="se">\n</span><span class="s2">"</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="sa">f</span><span class="s2">"Arguments: `</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="s2">`</span><span class="se">\n</span><span class="s2">"</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        <span class="sa">f</span><span class="s2">"User: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">caller_user_id</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'anonymous'</span><span class="si">}</span><span class="s2">"</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="p">)</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">channel_id</span> <span class="o">=</span> <span class="k">await</span> <span class="n">post_to_slack</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">reaction</span> <span class="o">=</span> <span class="k">await</span> <span class="n">wait_for_reaction</span><span class="p">(</span><span class="n">channel_id</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="k">return</span> <span class="n">ApprovalDecision</span><span class="p">(</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="n">approved</span><span class="o">=</span><span class="p">(</span><span class="n">reaction</span><span class="o">.</span><span class="n">emoji</span> <span class="o">==</span> <span class="s2">"thumbsup"</span><span class="p">),</span>
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>        <span class="n">reviewer_id</span><span class="o">=</span><span class="n">reaction</span><span class="o">.</span><span class="n">user_id</span><span class="p">,</span>
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>        <span class="n">reason</span><span class="o">=</span><span class="s2">"Approved via Slack"</span> <span class="k">if</span> <span class="n">reaction</span><span class="o">.</span><span class="n">emoji</span> <span class="o">==</span> <span class="s2">"thumbsup"</span> <span class="k">else</span> <span class="s2">"Denied via Slack"</span><span class="p">,</span>
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    <span class="p">)</span>
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>
-</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">slack_approver</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallbackApprovalHandler</span><span class="p">,</span> <span class="n">ApprovalDecision</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Full control — return an ApprovalDecision</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">slack_approver</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">message</span> <span class="o">=</span> <span class="p">(</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="sa">f</span><span class="s2">"*Approval needed*</span><span class="se">\n</span><span class="s2">"</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="sa">f</span><span class="s2">"Agent wants to call `</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">`</span><span class="se">\n</span><span class="s2">"</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="sa">f</span><span class="s2">"Arguments: `</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="s2">`</span><span class="se">\n</span><span class="s2">"</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="sa">f</span><span class="s2">"User: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">caller_user_id</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'anonymous'</span><span class="si">}</span><span class="s2">"</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="p">)</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="n">channel_id</span> <span class="o">=</span> <span class="k">await</span> <span class="n">post_to_slack</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="n">reaction</span> <span class="o">=</span> <span class="k">await</span> <span class="n">wait_for_reaction</span><span class="p">(</span><span class="n">channel_id</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="k">return</span> <span class="n">ApprovalDecision</span><span class="p">(</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="n">approved</span><span class="o">=</span><span class="p">(</span><span class="n">reaction</span><span class="o">.</span><span class="n">emoji</span> <span class="o">==</span> <span class="s2">"thumbsup"</span><span class="p">),</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>        <span class="n">reviewer_id</span><span class="o">=</span><span class="n">reaction</span><span class="o">.</span><span class="n">user_id</span><span class="p">,</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>        <span class="n">reason</span><span class="o">=</span><span class="s2">"Approved via Slack"</span> <span class="k">if</span> <span class="n">reaction</span><span class="o">.</span><span class="n">emoji</span> <span class="o">==</span> <span class="s2">"thumbsup"</span> <span class="k">else</span> <span class="s2">"Denied via Slack"</span><span class="p">,</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>    <span class="p">)</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">slack_approver</span><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Shortcut — return a plain bool:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Auto-approve everything (for testing)</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="k">lambda</span> <span class="n">req</span><span class="p">:</span> <span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Auto-deny everything (for dry runs)</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="k">lambda</span> <span class="n">req</span><span class="p">:</span> <span class="kc">False</span><span class="p">)</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Approve based on tool name</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">CallbackApprovalHandler</span><span class="p">(</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="k">lambda</span> <span class="n">req</span><span class="p">:</span> <span class="n">req</span><span class="o">.</span><span class="n">tool_name</span> <span class="o">!=</span> <span class="s2">"delete_production_database"</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Auto-approve everything (for testing)</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="k">lambda</span> <span class="n">req</span><span class="p">:</span> <span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># Auto-deny everything (for dry runs)</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="k">lambda</span> <span class="n">req</span><span class="p">:</span> <span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># Approve based on tool name</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">CallbackApprovalHandler</span><span class="p">(</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="k">lambda</span> <span class="n">req</span><span class="p">:</span> <span class="n">req</span><span class="o">.</span><span class="n">tool_name</span> <span class="o">!=</span> <span class="s2">"delete_production_database"</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="webhookapprovalhandler">WebhookApprovalHandler<a class="headerlink" href="#webhookapprovalhandler" title="Link to this section">&para;</a></h3>
 <p>For external approval systems. POSTs the request as JSON, then polls for the decision.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebhookApprovalHandler</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">WebhookApprovalHandler</span><span class="p">(</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"https://your-approval-api.com/requests"</span><span class="p">,</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">secret</span><span class="o">=</span><span class="s2">"your-hmac-secret"</span><span class="p">,</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">poll_url</span><span class="o">=</span><span class="s2">"https://your-approval-api.com/decisions"</span><span class="p">,</span>  <span class="c1"># Optional — defaults to {url}/{request_id}</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">poll_interval</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="s2">"Bearer your-api-token"</span><span class="p">},</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebhookApprovalHandler</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">WebhookApprovalHandler</span><span class="p">(</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"https://your-approval-api.com/requests"</span><span class="p">,</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">secret</span><span class="o">=</span><span class="s2">"your-hmac-secret"</span><span class="p">,</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">poll_url</span><span class="o">=</span><span class="s2">"https://your-approval-api.com/decisions"</span><span class="p">,</span>  <span class="c1"># Optional — defaults to {url}/{request_id}</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">poll_interval</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="s2">"Bearer your-api-token"</span><span class="p">},</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>All parameters:</strong></p>
 <table>
@@ -10443,7 +10687,7 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <td><code>url</code></td>
 <td><code>str</code></td>
 <td><strong>required</strong></td>
-<td>Webhook URL to POST approval requests to. Validated against private IP blocklist (SSRF protection).</td>
+<td>Webhook URL to POST approval requests to. Checked against private and internal addresses at construction and before every request (SSRF protection, see <a href="#ssrf-protection">SSRF Protection</a>).</td>
 </tr>
 <tr>
 <td><code>secret</code></td>
@@ -10475,86 +10719,118 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <td><code>None</code></td>
 <td>Pre-configured HTTP client. Use for proxy, mTLS, custom CA certificates, or any httpx configuration.</td>
 </tr>
+<tr>
+<td><code>allow_private_networks</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Allow <code>url</code> and <code>poll_url</code> to point at localhost, private, link-local or reserved addresses. Off by default (see <a href="#ssrf-protection">SSRF Protection</a>). Turn it on when your approval service runs on your own network.</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Webhook flow:</strong></p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>1. Handler POSTs to url:
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>   POST https://your-api.com/requests
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>   Headers:
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>     Content-Type: application/json
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>     X-Promptise-Signature: &lt;hmac-sha256&gt;
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>     X-Promptise-Request-Id: &lt;request_id&gt;
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>   Body: {"request_id": "...", "tool_name": "...", "arguments": {...}, ...}
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>2. Your API responds: 202 Accepted
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>3. Handler polls poll_url every poll_interval seconds:
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>   GET https://your-api.com/requests/&lt;request_id&gt;
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>   Headers:
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>     X-Promptise-Request-Id: &lt;request_id&gt;
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>4. Your API responds with 200 + decision when ready:
-</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>   {"approved": true, "reviewer_id": "alice", "reason": "Looks good"}
-</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>
-</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>   Or 202 if still pending (handler continues polling)
-</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>
-</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>5. On timeout: handler raises TimeoutError → on_timeout action triggers
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>1. Handler POSTs to url:
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>   POST https://your-api.com/requests
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>   Headers:
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>     Content-Type: application/json
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>     X-Promptise-Signature: &lt;hmac-sha256&gt;
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>     X-Promptise-Request-Id: &lt;request_id&gt;
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>   Body: {"request_id": "...", "tool_name": "...", "arguments": {...}, ...}
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>2. Your API responds: 202 Accepted
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>3. Handler polls poll_url every poll_interval seconds:
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>   GET https://your-api.com/requests/&lt;request_id&gt;
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>   Headers:
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>     X-Promptise-Request-Id: &lt;request_id&gt;
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>4. Your API responds with 200 + decision when ready:
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>   {"approved": true, "reviewer_id": "alice", "reason": "Looks good"}
+</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
+</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>   Or 202 if still pending (handler continues polling)
+</span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>
+</span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>5. On timeout: handler raises TimeoutError → on_timeout action triggers
 </span></code></pre></div>
-<p><strong>HMAC verification (server-side):</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">hmac</span><span class="o">,</span><span class="w"> </span><span class="nn">hashlib</span><span class="o">,</span><span class="w"> </span><span class="nn">json</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">verify_signature</span><span class="p">(</span><span class="n">request_id</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">,</span> <span class="n">received_signature</span><span class="p">,</span> <span class="n">secret</span><span class="p">):</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="s2">"request_id"</span><span class="p">:</span> <span class="n">request_id</span><span class="p">,</span> <span class="s2">"tool_name"</span><span class="p">:</span> <span class="n">tool_name</span><span class="p">},</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">expected</span> <span class="o">=</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">secret</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">payload</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="k">return</span> <span class="n">hmac</span><span class="o">.</span><span class="n">compare_digest</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="n">received_signature</span><span class="p">)</span>
+<h4 id="hmac-verification-on-your-approval-service">HMAC verification on your approval service<a class="headerlink" href="#hmac-verification-on-your-approval-service" title="Link to this section">&para;</a></h4>
+<p>Verify <code>X-Promptise-Signature</code> with <code>verify_webhook_signature()</code>. Pass it the raw request body, the header and the handler's <code>secret</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span><span class="p">,</span> <span class="n">Request</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.approval</span><span class="w"> </span><span class="kn">import</span> <span class="n">verify_webhook_signature</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/requests"</span><span class="p">)</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">receive_approval_request</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="n">body</span> <span class="o">=</span> <span class="k">await</span> <span class="n">request</span><span class="o">.</span><span class="n">body</span><span class="p">()</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">verify_webhook_signature</span><span class="p">(</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>        <span class="n">body</span><span class="p">,</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"X-Promptise-Signature"</span><span class="p">),</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"APPROVAL_WEBHOOK_SECRET"</span><span class="p">],</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>        <span class="n">max_age</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>  <span class="c1"># also reject requests older than 5 minutes (replay protection)</span>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>    <span class="p">):</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">)</span>
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>    <span class="o">...</span>
 </span></code></pre></div>
+<p>It returns <code>True</code> only when the body is a JSON object with every signed field and the signature matches. With <code>max_age</code> set, the <code>timestamp</code> must also be within that many seconds of now. To verify without Promptise installed, compute the same value yourself. The signature is HMAC-SHA256 over sorted-key JSON of the six signed fields:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span><span class="o">,</span><span class="w"> </span><span class="nn">hmac</span><span class="o">,</span><span class="w"> </span><span class="nn">json</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">SIGNED_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"request_id"</span><span class="p">,</span> <span class="s2">"tool_name"</span><span class="p">,</span> <span class="s2">"arguments"</span><span class="p">,</span> <span class="s2">"agent_id"</span><span class="p">,</span> <span class="s2">"caller_user_id"</span><span class="p">,</span> <span class="s2">"timestamp"</span><span class="p">)</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">verify_signature</span><span class="p">(</span><span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">received_signature</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">secret</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">body</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">SIGNED_FIELDS</span><span class="p">},</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="n">expected</span> <span class="o">=</span> <span class="n">hmac</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">secret</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">payload</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="k">return</span> <span class="n">hmac</span><span class="o">.</span><span class="n">compare_digest</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="n">received_signature</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>context_summary</code>, <code>timeout</code> and <code>metadata</code> are not signed.</p>
 <p><strong>Enterprise proxy / mTLS configuration:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Corporate proxy</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">(</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">proxies</span><span class="o">=</span><span class="s2">"http://corporate-proxy:8080"</span><span class="p">,</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">verify</span><span class="o">=</span><span class="s2">"/path/to/corporate-ca-bundle.crt"</span><span class="p">,</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="p">)</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
-</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">WebhookApprovalHandler</span><span class="p">(</span>
-</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"https://internal-approval-api.corp.com/requests"</span><span class="p">,</span>
-</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="n">http_client</span><span class="o">=</span><span class="n">client</span><span class="p">,</span>
-</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># Corporate proxy</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">(</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="n">proxies</span><span class="o">=</span><span class="s2">"http://corporate-proxy:8080"</span><span class="p">,</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    <span class="n">verify</span><span class="o">=</span><span class="s2">"/path/to/corporate-ca-bundle.crt"</span><span class="p">,</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="p">)</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">WebhookApprovalHandler</span><span class="p">(</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"https://internal-approval-api.corp.com/requests"</span><span class="p">,</span>
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    <span class="n">http_client</span><span class="o">=</span><span class="n">client</span><span class="p">,</span>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>    <span class="n">allow_private_networks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># if the hostname resolves to a private IP</span>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="queueapprovalhandler">QueueApprovalHandler<a class="headerlink" href="#queueapprovalhandler" title="Link to this section">&para;</a></h3>
 <p>For in-process UIs where the human reviewer is in the same Python process (Gradio, Streamlit, terminal prompts).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">QueueApprovalHandler</span><span class="p">,</span> <span class="n">ApprovalDecision</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">QueueApprovalHandler</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="c1"># Your UI reads pending requests from the queue</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">approval_ui_loop</span><span class="p">():</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="n">request</span> <span class="o">=</span> <span class="k">await</span> <span class="n">handler</span><span class="o">.</span><span class="n">request_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>        <span class="c1"># Display to user</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Approval Required ---"</span><span class="p">)</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Tool: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Arguments: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"User: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">caller_user_id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>
-</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>        <span class="c1"># Collect decision</span>
-</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="n">answer</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">"Approve? [y/n/edit]: "</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>
-</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>        <span class="k">if</span> <span class="n">answer</span> <span class="o">==</span> <span class="s2">"y"</span><span class="p">:</span>
-</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>            <span class="n">handler</span><span class="o">.</span><span class="n">submit_decision</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span> <span class="n">ApprovalDecision</span><span class="p">(</span><span class="n">approved</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>        <span class="k">elif</span> <span class="n">answer</span> <span class="o">==</span> <span class="s2">"edit"</span><span class="p">:</span>
-</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>            <span class="n">new_to</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">"New recipient: "</span><span class="p">)</span>
-</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>            <span class="n">handler</span><span class="o">.</span><span class="n">submit_decision</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span> <span class="n">ApprovalDecision</span><span class="p">(</span>
-</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>                <span class="n">approved</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>                <span class="n">modified_arguments</span><span class="o">=</span><span class="p">{</span><span class="s2">"to"</span><span class="p">:</span> <span class="n">new_to</span><span class="p">},</span>
-</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>            <span class="p">))</span>
-</span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>        <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>            <span class="n">handler</span><span class="o">.</span><span class="n">submit_decision</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span> <span class="n">ApprovalDecision</span><span class="p">(</span>
-</span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>                <span class="n">approved</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"Denied by operator"</span>
-</span><span id="__span-13-30"><a id="__codelineno-13-30" name="__codelineno-13-30" href="#__codelineno-13-30"></a>            <span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">QueueApprovalHandler</span><span class="p">,</span> <span class="n">ApprovalDecision</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">QueueApprovalHandler</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="c1"># Your UI reads pending requests from the queue</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">approval_ui_loop</span><span class="p">():</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>        <span class="n">request</span> <span class="o">=</span> <span class="k">await</span> <span class="n">handler</span><span class="o">.</span><span class="n">request_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>        <span class="c1"># Display to user</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Approval Required ---"</span><span class="p">)</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Tool: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Arguments: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"User: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">caller_user_id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>        <span class="c1"># Collect decision</span>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>        <span class="n">answer</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">"Approve? [y/n/edit]: "</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+</span><span id="__span-16-18"><a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a>
+</span><span id="__span-16-19"><a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a>        <span class="k">if</span> <span class="n">answer</span> <span class="o">==</span> <span class="s2">"y"</span><span class="p">:</span>
+</span><span id="__span-16-20"><a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a>            <span class="n">handler</span><span class="o">.</span><span class="n">submit_decision</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span> <span class="n">ApprovalDecision</span><span class="p">(</span><span class="n">approved</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</span><span id="__span-16-21"><a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a>        <span class="k">elif</span> <span class="n">answer</span> <span class="o">==</span> <span class="s2">"edit"</span><span class="p">:</span>
+</span><span id="__span-16-22"><a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a>            <span class="n">new_to</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">"New recipient: "</span><span class="p">)</span>
+</span><span id="__span-16-23"><a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a>            <span class="n">handler</span><span class="o">.</span><span class="n">submit_decision</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span> <span class="n">ApprovalDecision</span><span class="p">(</span>
+</span><span id="__span-16-24"><a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a>                <span class="n">approved</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-16-25"><a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a>                <span class="c1"># Merged onto the original call: subject and body are kept</span>
+</span><span id="__span-16-26"><a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a>                <span class="n">modified_arguments</span><span class="o">=</span><span class="p">{</span><span class="s2">"to"</span><span class="p">:</span> <span class="n">new_to</span><span class="p">},</span>
+</span><span id="__span-16-27"><a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a>            <span class="p">))</span>
+</span><span id="__span-16-28"><a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a>        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-16-29"><a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a>            <span class="n">handler</span><span class="o">.</span><span class="n">submit_decision</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">request_id</span><span class="p">,</span> <span class="n">ApprovalDecision</span><span class="p">(</span>
+</span><span id="__span-16-30"><a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a>                <span class="n">approved</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">"Denied by operator"</span>
+</span><span id="__span-16-31"><a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a>            <span class="p">))</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10594,138 +10870,314 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 </table>
 <h3 id="custom-handler">Custom Handler<a class="headerlink" href="#custom-handler" title="Link to this section">&para;</a></h3>
 <p>Implement the <code>ApprovalHandler</code> protocol — one async method:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApprovalHandler</span><span class="p">,</span> <span class="n">ApprovalRequest</span><span class="p">,</span> <span class="n">ApprovalDecision</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">JiraApprovalHandler</span><span class="p">:</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="sd">"""Create a Jira ticket for each approval, wait for resolution."""</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jira_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">project</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">api_token</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">jira_url</span> <span class="o">=</span> <span class="n">jira_url</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">project</span> <span class="o">=</span> <span class="n">project</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">api_token</span> <span class="o">=</span> <span class="n">api_token</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">request_approval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">ApprovalRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ApprovalDecision</span><span class="p">:</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>        <span class="c1"># Create Jira ticket</span>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>        <span class="n">ticket</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_ticket</span><span class="p">(</span>
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>            <span class="n">summary</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Agent approval: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Arguments: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="se">\n</span><span class="s2">User: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">caller_user_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>        <span class="p">)</span>
-</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>        <span class="c1"># Poll ticket status</span>
-</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span id="__span-14-19"><a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a>            <span class="n">status</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_ticket_status</span><span class="p">(</span><span class="n">ticket</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
-</span><span id="__span-14-20"><a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a>            <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"approved"</span><span class="p">:</span>
-</span><span id="__span-14-21"><a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a>                <span class="k">return</span> <span class="n">ApprovalDecision</span><span class="p">(</span><span class="n">approved</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">reviewer_id</span><span class="o">=</span><span class="n">ticket</span><span class="o">.</span><span class="n">assignee</span><span class="p">)</span>
-</span><span id="__span-14-22"><a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a>            <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"rejected"</span><span class="p">:</span>
-</span><span id="__span-14-23"><a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a>                <span class="k">return</span> <span class="n">ApprovalDecision</span><span class="p">(</span><span class="n">approved</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">ticket</span><span class="o">.</span><span class="n">comment</span><span class="p">)</span>
-</span><span id="__span-14-24"><a id="__codelineno-14-24" name="__codelineno-14-24" href="#__codelineno-14-24"></a>            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApprovalHandler</span><span class="p">,</span> <span class="n">ApprovalRequest</span><span class="p">,</span> <span class="n">ApprovalDecision</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">JiraApprovalHandler</span><span class="p">:</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="sd">"""Create a Jira ticket for each approval, wait for resolution."""</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jira_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">project</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">api_token</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">jira_url</span> <span class="o">=</span> <span class="n">jira_url</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">project</span> <span class="o">=</span> <span class="n">project</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">api_token</span> <span class="o">=</span> <span class="n">api_token</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">request_approval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">ApprovalRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ApprovalDecision</span><span class="p">:</span>
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>        <span class="c1"># Create Jira ticket</span>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>        <span class="n">ticket</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_ticket</span><span class="p">(</span>
+</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>            <span class="n">summary</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Agent approval: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Arguments: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="se">\n</span><span class="s2">User: </span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">caller_user_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>        <span class="p">)</span>
+</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>        <span class="c1"># Poll ticket status</span>
+</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>            <span class="n">status</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_ticket_status</span><span class="p">(</span><span class="n">ticket</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span id="__span-17-20"><a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>            <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"approved"</span><span class="p">:</span>
+</span><span id="__span-17-21"><a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>                <span class="k">return</span> <span class="n">ApprovalDecision</span><span class="p">(</span><span class="n">approved</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">reviewer_id</span><span class="o">=</span><span class="n">ticket</span><span class="o">.</span><span class="n">assignee</span><span class="p">)</span>
+</span><span id="__span-17-22"><a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>            <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">"rejected"</span><span class="p">:</span>
+</span><span id="__span-17-23"><a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>                <span class="k">return</span> <span class="n">ApprovalDecision</span><span class="p">(</span><span class="n">approved</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">ticket</span><span class="o">.</span><span class="n">comment</span><span class="p">)</span>
+</span><span id="__span-17-24"><a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The protocol is runtime-checkable:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">JiraApprovalHandler</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="n">ApprovalHandler</span><span class="p">)</span>  <span class="c1"># True</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">JiraApprovalHandler</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="n">ApprovalHandler</span><span class="p">)</span>  <span class="c1"># True</span>
 </span></code></pre></div>
 <hr />
 <h2 id="what-the-agent-sees">What the Agent Sees<a class="headerlink" href="#what-the-agent-sees" title="Link to this section">&para;</a></h2>
-<p>The approval system is transparent to the LLM. It doesn't know approval is happening — it just calls tools and receives results.</p>
+<p>The LLM calls tools and receives results. It only learns that approval happened when a call is denied or the reviewer changes its arguments.</p>
 <h3 id="approved">Approved<a class="headerlink" href="#approved" title="Link to this section">&para;</a></h3>
-<p>The tool executes normally. The agent sees the tool's actual result. It has no idea approval was involved.</p>
+<p>The tool executes normally. The agent sees the tool's actual result.</p>
 <h3 id="denied">Denied<a class="headerlink" href="#denied" title="Link to this section">&para;</a></h3>
 <p>The tool returns a denial message as its result:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>DENIED: Not authorized for this action.
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>DENIED: Not authorized for this action.
 </span></code></pre></div>
 <p>The agent sees this as the tool output and must adapt. Typical agent behaviors:
 - Try an alternative approach that doesn't require the denied tool
 - Ask the user for clarification or permission
 - Report that it cannot complete the requested action</p>
 <h3 id="denied-with-reason">Denied with reason<a class="headerlink" href="#denied-with-reason" title="Link to this section">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>DENIED: Customer has opted out of email communications.
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>DENIED: Customer has opted out of email communications.
 </span></code></pre></div>
 <p>The reviewer's reason is included, helping the agent understand why and adapt more intelligently.</p>
 <h3 id="modified-arguments">Modified arguments<a class="headerlink" href="#modified-arguments" title="Link to this section">&para;</a></h3>
-<p>The reviewer approves but changes the arguments. The tool executes with the modified arguments. The agent sees the result of the modified call.</p>
-<p>Example: Agent calls <code>send_email(to="all-staff@acme.com")</code>. Reviewer changes to <code>to="marketing-team@acme.com"</code>. Agent sees the result of sending to marketing-team.</p>
-<h3 id="permanent-denial">Permanent denial<a class="headerlink" href="#permanent-denial" title="Link to this section">&para;</a></h3>
-<p>After <code>max_retries_after_deny</code> denials of the same tool:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>DENIED: This action was permanently denied after 3 attempts. Do not retry this tool.
+<p>The reviewer approves but changes the arguments. The tool executes with the modified arguments. The result starts with a note naming each change, so the agent knows its request was not carried out as sent:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>[Approved with modified arguments] A reviewer changed amount: 18.5 -&gt; 9.25. The tool ran with the modified arguments and the result below reflects them; treat the reviewer's values as final.
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>{"refund_id": "R-0001", "order_id": "A-1001", "amount": 9.25, "status": "refunded"}
 </span></code></pre></div>
-<p>This stops the agent from wasting reviewer time by retrying the same denied action.</p>
+<p>Without the note, an agent that asked for a full $18.50 refund and got $9.25 back would read the result as a partial failure and refund the rest itself. A reviewer's decision that changes nothing adds no note. Tools that return content blocks get the note as a leading text block.</p>
+<h3 id="repeated-denials">Repeated denials<a class="headerlink" href="#repeated-denials" title="Link to this section">&para;</a></h3>
+<p>After <code>max_retries_after_deny</code> denials of the same tool, the reviewer isn't asked again for a while:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>DENIED: This action was already denied 3 times in the last 10 minutes, so the reviewer was not asked again. Do not retry this tool.
+</span></code></pre></div>
+<p>This stops the agent from wasting reviewer time by retrying the same denied action. The limit is scoped and expires:</p>
+<ul>
+<li><strong>Scope</strong> (<code>deny_scope</code>): by default, denials count per user (<code>CallerContext</code>, tenant-qualified) <strong>and</strong> <code>chat()</code> session. Another user or session is asked as usual. <code>"user"</code> counts across a user's sessions, and <code>"agent"</code> counts across every caller. Without a <code>CallerContext</code>, all callers share one count, so pass one in multi-user deployments.</li>
+<li><strong>Window</strong> (<code>deny_window</code>): denials older than 10 minutes (by default) stop counting. <code>None</code> keeps them until the agent is rebuilt.</li>
+<li><strong>Reset</strong>: a reviewer's approval of the tool clears its count for that scope. An automatic approval by an <code>AutoApprovalClassifier</code> rule doesn't.</li>
+<li><strong>What counts</strong>: a reviewer's denial (<code>decided_by="reviewer"</code>), and a timeout with <code>on_timeout="deny"</code>. Handler errors don't count, because no reviewer said no, and neither do denials by <code>AutoApprovalClassifier</code> rules, its read-only check or its LLM classifier, because no person was asked.</li>
+<li><strong>Recorded</strong>: the gate's denial is a decision like any other (<code>decided_by="gate"</code>): it reaches <code>on_decision</code> and emits <code>approval.denied</code>. The handler, including an <code>AutoApprovalClassifier</code>, isn't consulted.</li>
+</ul>
+<hr />
+<h2 id="server-side-approval-gates">Server-side approval gates<a class="headerlink" href="#server-side-approval-gates" title="Link to this section">&para;</a></h2>
+<p>Some MCP servers enforce approval themselves. An <code>ApprovalGateMiddleware</code>
+with <code>ElicitationApprover</code> asks the human behind the <em>calling client</em> to
+confirm each gated call through MCP elicitation, and it is the default on
+<a href="../../mcp/server/mcpcast/#human-approval">MCPcast</a>-generated servers with
+<code>env-token</code>, <code>passthrough</code> or <code>none</code> auth. <code>build_agent(approval=...)</code>
+routes those requests to the agent's approval handler, so the same reviewer
+approves both kinds of gate:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span><span class="p">,</span> <span class="n">CallbackApprovalHandler</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">StdioServerSpec</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">ask_human</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context_summary</span><span class="p">)</span>  <span class="c1"># "Server 'petstore' asks: Approval required: call tool 'add_pet' ..."</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">request</span><span class="o">.</span><span class="n">arguments</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    <span class="k">return</span> <span class="nb">input</span><span class="p">(</span><span class="s2">"Approve? [y/N] "</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"y"</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>        <span class="s2">"petstore"</span><span class="p">:</span> <span class="n">StdioServerSpec</span><span class="p">(</span>
+</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>            <span class="n">command</span><span class="o">=</span><span class="s2">"python"</span><span class="p">,</span>
+</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>            <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">"petstore-mcp/server.py"</span><span class="p">],</span>
+</span><span id="__span-23-15"><a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a>            <span class="n">env</span><span class="o">=</span><span class="p">{</span><span class="s2">"MCPCAST_UPSTREAM_TOKEN"</span><span class="p">:</span> <span class="s2">"Bearer &lt;your API token&gt;"</span><span class="p">},</span>
+</span><span id="__span-23-16"><a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a>        <span class="p">)</span>
+</span><span id="__span-23-17"><a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>    <span class="p">},</span>
+</span><span id="__span-23-18"><a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>    <span class="n">approval</span><span class="o">=</span><span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">ask_human</span><span class="p">),</span>
+</span><span id="__span-23-19"><a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a><span class="p">)</span>
+</span></code></pre></div>
+<p><code>approval=</code> takes any of these:</p>
+<table>
+<thead>
+<tr>
+<th><code>approval=</code></th>
+<th>Agent's own tool calls</th>
+<th>Server-side gates</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ApprovalPolicy(tools=[...], handler=h)</code></td>
+<td>Gated by <code>tools</code> patterns</td>
+<td>Answered by <code>h</code> for <strong>every</strong> gated server tool (the patterns don't apply: the server decided the call needs approval)</td>
+</tr>
+<tr>
+<td>An <code>ApprovalHandler</code> (<code>CallbackApprovalHandler</code>, <code>WebhookApprovalHandler</code>, <code>QueueApprovalHandler</code>, custom) or a callable</td>
+<td>Not gated</td>
+<td>Answered by the handler</td>
+</tr>
+<tr>
+<td><code>None</code> (default)</td>
+<td>Not gated</td>
+<td><strong>Denied.</strong> The agent declares no elicitation support and the server fails closed</td>
+</tr>
+</tbody>
+</table>
+<p>If a policy pattern also matches a tool that the server gates, the reviewer
+is asked twice: once by the agent's gate before the call is sent, and once by
+the server's gate. The two gates are independent, and the server can't take
+the agent's word that a human approved. Use a bare handler when the server's
+gate is enough.</p>
+<h3 id="what-the-reviewer-sees">What the reviewer sees<a class="headerlink" href="#what-the-reviewer-sees" title="Link to this section">&para;</a></h3>
+<p>The handler receives an ordinary <code>ApprovalRequest</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>context_summary</code></td>
+<td><code>Server '&lt;name&gt;' asks: &lt;the server's message&gt;</code>. Show this to the reviewer, because it is the server's own description of what it will run</td>
+</tr>
+<tr>
+<td><code>tool_name</code>, <code>arguments</code></td>
+<td>The call this agent sent, when it was the only call in flight to that server. Otherwise <code>""</code> and <code>{}</code>: the request can't be tied to one call, and <code>metadata["in_flight_tools"]</code> lists the candidates</td>
+</tr>
+<tr>
+<td><code>caller_user_id</code></td>
+<td>The invoking <code>CallerContext.user_id</code>. The handler also runs in the caller's context, so <code>get_current_caller()</code> works</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td><code>source="mcp_elicitation"</code>, <code>server</code>, <code>elicitation_message</code>, <code>requested_schema</code>, <code>in_flight_tools</code></td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>The policy's <code>timeout</code>, or 300s for a bare handler</td>
+</tr>
+</tbody>
+</table>
+<p>With a policy, <code>include_arguments</code> and <code>redact_sensitive</code> apply to the
+arguments as usual. <code>approval.requested</code> / <code>approval.granted</code> /
+<code>approval.denied</code> events carry <code>source="mcp_elicitation"</code> and <code>server</code>.</p>
+<h3 id="security-model">Security model<a class="headerlink" href="#security-model" title="Link to this section">&para;</a></h3>
+<ul>
+<li><strong>Never auto-accepted.</strong> The agent accepts a server's request only on an explicit approving decision from the handler. A denial, a timeout, a handler error or a decision with <code>modified_arguments</code> is sent back as <code>decline</code>, and the server denies the call. A timeout declines even with <code>on_timeout="allow"</code>, which governs only the agent's own gate. The server-side gate binds the arguments before it asks, so modified arguments can't be applied, and running the originals would execute something the reviewer didn't approve.</li>
+<li><strong>Auto-approval rules don't apply.</strong> An <code>AutoApprovalClassifier</code> handler is skipped in favour of its human <code>fallback</code>. Its allow rules were written for the agent's own calls and must not clear a gate the server put in front of a human.</li>
+<li><strong>Only confirmations are answered.</strong> Only an empty form, or a form whose single decision field is <code>approve</code>, <code>approved</code>, <code>confirm</code>, <code>confirmed</code>, <code>accept</code>, <code>accepted</code>, <code>proceed</code> or <code>allow</code> (a boolean), is answered. Its <code>reason</code> field gets the decision's reason. URL-mode requests and forms that ask for other input are declined without asking the handler.</li>
+<li><strong>The two halves have different authors.</strong> The message comes from the server; <code>tool_name</code> and <code>arguments</code> come from the agent's own record of the call it sent. Both reach the reviewer, so a server whose message doesn't match the call is visible.</li>
+<li><strong>No handler, no capability.</strong> Without <code>approval=</code>, the agent doesn't declare elicitation support, so gated calls are denied exactly as before.</li>
+</ul>
+<p>While a reviewer decides, other responses from the same server wait, because
+the MCP SDK handles server requests one at a time per connection. Keep the
+handler's timeout below the server's approval timeout (MCPcast:
+<code>MCPCAST_APPROVAL_TIMEOUT</code>, 300s by default), or a late approval arrives after
+the server has already denied the call.</p>
+<p>To use this without <code>build_agent()</code>, see
+<a href="../../mcp/client/#answering-elicitation-server-side-approval-gates">Answering elicitation</a>
+(<code>approval_elicitation_callback</code>).</p>
 <hr />
 <h2 id="security">Security<a class="headerlink" href="#security" title="Link to this section">&para;</a></h2>
 <h3 id="hmac-request-signing">HMAC Request Signing<a class="headerlink" href="#hmac-request-signing" title="Link to this section">&para;</a></h3>
 <p><code>WebhookApprovalHandler</code> signs every request with HMAC-SHA256:</p>
 <ul>
 <li>Header: <code>X-Promptise-Signature</code></li>
-<li>Payload: JSON of <code>{"request_id": "...", "tool_name": "..."}</code> (sorted keys)</li>
+<li>Payload: sorted-key JSON of <code>request_id</code>, <code>tool_name</code>, <code>arguments</code>, <code>agent_id</code>, <code>caller_user_id</code> and <code>timestamp</code> (<code>promptise.approval.SIGNED_FIELDS</code>)</li>
 <li>Secret: Your <code>secret</code> parameter</li>
 </ul>
-<p>Verify this in your approval API to reject spoofed requests.</p>
+<p>Verify this in your approval API with <a href="#hmac-verification-on-your-approval-service"><code>verify_webhook_signature()</code></a> to reject spoofed requests, and pass <code>max_age</code> to reject replayed ones.</p>
 <h3 id="single-use-request-ids">Single-Use Request IDs<a class="headerlink" href="#single-use-request-ids" title="Link to this section">&para;</a></h3>
 <p>Every <code>request_id</code> is generated with <code>secrets.token_hex(16)</code> — 128 bits of cryptographic randomness. Request IDs are tracked per-agent to prevent replay attacks.</p>
 <h3 id="argument-redaction">Argument Redaction<a class="headerlink" href="#argument-redaction" title="Link to this section">&para;</a></h3>
-<p>When <code>redact_sensitive=True</code> (default), tool arguments are processed through the guardrails system before being sent to the reviewer:</p>
+<p>When <code>redact_sensitive=True</code> (default), tool arguments and <code>context_summary</code> are processed through the guardrails PII and credential detectors before being sent to the reviewer:</p>
 <ul>
 <li>PII patterns: email addresses, phone numbers, SSNs → <code>[EMAIL]</code>, <code>[PHONE]</code>, <code>[SSN]</code></li>
 <li>Credential patterns: API keys, tokens → <code>[AWS_ACCESS_KEY]</code>, <code>[OPENAI_KEY]</code></li>
 </ul>
-<p>The reviewer sees enough to make a decision without seeing raw sensitive data.</p>
+<p>Each string value is redacted on its own, including strings nested in dicts and lists. Keys, numbers, booleans and the structure are kept:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span><span class="s2">"to"</span><span class="p">:</span> <span class="s2">"dana@example.com"</span><span class="p">,</span> <span class="s2">"subject"</span><span class="p">:</span> <span class="s2">"Your refund"</span><span class="p">,</span> <span class="s2">"body"</span><span class="p">:</span> <span class="s2">"Call +1 415 555 0100."</span><span class="p">}</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="c1"># → {"to": "[EMAIL]", "subject": "Your refund", "body": "Call [PHONE]."}</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="p">{</span><span class="s2">"order_id"</span><span class="p">:</span> <span class="s2">"A-1001"</span><span class="p">,</span> <span class="s2">"amount"</span><span class="p">:</span> <span class="mf">18.5</span><span class="p">}</span>
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="c1"># → unchanged</span>
+</span></code></pre></div>
+<p>The reviewer sees enough to make a decision without seeing raw sensitive data. Redaction applies to what reviewers, webhook payloads and <code>on_decision</code> see; an <a href="../approval-classifier/#rules-see-the-real-arguments"><code>AutoApprovalClassifier</code></a> evaluates its rules on the real arguments, so <code>argument_contains="@competitor.example"</code> still matches when the reviewer sees <code>[EMAIL]</code>. Detection is pattern-based, so a value is only redacted when it looks like one of the known formats. Set <code>include_arguments=False</code> when the arguments must not reach the reviewer at all.</p>
 <h3 id="ssrf-protection">SSRF Protection<a class="headerlink" href="#ssrf-protection" title="Link to this section">&para;</a></h3>
-<p><code>WebhookApprovalHandler</code> validates the webhook URL at construction time:</p>
+<p><code>WebhookApprovalHandler</code> refuses every address that is not public unicast:</p>
 <ul>
-<li>Blocks private IP ranges (10.x, 172.16-31.x, 192.168.x)</li>
-<li>Blocks loopback (127.x)</li>
-<li>Blocks link-local (169.254.x — cloud metadata endpoints)</li>
-<li>Blocks <code>localhost</code> and known internal hostnames</li>
+<li>Private IP ranges (10.x, 172.16-31.x, 192.168.x)</li>
+<li>Loopback (127.x) and <code>localhost</code></li>
+<li>Link-local (169.254.x — cloud metadata endpoints) and shared/carrier-grade NAT space (100.64.0.0/10)</li>
+<li><code>0.0.0.0</code>, multicast and reserved ranges</li>
 </ul>
+<p>The URL is checked when the handler is created, and again before the POST and before every poll: the host is resolved, every address is checked, and the request goes to the checked address (keeping the <code>Host</code> header and the TLS server name), so a DNS record that later points at an internal address (DNS rebinding) is not followed. A request to an internal address raises, and the tool call is denied. Redirects are never followed, even with an <code>http_client</code> configured to follow them.</p>
+<p><code>poll_url</code> is checked the same way. If your approval service runs on your own network (<code>https://ops.internal/approvals</code>, <code>http://10.0.4.2:8080/approvals</code>), opt in explicitly:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">WebhookApprovalHandler</span>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">WebhookApprovalHandler</span><span class="p">(</span>
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"https://ops.internal/approvals"</span><span class="p">,</span>
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>    <span class="n">secret</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"APPROVAL_WEBHOOK_SECRET"</span><span class="p">],</span>
+</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>    <span class="n">allow_private_networks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="p">)</span>
+</span></code></pre></div>
 <h3 id="timeout-enforcement">Timeout Enforcement<a class="headerlink" href="#timeout-enforcement" title="Link to this section">&para;</a></h3>
 <p>Timeouts are enforced server-side with <code>asyncio.wait_for</code>. A misbehaving handler cannot keep the agent suspended indefinitely. Maximum configurable timeout: 24 hours.</p>
 <hr />
 <h2 id="multi-user">Multi-User<a class="headerlink" href="#multi-user" title="Link to this section">&para;</a></h2>
 <p><code>CallerContext.user_id</code> is automatically extracted and included in every <code>ApprovalRequest.caller_user_id</code>. The reviewer knows which user's action they're approving.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># User identity flows through to the approval request</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="p">{</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Send the invoice"</span><span class="p">}]},</span>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"user-42"</span><span class="p">),</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="p">)</span>
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="c1"># ApprovalRequest will include caller_user_id="user-42"</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># User identity flows through to the approval request</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span>
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    <span class="p">{</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Send the invoice"</span><span class="p">}]},</span>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>    <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"user-42"</span><span class="p">),</span>
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="p">)</span>
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="c1"># ApprovalRequest will include caller_user_id="user-42"</span>
 </span></code></pre></div>
 <p>Different users' pending approvals are completely independent. User A waiting for approval doesn't block User B's agent from executing.</p>
 <hr />
 <h2 id="yaml-configuration-superagent">YAML Configuration (.superagent)<a class="headerlink" href="#yaml-configuration-superagent" title="Link to this section">&para;</a></h2>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">approval</span><span class="p">:</span>
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">tools</span><span class="p">:</span>
-</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">send_email</span>
-</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"delete_*"</span>
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"payment_*"</span>
-</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook</span>
-</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">  </span><span class="nt">webhook_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://your-api.com/approvals</span>
-</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">  </span><span class="nt">on_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deny</span>
-</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">  </span><span class="nt">max_pending</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="w">  </span><span class="nt">redact_sensitive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="w">  </span><span class="nt">max_retries_after_deny</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="nt">approval</span><span class="p">:</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span><span class="nt">tools</span><span class="p">:</span>
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">send_email</span>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"delete_*"</span>
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"payment_*"</span>
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook</span>
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="w">  </span><span class="nt">webhook_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://your-api.com/approvals</span>
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="w">  </span><span class="nt">webhook_secret</span><span class="p">:</span><span class="w"> </span><span class="s">"${APPROVAL_WEBHOOK_SECRET}"</span><span class="w">   </span><span class="c1"># signs X-Promptise-Signature</span>
+</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="w">  </span><span class="nt">on_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deny</span>
+</span><span id="__span-27-11"><a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a><span class="w">  </span><span class="nt">max_pending</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+</span><span id="__span-27-12"><a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="w">  </span><span class="nt">redact_sensitive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-27-13"><a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="w">  </span><span class="nt">max_retries_after_deny</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</span><span id="__span-27-14"><a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a><span class="w">  </span><span class="nt">deny_window</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+</span><span id="__span-27-15"><a id="__codelineno-27-15" name="__codelineno-27-15" href="#__codelineno-27-15"></a><span class="w">  </span><span class="nt">deny_scope</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">session</span><span class="w">            </span><span class="c1"># session | user | agent</span>
+</span><span id="__span-27-16"><a id="__codelineno-27-16" name="__codelineno-27-16" href="#__codelineno-27-16"></a><span class="w">  </span><span class="nt">sequential</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-27-17"><a id="__codelineno-27-17" name="__codelineno-27-17" href="#__codelineno-27-17"></a><span class="w">  </span><span class="nt">context_messages</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</span><span id="__span-27-18"><a id="__codelineno-27-18" name="__codelineno-27-18" href="#__codelineno-27-18"></a><span class="w">  </span><span class="nt">webhook_allow_private_networks</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">   </span><span class="c1"># true for a webhook_url on your own network</span>
 </span></code></pre></div>
-<p>Supported handler types in YAML: <code>webhook</code> (requires <code>webhook_url</code>), <code>queue</code>.</p>
+<p>Supported handler types in YAML:</p>
+<table>
+<thead>
+<tr>
+<th><code>handler</code></th>
+<th>Needs</th>
+<th>Who answers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>webhook</code></td>
+<td><code>webhook_url</code>; set <code>webhook_secret</code> so your service can verify <code>X-Promptise-Signature</code> (without it a random per-process secret is used)</td>
+<td>Your approval service</td>
+</tr>
+<tr>
+<td><code>queue</code></td>
+<td>—</td>
+<td>Code in the same process reading <code>handler.request_queue</code>. <code>promptise agent</code> asks each request as a y/N question when you run it at a terminal; with piped input nobody can answer, so requests time out and <code>on_timeout</code> applies.</td>
+</tr>
+</tbody>
+</table>
+<p>The file is checked when it is loaded (and by <code>promptise validate</code>): <code>handler: webhook</code> without <code>webhook_url</code>, <code>webhook_secret</code> with another handler, and <code>handler: callback</code> are validation errors.</p>
 <div class="admonition note">
 <p class="admonition-title">Callback handler not available in YAML</p>
-<p><code>CallbackApprovalHandler</code> requires a Python function, so it can only be configured programmatically. Use <code>webhook</code> or <code>queue</code> in YAML files.</p>
+<p><code>CallbackApprovalHandler</code> requires a Python function, so a <code>.superagent</code> file cannot configure it. Use <code>webhook</code> or <code>queue</code> in YAML, or build the agent in Python with <code>approval=ApprovalPolicy(handler=CallbackApprovalHandler(fn), ...)</code>.</p>
 </div>
 <hr />
 <h2 id="integration-with-agent-runtime">Integration with Agent Runtime<a class="headerlink" href="#integration-with-agent-runtime" title="Link to this section">&para;</a></h2>
 <p>Approval works seamlessly with autonomous agents in the runtime:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">TriggerConfig</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApprovalPolicy</span><span class="p">,</span> <span class="n">WebhookApprovalHandler</span>
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="n">instructions</span><span class="o">=</span><span class="s2">"Process customer refunds. Amounts over $500 need manager approval."</span><span class="p">,</span>
-</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    <span class="n">triggers</span><span class="o">=</span><span class="p">[</span><span class="n">TriggerConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"cron"</span><span class="p">,</span> <span class="n">cron_expression</span><span class="o">=</span><span class="s2">"*/5 * * * *"</span><span class="p">)],</span>
-</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>    <span class="n">approval</span><span class="o">=</span><span class="n">ApprovalPolicy</span><span class="p">(</span>
-</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>        <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"process_refund"</span><span class="p">,</span> <span class="s2">"delete_account"</span><span class="p">,</span> <span class="s2">"escalate_to_legal"</span><span class="p">],</span>
-</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>        <span class="n">handler</span><span class="o">=</span><span class="n">WebhookApprovalHandler</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"https://ops.internal/approvals"</span><span class="p">),</span>
-</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>        <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
-</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>    <span class="p">),</span>
-</span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">TriggerConfig</span>
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApprovalPolicy</span><span class="p">,</span> <span class="n">WebhookApprovalHandler</span>
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>
+</span><span id="__span-28-6"><a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
+</span><span id="__span-28-7"><a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-28-8"><a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>    <span class="n">instructions</span><span class="o">=</span><span class="s2">"Process customer refunds. Amounts over $500 need manager approval."</span><span class="p">,</span>
+</span><span id="__span-28-9"><a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>    <span class="n">triggers</span><span class="o">=</span><span class="p">[</span><span class="n">TriggerConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"cron"</span><span class="p">,</span> <span class="n">cron_expression</span><span class="o">=</span><span class="s2">"*/5 * * * *"</span><span class="p">)],</span>
+</span><span id="__span-28-10"><a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a>    <span class="n">approval</span><span class="o">=</span><span class="n">ApprovalPolicy</span><span class="p">(</span>
+</span><span id="__span-28-11"><a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>        <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"process_refund"</span><span class="p">,</span> <span class="s2">"delete_account"</span><span class="p">,</span> <span class="s2">"escalate_to_legal"</span><span class="p">],</span>
+</span><span id="__span-28-12"><a id="__codelineno-28-12" name="__codelineno-28-12" href="#__codelineno-28-12"></a>        <span class="n">handler</span><span class="o">=</span><span class="n">WebhookApprovalHandler</span><span class="p">(</span>
+</span><span id="__span-28-13"><a id="__codelineno-28-13" name="__codelineno-28-13" href="#__codelineno-28-13"></a>            <span class="n">url</span><span class="o">=</span><span class="s2">"https://ops.internal/approvals"</span><span class="p">,</span>
+</span><span id="__span-28-14"><a id="__codelineno-28-14" name="__codelineno-28-14" href="#__codelineno-28-14"></a>            <span class="n">secret</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"APPROVAL_WEBHOOK_SECRET"</span><span class="p">],</span>
+</span><span id="__span-28-15"><a id="__codelineno-28-15" name="__codelineno-28-15" href="#__codelineno-28-15"></a>            <span class="n">allow_private_networks</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># ops.internal resolves to a private IP</span>
+</span><span id="__span-28-16"><a id="__codelineno-28-16" name="__codelineno-28-16" href="#__codelineno-28-16"></a>        <span class="p">),</span>
+</span><span id="__span-28-17"><a id="__codelineno-28-17" name="__codelineno-28-17" href="#__codelineno-28-17"></a>        <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+</span><span id="__span-28-18"><a id="__codelineno-28-18" name="__codelineno-28-18" href="#__codelineno-28-18"></a>    <span class="p">),</span>
+</span><span id="__span-28-19"><a id="__codelineno-28-19" name="__codelineno-28-19" href="#__codelineno-28-19"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>When the autonomous agent hits a tool requiring approval at 3am, the webhook fires, the ops team gets notified, and the agent waits.</p>
+<p>When the autonomous agent hits a tool requiring approval at 3am, the webhook fires, the ops team gets notified, and the agent waits. Requests from a process carry its name as <code>agent_id</code> (unless the process has an <code>identity</code>, whose agent id is used), so the ops team can see which process is asking. Triggered runs have no <code>CallerContext</code>, so with the default <code>deny_scope="session"</code> all of a process's runs share one denial count.</p>
 <hr />
 <h2 id="integration-with-guardrails">Integration with Guardrails<a class="headerlink" href="#integration-with-guardrails" title="Link to this section">&para;</a></h2>
 <p>Approval and guardrails work together:</p>
@@ -10769,11 +11221,11 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 </tr>
 <tr>
 <td><strong>Multiple tools need approval in one invocation</strong></td>
-<td>Each is handled independently, sequentially. The second approval starts after the first resolves.</td>
+<td>When the model requests them in the same turn, they run concurrently, so the handler receives all requests at once and each is decided independently. Set <code>sequential=True</code> to ask one at a time: each request waits until the previous one in the same invocation is decided. Other invocations aren't held up.</td>
 </tr>
 <tr>
 <td><strong>Agent retries denied tool</strong></td>
-<td>Tracked per tool name. After <code>max_retries_after_deny</code>, returns permanent denial without asking reviewer again.</td>
+<td>After <code>max_retries_after_deny</code> denials of that tool within <code>deny_window</code>, for the same user and session (<code>deny_scope</code>), it is denied without asking the reviewer. Other users and sessions are still asked. See <a href="#repeated-denials">Repeated denials</a>.</td>
 </tr>
 <tr>
 <td><strong>max_pending reached</strong></td>
@@ -10784,12 +11236,28 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <td>Treated as denial: "Approval handler error: {error type}." Agent continues.</td>
 </tr>
 <tr>
+<td><strong>Reviewer modifies only some arguments</strong></td>
+<td>Merged onto the original call; the other arguments are kept.</td>
+</tr>
+<tr>
 <td><strong>Reviewer modifies arguments to invalid values</strong></td>
-<td>The tool executes with modified arguments. If the tool validates internally (Pydantic), it will fail with a tool error.</td>
+<td>The merged arguments are validated against the tool's schema first. Invalid values fail the call with a validation error, and the tool doesn't run.</td>
 </tr>
 <tr>
 <td><strong>No CallerContext provided</strong></td>
 <td>Approval still works. <code>caller_user_id</code> is <code>None</code> in the request.</td>
+</tr>
+<tr>
+<td><strong>A server-side gate asks for confirmation</strong></td>
+<td>Routed to the handler (see <a href="#server-side-approval-gates">Server-side approval gates</a>). Without <code>approval=</code>, the server denies the call.</td>
+</tr>
+<tr>
+<td><strong>Server-side gate times out or the handler fails</strong></td>
+<td>Declined: the server denies the call, whatever <code>on_timeout</code> says.</td>
+</tr>
+<tr>
+<td><strong>Delegation to a peer agent</strong></td>
+<td><code>ask_agent_&lt;name&gt;</code> tools match patterns like any tool. <code>broadcast_to_agents</code> does not call a peer whose <code>ask_agent_&lt;name&gt;</code> needs approval (unless the broadcast tool needs approval itself). A peer's own policy applies inside the peer -- also for the cross-agents of a <code>.superagent</code> file, which <code>build_superagent()</code> and <code>promptise agent</code> build with their whole file. See <a href="../agents/cross-agent/#approval-and-identity">Cross-Agent Delegation</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -10839,21 +11307,37 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <td><code>from promptise import QueueApprovalHandler</code></td>
 <td>asyncio.Queue for in-process UIs</td>
 </tr>
+<tr>
+<td><code>approval_elicitation_callback</code></td>
+<td><code>from promptise import approval_elicitation_callback</code></td>
+<td>MCP client elicitation callback that asks a handler (server-side gates)</td>
+</tr>
+<tr>
+<td><code>verify_webhook_signature</code></td>
+<td><code>from promptise.approval import verify_webhook_signature</code></td>
+<td>Check <code>X-Promptise-Signature</code> on your approval service</td>
+</tr>
+<tr>
+<td><code>wrap_tools_with_approval</code></td>
+<td><code>from promptise.approval import wrap_tools_with_approval</code></td>
+<td>Gate a list of tools without <code>build_agent()</code></td>
+</tr>
 </tbody>
 </table>
 <hr />
 <h2 id="manual-integration">Manual Integration<a class="headerlink" href="#manual-integration" title="Link to this section">&para;</a></h2>
 <p>If you're not using <code>build_agent()</code>, you can wrap tools manually:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">wrap_tools_with_approval</span><span class="p">,</span> <span class="n">ApprovalPolicy</span><span class="p">,</span> <span class="n">CallbackApprovalHandler</span>
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
-</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span>
-</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"send_*"</span><span class="p">,</span> <span class="s2">"delete_*"</span><span class="p">],</span>
-</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="n">handler</span><span class="o">=</span><span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">my_handler</span><span class="p">),</span>
-</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="p">)</span>
-</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>
-</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="c1"># Wrap a list of LangChain BaseTool instances</span>
-</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="n">wrapped_tools</span> <span class="o">=</span> <span class="n">wrap_tools_with_approval</span><span class="p">(</span><span class="n">tools</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="n">event_notifier</span><span class="o">=</span><span class="n">notifier</span><span class="p">)</span>
-</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="c1"># Tools matching patterns are wrapped; others pass through unchanged</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">ApprovalPolicy</span><span class="p">,</span> <span class="n">CallbackApprovalHandler</span>
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.approval</span><span class="w"> </span><span class="kn">import</span> <span class="n">wrap_tools_with_approval</span>
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ApprovalPolicy</span><span class="p">(</span>
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"send_*"</span><span class="p">,</span> <span class="s2">"delete_*"</span><span class="p">],</span>
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>    <span class="n">handler</span><span class="o">=</span><span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">my_handler</span><span class="p">),</span>
+</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="p">)</span>
+</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>
+</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a><span class="c1"># Wrap a list of LangChain BaseTool instances (MCP tools, @tool functions, ...)</span>
+</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a><span class="n">wrapped_tools</span> <span class="o">=</span> <span class="n">wrap_tools_with_approval</span><span class="p">(</span><span class="n">tools</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="n">event_notifier</span><span class="o">=</span><span class="n">notifier</span><span class="p">,</span> <span class="n">agent_id</span><span class="o">=</span><span class="s2">"billing-bot"</span><span class="p">)</span>
+</span><span id="__span-29-11"><a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a><span class="c1"># Tools matching patterns are wrapped; others pass through unchanged</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10880,12 +11364,18 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
 <td>Optional notifier for approval events</td>
 </tr>
 <tr>
+<td><code>agent_id</code></td>
+<td><code>str \| None</code></td>
+<td>Sent as <code>ApprovalRequest.agent_id</code> and on events</td>
+</tr>
+<tr>
 <td><strong>Returns</strong></td>
 <td><code>list[BaseTool]</code></td>
 <td>New list with matching tools wrapped</td>
 </tr>
 </tbody>
 </table>
+<p>Call it once per agent: the wrapped tools share their state (pending count, denial counts). Outside <code>build_agent()</code>, <code>context_summary</code> stays empty and denials are scoped by the <code>CallerContext</code> and session in effect when the tool runs, if any.</p>
 <hr />
 <h2 id="whats-next">What's Next?<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
 <ul>
@@ -10916,7 +11406,7 @@ Both share the same <code>ApprovalRequest</code> / <code>ApprovalDecision</code>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 14, 2026 20:36:35 UTC">2026-07-14</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 21:07:09 UTC">2026-10-10</span>
   </span>
 
     

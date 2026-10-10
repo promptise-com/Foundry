@@ -4430,6 +4430,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hiding-tools-a-tenant-cannot-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hiding tools a tenant cannot call
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agent-side-callercontexttenant_id" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4437,6 +4448,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Agent side: CallerContext.tenant_id">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-users-token-reaches-the-mcp-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The user's token reaches the MCP server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9263,6 +9291,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hiding-tools-a-tenant-cannot-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hiding tools a tenant cannot call
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agent-side-callercontexttenant_id" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9270,6 +9309,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Agent side: CallerContext.tenant_id">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-users-token-reaches-the-mcp-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The user's token reaches the MCP server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9399,6 +9455,12 @@ without it.</p>
 </span></code></pre></div>
 <p>Only <strong>string</strong> claim values are accepted; anything else leaves
 <code>tenant_id</code> unset and tenant guards fail closed.</p>
+<p><code>audience</code> and <code>issuer</code> are checked on every token: a token whose <code>aud</code>
+does not include <code>api://my-server</code>, or whose <code>iss</code> differs from <code>issuer</code>
+when you set one, is rejected. Set <code>audience</code> whenever the signing secret
+is shared by more than one service, so a token minted for one of them is
+refused by the others. <code>AsymmetricJWTAuth</code> takes the same two arguments,
+and <code>JwksAuth</code> requires <code>audience</code>.</p>
 <p>For <code>APIKeyAuth</code>, the tenant comes from the key's config dict:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">APIKeyAuth</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="p">{</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">"sk-acme-1"</span><span class="p">:</span>   <span class="p">{</span><span class="s2">"client_id"</span><span class="p">:</span> <span class="s2">"acme-agent"</span><span class="p">,</span>   <span class="s2">"roles"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"analyst"</span><span class="p">],</span> <span class="s2">"tenant_id"</span><span class="p">:</span> <span class="s2">"acme"</span><span class="p">},</span>
@@ -9457,26 +9519,76 @@ guard. A client whose token lacks the tenant claim is denied on every call:</p>
 <td><code>AuditMiddleware</code> records <code>tenant_id</code> in each entry's identity descriptors — tenant-scoped forensics without joining external data</td>
 </tr>
 <tr>
+<td>Result caching</td>
+<td><code>CacheMiddleware</code> and <code>@cached</code> key every entry on the caller (issuer, tenant and client id) by default, so a result computed for one tenant is never served to another. Widen with <code>scope="tenant"</code> or <code>scope="shared"</code> only for data that does not depend on the caller — see <a href="../caching-performance/#who-shares-a-cached-result">Caching</a></td>
+</tr>
+<tr>
 <td>Tool access</td>
 <td><code>RequireTenant</code> / <code>HasTenant</code> guards, or the server-wide <code>require_tenant</code> invariant</td>
+</tr>
+<tr>
+<td>Tool listing</td>
+<td>Every tool is listed to every client unless you build the server with <code>hide_unauthorized_tools=True</code> — see below</td>
+</tr>
+<tr>
+<td>Job queue</td>
+<td><code>MCPQueue</code> jobs record the submitting client and tenant; <code>queue_status</code>, <code>queue_result</code>, <code>queue_cancel</code> and <code>queue_list</code> only show a caller its own jobs, and the admin role widens that to its own tenant only (<a href="../queue/#job-ownership">Job ownership</a>)</td>
 </tr>
 </tbody>
 </table>
 <p><code>SessionState</code> needs no tenant prefix: it is keyed by the live transport
 session, which is connection-scoped and therefore cannot be shared across
 tenants.</p>
+<h2 id="hiding-tools-a-tenant-cannot-call">Hiding tools a tenant cannot call<a class="headerlink" href="#hiding-tools-a-tenant-cannot-call" title="Link to this section">&para;</a></h2>
+<p>Guards decide whether a tool may be <strong>called</strong>. By default, <code>tools/list</code>
+still returns every registered tool to every client, so a tool guarded with
+<code>HasTenant("acme")</code> shows its name, description and input schema to
+Globex too. Calling it is refused, but the listing itself can reveal a
+feature, a customer-specific integration, or an admin tool, and an agent
+shown a tool it cannot use wastes turns on it.</p>
+<p>Build the server with <code>hide_unauthorized_tools=True</code> to filter the list per
+request:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">server</span> <span class="o">=</span> <span class="n">MCPServer</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"crm"</span><span class="p">,</span> <span class="n">require_tenant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">hide_unauthorized_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">server</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span><span class="n">AuthMiddleware</span><span class="p">(</span><span class="n">JWTAuth</span><span class="p">(</span><span class="n">secret</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">audience</span><span class="o">=</span><span class="s2">"api://crm"</span><span class="p">),</span> <span class="n">tenant_claim</span><span class="o">=</span><span class="s2">"org"</span><span class="p">))</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nd">@server</span><span class="o">.</span><span class="n">tool</span><span class="p">(</span><span class="n">guards</span><span class="o">=</span><span class="p">[</span><span class="n">HasTenant</span><span class="p">(</span><span class="s2">"acme"</span><span class="p">)])</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">forecast_renewals</span><span class="p">(</span><span class="n">ctx</span><span class="p">:</span> <span class="n">RequestContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span> <span class="o">...</span>
+</span></code></pre></div>
+<p>For each <code>tools/list</code> request (and each read of the <code>docs://manifest</code>
+resource) the server authenticates the request with its <code>AuthMiddleware</code>,
+exactly as a tool call would, and evaluates every tool's guards against
+that identity. Acme's agent sees <code>forecast_renewals</code>; Globex's does not.</p>
+<p><code>resources/list</code>, <code>resources/templates/list</code> and <code>prompts/list</code> are
+filtered the same way, using each resource's and prompt's <code>auth</code>, <code>roles</code>
+and <code>guards</code>.</p>
+<ul>
+<li><strong>It fails closed.</strong> Credentials that do not verify hide every tool that
+  needs authentication, and a guard that raises hides its tool.</li>
+<li><strong>Calls are still guarded.</strong> Hiding is not the access control; a client
+  that calls a hidden tool by name gets <code>ACCESS_DENIED</code> as before. Denials
+  name the caller's own tenant, never the tenants that are allowed.</li>
+<li><strong>Guards see what <code>AuthMiddleware</code> sets.</strong> Built-in guards read
+  <code>ctx.client</code>, which <code>AuthMiddleware</code> and its <code>on_authenticate</code> hook fill
+  in. A custom guard that depends on state another middleware sets cannot
+  be evaluated at list time, so its tool is hidden.</li>
+<li><strong>The list follows the credential that asks for it.</strong> An agent discovers
+  its tools once, when it is built, with the credentials in its
+  <code>HTTPServerSpec</code>. Give that credential access to every tool the agent
+  should know about; each call is then made as the invoking user (see
+  below) and checked against that user's guards.</li>
+</ul>
 <h2 id="agent-side-callercontexttenant_id">Agent side: <code>CallerContext.tenant_id</code><a class="headerlink" href="#agent-side-callercontexttenant_id" title="Link to this section">&para;</a></h2>
 <p>The same invariant applies inside the agent. <code>CallerContext</code> gains
 <code>tenant_id</code>, and one derivation — <code>CallerContext.isolation_key</code>
 (<code>"{tenant_id}::{user_id}"</code>, or the plain <code>user_id</code> without a tenant) —
 feeds every per-user isolation surface:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">acme_alice</span>   <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">globex_alice</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"globex"</span><span class="p">)</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1"># Same user_id, different tenants — fully isolated:</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="n">sid</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">acme_alice</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">acme_alice</span>   <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">globex_alice</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"globex"</span><span class="p">)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="c1"># Same user_id, different tenants — fully isolated:</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="n">sid</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">acme_alice</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9502,8 +9614,46 @@ feeds every per-user isolation surface:</p>
 <td>Cross-agent delegation</td>
 <td>The full <code>CallerContext</code> (including tenant) is inherited by peers via caller-context continuity</td>
 </tr>
+<tr>
+<td>MCP tool calls</td>
+<td><code>CallerContext.bearer_token</code> is sent on every call to an HTTP/SSE MCP server during the invocation, over a session opened for that token — so the server authenticates the user and derives <em>their</em> tenant</td>
+</tr>
 </tbody>
 </table>
+<h3 id="the-users-token-reaches-the-mcp-server">The user's token reaches the MCP server<a class="headerlink" href="#the-users-token-reaches-the-mcp-server" title="Link to this section">&para;</a></h3>
+<p>One agent can serve every tenant. Build it once, and pass each user's token
+on the invocation:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"crm"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">CRM_URL</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">SERVICE_TOKEN</span><span class="p">)},</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="p">)</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">alice</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">alice_jwt</span><span class="p">)</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">bob</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"bob"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"globex"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">bob_jwt</span><span class="p">)</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="c1"># Concurrent invocations: each tool call carries its own caller's token.</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]},</span> <span class="n">caller</span><span class="o">=</span><span class="n">alice</span><span class="p">),</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]},</span> <span class="n">caller</span><span class="o">=</span><span class="n">bob</span><span class="p">),</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Each distinct token gets its own MCP session, opened on first use and
+reused by that caller's later calls; concurrent invocations never share a
+session or a header. Idle sessions close after five minutes, and at most
+256 idle sessions stay open. <code>SERVICE_TOKEN</code> is used to discover the tools
+when the agent is built, and for invocations without a caller token.</p>
+<p>Two things to check:</p>
+<ul>
+<li><strong>The server's tenant comes from the token, not from
+  <code>CallerContext.tenant_id</code>.</strong> A caller with a <code>tenant_id</code> but no
+  <code>bearer_token</code> is sent with the spec's credential, and the server sees
+  that identity. For tenant-scoped data, always pass the user's token.</li>
+<li><strong>Opt a server out</strong> with <code>HTTPServerSpec(..., forward_caller_token=False)</code>
+  when the user's token must not leave your trust boundary (a third-party
+  MCP server) or is not meant for it. stdio servers have no request
+  headers, never receive the token, and log a warning the first time a
+  caller token cannot be sent to them.</li>
+</ul>
 <div class="admonition note">
 <p class="admonition-title">Memory providers see composite ids</p>
 <p>With a tenant present, providers store owner ids like
@@ -9523,17 +9673,21 @@ ids like <code>google:12345</code>, <code>auth0|abc</code>) remain fine; tenant 
 identifiers (<code>acme</code>, an org UUID) and so are colon-free.</p>
 </div>
 <h2 id="end-to-end-tenant-flows-from-token-to-storage">End-to-end: tenant flows from token to storage<a class="headerlink" href="#end-to-end-tenant-flows-from-token-to-storage" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># 1. Your app authenticates the user and knows their org</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">caller</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">)</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># 2. Agent-side isolation is automatic</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What did we discuss?"</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="n">sid</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">caller</span><span class="p">)</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># 3. Server-side: the agent's JWT carries the tenant claim,</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1">#    AuthMiddleware extracts it, guards + rate limits + audit key on it</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># 1. Your app authenticates the user and knows their org</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">caller</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">)</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># 2. Agent-side isolation is automatic</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What did we discuss?"</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="n">sid</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">caller</span><span class="p">)</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># 3. Server-side: the user's JWT (caller.bearer_token) carries the tenant</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1">#    claim, AuthMiddleware extracts it, and guards, rate limits, caching</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1">#    and audit key on it</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">caller</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">alice_jwt</span><span class="p">)</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">reply</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Which renewals are due?"</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="n">sid</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">caller</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Link to this section">&para;</a></h2>
 <ul>
+<li><a href="https://github.com/promptise-com/foundry/blob/main/examples/mcp/multi_tenant_agent.py"><code>examples/mcp/multi_tenant_agent.py</code></a> — runnable: one agent serving two tenants, audience checks, caller-scoped caching, per-tenant tool lists</li>
 <li><a href="../auth-security/">Authentication &amp; Security</a> — auth providers, guards, <code>ClientContext</code></li>
 <li><a href="../../../guides/multi-user-identity/">Multi-User Identity guide</a> — end-to-end <code>CallerContext</code> flow</li>
 <li><a href="../approval-gates/">Approval Gates</a> — server-side human-in-the-loop</li>
@@ -9560,7 +9714,7 @@ identifiers (<code>acme</code>, an org UUID) and so are colon-free.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 14, 2026 20:36:35 UTC">2026-07-14</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:50:36 UTC">2026-10-10</span>
   </span>
 
     

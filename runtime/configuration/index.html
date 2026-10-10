@@ -9703,8 +9703,8 @@
 <tr>
 <td><code>journal</code></td>
 <td><code>JournalConfig</code></td>
-<td>defaults</td>
-<td>Journal configuration</td>
+<td>off (<code>level="none"</code>)</td>
+<td>Journal configuration; pass a <code>JournalConfig</code> to turn it on</td>
 </tr>
 <tr>
 <td><code>context</code></td>
@@ -9752,10 +9752,17 @@
 <td><code>max_restarts</code></td>
 <td><code>int</code></td>
 <td><code>3</code></td>
-<td>Max restart attempts</td>
+<td>Max consecutive restart attempts (count resets after a successful invocation)</td>
+</tr>
+<tr>
+<td><code>restart_backoff</code></td>
+<td><code>float</code></td>
+<td><code>1.0</code></td>
+<td>Seconds before the first restart; doubles per attempt, capped at 60 s</td>
 </tr>
 </tbody>
 </table>
+<p>See <a href="../processes/#restart-policies">Restart Policies</a> for how restarts behave.</p>
 <hr />
 <h2 id="executionmode">ExecutionMode<a class="headerlink" href="#executionmode" title="Link to this section">&para;</a></h2>
 <p>Controls whether the agent can modify itself at runtime.</p>
@@ -9920,7 +9927,13 @@
 <td><code>cron_expression</code></td>
 <td><code>str \| None</code></td>
 <td><code>None</code></td>
-<td>Cron expression (required for <code>cron</code>)</td>
+<td>Cron expression (required for <code>cron</code>); 5 fields, or 6 with trailing seconds</td>
+</tr>
+<tr>
+<td><code>cron_timezone</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>IANA time zone for the schedule (<code>None</code> = UTC)</td>
 </tr>
 <tr>
 <td><code>webhook_path</code></td>
@@ -9933,6 +9946,42 @@
 <td><code>int</code></td>
 <td><code>9090</code></td>
 <td>Listen port (for <code>webhook</code>, 1025-65535)</td>
+</tr>
+<tr>
+<td><code>webhook_host</code></td>
+<td><code>str</code></td>
+<td><code>"127.0.0.1"</code></td>
+<td>Bind address (for <code>webhook</code>; <code>"0.0.0.0"</code> = all interfaces)</td>
+</tr>
+<tr>
+<td><code>hmac_secret</code></td>
+<td><code>SecretStr \| None</code></td>
+<td><code>None</code></td>
+<td>Webhook signature secret; unsigned requests get 401</td>
+</tr>
+<tr>
+<td><code>signature_scheme</code></td>
+<td><code>str</code></td>
+<td><code>"generic"</code></td>
+<td><code>"generic"</code>, <code>"github"</code> or <code>"stripe"</code></td>
+</tr>
+<tr>
+<td><code>signature_header</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Override the signature header</td>
+</tr>
+<tr>
+<td><code>signature_tolerance</code></td>
+<td><code>int</code></td>
+<td><code>300</code></td>
+<td>Max age (s) of a <code>stripe</code> signature timestamp</td>
+</tr>
+<tr>
+<td><code>allowed_sources</code></td>
+<td><code>list[str]</code></td>
+<td><code>[]</code></td>
+<td>Client IPs / CIDRs allowed to call the webhook (empty = any)</td>
 </tr>
 <tr>
 <td><code>watch_path</code></td>
@@ -9950,7 +9999,13 @@
 <td><code>watch_events</code></td>
 <td><code>list[str]</code></td>
 <td><code>["created", "modified"]</code></td>
-<td>FS events to react to</td>
+<td>Merged FS events to react to: <code>created</code>, <code>modified</code>, <code>deleted</code>, <code>moved</code></td>
+</tr>
+<tr>
+<td><code>watch_debounce_seconds</code></td>
+<td><code>float</code></td>
+<td><code>0.5</code></td>
+<td>Window in which events for one file are merged</td>
 </tr>
 <tr>
 <td><code>event_type</code></td>
@@ -9972,9 +10027,9 @@
 </tr>
 <tr>
 <td><code>filter_expression</code></td>
-<td><code>str \| None</code></td>
+<td><code>str \| Callable \| None</code></td>
 <td><code>None</code></td>
-<td>Pre-filter before LLM invocation</td>
+<td>Safe expression or callable; non-matching events skip the agent (<a href="../triggers/#filtering-events-before-the-agent-runs">syntax</a>)</td>
 </tr>
 <tr>
 <td><code>custom_config</code></td>
@@ -9986,11 +10041,11 @@
 </table>
 <div class="admonition warning">
 <p class="admonition-title">Validation for built-in types</p>
-<p>A <code>cron</code> trigger without <code>cron_expression</code>, or a <code>file_watch</code> without <code>watch_path</code>, will raise a <code>ValidationError</code> at construction time. Custom trigger types defer validation to their factory function.</p>
+<p>A <code>cron</code> trigger without a valid <code>cron_expression</code>, a <code>file_watch</code> without <code>watch_path</code> or with unknown <code>watch_events</code>, an invalid <code>filter_expression</code>, time zone or <code>allowed_sources</code> entry, and any unknown key raise a <code>ValidationError</code> at construction time. Custom trigger types defer the rest of their validation to their factory function.</p>
 </div>
 <hr />
 <h2 id="journalconfig">JournalConfig<a class="headerlink" href="#journalconfig" title="Link to this section">&para;</a></h2>
-<p>Controls the durable audit log for process events.</p>
+<p>Controls the durable audit log for process events. A <code>ProcessConfig</code> has journaling <strong>off</strong> unless you set <code>journal=JournalConfig(...)</code> (or a <code>journal:</code> section in a manifest); a <code>JournalConfig</code> you create defaults to <code>level="checkpoint"</code>.</p>
 <table>
 <thead>
 <tr>
@@ -10005,7 +10060,7 @@
 <td><code>level</code></td>
 <td><code>str</code></td>
 <td><code>"checkpoint"</code></td>
-<td><code>"none"</code> (disabled), <code>"checkpoint"</code> (per cycle), <code>"full"</code> (every side effect)</td>
+<td><code>"none"</code> (disabled), <code>"checkpoint"</code> (transitions, invocation results, checkpoints), <code>"full"</code> (also trigger events and tool calls/results)</td>
 </tr>
 <tr>
 <td><code>backend</code></td>
@@ -10086,7 +10141,13 @@
 <td><code>conversation_max_messages</code></td>
 <td><code>int</code></td>
 <td><code>100</code></td>
-<td>Max messages in conversation buffer (0 = disabled)</td>
+<td>Max messages in conversation buffer (<strong>0 = unlimited</strong>)</td>
+</tr>
+<tr>
+<td><code>conversation_history</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td><code>False</code> turns short-term memory off: each run sees only its trigger event</td>
 </tr>
 <tr>
 <td><code>file_mounts</code></td>
@@ -10196,7 +10257,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:31:15 UTC">2026-10-10</span>
   </span>
 
     

@@ -3138,6 +3138,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Event Taxonomy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-counts-as-a-tool-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What counts as a tool error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#payloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payloads
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3160,6 +3188,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="WebhookSink">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#verifying-a-delivery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verifying a delivery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#private-networks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Private networks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -3328,6 +3384,17 @@
     <span class="md-ellipsis">
       
         EventBusSink
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eventnotifier_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EventNotifier
       
     </span>
   </a>
@@ -9405,6 +9472,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Event Taxonomy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-counts-as-a-tool-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What counts as a tool error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#payloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payloads
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9427,6 +9522,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="WebhookSink">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#verifying-a-delivery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verifying a delivery
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#private-networks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Private networks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -9601,6 +9724,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#eventnotifier_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        EventNotifier
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9708,7 +9842,7 @@
 <p>The information here is general technical information, not legal, regulatory, or compliance advice. Descriptions of any law, regulation, or standard (such as the GDPR, the EU AI Act, HIPAA, SOC 2, or PCI DSS) are simplified and may be incomplete, out of date, or inaccurate, and requirements vary by jurisdiction and situation. Promptise Foundry makes no warranty as to the accuracy or completeness of this content and is not responsible for how you use or rely on it. Using Promptise does not by itself make you or your product compliant with any law or standard. Consult a qualified lawyer or compliance professional before acting on anything here.</p>
 </div>
 <h2 id="event-taxonomy">Event Taxonomy<a class="headerlink" href="#event-taxonomy" title="Link to this section">&para;</a></h2>
-<p>20 event types across 9 categories:</p>
+<p>25 event types across 9 categories. Events marked <em>runtime</em> come from an <a href="../../runtime/"><code>AgentProcess</code></a>; the rest come from any agent built with <code>events=</code>.</p>
 <table>
 <thead>
 <tr>
@@ -9747,31 +9881,31 @@
 <td><strong>Tools</strong></td>
 <td><code>tool.error</code></td>
 <td>error</td>
-<td>A tool call fails</td>
+<td>A tool call raised, or an MCP tool returned an error result</td>
 </tr>
 <tr>
 <td></td>
 <td><code>tool.slow</code></td>
 <td>warning</td>
-<td>Tool call exceeds latency threshold (default 5s)</td>
+<td>A tool call took longer than <code>slow_tool_threshold</code> (default 5s)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>tool.progress</code></td>
+<td>info</td>
+<td>An MCP tool reports progress (<code>data</code>: <code>tool_name</code>, <code>progress</code>, <code>total</code>, <code>message</code>)</td>
 </tr>
 <tr>
 <td><strong>Guardrails</strong></td>
 <td><code>guardrail.blocked</code></td>
 <td>warning</td>
-<td>Input blocked by guardrails</td>
+<td>Input (or streamed output) blocked by guardrails</td>
 </tr>
 <tr>
 <td></td>
 <td><code>guardrail.redacted</code></td>
 <td>info</td>
 <td>Output had PII/credentials redacted</td>
-</tr>
-<tr>
-<td><strong>Budget</strong></td>
-<td><code>budget.exceeded</code></td>
-<td>critical</td>
-<td>Budget limit reached</td>
 </tr>
 <tr>
 <td><strong>Approval</strong></td>
@@ -9792,7 +9926,25 @@
 <td>Approval denied or timed out</td>
 </tr>
 <tr>
-<td><strong>Mission</strong></td>
+<td><strong>Budget</strong> <em>(runtime)</em></td>
+<td><code>budget.warning</code></td>
+<td>warning</td>
+<td>A budget limit is close to being reached</td>
+</tr>
+<tr>
+<td></td>
+<td><code>budget.exceeded</code></td>
+<td>critical</td>
+<td>Budget limit reached</td>
+</tr>
+<tr>
+<td></td>
+<td><code>budget.daily_reset</code></td>
+<td>info</td>
+<td>Daily budget counters were reset</td>
+</tr>
+<tr>
+<td><strong>Mission</strong> <em>(runtime)</em></td>
 <td><code>mission.progress</code></td>
 <td>info</td>
 <td>Mission evaluation completed</td>
@@ -9810,13 +9962,19 @@
 <td>Mission timed out or exceeded limits</td>
 </tr>
 <tr>
-<td><strong>Health</strong></td>
+<td><strong>Health</strong> <em>(runtime)</em></td>
 <td><code>health.anomaly</code></td>
 <td>warning</td>
 <td>Behavioral anomaly detected</td>
 </tr>
 <tr>
-<td><strong>Process</strong></td>
+<td></td>
+<td><code>health.recovered</code></td>
+<td>info</td>
+<td>The process is healthy again after an anomaly</td>
+</tr>
+<tr>
+<td><strong>Process</strong> <em>(runtime)</em></td>
 <td><code>process.started</code></td>
 <td>info</td>
 <td>Agent process started</td>
@@ -9831,7 +9989,13 @@
 <td></td>
 <td><code>process.failed</code></td>
 <td>critical</td>
-<td>Agent process entered FAILED state</td>
+<td>Agent process entered FAILED state (failed start, or <code>max_consecutive_failures</code> reached)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>process.restarted</code></td>
+<td>warning</td>
+<td>Restart policy is restarting the process (<code>attempt</code>, <code>max_restarts</code>, <code>reason</code>)</td>
 </tr>
 <tr>
 <td><strong>Cache</strong></td>
@@ -9841,10 +10005,127 @@
 </tr>
 </tbody>
 </table>
+<p><code>tool.error</code> and <code>tool.slow</code> are emitted whenever <code>events=</code> is set — they don't need <code>observe=True</code>.</p>
+<h3 id="what-counts-as-a-tool-error">What counts as a tool error<a class="headerlink" href="#what-counts-as-a-tool-error" title="Link to this section">&para;</a></h3>
+<p><code>tool.error</code> fires when a tool call:</p>
+<ul>
+<li><strong>raises</strong> — any tool: MCP tools, <code>extra_tools</code>, sandbox and cross-agent tools;</li>
+<li><strong>returns an MCP error result</strong> — a result with <code>isError: true</code>, or the structured error a Promptise MCP server sends when a tool raises <code>ToolError</code> (<code>{"error": {"code": ..., "message": ..., "retryable": ...}}</code>). The model still sees the error text and can recover; the event tells <em>you</em> it happened.</li>
+</ul>
+<p>A tool that returns its own domain answer such as <code>{"error": "No invoice INV-404"}</code> (no <code>code</code>) is not a tool error.</p>
+<h3 id="payloads">Payloads<a class="headerlink" href="#payloads" title="Link to this section">&para;</a></h3>
+<p>The <code>data</code> of each event:</p>
+<table>
+<thead>
+<tr>
+<th>Event Type</th>
+<th><code>data</code> fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invocation.start</code></td>
+<td><code>model</code>; <code>streaming</code> when streamed</td>
+</tr>
+<tr>
+<td><code>invocation.complete</code></td>
+<td><code>duration_ms</code>; <code>streaming</code></td>
+</tr>
+<tr>
+<td><code>invocation.error</code></td>
+<td><code>error</code>, <code>error_type</code>; <code>streaming</code></td>
+</tr>
+<tr>
+<td><code>invocation.timeout</code></td>
+<td><code>timeout_seconds</code></td>
+</tr>
+<tr>
+<td><code>tool.error</code></td>
+<td><code>tool_name</code>, <code>error</code> (message), <code>error_type</code>, <code>duration_ms</code>; <code>code</code> and <code>retryable</code> when the tool reported them</td>
+</tr>
+<tr>
+<td><code>tool.slow</code></td>
+<td><code>tool_name</code>, <code>latency_ms</code>, <code>threshold_ms</code></td>
+</tr>
+<tr>
+<td><code>tool.progress</code></td>
+<td><code>tool_name</code>, <code>progress</code>, <code>total</code>, <code>message</code></td>
+</tr>
+<tr>
+<td><code>guardrail.blocked</code></td>
+<td><code>direction</code> (<code>input</code>/<code>output</code>), <code>error</code> (exception type), <code>reason</code>, <code>findings</code> (<code>detector</code>, <code>category</code>, <code>severity</code>, <code>description</code> per finding — never the matched text); <code>streaming</code></td>
+</tr>
+<tr>
+<td><code>guardrail.redacted</code></td>
+<td><code>direction</code>; <code>streaming</code></td>
+</tr>
+<tr>
+<td><code>approval.requested</code></td>
+<td><code>tool_name</code>, <code>request_id</code>, <code>timeout</code>, <code>arguments</code> (as the policy redacts them; <code>{}</code> with <code>include_arguments=False</code>)</td>
+</tr>
+<tr>
+<td><code>approval.granted</code></td>
+<td><code>tool_name</code>, <code>request_id</code>, <code>reviewer</code>, <code>modified_arguments</code> (names of the arguments the reviewer changed), <code>decided_by</code>; <code>classifier_layer</code> when a classifier decided</td>
+</tr>
+<tr>
+<td><code>approval.denied</code></td>
+<td><code>tool_name</code>, <code>request_id</code>, <code>reason</code>, <code>decided_by</code>; <code>classifier_layer</code> when a classifier decided</td>
+</tr>
+<tr>
+<td><code>budget.warning</code></td>
+<td><code>process_name</code>, <code>limit_type</code>, <code>current</code>, <code>limit</code>, <code>percentage</code></td>
+</tr>
+<tr>
+<td><code>budget.exceeded</code></td>
+<td><code>process_name</code>, <code>limit_type</code>, <code>current</code>, <code>limit</code></td>
+</tr>
+<tr>
+<td><code>budget.daily_reset</code></td>
+<td><code>process_name</code></td>
+</tr>
+<tr>
+<td><code>mission.progress</code></td>
+<td><code>process_name</code>, <code>confidence</code>, <code>achieved</code>, <code>invocations</code></td>
+</tr>
+<tr>
+<td><code>mission.complete</code></td>
+<td><code>process_name</code>, <code>confidence</code>, <code>invocations</code></td>
+</tr>
+<tr>
+<td><code>mission.failed</code></td>
+<td><code>process_name</code>, <code>reason</code></td>
+</tr>
+<tr>
+<td><code>health.anomaly</code></td>
+<td><code>process_name</code>, <code>anomaly_type</code>, <code>details</code></td>
+</tr>
+<tr>
+<td><code>health.recovered</code></td>
+<td><code>process_name</code></td>
+</tr>
+<tr>
+<td><code>process.started</code> / <code>process.stopped</code></td>
+<td><code>process_name</code>, <code>process_id</code></td>
+</tr>
+<tr>
+<td><code>process.failed</code></td>
+<td><code>process_name</code>, <code>process_id</code>, <code>reason</code>, <code>error</code></td>
+</tr>
+<tr>
+<td><code>process.restarted</code></td>
+<td><code>process_name</code>, <code>process_id</code>, <code>reason</code>, <code>attempt</code>, <code>max_restarts</code></td>
+</tr>
+<tr>
+<td><code>cache.purged</code></td>
+<td><code>user_id</code>, <code>entries_removed</code></td>
+</tr>
+</tbody>
+</table>
+<p>Approvals that an MCP server requests through elicitation (server-side gates) emit the same <code>approval.*</code> events with <code>source: "mcp_elicitation"</code> and <code>server</code>.</p>
 <hr />
 <h2 id="sinks">Sinks<a class="headerlink" href="#sinks" title="Link to this section">&para;</a></h2>
 <h3 id="webhooksink">WebhookSink<a class="headerlink" href="#webhooksink" title="Link to this section">&para;</a></h3>
-<p>HTTP POST to any URL. HMAC-SHA256 signed. Retry with exponential backoff. SSRF protection.</p>
+<p>HTTP POST to any URL. Signed with HMAC-SHA256 and a timestamp. Retry with exponential backoff. SSRF protection.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">WebhookSink</span><span class="p">(</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"https://hooks.slack.com/services/..."</span><span class="p">,</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"invocation.error"</span><span class="p">,</span> <span class="s2">"budget.exceeded"</span><span class="p">],</span>  <span class="c1"># Only these events</span>
@@ -9856,51 +10137,107 @@
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">transform</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">{</span><span class="s2">"text"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'severity'</span><span class="p">]</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'event_type'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">},</span>  <span class="c1"># Custom format</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>Each request includes:
-- <code>X-Promptise-Signature</code>: HMAC-SHA256 of the JSON payload
-- <code>X-Promptise-Event</code>: The event type (e.g. <code>invocation.error</code>)</p>
+<p>Each request includes:</p>
+<ul>
+<li><code>X-Promptise-Signature</code>: <code>t=&lt;unix seconds&gt;,v1=&lt;hex&gt;</code> — HMAC-SHA256 over <code>&lt;t&gt;.</code> followed by the exact body bytes</li>
+<li><code>X-Promptise-Timestamp</code>: the same <code>t</code></li>
+<li><code>X-Promptise-Event</code>: the event type (e.g. <code>invocation.error</code>)</li>
+<li><code>X-Promptise-Delivery</code>: an id that stays the same across retries of one event, for de-duplication</li>
+</ul>
+<h4 id="verifying-a-delivery">Verifying a delivery<a class="headerlink" href="#verifying-a-delivery" title="Link to this section">&para;</a></h4>
+<p>Verify against the <strong>raw</strong> request body, before parsing it. <code>verify_event_signature()</code> checks the HMAC in constant time and rejects signatures older than five minutes (replays):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">verify_event_signature</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># In your web framework's handler (Flask shown):</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">raw</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">get_data</span><span class="p">()</span>                      <span class="c1"># bytes, exactly as received</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">verify_event_signature</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"X-Promptise-Signature"</span><span class="p">),</span> <span class="n">SECRET</span><span class="p">):</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">abort</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">event</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>body</code></td>
+<td>required</td>
+<td>Raw body (<code>bytes</code>, or <code>str</code> encoded as UTF-8)</td>
+</tr>
+<tr>
+<td><code>signature</code></td>
+<td>required</td>
+<td>The <code>X-Promptise-Signature</code> header</td>
+</tr>
+<tr>
+<td><code>secret</code></td>
+<td>required</td>
+<td>The sink's secret, or a list of secrets while rotating</td>
+</tr>
+<tr>
+<td><code>tolerance</code></td>
+<td><code>300.0</code></td>
+<td>Maximum age in seconds; <code>None</code> or <code>0</code> turns the replay check off</td>
+</tr>
+</tbody>
+</table>
+<p>Without Promptise on the receiving side, compute <code>hex(HMAC_SHA256(secret, f"{t}." + raw_body))</code> and compare it to <code>v1</code> with a constant-time comparison, then check that <code>t</code> is recent. If you don't pass a <code>secret</code>, the sink generates one; read it from <code>sink.secret</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Changed in the next release</p>
+<p>Earlier versions sent <code>X-Promptise-Signature</code> as a bare hex HMAC over <code>json.dumps(payload, sort_keys=True)</code>, with no timestamp. Receivers built for that format must switch to <code>verify_event_signature()</code> (or the recipe above).</p>
+</div>
+<h4 id="private-networks">Private networks<a class="headerlink" href="#private-networks" title="Link to this section">&para;</a></h4>
+<p>WebhookSink refuses <code>localhost</code> and every address that is not public unicast by default (SSRF protection): loopback, private ranges, link-local (cloud metadata at <code>169.254.169.254</code>), shared/carrier-grade NAT space (<code>100.64.0.0/10</code>), <code>0.0.0.0</code>, multicast and reserved ranges. The check runs when the sink is created and again before every delivery: the host is resolved, every address is checked, and the request goes to the checked address, so a DNS record that later points at an internal address (DNS rebinding) is not followed. Redirects are never followed. For a receiver on your own machine or private network, opt in:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">WebhookSink</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8390/promptise"</span><span class="p">,</span> <span class="n">allow_private_networks</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
 <h3 id="callbacksink">CallbackSink<a class="headerlink" href="#callbacksink" title="Link to this section">&para;</a></h3>
 <p>Python callable (sync or async). Full control.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Simple</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">CallbackSink</span><span class="p">(</span><span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">event_type</span><span class="p">))</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Async with filtering</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_errors</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">await</span> <span class="n">alert_team</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">CallbackSink</span><span class="p">(</span><span class="n">handle_errors</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"invocation.error"</span><span class="p">,</span> <span class="s2">"process.failed"</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Simple</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">CallbackSink</span><span class="p">(</span><span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">event_type</span><span class="p">))</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Async with filtering</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_errors</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="k">await</span> <span class="n">alert_team</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">CallbackSink</span><span class="p">(</span><span class="n">handle_errors</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"invocation.error"</span><span class="p">,</span> <span class="s2">"process.failed"</span><span class="p">])</span>
 </span></code></pre></div>
 <h3 id="logsink">LogSink<a class="headerlink" href="#logsink" title="Link to this section">&para;</a></h3>
 <p>Structured logging via Python's <code>logging</code> module.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">LogSink</span><span class="p">(</span><span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"invocation.complete"</span><span class="p">,</span> <span class="s2">"tool.error"</span><span class="p">],</span> <span class="n">min_severity</span><span class="o">=</span><span class="s2">"warning"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">LogSink</span><span class="p">(</span><span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"invocation.complete"</span><span class="p">,</span> <span class="s2">"tool.error"</span><span class="p">],</span> <span class="n">min_severity</span><span class="o">=</span><span class="s2">"warning"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Events appear as structured log lines compatible with ELK, Datadog, Splunk.</p>
 <h3 id="eventbussink">EventBusSink<a class="headerlink" href="#eventbussink" title="Link to this section">&para;</a></h3>
 <p>Bridge to the Agent Runtime's event bus for inter-process notifications.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">EventBusSink</span><span class="p">(</span><span class="n">event_bus</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"health.anomaly"</span><span class="p">,</span> <span class="s2">"mission.complete"</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">EventBusSink</span><span class="p">(</span><span class="n">event_bus</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"health.anomaly"</span><span class="p">,</span> <span class="s2">"mission.complete"</span><span class="p">])</span>
 </span></code></pre></div>
 <hr />
 <h2 id="eventnotifier">EventNotifier<a class="headerlink" href="#eventnotifier" title="Link to this section">&para;</a></h2>
-<p>The central coordinator. Routes events to configured sinks via an async queue.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">notifier</span> <span class="o">=</span> <span class="n">EventNotifier</span><span class="p">(</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">sinks</span><span class="o">=</span><span class="p">[</span><span class="n">sink_a</span><span class="p">,</span> <span class="n">sink_b</span><span class="p">,</span> <span class="n">sink_c</span><span class="p">],</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">max_queue_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>  <span class="c1"># Drop events when queue is full (never block)</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">)</span>
+<p>The central coordinator. Routes events to configured sinks.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">notifier</span> <span class="o">=</span> <span class="n">EventNotifier</span><span class="p">(</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">sinks</span><span class="o">=</span><span class="p">[</span><span class="n">sink_a</span><span class="p">,</span> <span class="n">sink_b</span><span class="p">,</span> <span class="n">sink_c</span><span class="p">],</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">max_queue_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>      <span class="c1"># Per sink: drop events when its queue is full (never block)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">shutdown_timeout</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>    <span class="c1"># How long stop() waits for queued events</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">slow_tool_threshold</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>  <span class="c1"># Seconds before tool.slow fires (None = off)</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">)</span>
 </span></code></pre></div>
-<p><strong>Fire-and-forget</strong>: <code>emit()</code> puts the event on a queue and returns immediately. A background task delivers to sinks. The agent never blocks waiting for event delivery.</p>
-<p><strong>Sink isolation</strong>: If one sink fails (webhook returns 500), other sinks still receive the event. Failures are logged, never propagated.</p>
-<p><strong>Graceful shutdown</strong>: <code>agent.shutdown()</code> automatically drains remaining events before stopping.</p>
+<p><strong>Fire-and-forget</strong>: <code>emit()</code> queues the event and returns immediately. The agent never blocks waiting for event delivery.</p>
+<p><strong>Sink isolation</strong>: every sink has its own queue and delivery task. A webhook that is down and retrying with backoff delays only its own deliveries — other sinks get every event immediately. Within one sink, events arrive in order. Sink failures are logged, never propagated.</p>
+<p><strong>Graceful shutdown</strong>: <code>agent.shutdown()</code> stops the notifier, which waits up to <code>shutdown_timeout</code> seconds for queued events to be delivered. Whatever is still undelivered then is dropped and <strong>logged</strong> (sink, count and event types) and counted in <code>notifier.dropped_count</code>. Size the timeout to your webhook retries: with the defaults, a retrying webhook needs about 7 seconds of backoff plus request time.</p>
 <hr />
 <h2 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Link to this section">&para;</a></h2>
 <p>Each sink can filter by event type and/or minimum severity:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Only errors and critical events</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">WebhookSink</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">min_severity</span><span class="o">=</span><span class="s2">"error"</span><span class="p">)</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Only specific event types</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">CallbackSink</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"budget.exceeded"</span><span class="p">,</span> <span class="s2">"process.failed"</span><span class="p">])</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Combined: only critical process events</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">WebhookSink</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"process.failed"</span><span class="p">],</span> <span class="n">min_severity</span><span class="o">=</span><span class="s2">"critical"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Only errors and critical events</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">WebhookSink</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">min_severity</span><span class="o">=</span><span class="s2">"error"</span><span class="p">)</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Only specific event types</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">CallbackSink</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"budget.exceeded"</span><span class="p">,</span> <span class="s2">"process.failed"</span><span class="p">])</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Combined: only critical process events</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">WebhookSink</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="s2">"process.failed"</span><span class="p">],</span> <span class="n">min_severity</span><span class="o">=</span><span class="s2">"critical"</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="agentevent-structure">AgentEvent Structure<a class="headerlink" href="#agentevent-structure" title="Link to this section">&para;</a></h2>
@@ -9932,100 +10269,122 @@
 <tr>
 <td><code>agent_id</code></td>
 <td><code>str \| None</code></td>
-<td>Agent or process identifier</td>
+<td>Who emitted it — see below</td>
 </tr>
 <tr>
 <td><code>user_id</code></td>
 <td><code>str \| None</code></td>
-<td>From CallerContext (multi-user)</td>
+<td>From <code>CallerContext</code> (multi-user)</td>
 </tr>
 <tr>
 <td><code>session_id</code></td>
 <td><code>str \| None</code></td>
-<td>Conversation session ID</td>
+<td>The <code>chat()</code> session, else <code>caller.metadata["session_id"]</code></td>
 </tr>
 <tr>
 <td><code>data</code></td>
 <td><code>dict</code></td>
-<td>Event-specific payload</td>
+<td>Event-specific payload (<a href="#payloads">Payloads</a>)</td>
 </tr>
 <tr>
 <td><code>metadata</code></td>
 <td><code>dict</code></td>
-<td>Agent config, model ID, etc.</td>
+<td>Context: <code>model</code> and <code>invocation_id</code> on agent events; <code>process_name</code>, <code>process_id</code> (and <code>trigger_type</code>) on runtime events</td>
 </tr>
 </tbody>
 </table>
+<p><strong><code>agent_id</code></strong> is the same on every event an agent emits: <code>observer_agent_id</code> when you pass it to <code>build_agent()</code>, else the <a href="../../identity/overview/">identity's</a> <code>agent_id</code> (or IdP subject). Agents run by an <code>AgentProcess</code> use the process name. Without any of these it is the model name. The model is also in <code>metadata["model"]</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="n">notifier</span><span class="p">,</span> <span class="n">observer_agent_id</span><span class="o">=</span><span class="s2">"billing-agent"</span><span class="p">)</span>
+</span></code></pre></div>
+<p><strong><code>metadata["invocation_id"]</code></strong> is the same for every event of one <code>ainvoke()</code>/<code>chat()</code>/stream call, so you can group <code>invocation.start</code>, the <code>tool.error</code>s and <code>invocation.complete</code> of one run.</p>
 <hr />
 <h2 id="security">Security<a class="headerlink" href="#security" title="Link to this section">&para;</a></h2>
 <ul>
-<li><strong>SSRF protection</strong>: WebhookSink validates URLs at construction — rejects private IPs, loopback, cloud metadata endpoints</li>
-<li><strong>HMAC signing</strong>: Every webhook includes <code>X-Promptise-Signature</code> for tamper verification</li>
-<li><strong>Payload redaction</strong>: WebhookSink scans payloads for PII/credentials before sending (uses guardrails regex patterns, no ML models)</li>
-<li><strong>Queue bounds</strong>: <code>max_queue_size</code> prevents memory exhaustion. When full, events are dropped with a warning log</li>
-<li><strong>Sink isolation</strong>: One failing sink never affects others</li>
+<li><strong>SSRF protection</strong>: WebhookSink validates URLs at construction and again, against the address it connects to, before every delivery — rejects private, loopback, link-local (cloud metadata), CGNAT and other non-public addresses unless <code>allow_private_networks=True</code></li>
+<li><strong>Signing with replay protection</strong>: every webhook carries <code>X-Promptise-Signature</code> (HMAC over timestamp + raw body); verify with <code>verify_event_signature()</code></li>
+<li><strong>Payload redaction</strong>: WebhookSink scans the whole payload — <code>data</code>, <code>user_id</code>, <code>session_id</code>, <code>metadata</code> — for PII/credentials before sending (regex patterns, no ML models). A <code>user_id</code> that is an email address arrives as <code>[EMAIL]</code>; pass <code>redact_sensitive=False</code> if your receiver needs it</li>
+<li><strong>Queue bounds</strong>: <code>max_queue_size</code> prevents memory exhaustion. When a sink's queue is full, events are dropped for that sink with a warning log</li>
+<li><strong>Sink isolation</strong>: One failing or slow sink never affects others</li>
 </ul>
 <hr />
 <h2 id="superagent-yaml">SuperAgent YAML<a class="headerlink" href="#superagent-yaml" title="Link to this section">&para;</a></h2>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">events</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">sinks</span><span class="p">:</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://hooks.slack.com/services/...</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="nt">events</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">invocation.error</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">budget.exceeded</span><span class="p p-Indicator">]</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="nt">min_severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">warning</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">log</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">      </span><span class="nt">events</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">invocation.complete</span><span class="p p-Indicator">]</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">events</span><span class="p">:</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">shutdown_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span><span class="w">      </span><span class="c1"># optional</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">slow_tool_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">    </span><span class="c1"># optional; null turns tool.slow off</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">sinks</span><span class="p">:</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://hooks.slack.com/services/...</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="nt">events</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">invocation.error</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">budget.exceeded</span><span class="p p-Indicator">]</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="nt">min_severity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">warning</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://127.0.0.1:8390/promptise</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">      </span><span class="nt">allow_private_networks</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">log</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">      </span><span class="nt">events</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">invocation.complete</span><span class="p p-Indicator">]</span>
 </span></code></pre></div>
 <hr />
 <h2 id="eventnotifier-lifecycle">EventNotifier Lifecycle<a class="headerlink" href="#eventnotifier-lifecycle" title="Link to this section">&para;</a></h2>
-<p>The notifier must be started before events can be delivered, and stopped to drain remaining events:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">notifier</span> <span class="o">=</span> <span class="n">EventNotifier</span><span class="p">(</span><span class="n">sinks</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">])</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">await</span> <span class="n">notifier</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>   <span class="c1"># Start background drain task</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># ... agent runs, events are emitted ...</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">await</span> <span class="n">notifier</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>    <span class="c1"># Drain remaining events, stop background task</span>
+<p>The notifier starts itself when the first event is emitted, and must be stopped to deliver what is still queued:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">notifier</span> <span class="o">=</span> <span class="n">EventNotifier</span><span class="p">(</span><span class="n">sinks</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">])</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">await</span> <span class="n">notifier</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>   <span class="c1"># Start the delivery tasks (optional — emitting starts them)</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># ... agent runs, events are emitted ...</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="k">await</span> <span class="n">notifier</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>    <span class="c1"># Deliver queued events (up to shutdown_timeout), then stop</span>
 </span></code></pre></div>
-<p>When passed to <code>build_agent(events=notifier)</code>, <code>start()</code> is called automatically. <code>shutdown()</code> calls <code>stop()</code> automatically.</p>
+<p>When passed to <code>build_agent(events=notifier)</code>, <code>start()</code> is called automatically and <code>agent.shutdown()</code> calls <code>stop()</code>.</p>
+<p>In the runtime, the process owns the notifier instead: <code>AgentProcess.stop()</code> emits <code>process.stopped</code> and then stops the notifier, so the last event is delivered too. A notifier shared by an <code>AgentRuntime</code> keeps running while single processes stop and is stopped by <code>runtime.stop_all()</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Method</th>
+<th>Method / attribute</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>await start()</code></td>
-<td>Start the background event delivery task. Auto-called by <code>build_agent()</code>.</td>
+<td>Start the delivery tasks. Auto-called by <code>build_agent()</code> and <code>AgentProcess.start()</code>.</td>
 </tr>
 <tr>
-<td><code>await stop()</code></td>
-<td>Drain remaining events and stop. Called by <code>agent.shutdown()</code>.</td>
+<td><code>await stop(timeout=None)</code></td>
+<td>Deliver queued events (up to <code>timeout</code>, default <code>shutdown_timeout</code>), log anything dropped, close sinks, stop.</td>
+</tr>
+<tr>
+<td><code>await flush(timeout=None)</code></td>
+<td>Wait until everything queued is delivered, without stopping. Returns <code>False</code> on timeout.</td>
 </tr>
 <tr>
 <td><code>await emit(event)</code></td>
-<td>Queue an event for delivery (non-blocking). Auto-starts if not started.</td>
+<td>Queue an event for delivery (non-blocking).</td>
 </tr>
 <tr>
 <td><code>emit_sync(event)</code></td>
-<td>Queue from synchronous code (used by LangChain callbacks). Silent on queue full.</td>
+<td>Queue from synchronous code, from any thread. Never raises.</td>
+</tr>
+<tr>
+<td><code>dropped_count</code></td>
+<td>Events dropped so far (full queues, shutdown timeout).</td>
+</tr>
+<tr>
+<td><code>is_running</code></td>
+<td>Whether the delivery tasks are running.</td>
 </tr>
 </tbody>
 </table>
 <hr />
 <h2 id="emitting-custom-events">Emitting Custom Events<a class="headerlink" href="#emitting-custom-events" title="Link to this section">&para;</a></h2>
 <p>Use <code>emit_event()</code> to emit events from your own code:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.events</span><span class="w"> </span><span class="kn">import</span> <span class="n">emit_event</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Inside an async function where you have access to the notifier:</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">emit_event</span><span class="p">(</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">notifier</span><span class="p">,</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">event_type</span><span class="o">=</span><span class="s2">"custom.my_event"</span><span class="p">,</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">severity</span><span class="o">=</span><span class="s2">"info"</span><span class="p">,</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">"key"</span><span class="p">:</span> <span class="s2">"value"</span><span class="p">},</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="n">agent_id</span><span class="o">=</span><span class="s2">"my-agent"</span><span class="p">,</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.events</span><span class="w"> </span><span class="kn">import</span> <span class="n">emit_event</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Inside an async function where you have access to the notifier:</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">emit_event</span><span class="p">(</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">notifier</span><span class="p">,</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">event_type</span><span class="o">=</span><span class="s2">"custom.my_event"</span><span class="p">,</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">severity</span><span class="o">=</span><span class="s2">"info"</span><span class="p">,</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">"key"</span><span class="p">:</span> <span class="s2">"value"</span><span class="p">},</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>    <span class="n">agent_id</span><span class="o">=</span><span class="s2">"my-agent"</span><span class="p">,</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10064,24 +10423,30 @@
 <tr>
 <td><code>agent_id</code></td>
 <td><code>str \| None</code></td>
-<td><code>None</code></td>
+<td>from context</td>
 <td>Agent identifier</td>
 </tr>
 <tr>
 <td><code>session_id</code></td>
 <td><code>str \| None</code></td>
-<td><code>None</code></td>
+<td>from context</td>
 <td>Session ID</td>
 </tr>
 <tr>
 <td><code>metadata</code></td>
 <td><code>dict \| None</code></td>
 <td><code>None</code></td>
-<td>Additional metadata</td>
+<td>Additional metadata, merged over the context's</td>
+</tr>
+<tr>
+<td><code>user_id</code></td>
+<td><code>str \| None</code></td>
+<td>from context</td>
+<td>The user the event concerns</td>
 </tr>
 </tbody>
 </table>
-<p><code>emit_event()</code> is null-safe — passing <code>None</code> as the notifier does nothing. It automatically reads <code>user_id</code> from the current <code>CallerContext</code> if available.</p>
+<p><code>emit_event()</code> is null-safe — passing <code>None</code> as the notifier does nothing. Called during an agent invocation (in a tool, for example), it fills <code>user_id</code> from the current <code>CallerContext</code> and <code>agent_id</code>, <code>session_id</code> and <code>metadata</code> from the running invocation.</p>
 <hr />
 <h2 id="sink-parameter-reference">Sink Parameter Reference<a class="headerlink" href="#sink-parameter-reference" title="Link to this section">&para;</a></h2>
 <h3 id="webhooksink_1">WebhookSink<a class="headerlink" href="#webhooksink_1" title="Link to this section">&para;</a></h3>
@@ -10117,7 +10482,7 @@
 <td><code>secret</code></td>
 <td><code>str \| None</code></td>
 <td>auto-generated</td>
-<td>HMAC signing secret</td>
+<td>HMAC signing secret (readable as <code>sink.secret</code>)</td>
 </tr>
 <tr>
 <td><code>max_retries</code></td>
@@ -10135,7 +10500,7 @@
 <td><code>redact_sensitive</code></td>
 <td><code>bool</code></td>
 <td><code>True</code></td>
-<td>Scan payloads for PII/credentials</td>
+<td>Scan the whole payload for PII/credentials</td>
 </tr>
 <tr>
 <td><code>min_severity</code></td>
@@ -10147,7 +10512,13 @@
 <td><code>transform</code></td>
 <td><code>Callable \| None</code></td>
 <td><code>None</code></td>
-<td>Custom payload transformation</td>
+<td>Custom payload transformation (the signature covers the transformed body)</td>
+</tr>
+<tr>
+<td><code>allow_private_networks</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Allow <code>localhost</code> and private-network URLs</td>
 </tr>
 </tbody>
 </table>
@@ -10238,6 +10609,43 @@
 </tr>
 </tbody>
 </table>
+<h3 id="eventnotifier_1">EventNotifier<a class="headerlink" href="#eventnotifier_1" title="Link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sinks</code></td>
+<td><code>list[EventSink]</code></td>
+<td>required</td>
+<td>At least one sink</td>
+</tr>
+<tr>
+<td><code>max_queue_size</code></td>
+<td><code>int</code></td>
+<td><code>1000</code></td>
+<td>Undelivered events kept per sink</td>
+</tr>
+<tr>
+<td><code>shutdown_timeout</code></td>
+<td><code>float</code></td>
+<td><code>10.0</code></td>
+<td>Seconds <code>stop()</code> waits for queued events</td>
+</tr>
+<tr>
+<td><code>slow_tool_threshold</code></td>
+<td><code>float \| None</code></td>
+<td><code>5.0</code></td>
+<td>Seconds before a tool call emits <code>tool.slow</code>; <code>None</code> disables it</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="whats-next">What's Next?<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
 <ul>
@@ -10267,7 +10675,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:40:35 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:47:24 UTC">2026-10-10</span>
   </span>
 
     

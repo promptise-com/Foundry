@@ -9427,12 +9427,26 @@ calling agent decide when to delegate.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.cross_agent.CrossAgent.timeout">timeout</span></code></td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seconds to wait for this peer's answer. <code>None</code> uses the
+<code>timeout</code> given to :func:<code>make_cross_agent_tools</code> (or
+<code>delegation_timeout</code> on :func:<code>~promptise.agent.build_agent</code>);
+when both are <code>None</code> the call has no limit of its own.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">cross</span> <span class="o">=</span> <span class="n">CrossAgent</span><span class="p">(</span><span class="n">agent</span><span class="o">=</span><span class="n">peer_graph</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Accurate math"</span><span class="p">)</span>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">cross</span> <span class="o">=</span> <span class="n">CrossAgent</span><span class="p">(</span><span class="n">agent</span><span class="o">=</span><span class="n">peer_graph</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">"Accurate math"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -9469,7 +9483,7 @@ calling agent decide when to delegate.</p>
 
 
 <h3 id="promptise.cross_agent.make_cross_agent_tools" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">cross_agent</span><span class="o">.</span><span class="n">make_cross_agent_tools</span><span class="p">(</span><span class="n">peers</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tool_name_prefix</span><span class="o">=</span><span class="s1">'ask_agent_'</span><span class="p">,</span> <span class="n">include_broadcast</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">caller_identity</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">cross_agent</span><span class="o">.</span><span class="n">make_cross_agent_tools</span><span class="p">(</span><span class="n">peers</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tool_name_prefix</span><span class="o">=</span><span class="s1">'ask_agent_'</span><span class="p">,</span> <span class="n">include_broadcast</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">caller_identity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_delegation_depth</span><span class="o">=</span><span class="n">DEFAULT_MAX_DELEGATION_DEPTH</span><span class="p">,</span> <span class="n">on_before</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">on_after</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">on_error</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">requires_approval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.cross_agent.make_cross_agent_tools" class="headerlink" title="Link to this section">&para;</a></h3>
 
@@ -9541,12 +9555,136 @@ of the tool id (e.g., <code>ask_agent_mathpeer</code>).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When <code>True</code> (default), also include the group
-fan-out tool <code>broadcast_to_agents</code>.</p>
+                <p>When <code>True</code> (default here; <code>build_agent</code> defaults
+to <code>False</code>), also include the group fan-out tool
+<code>broadcast_to_agents</code>.</p>
               </div>
             </td>
             <td>
                   <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>caller_identity</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="promptise.identity.AgentIdentity" href="../identity/#promptise.identity.AgentIdentity">AgentIdentity</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Identity of the delegating agent, announced to peers.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timeout</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seconds to wait for a peer that sets no
+:attr:<code>CrossAgent.timeout</code> of its own. <code>None</code> = no limit.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_delegation_depth</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Most nested delegations allowed in one request
+(<code>1</code> = this agent may ask a peer, but that peer may not
+delegate further). Must be at least 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="promptise.cross_agent.DEFAULT_MAX_DELEGATION_DEPTH">DEFAULT_MAX_DELEGATION_DEPTH</span></code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>on_before</code>
+            </td>
+            <td>
+                  <code><span title="promptise.cross_agent.ToolHook">ToolHook</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(tool_name, arguments)</code> called before each peer call
+(used for <code>trace_tools</code> and observability).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>on_after</code>
+            </td>
+            <td>
+                  <code><span title="promptise.cross_agent.ToolHook">ToolHook</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(tool_name, result_text)</code> called after a successful call.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>on_error</code>
+            </td>
+            <td>
+                  <code><span title="promptise.cross_agent.ToolHook">ToolHook</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(tool_name, exception)</code> called when a call fails or is
+refused.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>requires_approval</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="str">str</span>], <span title="bool">bool</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The approval check of the agent that gets these
+tools (<code>ApprovalPolicy.requires_approval</code>), called with a tool
+name. <code>broadcast_to_agents</code> does not reach a peer whose
+<code>ask_agent_&lt;name&gt;</code> tool needs approval -- unless the broadcast
+tool needs approval itself -- because the broadcast would reach
+that peer without one. <code>build_agent</code> passes its <code>approval</code>
+policy here.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -9579,6 +9717,30 @@ fan-out tool <code>broadcast_to_agents</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>to the caller agent’s toolset.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>max_delegation_depth</code> is less than 1 or a timeout is
+not positive.</p>
               </div>
             </td>
           </tr>

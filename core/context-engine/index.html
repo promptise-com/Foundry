@@ -2763,6 +2763,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#with-build_agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With build_agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#opt-in-design" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2808,10 +2819,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#assemblyreport" class="md-nav__link">
+  <a href="#contextreport" class="md-nav__link">
     <span class="md-ellipsis">
       
-        AssemblyReport
+        ContextReport
       
     </span>
   </a>
@@ -9459,6 +9470,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#with-build_agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With build_agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#opt-in-design" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9504,10 +9526,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#assemblyreport" class="md-nav__link">
+  <a href="#contextreport" class="md-nav__link">
     <span class="md-ellipsis">
       
-        AssemblyReport
+        ContextReport
       
     </span>
   </a>
@@ -9805,48 +9827,104 @@
 <hr />
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Link to this section">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">ContextEngine</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>         <span class="c1"># Auto-detect context window (128K)</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">model_context_window</span><span class="o">=</span><span class="mi">128_000</span><span class="p">,</span>       <span class="c1"># Or set explicitly</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>         <span class="c1"># Auto-detect the window (400K, input capped at 272K)</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">model_context_window</span><span class="o">=</span><span class="mi">128_000</span><span class="p">,</span>       <span class="c1"># Or set explicitly (no input cap applied)</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">response_reserve</span><span class="o">=</span><span class="mi">4096</span><span class="p">,</span>              <span class="c1"># Reserve tokens for the response</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">tokenizer</span><span class="o">=</span><span class="n">my_tokenizer</span><span class="p">,</span>             <span class="c1"># Custom token counter</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">auto_register_builtins</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>        <span class="c1"># Register standard layers</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="model-context-windows-auto-detected">Model context windows (auto-detected)<a class="headerlink" href="#model-context-windows-auto-detected" title="Link to this section">&para;</a></h3>
+<p>With <code>build_agent(context_engine=engine)</code>, the window comes from the chat
+model's own profile metadata (<code>max_input_tokens</code> / <code>max_output_tokens</code>, which
+LangChain chat models carry) when it has one. Otherwise the engine looks the
+model name up in this table; unknown models get 128,000. An explicit
+<code>model_context_window</code> always wins.</p>
 <table>
 <thead>
 <tr>
 <th>Model</th>
 <th>Window</th>
+<th>Budget cap</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>GPT-4</td>
 <td>8,192</td>
+<td></td>
 </tr>
 <tr>
-<td>GPT-4 Turbo / GPT-4o / GPT-5</td>
+<td>GPT-4 Turbo / GPT-4o / GPT-4o mini</td>
 <td>128,000</td>
+<td></td>
+</tr>
+<tr>
+<td>GPT-4.1 (all sizes)</td>
+<td>1,047,576</td>
+<td></td>
+</tr>
+<tr>
+<td>GPT-5 / GPT-5 mini / GPT-5 nano</td>
+<td>400,000</td>
+<td>272,000 input tokens</td>
+</tr>
+<tr>
+<td>o4-mini</td>
+<td>200,000</td>
+<td></td>
 </tr>
 <tr>
 <td>Claude &frac34; (all variants)</td>
 <td>200,000</td>
+<td></td>
 </tr>
 <tr>
 <td>Llama 3</td>
 <td>8,192</td>
+<td></td>
 </tr>
 <tr>
-<td>Gemini 2.0 Flash</td>
+<td>Gemini 2.0 / 2.5 Flash, Gemini 2.5 Pro</td>
 <td>1,048,576</td>
+<td></td>
 </tr>
 <tr>
 <td>Mistral Large</td>
 <td>128,000</td>
+<td></td>
 </tr>
 </tbody>
 </table>
+<p>The budget is the window minus <code>response_reserve</code>, capped at the model's input
+limit when one is known (OpenAI's GPT-5 models accept at most 272,000 input
+tokens of their 400,000-token window).</p>
+<hr />
+<h2 id="with-build_agent">With <code>build_agent</code><a class="headerlink" href="#with-build_agent" title="Link to this section">&para;</a></h2>
+<p>On every call, the agent fills the engine's layers for that call only and
+assembles them with budgeting:</p>
+<ul>
+<li><strong>Your layers persist.</strong> Content you set with <code>add_layer(..., content=...)</code>
+  or <code>set_content()</code> is sent on every call; the engine is never cleared.
+  Assembly works on a copy, so trimming never changes what you registered.</li>
+<li><strong>Sent once.</strong> The instructions (<code>identity</code>) and the tool definitions
+  (<code>tools</code>) count toward the budget and appear in the report with
+  <code>"sent": False</code>: the agent's graph sends them itself, so they are not
+  repeated.</li>
+<li><strong>The question stays as you passed it.</strong> The current user message is the
+  last message of the input, unchanged (a <code>HumanMessage</code>), and system messages
+  in the input (yours, or runtime-injected ones such as <code>[Context State]</code>)
+  pass through ahead of the engine's layers. Earlier turns go into the
+  <code>conversation</code> layer and are trimmed oldest first.</li>
+<li><strong>The budget bounds the tool loop too.</strong> What the budget leaves after the
+  instructions and tool definitions becomes the token budget for
+  <a href="../../guides/context-lifecycle/#how-compaction-works">context compaction</a>, so
+  a long tool loop is compacted once the transcript passes it, on every model
+  call, not only the first.</li>
+</ul>
+<p>A layer the engine does not have (an engine built with
+<code>auto_register_builtins=False</code>) is skipped; without a <code>conversation</code> layer the
+chat history passes through unchanged.</p>
 <hr />
 <h2 id="opt-in-design">Opt-In Design<a class="headerlink" href="#opt-in-design" title="Link to this section">&para;</a></h2>
 <p>The Context Engine is <strong>completely optional</strong>. Without it, the agent uses the existing context injection system (which works fine for most use cases). Enable it when you need:</p>
@@ -9868,7 +9946,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>register_layer(name, *, priority, required, trim_strategy)</code></td>
+<td><code>add_layer(name, *, priority=5, content="", required=False, trim_strategy="truncate", metadata=None)</code></td>
 <td>Register a named context layer. Higher priority = kept longer during trimming.</td>
 </tr>
 <tr>
@@ -9892,8 +9970,12 @@
 <td>Remove a layer entirely (unregister).</td>
 </tr>
 <tr>
-<td><code>assemble() -&gt; list[dict]</code></td>
-<td>Assemble all layers into a LangGraph-compatible message list with token budgeting.</td>
+<td><code>assemble(content=None, *, budget_only=()) -&gt; list[dict]</code></td>
+<td>Assemble all layers into a message list with token budgeting. <code>content</code> overrides layer content for this assembly only (by layer name); layers in <code>budget_only</code> count toward the budget but are not returned. Never changes the registered layers.</td>
+</tr>
+<tr>
+<td><code>get_report() -&gt; ContextReport \| None</code></td>
+<td>The report of the most recent assembly (also <code>engine.last_report</code>).</td>
 </tr>
 <tr>
 <td><code>count_tokens(text) -&gt; int</code></td>
@@ -9902,6 +9984,28 @@
 <tr>
 <td><code>get_layer_info() -&gt; list[dict]</code></td>
 <td>Introspect all registered layers (name, priority, token estimate).</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>window</code></td>
+<td>The model's context window.</td>
+</tr>
+<tr>
+<td><code>budget</code></td>
+<td>Tokens available for the context: the window minus <code>response_reserve</code>, capped at <code>max_input_tokens</code>.</td>
+</tr>
+<tr>
+<td><code>max_input_tokens</code></td>
+<td>The model's input limit, when known.</td>
 </tr>
 </tbody>
 </table>
@@ -9938,11 +10042,11 @@
 <tr>
 <td><code>trim_strategy</code></td>
 <td><code>str</code></td>
-<td><code>"truncate"</code> (default) or <code>"conversation"</code> (pair-preserving)</td>
+<td><code>"truncate"</code> (default) or <code>"oldest_first"</code> (pair-preserving, for the <code>conversation</code> layer)</td>
 </tr>
 </tbody>
 </table>
-<h3 id="assemblyreport">AssemblyReport<a class="headerlink" href="#assemblyreport" title="Link to this section">&para;</a></h3>
+<h3 id="contextreport">ContextReport<a class="headerlink" href="#contextreport" title="Link to this section">&para;</a></h3>
 <p>Returned by <code>assemble()</code> via <code>engine.last_report</code>:</p>
 <table>
 <thead>
@@ -9971,7 +10075,7 @@
 <tr>
 <td><code>layers</code></td>
 <td><code>list[dict]</code></td>
-<td>Per-layer breakdown (name, priority, tokens, required, trimmed)</td>
+<td>Per-layer breakdown (name, priority, tokens, required, trimmed, sent)</td>
 </tr>
 <tr>
 <td><code>trimmed_layers</code></td>
@@ -9981,7 +10085,7 @@
 </tbody>
 </table>
 <h3 id="built-in-layer-names">Built-in Layer Names<a class="headerlink" href="#built-in-layer-names" title="Link to this section">&para;</a></h3>
-<p>When used with <code>build_agent(context_engine=engine)</code>, these layers are auto-populated:</p>
+<p>When used with <code>build_agent(context_engine=engine)</code>, these layers are filled on every call:</p>
 <table>
 <thead>
 <tr>
@@ -9994,12 +10098,17 @@
 <tr>
 <td><code>identity</code></td>
 <td>10</td>
-<td>Agent instructions</td>
+<td>Agent instructions (budgeted, not sent twice)</td>
 </tr>
 <tr>
 <td><code>user_message</code></td>
 <td>10</td>
-<td>Current user input</td>
+<td>Current user input (budgeted; the question itself is sent as given)</td>
+</tr>
+<tr>
+<td><code>tools</code></td>
+<td>9</td>
+<td>Tool definitions (budgeted, not sent twice)</td>
 </tr>
 <tr>
 <td><code>memory</code></td>
@@ -10011,10 +10120,15 @@
 <td>2</td>
 <td>Adaptive strategy learnings</td>
 </tr>
+<tr>
+<td><code>conversation</code></td>
+<td>1</td>
+<td>Chat history before the current question</td>
+</tr>
 </tbody>
 </table>
 <p>Register custom layers for domain-specific context:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">engine</span><span class="o">.</span><span class="n">register_layer</span><span class="p">(</span><span class="s2">"company_policy"</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">engine</span><span class="o">.</span><span class="n">add_layer</span><span class="p">(</span><span class="s2">"company_policy"</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">engine</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="s2">"company_policy"</span><span class="p">,</span> <span class="s2">"Never discuss competitor pricing."</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
@@ -10046,7 +10160,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:40:35 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 18:53:19 UTC">2026-10-10</span>
   </span>
 
     

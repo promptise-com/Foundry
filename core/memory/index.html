@@ -2654,6 +2654,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ChromaProvider">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scores-and-distance-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scores and distance functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -2691,6 +2708,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Integration with build_agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#timeouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeouts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9456,6 +9490,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ChromaProvider">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scores-and-distance-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scores and distance functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -9493,6 +9544,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Integration with build_agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#timeouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeouts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9624,7 +9692,7 @@
 <h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
 <p>Promptise memory has two layers:</p>
 <ul>
-<li><strong>Auto-injection</strong> via <code>MemoryAgent</code> -- before every agent invocation, relevant memories are searched and injected as a <code>SystemMessage</code>. The agent sees contextual history without needing explicit memory tools.</li>
+<li><strong>Auto-injection</strong> -- before every agent invocation, relevant memories are searched and injected as a <code>SystemMessage</code>. The agent sees contextual history without needing explicit memory tools. <code>build_agent(memory=...)</code> does this inside the agent; <code>MemoryAgent</code> does the same for a graph you built yourself.</li>
 <li><strong>Provider protocol</strong> -- a simple async interface (<code>search</code>, <code>add</code>, <code>delete</code>, <code>close</code>) that any backend can implement.</li>
 </ul>
 <p>Three providers ship with the framework, covering development through production use cases.</p>
@@ -9680,6 +9748,24 @@
 </tr>
 </tbody>
 </table>
+<p>The built-in providers also implement an optional method that is not part of the protocol:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Returns</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>list_entries(user_id=None, metadata=None, limit=1000)</code></td>
+<td><code>list[MemoryResult]</code></td>
+<td>Enumerate entries whose metadata matches every key in <code>metadata</code> exactly (no relevance ranking). Scoped like <code>search</code>. <a href="../adaptive-strategy/">Adaptive strategy</a> uses it to count failures across restarts and cap stored lessons; a custom provider without it still works, with the limits described there.</td>
+</tr>
+</tbody>
+</table>
+<p>Failure logs and lessons written by <a href="../adaptive-strategy/">adaptive strategy</a> live in the same provider, tagged with a <code>_promptise_adaptive_scope</code> metadata key. They are never injected as recalled memory.</p>
 <hr />
 <h2 id="memory-scopes-shared-vs-per-user">Memory Scopes — Shared vs Per-User<a class="headerlink" href="#memory-scopes-shared-vs-per-user" title="Link to this section">&para;</a></h2>
 <p>Every built-in provider supports two isolation modes controlled by the <code>scope</code> parameter:</p>
@@ -9717,19 +9803,23 @@
 </span></code></pre></div>
 <p>If a <code>PER_USER</code> provider is called without a <code>user_id</code>, it raises <code>MemoryIsolationError</code> — a fail-closed guarantee that nothing is ever stored or read without explicit ownership.</p>
 <h3 id="auto-propagation-from-callercontext">Auto-propagation from CallerContext<a class="headerlink" href="#auto-propagation-from-callercontext" title="Link to this section">&para;</a></h3>
-<p>When a memory provider is attached to an agent via <code>build_agent(memory=...)</code>, the wrapping <code>MemoryAgent</code> reads the current <code>CallerContext.user_id</code> from the async contextvar and passes it into every <code>search</code>/<code>add</code>/<code>delete</code> call automatically. Your handler code never has to thread <code>user_id</code> manually:</p>
+<p>When a memory provider is attached to an agent via <code>build_agent(memory=...)</code>, the agent reads the current <code>CallerContext</code> from the async contextvar and passes its isolation key (<code>user_id</code>, or <code>tenant_id::user_id</code> when a tenant is set) into every memory <code>search</code> and auto-store <code>add</code>. Your handler code never has to thread <code>user_id</code> manually:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># In your request handler</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">caller</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"session_id"</span><span class="p">:</span> <span class="s2">"sess-1"</span><span class="p">})</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">caller</span><span class="p">)</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># → memory provider sees user_id="alice" on every call</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># chat(user_id=...) is shorthand for caller=CallerContext(user_id=...):</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># it scopes memory exactly like the caller above, not only session ownership.</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What do I like to eat?"</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="n">sid</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">)</span>
 </span></code></pre></div>
-<p>If no caller is set (e.g., background tasks), the <code>MemoryAgent</code> catches <code>MemoryIsolationError</code> during auto-search and simply skips memory injection — the agent still runs.</p>
+<p>If no caller is set (e.g., background tasks), a <code>PER_USER</code> provider raises <code>MemoryIsolationError</code> during the auto-search; the agent logs it as <code>Memory search failed</code> and runs without memory context.</p>
 <h3 id="gdpr-purge">GDPR purge<a class="headerlink" href="#gdpr-purge" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">removed</span> <span class="o">=</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">purge_user</span><span class="p">(</span><span class="s2">"alice"</span><span class="p">)</span>   <span class="c1"># → int count of deleted entries</span>
 </span></code></pre></div>
-<p>Works on every provider. <code>InMemoryProvider</code> drops in-process entries. <code>ChromaProvider</code> deletes every entry whose metadata contains <code>_promptise_user_id: alice</code>. <code>Mem0Provider</code> delegates to Mem0's <code>delete_all(user_id=…)</code>.</p>
+<p>Works on every provider. <code>InMemoryProvider</code> drops in-process entries. <code>ChromaProvider</code> deletes every entry whose metadata contains <code>_promptise_user_id: alice</code>. <code>Mem0Provider</code> counts the user's entries with <code>get_all</code> and removes them with Mem0's <code>delete_all(user_id=…)</code>.</p>
 <hr />
 <h2 id="memoryresult">MemoryResult<a class="headerlink" href="#memoryresult" title="Link to this section">&para;</a></h2>
 <p>Search results are returned as <code>MemoryResult</code> dataclasses:</p>
@@ -9780,8 +9870,9 @@
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"Pipeline had 5</span><span class="si">% e</span><span class="s2">rror rate at 07:30"</span><span class="p">)</span>
 </span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"User prefers dark mode"</span><span class="p">)</span>
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">"error rate"</span><span class="p">)</span>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># Matches entries containing the substring "error rate"</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">"what was the error rate?"</span><span class="p">)</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># Matches the first entry: it contains the words "error" and "rate".</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="c1"># Entries containing the whole query rank above partial word matches.</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9793,7 +9884,7 @@
 <tbody>
 <tr>
 <td>Search method</td>
-<td>Case-insensitive substring matching</td>
+<td>Case-insensitive keyword matching: whole-query matches first, then by share of the query's words found (stop words ignored)</td>
 </tr>
 <tr>
 <td>Persistence</td>
@@ -9815,7 +9906,7 @@
 </table>
 <div class="admonition warning">
 <p class="admonition-title">Not for production</p>
-<p><code>InMemoryProvider</code> has no semantic understanding. The query <code>"deployment issues"</code> will <strong>not</strong> match content containing <code>"deploy"</code>. Use <code>ChromaProvider</code> or <code>Mem0Provider</code> for production workloads.</p>
+<p><code>InMemoryProvider</code> has no semantic understanding. The query <code>"deployment issues"</code> will <strong>not</strong> match content containing only <code>"deploy"</code>: words must match exactly. Use <code>ChromaProvider</code> or <code>Mem0Provider</code> for production workloads.</p>
 </div>
 <h3 id="chromaprovider">ChromaProvider<a class="headerlink" href="#chromaprovider" title="Link to this section">&para;</a></h3>
 <p>Local vector similarity search with automatic embedding generation. Wraps <a href="https://www.trychroma.com/">ChromaDB</a>.</p>
@@ -9848,7 +9939,11 @@
 <tbody>
 <tr>
 <td>Search method</td>
-<td>Vector similarity (cosine distance)</td>
+<td>Vector similarity (cosine distance for collections it creates)</td>
+</tr>
+<tr>
+<td>Score</td>
+<td>Cosine similarity, <code>0.0</code>–<code>1.0</code></td>
 </tr>
 <tr>
 <td>Default embedding model</td>
@@ -9923,16 +10018,60 @@ it behind your own authenticated service, or use <code>Mem0Provider</code>.</p>
 </tbody>
 </table>
 <p>In <code>PER_USER</code> mode the provider stamps every stored document with a <code>_promptise_user_id</code> metadata field and every <code>search</code>/<code>delete</code> uses ChromaDB's <code>where=</code> filter to restrict results to that owner.</p>
+<h4 id="scores-and-distance-functions">Scores and distance functions<a class="headerlink" href="#scores-and-distance-functions" title="Link to this section">&para;</a></h4>
+<p><code>ChromaProvider</code> creates a missing collection with cosine distance (<code>metadata={"hnsw:space": "cosine"}</code>), and <code>MemoryResult.score</code> is the cosine similarity: <code>1.0</code> for the same meaning, around <code>0.3</code>–<code>0.6</code> for related text, near <code>0.0</code> for unrelated text. That makes <code>min_score</code> filters meaningful — <code>memory_min_score=0.3</code> on <code>build_agent()</code> keeps related memories and drops noise.</p>
+<p>A collection that already exists keeps the distance function it was created with; Chroma cannot change it. The provider reads it and scores accordingly:</p>
+<table>
+<thead>
+<tr>
+<th>Collection space</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cosine</code></td>
+<td><code>1 - distance</code></td>
+</tr>
+<tr>
+<td><code>ip</code></td>
+<td><code>1 - distance</code></td>
+</tr>
+<tr>
+<td><code>l2</code> (Chroma's default)</td>
+<td><code>1 - distance / 2</code> — equal to cosine similarity for unit-length embeddings, which Chroma's default model produces</td>
+</tr>
+</tbody>
+</table>
+<p>Promptise 1.2.1 and earlier created collections with Chroma's default <code>l2</code> space and scored them as <code>1 - distance</code>; typical distances are 1.2–1.5, so every score was <code>0.00</code> and any <code>min_score</code> above zero dropped every memory. Those collections now score correctly, and the provider logs a warning when it opens one. To move one to cosine distance, copy it into a new collection (the embeddings are reused, nothing is re-embedded):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">chromadb</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">chromadb</span><span class="o">.</span><span class="n">PersistentClient</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">old</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_collection</span><span class="p">(</span><span class="s2">"agent_memory"</span><span class="p">)</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">rows</span> <span class="o">=</span> <span class="n">old</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="s2">"documents"</span><span class="p">,</span> <span class="s2">"metadatas"</span><span class="p">,</span> <span class="s2">"embeddings"</span><span class="p">])</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">new</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">create_collection</span><span class="p">(</span><span class="s2">"agent_memory_v2"</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"hnsw:space"</span><span class="p">:</span> <span class="s2">"cosine"</span><span class="p">})</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="k">if</span> <span class="n">rows</span><span class="p">[</span><span class="s2">"ids"</span><span class="p">]:</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">new</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        <span class="n">ids</span><span class="o">=</span><span class="n">rows</span><span class="p">[</span><span class="s2">"ids"</span><span class="p">],</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="n">documents</span><span class="o">=</span><span class="n">rows</span><span class="p">[</span><span class="s2">"documents"</span><span class="p">],</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="n">metadatas</span><span class="o">=</span><span class="n">rows</span><span class="p">[</span><span class="s2">"metadatas"</span><span class="p">],</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        <span class="n">embeddings</span><span class="o">=</span><span class="n">rows</span><span class="p">[</span><span class="s2">"embeddings"</span><span class="p">],</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="p">)</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">ChromaProvider</span><span class="p">(</span><span class="n">collection_name</span><span class="o">=</span><span class="s2">"agent_memory_v2"</span><span class="p">,</span> <span class="n">persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The <code>_promptise_user_id</code> ownership metadata is copied with the rows, so <code>PER_USER</code> isolation carries over. Delete the old collection (<code>client.delete_collection("agent_memory")</code>) once you have checked the new one.</p>
 <h3 id="mem0provider">Mem0Provider<a class="headerlink" href="#mem0provider" title="Link to this section">&para;</a></h3>
 <p>Wraps <a href="https://github.com/mem0ai/mem0">Mem0</a> for hybrid vector + graph search. Can run fully local (with Ollama) or via the Mem0 cloud platform.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mem0Provider</span><span class="p">,</span> <span class="n">MemoryScope</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># Per-user (recommended for multi-tenant deployments)</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">Mem0Provider</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="n">MemoryScope</span><span class="o">.</span><span class="n">PER_USER</span><span class="p">)</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># user_id flows through from CallerContext on every call</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"User prefers dark mode"</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">)</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">"theme preferences"</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">)</span>
+<p>Supported releases: <code>mem0ai&gt;=0.1.118,&lt;3</code> — the 0.1, 1.x and 2.x lines (the <code>[all]</code> extra installs a release in that range). Mem0 2.0 changed <code>Memory.search()</code> and <code>Memory.get_all()</code> to take the user and agent ids in a <code>filters</code> dict and the result count as <code>top_k</code>, and rejects the old <code>user_id=</code> / <code>limit=</code> arguments; the provider reads the installed client's signature once and calls the form it accepts. Search errors from Mem0 are raised, not turned into an empty result, so an incompatible release or an unreachable vector store is visible (the agent still catches them and answers without memory).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mem0Provider</span><span class="p">,</span> <span class="n">MemoryScope</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># Per-user (recommended for multi-tenant deployments)</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">Mem0Provider</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="n">MemoryScope</span><span class="o">.</span><span class="n">PER_USER</span><span class="p">)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1"># user_id flows through from CallerContext on every call</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">"User prefers dark mode"</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">)</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">provider</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">"theme preferences"</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9952,7 +10091,7 @@ it behind your own authenticated service, or use <code>Mem0Provider</code>.</p>
 </tr>
 <tr>
 <td>Isolation</td>
-<td><code>SHARED</code> (default user) or <code>PER_USER</code> (per-call <code>user_id</code> override)</td>
+<td><code>SHARED</code> (default user) or <code>PER_USER</code> (per-call <code>user_id</code>; <code>delete</code> checks the entry's owner first)</td>
 </tr>
 <tr>
 <td>Dependencies</td>
@@ -9991,7 +10130,7 @@ it behind your own authenticated service, or use <code>Mem0Provider</code>.</p>
 <td><code>config</code></td>
 <td><code>dict \| None</code></td>
 <td><code>None</code></td>
-<td>Mem0 configuration dict (for self-hosted setups)</td>
+<td>Mem0 configuration dict, passed to <code>mem0.Memory.from_config()</code> (vector store, LLM, embedder)</td>
 </tr>
 <tr>
 <td><code>scope</code></td>
@@ -10001,6 +10140,10 @@ it behind your own authenticated service, or use <code>Mem0Provider</code>.</p>
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">Mem0 runs its own LLM</p>
+<p><code>add()</code> asks Mem0's configured LLM to extract facts from the text, so Mem0 needs an LLM (and an embedder) of its own, set in <code>config</code>. If Mem0's default OpenAI model rejects a parameter Mem0 sends (for example <code>temperature</code> on a reasoning model), name the model in <code>config</code> — e.g. <code>{"llm": {"provider": "openai", "config": {"model": "gpt-5-mini", "is_reasoning_model": True}}}</code> on mem0ai 2.x. That error comes from Mem0's request, not from Promptise.</p>
+</div>
 <hr />
 <h2 id="memoryagent">MemoryAgent<a class="headerlink" href="#memoryagent" title="Link to this section">&para;</a></h2>
 <p><code>MemoryAgent</code> wraps any LangGraph agent with automatic memory context injection. Before every <code>ainvoke()</code>, it:</p>
@@ -10011,19 +10154,19 @@ it behind your own authenticated service, or use <code>Mem0Provider</code>.</p>
 <li>Invokes the inner agent</li>
 <li>Optionally stores the exchange in memory (if <code>auto_store=True</code>)</li>
 </ol>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryAgent</span><span class="p">,</span> <span class="n">ChromaProvider</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">ChromaProvider</span><span class="p">(</span><span class="n">persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">)</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">memory_agent</span> <span class="o">=</span> <span class="n">MemoryAgent</span><span class="p">(</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">inner</span><span class="o">=</span><span class="n">agent_graph</span><span class="p">,</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">provider</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">max_memories</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">min_score</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="n">auto_store</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="p">)</span>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">memory_agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Hello"</span><span class="p">}]})</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryAgent</span><span class="p">,</span> <span class="n">ChromaProvider</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">ChromaProvider</span><span class="p">(</span><span class="n">persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">)</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">memory_agent</span> <span class="o">=</span> <span class="n">MemoryAgent</span><span class="p">(</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">inner</span><span class="o">=</span><span class="n">agent_graph</span><span class="p">,</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">provider</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">max_memories</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">min_score</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="n">auto_store</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="p">)</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">memory_agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Hello"</span><span class="p">}]})</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10063,7 +10206,7 @@ it behind your own authenticated service, or use <code>Mem0Provider</code>.</p>
 <td><code>timeout</code></td>
 <td><code>float</code></td>
 <td><code>5.0</code></td>
-<td>Max seconds to wait for memory search</td>
+<td>Max seconds to wait for the memory search, and for an auto-store write before returning</td>
 </tr>
 <tr>
 <td><code>auto_store</code></td>
@@ -10080,44 +10223,106 @@ it behind your own authenticated service, or use <code>Mem0Provider</code>.</p>
 <hr />
 <h2 id="integration-with-build_agent">Integration with build_agent<a class="headerlink" href="#integration-with-build_agent" title="Link to this section">&para;</a></h2>
 <p>The simplest way to add memory is through <code>build_agent()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChromaProvider</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">ChromaProvider</span><span class="p">(</span><span class="n">persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">)</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChromaProvider</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">provider</span> <span class="o">=</span> <span class="n">ChromaProvider</span><span class="p">(</span><span class="n">persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">)</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>This automatically wraps the agent graph in a <code>MemoryAgent</code>.</p>
+<p>The agent searches memory before every invocation and injects the results; no <code>MemoryAgent</code> wrapper is involved. These <code>build_agent()</code> parameters control it:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memory</code></td>
+<td><code>MemoryProvider</code></td>
+<td><code>None</code></td>
+<td>The provider to search (and store into)</td>
+</tr>
+<tr>
+<td><code>memory_auto_store</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Store each exchange (<code>User: ...</code> / <code>Assistant: ...</code>) after the invocation, scoped to the caller</td>
+</tr>
+<tr>
+<td><code>memory_max_results</code></td>
+<td><code>int</code></td>
+<td><code>5</code></td>
+<td>Maximum memories injected per invocation</td>
+</tr>
+<tr>
+<td><code>memory_min_score</code></td>
+<td><code>float</code></td>
+<td><code>0.0</code></td>
+<td>Drop results scoring below this (<code>0.0</code>–<code>1.0</code>)</td>
+</tr>
+<tr>
+<td><code>memory_timeout</code></td>
+<td><code>float</code></td>
+<td><code>5.0</code></td>
+<td>Seconds to wait for the search, and for an auto-store write before returning</td>
+</tr>
+</tbody>
+</table>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChromaProvider</span><span class="p">,</span> <span class="n">MemoryScope</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">ChromaProvider</span><span class="p">(</span><span class="n">persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="n">MemoryScope</span><span class="o">.</span><span class="n">PER_USER</span><span class="p">),</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">memory_auto_store</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">memory_max_results</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="n">memory_min_score</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>   <span class="c1"># cosine similarity — keeps related memories, drops noise</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="n">memory_timeout</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span>    <span class="c1"># the first Chroma call loads the embedding model</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="timeouts">Timeouts<a class="headerlink" href="#timeouts" title="Link to this section">&para;</a></h3>
+<ul>
+<li><strong>Search.</strong> If the search takes longer than <code>memory_timeout</code>, the agent answers without memory context and logs <code>Memory search timed out after 5.0s; continuing without memory context</code>.</li>
+<li><strong>Auto-store.</strong> The agent waits up to <code>memory_timeout</code> for the write. Provider writes run in a worker thread that cannot be cancelled, so a slow write is <strong>not</strong> abandoned: it keeps running in the background, the agent logs <code>Memory auto-store has not finished after 5.0s; continuing without waiting</code>, and when the write ends it logs the real outcome — <code>Memory auto-store completed after 7.2s</code> (INFO) or <code>Memory auto-store failed</code> with the error (WARNING). <code>agent.shutdown()</code> waits up to 30 seconds (or <code>memory_timeout</code>, if longer) for writes still in flight before closing the provider.</li>
+</ul>
+<p>A cold <code>ChromaProvider</code> loads its embedding model on the first search or write, which can take longer than the 5-second default on a busy machine. Raise <code>memory_timeout</code>, or warm the provider up before the first request with <code>await provider.search("warm-up", limit=1, user_id=...)</code>.</p>
 <hr />
 <h2 id="integration-with-agent-runtime">Integration with Agent Runtime<a class="headerlink" href="#integration-with-agent-runtime" title="Link to this section">&para;</a></h2>
 <p>In the Agent Runtime, memory is configured through <code>ContextConfig</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">ContextConfig</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">context</span><span class="o">=</span><span class="n">ContextConfig</span><span class="p">(</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>        <span class="n">memory_provider</span><span class="o">=</span><span class="s2">"chroma"</span><span class="p">,</span>             <span class="c1"># "in_memory", "chroma", or "mem0"</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>        <span class="n">memory_auto_store</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># Auto-store exchanges</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>        <span class="n">memory_max</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>                         <span class="c1"># Max memories per invocation</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        <span class="n">memory_min_score</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>                 <span class="c1"># Min relevance score</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>        <span class="n">memory_collection</span><span class="o">=</span><span class="s2">"agent_memory"</span><span class="p">,</span>     <span class="c1"># ChromaDB collection name</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>        <span class="n">memory_persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">,</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        <span class="n">conversation_max_messages</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>         <span class="c1"># Short-term buffer size</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>    <span class="p">),</span>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">ContextConfig</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">context</span><span class="o">=</span><span class="n">ContextConfig</span><span class="p">(</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>        <span class="n">memory_provider</span><span class="o">=</span><span class="s2">"chroma"</span><span class="p">,</span>             <span class="c1"># "in_memory", "chroma", or "mem0"</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>        <span class="n">memory_auto_store</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>               <span class="c1"># Auto-store exchanges</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>        <span class="n">memory_max</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>                         <span class="c1"># Max memories per invocation</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        <span class="n">memory_min_score</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>                 <span class="c1"># Min relevance score</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>        <span class="n">memory_timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>                   <span class="c1"># Seconds for search / auto-store</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>        <span class="n">memory_collection</span><span class="o">=</span><span class="s2">"agent_memory"</span><span class="p">,</span>     <span class="c1"># ChromaDB collection name</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>        <span class="n">memory_persist_directory</span><span class="o">=</span><span class="s2">".promptise/chroma"</span><span class="p">,</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>        <span class="n">conversation_max_messages</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>         <span class="c1"># Short-term buffer size</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="p">),</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Or through a <code>.agent</code> manifest:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">memory</span><span class="p">:</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chroma</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">auto_store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">min_score</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">collection</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">agent_memory</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="nt">persist_directory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.promptise/chroma</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">memory</span><span class="p">:</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chroma</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">auto_store</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="nt">min_score</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.0</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">  </span><span class="nt">collection</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">agent_memory</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">  </span><span class="nt">persist_directory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.promptise/chroma</span>
 </span></code></pre></div>
 <hr />
 <h2 id="security-memory-sanitization">Security: Memory Sanitization<a class="headerlink" href="#security-memory-sanitization" title="Link to this section">&para;</a></h2>
@@ -10158,7 +10363,7 @@ it behind your own authenticated service, or use <code>Mem0Provider</code>.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 24, 2026 20:42:05 UTC">2026-09-24</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:46:05 UTC">2026-10-10</span>
   </span>
 
     

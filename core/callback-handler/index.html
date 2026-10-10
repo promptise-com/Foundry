@@ -9705,9 +9705,10 @@ attached to an agent's <code>config["callbacks"]</code>, LangChain invokes the h
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">PromptiseCallbackHandler</span><span class="p">(</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">collector</span><span class="p">,</span>                      <span class="c1"># ObservabilityCollector instance</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">agent_id</span><span class="o">=</span><span class="s2">"my-agent"</span><span class="p">,</span>            <span class="c1"># Optional agent identifier</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">record_prompts</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>           <span class="c1"># Whether to log prompt/response text</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">record_prompts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>            <span class="c1"># None = follow level (text at FULL only)</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">level</span><span class="o">=</span><span class="n">ObserveLevel</span><span class="o">.</span><span class="n">STANDARD</span><span class="p">,</span>    <span class="c1"># Observation detail level</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">record_tool_io</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>            <span class="c1"># Record tool arguments and result previews</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="observation-levels">Observation levels<a class="headerlink" href="#observation-levels" title="Link to this section">&para;</a></h3>
 <p>The <code>level</code> parameter controls how much detail the handler records:</p>
@@ -9720,19 +9721,24 @@ attached to an agent's <code>config["callbacks"]</code>, LangChain invokes the h
 </thead>
 <tbody>
 <tr>
+<td><code>ObserveLevel.OFF</code></td>
+<td>Records nothing.</td>
+</tr>
+<tr>
 <td><code>ObserveLevel.BASIC</code></td>
-<td>Skips detailed LLM start events.  Records end events, tools, errors.</td>
+<td>Tool calls, results and errors, LLM errors. No <code>llm.start</code> / <code>llm.end</code> events; token usage is still added to the current agent run, so <code>agent.output</code> carries it.</td>
 </tr>
 <tr>
 <td><code>ObserveLevel.STANDARD</code></td>
-<td>Records LLM start/end, tool start/end, errors.  Default.</td>
+<td>BASIC plus <code>llm.start</code> / <code>llm.end</code> for every LLM turn (tokens, latency, model, requested tools).  Default.</td>
 </tr>
 <tr>
 <td><code>ObserveLevel.FULL</code></td>
-<td>Additionally captures individual streaming tokens.</td>
+<td>STANDARD plus prompt and response text (unless <code>record_prompts=False</code>) and the streamed-token count.</td>
 </tr>
 </tbody>
 </table>
+<p><code>record_prompts=None</code> (the default) follows the level: prompt and response text is recorded at <code>FULL</code> only. <code>True</code> records it at any level; <code>False</code> never records it. <code>record_tool_io=False</code> replaces tool arguments, result previews and tool error messages with their lengths.</p>
 <h3 id="session-counters">Session counters<a class="headerlink" href="#session-counters" title="Link to this section">&para;</a></h3>
 <p>The handler maintains cumulative counters across all <code>ainvoke()</code> calls:</p>
 <table>
@@ -9833,15 +9839,16 @@ attached to an agent's <code>config["callbacks"]</code>, LangChain invokes the h
 <tr>
 <td><code>on_tool_end</code></td>
 <td>Tool invocation completes</td>
-<td>Result preview, latency</td>
+<td>Result preview, latency; a <code>ToolMessage</code> with <code>status="error"</code> gets <code>status: "error"</code> and counts as an error</td>
 </tr>
 <tr>
 <td><code>on_tool_error</code></td>
 <td>Tool invocation fails</td>
-<td>Error type, message, traceback</td>
+<td>Tool name, error type, message, traceback, latency</td>
 </tr>
 </tbody>
 </table>
+<p>A failed MCP tool call (the server answered with <code>isError: true</code>, e.g. a <code>ToolError</code>) raises <code>MCPToolError</code> (a <code>ToolException</code>) from the Promptise tool adapter, so it arrives here as <code>on_tool_error</code> and is recorded as <code>tool.error</code>.</p>
 <h4 id="chain-agent-level-events">Chain (agent-level) events<a class="headerlink" href="#chain-agent-level-events" title="Link to this section">&para;</a></h4>
 <table>
 <thead>
@@ -9854,21 +9861,22 @@ attached to an agent's <code>config["callbacks"]</code>, LangChain invokes the h
 <tbody>
 <tr>
 <td><code>on_chain_start</code></td>
-<td>Top-level agent invocation begins</td>
-<td>Input preview or length</td>
+<td>Top-level chain begins</td>
+<td><code>agent.input</code> with input preview or length</td>
 </tr>
 <tr>
 <td><code>on_chain_end</code></td>
-<td>Top-level agent invocation completes</td>
-<td>Session totals (tokens, call counts)</td>
+<td>Top-level chain completes</td>
+<td><code>agent.output</code> with session totals (tokens, call counts)</td>
 </tr>
 <tr>
 <td><code>on_chain_error</code></td>
-<td>Top-level agent invocation fails</td>
-<td>Error type, message, traceback</td>
+<td>Top-level chain fails</td>
+<td><code>agent.error</code> with error type, message, traceback</td>
 </tr>
 </tbody>
 </table>
+<p>These apply when you attach the handler to a LangChain runnable yourself. Inside a <code>PromptiseAgent</code> the agent records <code>agent.input</code> / <code>agent.output</code> / <code>agent.error</code> for every invocation itself (with per-run token totals) and the handler skips its chain events, so nothing is recorded twice.</p>
 <h4 id="retry-events">Retry events<a class="headerlink" href="#retry-events" title="Link to this section">&para;</a></h4>
 <table>
 <thead>
@@ -9925,15 +9933,21 @@ attached to an agent's <code>config["callbacks"]</code>, LangChain invokes the h
 </tr>
 <tr>
 <td><code>record_prompts</code></td>
-<td><code>bool</code></td>
-<td><code>False</code></td>
-<td>If <code>True</code>, log prompt text and response previews</td>
+<td><code>bool \| None</code></td>
+<td><code>None</code></td>
+<td>Record prompt and response text. <code>None</code> follows <code>level</code> (on at <code>FULL</code> only)</td>
 </tr>
 <tr>
 <td><code>level</code></td>
 <td><code>ObserveLevel</code></td>
 <td><code>STANDARD</code></td>
-<td>Detail level: <code>BASIC</code>, <code>STANDARD</code>, or <code>FULL</code></td>
+<td>Detail level: <code>OFF</code>, <code>BASIC</code>, <code>STANDARD</code>, or <code>FULL</code></td>
+</tr>
+<tr>
+<td><code>record_tool_io</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td>Record tool arguments, result previews and tool error messages (<code>False</code>: lengths only)</td>
 </tr>
 </tbody>
 </table>
@@ -9962,9 +9976,10 @@ attached to an agent's <code>config["callbacks"]</code>, LangChain invokes the h
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Setting <code>record_prompts=True</code> logs prompt text and response previews into
-the observability timeline.  Avoid this in production if prompts contain
-sensitive data (PII, credentials, etc.).</p>
+<p><code>record_prompts=True</code> (or <code>level=FULL</code>) logs prompt text and response
+previews into the observability timeline, and tool arguments and results
+are recorded unless <code>record_tool_io=False</code>.  Avoid both in production if
+prompts or tool calls carry sensitive data (PII, credentials, etc.).</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -10001,7 +10016,7 @@ is thread-safe.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:46:05 UTC">2026-10-10</span>
   </span>
 
     

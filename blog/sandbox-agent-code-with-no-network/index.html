@@ -9419,7 +9419,7 @@
 </span></code></pre></div>
 <p>The bridge is the whole trick. The generated <code>promptise_tools.py</code> turns each of your tools into a stub that writes a request file (<code>req_&lt;id&gt;.json</code>) to the writable <code>/workspace</code> tmpfs and blocks. A concurrent loop <strong>on the host</strong> sees the request, runs the <em>real</em> <code>BaseTool</code>, and writes the response (<code>resp_&lt;id&gt;.json</code>, plus a <code>.done</code> marker so a read never races a partial write). The stub unblocks and hands the value back to the program. The channel is a shared filesystem, not a socket — which is precisely why the sandbox can stay fully network-isolated while the program still queries your database. The mechanics are documented in full in the <a href="../../guides/code-action/">code-action guide</a>.</p>
 <p>Two properties fall out of this that a bolt-on sandbox doesn't give you for free. First, there is <strong>no silent fallback</strong>: <code>build_agent(agent_pattern="code-action")</code> raises a clear error if a container can't be initialized, because running model code on the host would be exactly the thing you're avoiding. Second, your tools keep their protections — because each bridged call invokes the real <code>BaseTool</code> on the host, an approval gate (<code>build_agent(..., approval=...)</code>) still fires on a bridged call, and under the Agent Runtime your budget/health/audit hooks apply per call. Without the runtime, code-action enforces its own hard <code>max_tool_calls</code> cap per run (default 50) so a generated program can't loop a tool unbounded.</p>
-<p>You don't have to use code-action to get no-egress; it's just where it's the default. On the general sandbox path you cut the network explicitly. <code>NetworkMode.NONE</code> is one of three modes:</p>
+<p>You don't have to use code-action to get no-egress: <code>NONE</code> is the default for every sandbox, so plain <code>sandbox=True</code> gets it too. Spelling it out on the general path keeps the intent explicit and greppable. <code>NetworkMode.NONE</code> is one of three modes:</p>
 <table>
 <thead>
 <tr>
@@ -9430,11 +9430,11 @@
 <tbody>
 <tr>
 <td><code>NONE</code></td>
-<td>No network access whatsoever — the code-action default</td>
+<td>No network access whatsoever — the default for every sandbox, code-action included</td>
 </tr>
 <tr>
 <td><code>RESTRICTED</code></td>
-<td>Limited network with DNS filtering (the general-sandbox default)</td>
+<td>DNS plus outbound TCP 80/443 only, enforced with iptables inside the container (opt-in; the sandbox refuses to start if the image has no <code>iptables</code>)</td>
 </tr>
 <tr>
 <td><code>FULL</code></td>
@@ -9442,7 +9442,7 @@
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># General sandbox path (any agent_pattern): cut egress by hand.</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># General sandbox path (any agent_pattern): no egress, spelled out explicitly.</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{},</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
@@ -9454,7 +9454,7 @@
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="p">},</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>Cutting the network is the top layer; the sandbox stacks several more underneath it by default — read-only rootfs, ~40 dropped Linux capabilities, a seccomp syscall whitelist, and CPU/memory/time limits. Every knob, plus the optional <code>gvisor</code> backend for kernel-level isolation, is in the <a href="../../core/sandbox/">sandbox reference</a>.</p>
+<p>Cutting the network is the top layer; the sandbox stacks several more underneath it by default — read-only rootfs, ~40 dropped Linux capabilities, Docker's default seccomp profile, <code>no-new-privileges</code>, and CPU/memory/process/time limits. Every knob, plus the optional <code>gvisor</code> backend for kernel-level isolation, is in the <a href="../../core/sandbox/">sandbox reference</a>.</p>
 <h2 id="proving-your-agents-code-cant-phone-home">Proving your agent's code can't phone home<a class="headerlink" href="#proving-your-agents-code-cant-phone-home" title="Link to this section">&para;</a></h2>
 <p>A no-egress claim is worth what you can demonstrate, and with the network mode set to <code>NONE</code> the demonstration is short:</p>
 <ul>
@@ -9469,11 +9469,11 @@
 <h3 id="if-the-network-is-off-how-does-a-bridged-tool-call-reach-the-outside-world">If the network is off, how does a bridged tool call reach the outside world?<a class="headerlink" href="#if-the-network-is-off-how-does-a-bridged-tool-call-reach-the-outside-world" title="Link to this section">&para;</a></h3>
 <p>It doesn't reach the outside world directly — the <em>host</em> does, on the program's behalf. The sandboxed stub writes a request file and blocks; a loop on the host runs the real <code>BaseTool</code> (which may itself query a database or an internal service) and writes the response back into the container. The program only ever touches the filesystem. That indirection is exactly what lets the container stay <code>network="none"</code> while the tool still works.</p>
 <h3 id="does-cutting-egress-mean-my-agent-cant-call-external-apis-at-all">Does cutting egress mean my agent can't call external APIs at all?<a class="headerlink" href="#does-cutting-egress-mean-my-agent-cant-call-external-apis-at-all" title="Link to this section">&para;</a></h3>
-<p>The <em>program</em> can't, and that's the point for untrusted code. But any tool you register can — because the tool runs on the host, outside the sandbox, with whatever network access you gave the host process. So the pattern is: the sandbox is airtight, and controlled outbound access lives in your reviewed tools, where you can gate and audit it. If you genuinely need the code itself to have limited outbound reach, use <code>NetworkMode.RESTRICTED</code> (DNS-filtered) instead of <code>NONE</code>.</p>
+<p>The <em>program</em> can't, and that's the point for untrusted code. But any tool you register can — because the tool runs on the host, outside the sandbox, with whatever network access you gave the host process. So the pattern is: the sandbox is airtight, and controlled outbound access lives in your reviewed tools, where you can gate and audit it. If you genuinely need the code itself to have limited outbound reach, use <code>NetworkMode.RESTRICTED</code> (DNS plus HTTP/HTTPS only, enforced with iptables, so the image must include <code>iptables</code>) instead of <code>NONE</code>.</p>
 <h3 id="how-is-this-different-from-just-running-code-in-an-isolated-sandbox-like-e2b-or-smolagents">How is this different from just running code in an isolated sandbox like e2b or smolagents?<a class="headerlink" href="#how-is-this-different-from-just-running-code-in-an-isolated-sandbox-like-e2b-or-smolagents" title="Link to this section">&para;</a></h3>
-<p>Those can isolate code, and smolagents even exposes tools inside its executor — so this isn't about a missing capability. The difference is the default pairing. Hosted sandboxes typically ship with internet on unless you restrict it, and framework sandboxes usually reach tools over a network channel, so <code>network="none"</code> breaks tool access. Promptise makes no-egress the <strong>default</strong> for code-action and gives the program a non-network tool bridge, so you don't trade isolation for usefulness.</p>
+<p>Those can isolate code, and smolagents even exposes tools inside its executor — so this isn't about a missing capability. The difference is the default pairing. Hosted sandboxes typically ship with internet on unless you restrict it, and framework sandboxes usually reach tools over a network channel, so <code>network="none"</code> breaks tool access. Promptise makes no-egress the <strong>default</strong> for code-action (and every other sandbox) and gives the program a non-network tool bridge, so you don't trade isolation for usefulness.</p>
 <h3 id="what-happens-if-docker-isnt-available">What happens if Docker isn't available?<a class="headerlink" href="#what-happens-if-docker-isnt-available" title="Link to this section">&para;</a></h3>
-<p><code>build_agent(agent_pattern="code-action")</code> raises a clear error. There is no silent fallback to running model-written code on the host, because that would reintroduce every reach cutting the network was meant to close.</p>
+<p><code>build_agent(agent_pattern="code-action")</code> raises a clear error. There is no silent fallback to running model-written code on the host, because that would reintroduce every reach cutting the network was meant to close. The same holds for <code>sandbox=True</code> on any agent: if Docker is unavailable, <code>build_agent</code> raises instead of building the agent without its sandbox tools.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Link to this section">&para;</a></h2>
 <p>Set <code>agent_pattern="code-action"</code> (which makes <code>network="none"</code> the default) or pass <code>sandbox={"network": "none"}</code> on the general path, then confirm your agent's code can't phone home by asking it to try and watching the request fail while a tool call succeeds. Start from the <a href="../../core/sandbox/">sandbox reference</a> for the full layer-by-layer configuration, read the <a href="../../guides/code-action/">code-action guide</a> to understand the filesystem bridge that gives you tool access with no network, and pair it with <a href="../risks-of-running-ai-generated-code/">The Real Risks of Running AI-Generated Code In-Process</a> for the threat model the no-egress default is built to close.</p>
 
@@ -9498,7 +9498,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:53:17 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:47:11 UTC">2026-10-10</span>
   </span>
 
     

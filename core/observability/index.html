@@ -3166,6 +3166,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What gets recorded
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3185,6 +3202,17 @@
     <span class="md-ellipsis">
       
         ObserveLevel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-text-is-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What text is recorded
       
     </span>
   </a>
@@ -3287,6 +3315,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Post-Run Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ndjson-event-stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NDJSON event stream
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opentelemetry-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenTelemetry traces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9367,6 +9423,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What gets recorded
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9386,6 +9459,17 @@
     <span class="md-ellipsis">
       
         ObserveLevel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-text-is-recorded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What text is recorded
       
     </span>
   </a>
@@ -9488,6 +9572,34 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Post-Run Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ndjson-event-stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NDJSON event stream
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opentelemetry-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenTelemetry traces
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -9623,7 +9735,10 @@
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Hello"</span><span class="p">}]})</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># An interactive HTML report is generated automatically.</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">get_stats</span><span class="p">()[</span><span class="s2">"total_tokens"</span><span class="p">])</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">agent</span><span class="o">.</span><span class="n">generate_report</span><span class="p">(</span><span class="s2">"report.html"</span><span class="p">)</span>  <span class="c1"># interactive HTML report, written to exactly this path</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>                 <span class="c1"># also writes ./reports/promptise-report-&lt;timestamp&gt;.html</span>
 </span></code></pre></div>
 <hr />
 <div class="admonition warning">
@@ -9631,7 +9746,66 @@
 <p>The information here is general technical information, not legal, regulatory, or compliance advice. Descriptions of any law, regulation, or standard (such as the GDPR, the EU AI Act, HIPAA, SOC 2, or PCI DSS) are simplified and may be incomplete, out of date, or inaccurate, and requirements vary by jurisdiction and situation. Promptise Foundry makes no warranty as to the accuracy or completeness of this content and is not responsible for how you use or rely on it. Using Promptise does not by itself make you or your product compliant with any law or standard. Consult a qualified lawyer or compliance professional before acting on anything here.</p>
 </div>
 <h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
-<p>Promptise observability is plug-and-play. Set <code>observe=True</code> and every LLM turn, tool call, token count, latency, retry, and error is captured automatically via a LangChain callback handler. Events are routed to one or more <strong>transporters</strong> -- HTML reports, structured logs, console output, Prometheus metrics, OpenTelemetry spans, or custom webhooks.</p>
+<p>Promptise observability is plug-and-play. Set <code>observe=True</code> and every agent invocation, LLM turn, tool call, token count, latency, retry, cache hit, and error is captured automatically: the agent records each invocation itself, and a LangChain callback handler records what happens inside it. Events are routed to one or more <strong>transporters</strong> -- HTML reports, structured logs, console output, Prometheus metrics, OpenTelemetry traces, or custom webhooks.</p>
+<h3 id="what-gets-recorded">What gets recorded<a class="headerlink" href="#what-gets-recorded" title="Link to this section">&para;</a></h3>
+<p>Every invocation (<code>ainvoke</code>, <code>chat</code>, <code>astream</code>, <code>astream_with_tools</code>) is an <strong>agent run</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>When</th>
+<th>Metadata</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>agent.input</code></td>
+<td>The invocation starts</td>
+<td><code>input_length</code>, <code>model</code> (+ <code>input_preview</code> when text is recorded)</td>
+</tr>
+<tr>
+<td><code>llm.start</code> / <code>llm.end</code></td>
+<td>Each LLM turn (STANDARD and FULL)</td>
+<td><code>model</code>, <code>latency_ms</code>, <code>prompt_tokens</code>, <code>completion_tokens</code>, <code>total_tokens</code>, <code>tool_calls</code> (+ <code>prompt_preview</code> / <code>response_preview</code>)</td>
+</tr>
+<tr>
+<td><code>tool.call</code></td>
+<td>A tool is called</td>
+<td><code>tool_name</code>, <code>arguments</code></td>
+</tr>
+<tr>
+<td><code>tool.result</code></td>
+<td>The tool returned</td>
+<td><code>tool_name</code>, <code>latency_ms</code>, <code>result_preview</code></td>
+</tr>
+<tr>
+<td><code>tool.error</code></td>
+<td>The tool failed — it raised, or an MCP server answered <code>isError: true</code> (e.g. a <code>ToolError</code>)</td>
+<td><code>tool_name</code>, <code>latency_ms</code>, <code>error_type</code>, <code>error</code></td>
+</tr>
+<tr>
+<td><code>llm.error</code>, <code>llm.retry</code></td>
+<td>An LLM call failed or was retried</td>
+<td><code>error_type</code>, <code>error</code>, <code>attempt</code></td>
+</tr>
+<tr>
+<td><code>cache.miss</code> / <code>cache.store</code> / <code>cache.hit</code></td>
+<td>Semantic cache activity</td>
+<td><code>scope</code>, <code>ttl</code></td>
+</tr>
+<tr>
+<td><code>agent.output</code></td>
+<td>The invocation finished</td>
+<td><code>duration_ms</code>, the run's <code>prompt_tokens</code> / <code>completion_tokens</code> / <code>total_tokens</code>, <code>llm_call_count</code>, <code>tool_call_count</code>, <code>error_count</code>, <code>cache_hit</code>, <code>output_length</code> (+ <code>output_preview</code>)</td>
+</tr>
+<tr>
+<td><code>agent.error</code></td>
+<td>The invocation raised</td>
+<td><code>error_type</code>, <code>error</code>, and the same run totals</td>
+</tr>
+</tbody>
+</table>
+<p>Every event recorded during a run has <code>parent_id</code> set to the run's <code>agent.input</code> entry, so you can pull one request out of a busy timeline (<code>collector.query(...)</code> then filter on <code>parent_id</code>), and the OpenTelemetry transporter turns each run into one trace. Events also carry the caller's <code>user_id</code> and <code>session_id</code> (see <a href="#multi-user-attribution">Multi-User Attribution</a>).</p>
 <hr />
 <h2 id="observabilityconfig">ObservabilityConfig<a class="headerlink" href="#observabilityconfig" title="Link to this section">&para;</a></h2>
 <p>For full control, pass an <code>ObservabilityConfig</code> instead of <code>True</code>:</p>
@@ -9670,22 +9844,48 @@
 <tbody>
 <tr>
 <td><code>ObserveLevel.OFF</code></td>
-<td>Nothing (observability disabled)</td>
+<td>Nothing. The agent keeps an empty <code>collector</code> (so <code>get_stats()</code> still works) and creates no transporters.</td>
 </tr>
 <tr>
 <td><code>ObserveLevel.BASIC</code></td>
-<td>Tool calls, agent I/O, errors</td>
+<td><code>agent.input</code> / <code>agent.output</code> / <code>agent.error</code>, tool calls and results, LLM and tool errors, cache events. No per-turn LLM events; <code>agent.output</code> carries the run's token totals, and <code>get_stats()</code> counts them.</td>
 </tr>
 <tr>
 <td><code>ObserveLevel.STANDARD</code></td>
-<td>Everything in BASIC + every LLM turn with token usage and latency</td>
+<td>Everything in BASIC + <code>llm.start</code> / <code>llm.end</code> for every LLM turn, with token usage, latency, and the tools the model asked for. Default.</td>
 </tr>
 <tr>
 <td><code>ObserveLevel.FULL</code></td>
-<td>Everything in STANDARD + prompt/response content, streaming tokens</td>
+<td>Everything in STANDARD + prompt, response, agent input and output text (truncated to 2,000 characters), and streamed-token counts.</td>
 </tr>
 </tbody>
 </table>
+<h3 id="what-text-is-recorded">What text is recorded<a class="headerlink" href="#what-text-is-recorded" title="Link to this section">&para;</a></h3>
+<p>Two switches decide whether user and model text lands in your traces:</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Records</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>record_prompts</code></td>
+<td><code>None</code> — follow the level: on at <code>FULL</code>, off below</td>
+<td><code>prompt_preview</code> / <code>response_preview</code> on LLM events, <code>input_preview</code> / <code>output_preview</code> on agent events. <code>True</code> records them at any level; <code>False</code> never does, even at <code>FULL</code>.</td>
+</tr>
+<tr>
+<td><code>record_tool_io</code></td>
+<td><code>True</code></td>
+<td><code>arguments</code> on <code>tool.call</code>, <code>result_preview</code> on <code>tool.result</code>, <code>error</code> and <code>traceback</code> on <code>tool.error</code>. With <code>False</code> the events keep the tool name, latency and error type, plus <code>arguments_length</code> / <code>result_length</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Tool arguments are on by default because they are what makes a trace debuggable — but they often carry user data (names, emails, account numbers). Set <code>record_tool_io=False</code> when traces leave your trust boundary (a hosted APM, a shared log pipeline). Cache events never copy the user's query into their text.</p>
+<p>Whatever is recorded is scrubbed first: with <code>redact_sensitive=True</code> (the default) every event's metadata and details pass through <code>promptise.observability.redact_sensitive</code> before they are stored or reach a transporter. API keys (<code>sk-…</code>), AWS access keys, GitHub tokens, <code>Bearer</code> tokens, passwords in URLs (<code>postgres://user:pw@host</code>), card numbers, US social security numbers and email addresses become <code>[API_KEY]</code>, <code>[AWS_KEY]</code>, <code>[GITHUB_TOKEN]</code>, <code>Bearer [REDACTED]</code>, <code>://[REDACTED]@</code>, <code>[CARD]</code>, <code>[SSN]</code> and <code>[EMAIL]</code> — in the HTML report, the NDJSON stream, log files, webhooks and OpenTelemetry spans alike. Pattern matching cannot recognise names or addresses, so it complements <code>record_tool_io=False</code> rather than replacing it. When an agent run fails on a guardrail, <code>agent.error</code> records the direction, the number of blocked findings and their categories, never the matched text.</p>
+<p>The redaction applies to the collector <code>build_agent()</code> creates. A collector you pass as <code>observer=</code> keeps its own <code>sanitizer</code> — pass <code>ObservabilityCollector(sanitizer=redact_sensitive)</code> to get the same behavior.</p>
 <h3 id="transportertype">TransporterType<a class="headerlink" href="#transportertype" title="Link to this section">&para;</a></h3>
 <p>Available backends for receiving observability events:</p>
 <table>
@@ -9805,11 +10005,14 @@
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Custom callback example:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">my_handler</span><span class="p">(</span><span class="n">entry</span><span class="p">):</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">event_type</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">agent_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">my_handler</span><span class="p">(</span><span class="n">entry</span><span class="p">):</span>  <span class="c1"># entry is a TimelineEntry</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">event_type</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">agent_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">entry</span><span class="o">.</span><span class="n">details</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">transporter</span> <span class="o">=</span> <span class="n">CallbackTransporter</span><span class="p">(</span><span class="n">callback</span><span class="o">=</span><span class="n">my_handler</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ObservabilityConfig</span><span class="p">(</span><span class="n">transporters</span><span class="o">=</span><span class="p">[</span><span class="n">TransporterType</span><span class="o">.</span><span class="n">CALLBACK</span><span class="p">],</span> <span class="n">on_event</span><span class="o">=</span><span class="n">my_handler</span><span class="p">)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># or attach one to an existing collector:</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">agent</span><span class="o">.</span><span class="n">collector</span><span class="o">.</span><span class="n">add_transporter</span><span class="p">(</span><span class="n">CallbackTransporter</span><span class="p">(</span><span class="n">callback</span><span class="o">=</span><span class="n">my_handler</span><span class="p">))</span>
 </span></code></pre></div>
+<p><code>TimelineEntry</code> fields: <code>entry_id</code>, <code>timestamp</code>, <code>event_type</code>, <code>category</code>, <code>agent_id</code>, <code>phase</code>, <code>details</code> (the human-readable text), <code>duration</code> (seconds), <code>parent_id</code>, <code>user_id</code>, <code>session_id</code>, <code>metadata</code>.</p>
 <h3 id="configuration-fields">Configuration Fields<a class="headerlink" href="#configuration-fields" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
@@ -9831,13 +10034,25 @@
 <td><code>session_name</code></td>
 <td><code>str</code></td>
 <td><code>"promptise"</code></td>
-<td>Human-readable session identifier</td>
+<td>Human-readable session identifier (also the OTLP service name and the report/NDJSON file prefix)</td>
 </tr>
 <tr>
 <td><code>record_prompts</code></td>
+<td><code>bool \| None</code></td>
+<td><code>None</code></td>
+<td>Store prompt/response and agent input/output text. <code>None</code> = only at <code>FULL</code></td>
+</tr>
+<tr>
+<td><code>record_tool_io</code></td>
 <td><code>bool</code></td>
-<td><code>False</code></td>
-<td>Store full prompt/response text (off by default for privacy)</td>
+<td><code>True</code></td>
+<td>Store tool arguments, result previews and tool error messages</td>
+</tr>
+<tr>
+<td><code>redact_sensitive</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td>Replace credentials and common PII in every event with placeholders before it is stored or exported</td>
 </tr>
 <tr>
 <td><code>max_entries</code></td>
@@ -9855,7 +10070,7 @@
 <td><code>output_dir</code></td>
 <td><code>str \| None</code></td>
 <td><code>None</code></td>
-<td>Directory for HTML and JSON output</td>
+<td>Directory for HTML and JSON output (<code>./reports</code> when unset)</td>
 </tr>
 <tr>
 <td><code>log_file</code></td>
@@ -9903,7 +10118,7 @@
 <td><code>correlation_id</code></td>
 <td><code>str \| None</code></td>
 <td><code>None</code></td>
-<td>Ties all events to an external request/trace</td>
+<td>Added to every structured-log line and OpenTelemetry span</td>
 </tr>
 </tbody>
 </table>
@@ -9917,9 +10132,10 @@
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">handler</span> <span class="o">=</span> <span class="n">PromptiseCallbackHandler</span><span class="p">(</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">collector</span><span class="p">,</span>                          <span class="c1"># ObservabilityCollector instance</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">agent_id</span><span class="o">=</span><span class="s2">"my-agent"</span><span class="p">,</span>                <span class="c1"># Optional agent identifier for timeline entries</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">record_prompts</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>               <span class="c1"># Store full prompt/response text (default: False)</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">record_prompts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                <span class="c1"># None = follow level (text at FULL only)</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">level</span><span class="o">=</span><span class="n">ObserveLevel</span><span class="o">.</span><span class="n">STANDARD</span><span class="p">,</span>        <span class="c1"># Detail level (default: STANDARD)</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">record_tool_io</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                <span class="c1"># Tool arguments / result previews (default: True)</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9945,15 +10161,21 @@
 </tr>
 <tr>
 <td><code>record_prompts</code></td>
-<td><code>bool</code></td>
-<td><code>False</code></td>
-<td>Whether to include full prompt/response text in events</td>
+<td><code>bool \| None</code></td>
+<td><code>None</code></td>
+<td>Include prompt/response text; <code>None</code> follows <code>level</code></td>
 </tr>
 <tr>
 <td><code>level</code></td>
 <td><code>ObserveLevel</code></td>
 <td><code>STANDARD</code></td>
-<td>Controls detail level: <code>BASIC</code> (tools + errors), <code>STANDARD</code> (+ LLM turns), <code>FULL</code> (+ streaming tokens)</td>
+<td><code>OFF</code> (nothing), <code>BASIC</code> (tools + errors), <code>STANDARD</code> (+ LLM turns), <code>FULL</code> (+ text and streamed tokens)</td>
+</tr>
+<tr>
+<td><code>record_tool_io</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td>Include tool arguments, result previews and error messages</td>
 </tr>
 </tbody>
 </table>
@@ -9961,11 +10183,11 @@
 <p>The handler automatically captures the following without any additional code:</p>
 <ul>
 <li><strong>LLM turns</strong>: Start/end with latency timing, model name extraction</li>
-<li><strong>Token counts</strong>: Prompt tokens, completion tokens, total tokens (from <code>LLMResult</code> and <code>usage_metadata</code>)</li>
+<li><strong>Token counts</strong>: Prompt tokens, completion tokens, total tokens (from <code>LLMResult</code> and <code>usage_metadata</code>), also added to the current agent run</li>
 <li><strong>Tool calls</strong>: Start/end with tool name, arguments, results, and latency</li>
-<li><strong>Errors</strong>: LLM errors, tool errors, and chain-level errors with traceback</li>
+<li><strong>Errors</strong>: LLM errors and tool errors (including MCP <code>isError</code> results) with traceback</li>
 <li><strong>Retries</strong>: Retry attempts with attempt number and triggering error</li>
-<li><strong>Chain events</strong>: Top-level agent input/output with aggregate statistics</li>
+<li><strong>Chain events</strong>: Top-level input/output when the handler is used on its own (inside a <code>PromptiseAgent</code>, the agent records <code>agent.input</code> / <code>agent.output</code> itself)</li>
 <li><strong>Streaming tokens</strong>: Token-by-token accumulation at <code>FULL</code> level</li>
 </ul>
 <h3 id="session-totals">Session Totals<a class="headerlink" href="#session-totals" title="Link to this section">&para;</a></h3>
@@ -10023,30 +10245,56 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Get runtime statistics</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">get_stats</span><span class="p">()</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Generate a detailed report</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">report</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">generate_report</span><span class="p">()</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Write an interactive HTML report</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">path</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">generate_report</span><span class="p">(</span><span class="s2">"reports/shop.html"</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">"Shop assistant — Oct 10"</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>generate_report(path, title="Agent Observability Report")</code> writes the report to exactly <code>path</code> (creating missing directories, overwriting an existing file) and returns it as a string. It raises <code>RuntimeError</code> when observability is off and <code>OSError</code> when the file cannot be written. The page is self-contained (no network access): stat cards with the same numbers as <code>get_stats()</code>, a timeline you can filter by Agent / LLM / Tool / Error / Cache, and each event's metadata on click.</p>
+<p>Separately, the <code>HTML</code> transporter writes <code>&lt;output_dir&gt;/&lt;session_name&gt;-report-&lt;timestamp&gt;.html</code> when the agent shuts down.</p>
+<h3 id="ndjson-event-stream">NDJSON event stream<a class="headerlink" href="#ndjson-event-stream" title="Link to this section">&para;</a></h3>
+<p>The <code>JSON</code> transporter appends every event as one JSON line to <code>&lt;output_dir&gt;/&lt;session_name&gt;-events.ndjson</code>, and writes a full <code>&lt;session_name&gt;-session-&lt;timestamp&gt;.json</code> dump on shutdown. The NDJSON file is opened in append mode, so <strong>every run with the same <code>session_name</code> adds to the same file</strong> — useful for tailing and for <code>explain</code>-style scripts, but it grows without limit. Rotate it externally, for example with <code>logrotate</code> and <code>copytruncate</code>.</p>
+<h3 id="opentelemetry-traces">OpenTelemetry traces<a class="headerlink" href="#opentelemetry-traces" title="Link to this section">&para;</a></h3>
+<p>The <code>OTLP</code> transporter exports each agent run as <strong>one trace</strong>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>invoke_agent shop                    3.7 s   enduser.id=customer-42  session.id=q1
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>├── chat gpt-5-mini                  1.4 s   gen_ai.usage.input_tokens=288
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>├── execute_tool check_stock         0.8 s   gen_ai.tool.name=check_stock
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>└── chat gpt-5-mini                  1.5 s
+</span></code></pre></div>
+<ul>
+<li>The run span lasts from <code>agent.input</code> to <code>agent.output</code> (or <code>agent.error</code>); each LLM call (<code>llm.start</code> → <code>llm.end</code>) and tool call (<code>tool.call</code> → <code>tool.result</code> / <code>tool.error</code>) is a child span with its real start and end time, so span durations are the latencies.</li>
+<li>Failed tool calls, LLM calls and runs get an <code>ERROR</code> status. Other events of the run (cache hits, retries) are span events on the run span.</li>
+<li>If an OpenTelemetry span is active when you invoke the agent — say, the server span of an instrumented FastAPI app — the run span becomes its child, so the agent joins the request's trace.</li>
+<li>Attributes follow the GenAI semantic conventions (<code>gen_ai.operation.name</code>, <code>gen_ai.agent.name</code>, <code>gen_ai.request.model</code>, <code>gen_ai.usage.input_tokens</code> / <code>output_tokens</code>, <code>gen_ai.tool.name</code>), plus <code>enduser.id</code> and <code>session.id</code> from the <code>CallerContext</code>, <code>promptise.correlation_id</code> from the config, and every scalar metadata field as <code>promptise.&lt;key&gt;</code>.</li>
+<li>LLM spans need <code>STANDARD</code> or <code>FULL</code>; at <code>BASIC</code> a run has tool spans only.</li>
+</ul>
+<p><code>OTLPTransporter</code> creates its own <code>TracerProvider</code> and never replaces the global one. To send spans through your application's provider (and its exporters, sampling and resource attributes) instead, attach the transporter yourself:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.observability_transporters</span><span class="w"> </span><span class="kn">import</span> <span class="n">OTLPTransporter</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">agent</span><span class="o">.</span><span class="n">collector</span><span class="o">.</span><span class="n">add_transporter</span><span class="p">(</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">OTLPTransporter</span><span class="p">(</span><span class="n">tracer_provider</span><span class="o">=</span><span class="n">trace</span><span class="o">.</span><span class="n">get_tracer_provider</span><span class="p">(),</span> <span class="n">correlation_id</span><span class="o">=</span><span class="s2">"req-7f3a"</span><span class="p">)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="enterprise-configuration-example">Enterprise Configuration Example<a class="headerlink" href="#enterprise-configuration-example" title="Link to this section">&para;</a></h2>
 <p>A production setup with multiple transporters:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.observability_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObservabilityConfig</span><span class="p">,</span> <span class="n">ObserveLevel</span><span class="p">,</span> <span class="n">TransporterType</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ObservabilityConfig</span><span class="p">(</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">level</span><span class="o">=</span><span class="n">ObserveLevel</span><span class="o">.</span><span class="n">FULL</span><span class="p">,</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">session_name</span><span class="o">=</span><span class="s2">"production-audit"</span><span class="p">,</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">record_prompts</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">transporters</span><span class="o">=</span><span class="p">[</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="n">TransporterType</span><span class="o">.</span><span class="n">HTML</span><span class="p">,</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        <span class="n">TransporterType</span><span class="o">.</span><span class="n">STRUCTURED_LOG</span><span class="p">,</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>        <span class="n">TransporterType</span><span class="o">.</span><span class="n">CONSOLE</span><span class="p">,</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="n">TransporterType</span><span class="o">.</span><span class="n">PROMETHEUS</span><span class="p">,</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="p">],</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"./observability"</span><span class="p">,</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="n">log_file</span><span class="o">=</span><span class="s2">"./logs/events.jsonl"</span><span class="p">,</span>
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="n">console_live</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="n">prometheus_port</span><span class="o">=</span><span class="mi">9090</span><span class="p">,</span>
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    <span class="n">correlation_id</span><span class="o">=</span><span class="s2">"req-abc-123"</span><span class="p">,</span>
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.observability_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObservabilityConfig</span><span class="p">,</span> <span class="n">ObserveLevel</span><span class="p">,</span> <span class="n">TransporterType</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ObservabilityConfig</span><span class="p">(</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">level</span><span class="o">=</span><span class="n">ObserveLevel</span><span class="o">.</span><span class="n">FULL</span><span class="p">,</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">session_name</span><span class="o">=</span><span class="s2">"production-audit"</span><span class="p">,</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">record_prompts</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="n">transporters</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">TransporterType</span><span class="o">.</span><span class="n">HTML</span><span class="p">,</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">TransporterType</span><span class="o">.</span><span class="n">STRUCTURED_LOG</span><span class="p">,</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="n">TransporterType</span><span class="o">.</span><span class="n">CONSOLE</span><span class="p">,</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>        <span class="n">TransporterType</span><span class="o">.</span><span class="n">PROMETHEUS</span><span class="p">,</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="p">],</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"./observability"</span><span class="p">,</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="n">log_file</span><span class="o">=</span><span class="s2">"./logs/events.jsonl"</span><span class="p">,</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="n">console_live</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    <span class="n">prometheus_port</span><span class="o">=</span><span class="mi">9090</span><span class="p">,</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>    <span class="n">correlation_id</span><span class="o">=</span><span class="s2">"req-abc-123"</span><span class="p">,</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>This configuration:</p>
 <ul>
@@ -10054,28 +10302,28 @@
 <li>Writes structured JSON log lines to <code>./logs/events.jsonl</code> (compatible with ELK, Datadog, Splunk)</li>
 <li>Prints color-coded events to the console in real time</li>
 <li>Exposes Prometheus metrics on port 9090</li>
-<li>Tags all events with the correlation ID <code>req-abc-123</code></li>
+<li>Tags every structured-log line (and, with the <code>OTLP</code> transporter, every span) with the correlation ID <code>req-abc-123</code></li>
 </ul>
 <hr />
 <div class="admonition tip">
 <p class="admonition-title">Privacy</p>
-<p><code>record_prompts</code> is <code>False</code> by default. Enable it only when you need full prompt/response content in your traces. This is particularly important in production environments handling sensitive data.</p>
+<p>Prompt and response text is recorded only at <code>ObserveLevel.FULL</code> or with <code>record_prompts=True</code>; tool arguments and results are recorded unless <code>record_tool_io=False</code>. See <a href="#what-text-is-recorded">What text is recorded</a>. This is particularly important in production environments handling sensitive data.</p>
 </div>
 <hr />
 <h2 id="multi-user-attribution">Multi-User Attribution<a class="headerlink" href="#multi-user-attribution" title="Link to this section">&para;</a></h2>
 <p>Every <code>TimelineEntry</code> carries the authenticated caller's <code>user_id</code> and <code>session_id</code>. The <code>ObservabilityCollector</code> reads these automatically from the <code>CallerContext</code> contextvar at record time — there is nothing to wire manually.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span><span class="p">,</span> <span class="n">_caller_ctx_var</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.observability</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObservabilityCollector</span><span class="p">,</span> <span class="n">TimelineEventType</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">collector</span> <span class="o">=</span> <span class="n">ObservabilityCollector</span><span class="p">()</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">token</span> <span class="o">=</span> <span class="n">_caller_ctx_var</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"session_id"</span><span class="p">:</span> <span class="s2">"sess-1"</span><span class="p">}))</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">collector</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">TimelineEventType</span><span class="o">.</span><span class="n">TOOL_CALL</span><span class="p">,</span> <span class="n">details</span><span class="o">=</span><span class="s2">"search(q=...)"</span><span class="p">)</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">finally</span><span class="p">:</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">_caller_ctx_var</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="k">assert</span> <span class="n">entry</span><span class="o">.</span><span class="n">user_id</span> <span class="o">==</span> <span class="s2">"alice"</span>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="k">assert</span> <span class="n">entry</span><span class="o">.</span><span class="n">session_id</span> <span class="o">==</span> <span class="s2">"sess-1"</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">CallerContext</span><span class="p">,</span> <span class="n">_caller_ctx_var</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.observability</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObservabilityCollector</span><span class="p">,</span> <span class="n">TimelineEventType</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">collector</span> <span class="o">=</span> <span class="n">ObservabilityCollector</span><span class="p">()</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">token</span> <span class="o">=</span> <span class="n">_caller_ctx_var</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"session_id"</span><span class="p">:</span> <span class="s2">"sess-1"</span><span class="p">}))</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">collector</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">TimelineEventType</span><span class="o">.</span><span class="n">TOOL_CALL</span><span class="p">,</span> <span class="n">details</span><span class="o">=</span><span class="s2">"search(q=...)"</span><span class="p">)</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="k">finally</span><span class="p">:</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">_caller_ctx_var</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="k">assert</span> <span class="n">entry</span><span class="o">.</span><span class="n">user_id</span> <span class="o">==</span> <span class="s2">"alice"</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="k">assert</span> <span class="n">entry</span><span class="o">.</span><span class="n">session_id</span> <span class="o">==</span> <span class="s2">"sess-1"</span>
 </span></code></pre></div>
 <h3 id="per-tenant-queries">Per-tenant queries<a class="headerlink" href="#per-tenant-queries" title="Link to this section">&para;</a></h3>
 <table>
@@ -10139,7 +10387,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:40:35 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:46:05 UTC">2026-10-10</span>
   </span>
 
     

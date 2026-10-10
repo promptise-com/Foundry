@@ -9602,15 +9602,20 @@
 <h1 id="edges-transitions">Edges &amp; Transitions<a class="headerlink" href="#edges-transitions" title="Link to this section">&para;</a></h1>
 <p>Edges define how the graph flows from one node to another. The engine resolves transitions dynamically at runtime using a 7-step priority system.</p>
 <h2 id="edge-dataclass">Edge Dataclass<a class="headerlink" href="#edge-dataclass" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Edge</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Edge</span><span class="p">,</span> <span class="n">NodeResult</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">Edge</span><span class="p">(</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">from_node</span><span class="o">=</span><span class="s2">"plan"</span><span class="p">,</span>       <span class="c1"># Source node name</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">to_node</span><span class="o">=</span><span class="s2">"act"</span><span class="p">,</span>          <span class="c1"># Target node name</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">condition</span><span class="o">=</span><span class="n">my_fn</span><span class="p">,</span>        <span class="c1"># Optional: (NodeResult) -&gt; bool</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">label</span><span class="o">=</span><span class="s2">"ready"</span><span class="p">,</span>          <span class="c1"># Optional: label for visualization</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>             <span class="c1"># Optional: higher = checked first</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">my_fn</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">NodeResult</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">error</span> <span class="ow">is</span> <span class="kc">None</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">Edge</span><span class="p">(</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">from_node</span><span class="o">=</span><span class="s2">"plan"</span><span class="p">,</span>       <span class="c1"># Source node name</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">to_node</span><span class="o">=</span><span class="s2">"act"</span><span class="p">,</span>          <span class="c1"># Target node name</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">condition</span><span class="o">=</span><span class="n">my_fn</span><span class="p">,</span>        <span class="c1"># Optional: (NodeResult) -&gt; bool</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">label</span><span class="o">=</span><span class="s2">"ready"</span><span class="p">,</span>          <span class="c1"># Optional: label for visualization</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>             <span class="c1"># Optional: higher = checked first</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="edge-helpers">Edge Helpers<a class="headerlink" href="#edge-helpers" title="Link to this section">&para;</a></h2>
 <p>All helpers return <code>self</code> for chaining: <code>graph.always("a", "b").always("b", "c")</code>.</p>
@@ -9654,6 +9659,7 @@
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># Loops "refine" until quality &gt;= 4, then exits to "deliver"</span>
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1"># Exit edge gets priority=10, loop edge gets priority=0</span>
 </span></code></pre></div>
+<p><code>refine</code> runs at most <code>max_iterations</code> times in a run (fewer if its own <code>max_iterations</code> is lower). Once it has used them, the engine exits to <code>deliver</code> even though the condition never held.</p>
 <h3 id="low-level-add_edge">Low-level add_edge<a class="headerlink" href="#low-level-add_edge" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">,</span> <span class="n">condition</span><span class="o">=</span><span class="n">my_fn</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"custom"</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </span></code></pre></div>
@@ -9666,11 +9672,11 @@
 <pre class="mermaid"><code>graph TD
     NE[Node Executed] --&gt; TC{Tool calls?}
     TC --&gt;|yes| SAME[Re-enter same node]
-    TC --&gt;|no| LLM{output.route&lt;br/&gt;set?}
-    LLM --&gt;|yes| TARGET[Go to named node]
-    LLM --&gt;|no| NR{NodeResult&lt;br/&gt;.next_node?}
+    TC --&gt;|no| NR{NodeResult&lt;br/&gt;.next_node?}
     NR --&gt;|yes| TARGET2[Go to next_node]
-    NR --&gt;|no| EDGE{Conditional&lt;br/&gt;edges?}
+    NR --&gt;|no| LLM{output.route&lt;br/&gt;set?}
+    LLM --&gt;|yes| TARGET[Follow that transition&lt;br/&gt;or go to that node]
+    LLM --&gt;|no| EDGE{Conditional&lt;br/&gt;edges?}
     EDGE --&gt;|match| TARGET3[Follow edge]
     EDGE --&gt;|no match| TR{Node transitions&lt;br/&gt;match output?}
     TR --&gt;|yes| TARGET4[Follow transition]
@@ -9683,8 +9689,8 @@
     style END fill:#1a1a1a,stroke:#666,color:#aaa</code></pre>
 <ol>
 <li><strong>Tool loop</strong> — If tools were called, re-enter the same node so the LLM sees tool results</li>
-<li><strong>LLM routing</strong> — If output contains <code>route</code>, <code>_next</code>, <code>next_step</code>, or <code>goto</code> naming a valid node</li>
-<li><strong>NodeResult.next_node</strong> — If the node explicitly set the next node in its execute() method</li>
+<li><strong>NodeResult.next_node</strong> — If the node explicitly set the next node in its execute() method (<code>ValidateNode</code>'s pass/fail, <code>PlanNode</code>'s re-plan)</li>
+<li><strong>LLM routing</strong> — If output contains <code>route</code>, <code>_next</code>, <code>next_step</code>, or <code>goto</code> naming one of the node's transition keys (follows that transition) or a node in the graph</li>
 <li><strong>Graph edges</strong> — Conditional edges checked in priority order (highest first)</li>
 <li><strong>Node transitions</strong> — Output keys matched against the node's <code>transitions</code> dict</li>
 <li><strong>default_next</strong> — Fallback node from the node's configuration</li>
@@ -9693,7 +9699,7 @@
 <h2 id="edge-priority">Edge Priority<a class="headerlink" href="#edge-priority" title="Link to this section">&para;</a></h2>
 <p>When multiple conditional edges exist from the same node, they are checked in <strong>priority order</strong> (highest first). Use this to ensure exit conditions are checked before loop conditions:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Exit condition checked first (priority 10)</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">graph</span><span class="o">.</span><span class="n">when</span><span class="p">(</span><span class="s2">"refine"</span><span class="p">,</span> <span class="s2">"deliver"</span><span class="p">,</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="s2">"refine"</span><span class="p">,</span> <span class="s2">"deliver"</span><span class="p">,</span>
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="n">condition</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"done"</span><span class="p">),</span>
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">label</span><span class="o">=</span><span class="s2">"done"</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
@@ -9701,13 +9707,28 @@
 </span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">graph</span><span class="o">.</span><span class="n">always</span><span class="p">(</span><span class="s2">"refine"</span><span class="p">,</span> <span class="s2">"refine"</span><span class="p">)</span>  <span class="c1"># default priority=0</span>
 </span></code></pre></div>
 <h2 id="dynamic-llm-routing">Dynamic LLM Routing<a class="headerlink" href="#dynamic-llm-routing" title="Link to this section">&para;</a></h2>
-<p>The LLM can choose the next node by including a routing field in its output:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># The LLM outputs: {"route": "search", "reason": "Need more data"}</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="c1"># → Engine goes to "search" node</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Supported field names: route, _next, next_step, goto</span>
+<p>The LLM can choose the next node by including a routing field in its output. Routing reads a structured output, so give the node an <code>output_schema</code> (a Pydantic model or a <code>TypedDict</code>) with a <code>route</code> field:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">Decision</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">route</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"search"</span><span class="p">,</span> <span class="s2">"answer"</span><span class="p">]</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="n">graph</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">PromptNode</span><span class="p">(</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="s2">"decide"</span><span class="p">,</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="n">output_schema</span><span class="o">=</span><span class="n">Decision</span><span class="p">,</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="n">transitions</span><span class="o">=</span><span class="p">{</span><span class="s2">"search"</span><span class="p">:</span> <span class="s2">"web_search"</span><span class="p">,</span> <span class="s2">"answer"</span><span class="p">:</span> <span class="s2">"write"</span><span class="p">},</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="p">))</span>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="c1"># The LLM outputs {"route": "search", "reason": "Need more data"}</span>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="c1"># → the engine follows the "search" transition to "web_search"</span>
+</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
+</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="c1"># Supported field names: route, _next, next_step, goto</span>
 </span></code></pre></div>
-<p>For this to work, the target node must exist in the graph (or be <code>__end__</code>). The engine injects available routes into the prompt when the node has transitions configured.</p>
+<p>A route value that is a transition key follows that transition; otherwise it must name a node in the graph (or <code>__end__</code>). When a node without tools has two or more transitions, the engine lists them in the prompt. The <code>"error"</code> transition is reserved: the engine follows it when the node has used its <code>max_iterations</code>, and never offers it to the model.</p>
 <h2 id="runtime-graph-mutation">Runtime Graph Mutation<a class="headerlink" href="#runtime-graph-mutation" title="Link to this section">&para;</a></h2>
 <p>The LLM can modify the graph during execution via structured output:</p>
 <table>
@@ -9764,7 +9785,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:24:39 UTC">2026-10-10</span>
   </span>
 
     

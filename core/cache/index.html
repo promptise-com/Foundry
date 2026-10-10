@@ -2646,6 +2646,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-gets-cached" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Cached
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#security-per-user-isolation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9386,6 +9397,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#what-gets-cached" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Cached
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#security-per-user-isolation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9673,19 +9695,67 @@
 <li>Input guardrails scan the message (block injection attacks)</li>
 <li>Memory search runs (so the cache key includes memory context)</li>
 <li><strong>Cache check</strong> — embed the query, search for similar cached queries with matching context</li>
-<li><strong>Cache hit</strong> → run output guardrails on cached response → return instantly</li>
+<li><strong>Cache hit</strong> → run output guardrails on cached response → return instantly. The result holds <em>this</em> request's messages followed by the cached answer; the cache stores only the final answer, never the messages, injected context or tool results of the request that produced it</li>
 <li><strong>Cache miss</strong> → continue to tools, LLM → output guardrails → <strong>cache the post-guardrail response</strong> → return</li>
 </ol>
 <p>Cache check runs <strong>after</strong> input guardrails and memory search (so the cache key reflects current memory state) but <strong>before</strong> tool selection and LLM call. Cached responses are stored <strong>after</strong> output guardrails — only safe, redacted content is ever persisted in the cache.</p>
 <hr />
+<h2 id="what-gets-cached">What Gets Cached<a class="headerlink" href="#what-gets-cached" title="Link to this section">&para;</a></h2>
+<p>By default the cache only holds answers that are safe to replay:</p>
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Cached by default</th>
+<th>Option</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One user message, no tool calls</td>
+<td>Yes</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Earlier turns in <code>messages</code> (a follow-up)</td>
+<td>No — not looked up, not stored</td>
+<td><code>cache_multi_turn=True</code></td>
+</tr>
+<tr>
+<td>The agent called read-only tools</td>
+<td>No</td>
+<td><code>cache_tool_turns=True</code></td>
+</tr>
+<tr>
+<td>The agent called a write tool</td>
+<td><strong>Never</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>The agent called a tool behind an <a href="../approval/">approval gate</a></td>
+<td><strong>Never</strong></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Follow-ups.</strong> "What river runs through it?" means the Seine in a conversation about Paris and the Thames in one about London. With the default <code>cache_multi_turn=False</code>, a request whose <code>messages</code> carry earlier user, assistant or tool messages bypasses the cache (system messages don't count). With <code>cache_multi_turn=True</code> it is cached, and the earlier messages — their role, content and tool calls — are hashed into the cache key, so a follow-up only hits for the same conversation history.</p>
+<p><strong>Tool turns.</strong> A cached answer replaces the whole turn, tool calls included: the tool does not run. That is never acceptable for a write — a repeated "open a ticket" would answer "T-103 opened" without opening anything — so a turn that called a write tool is never stored. Answers built from read-only tools go stale when the data changes, so they are only cached with <code>cache_tool_turns=True</code>; <a href="#write-invalidation">write invalidation</a> then evicts them when the agent writes, and <code>ttl_patterns</code> bound how long they live otherwise.</p>
+<p><strong>Approval.</strong> An approval is a decision about one call. A turn that called a tool gated by <code>build_agent(approval=ApprovalPolicy(...))</code> — approved or denied — is never cached, so a repeated question asks the reviewer again instead of replaying the earlier outcome. Gates enforced by an MCP server (approval through elicitation) are invisible to the cache; don't list such tools in <code>read_only_tools</code> or annotate them <code>readOnlyHint=True</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">cache_tool_turns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                 <span class="c1"># cache answers from read-only tools</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">read_only_tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"search_docs"</span><span class="p">],</span>       <span class="c1"># extra_tools without MCP annotations</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">write_tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"sync_*"</span><span class="p">],</span>                <span class="c1"># never trust these as read-only</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
+</span></code></pre></div>
+<hr />
 <h2 id="security-per-user-isolation">Security: Per-User Isolation<a class="headerlink" href="#security-per-user-isolation" title="Link to this section">&para;</a></h2>
 <p><strong>Default scope is <code>per_user</code></strong> — every user gets an isolated cache partition. User A's cached responses are invisible to User B.</p>
 <p><strong>No CallerContext = no caching.</strong> If you don't pass <code>caller=CallerContext(user_id=...)</code>, caching is silently disabled for that request. This prevents accidental cross-user data leakage.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># ✅ Cached (user isolated)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"user-42"</span><span class="p">))</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># ❌ Not cached (no identity)</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># ✅ Cached (user isolated)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"user-42"</span><span class="p">))</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># ❌ Not cached (no identity)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Three scopes:</p>
 <table>
@@ -9714,20 +9784,20 @@
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Shared scope — requires explicit acknowledgment</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">"shared"</span><span class="p">,</span> <span class="n">shared_data_acknowledged</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Shared scope — requires explicit acknowledgment</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">"shared"</span><span class="p">,</span> <span class="n">shared_data_acknowledged</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="standalone-shared-mode-no-multi-user">Standalone / Shared Mode (No Multi-User)<a class="headerlink" href="#standalone-shared-mode-no-multi-user" title="Link to this section">&para;</a></h2>
 <p>If you're building a single-user app, internal tool, or public FAQ agent where there's no concept of "users," use <code>scope="shared"</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">"shared"</span><span class="p">,</span> <span class="n">shared_data_acknowledged</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">},</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># No CallerContext needed — works immediately</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"What is Python?"</span><span class="p">}]})</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">"shared"</span><span class="p">,</span> <span class="n">shared_data_acknowledged</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">},</span> <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># No CallerContext needed — works immediately</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">({</span><span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"What is Python?"</span><span class="p">}]})</span>
 </span></code></pre></div>
 <p>With <code>scope="shared"</code>, caching works without <code>CallerContext</code>. Everyone shares the same cache. Use this when:</p>
 <ul>
@@ -9742,13 +9812,13 @@
 <hr />
 <h2 id="multi-user-mode">Multi-User Mode<a class="headerlink" href="#multi-user-mode" title="Link to this section">&para;</a></h2>
 <p>For apps with multiple users (SaaS, customer support, multi-tenant), the default <code>per_user</code> scope isolates each user's cache automatically:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">()</span>  <span class="c1"># scope="per_user" is the default</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Each user has their own cache partition</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">))</span>  <span class="c1"># Alice's cache</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"bob"</span><span class="p">))</span>    <span class="c1"># Bob's cache (separate)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">()</span>  <span class="c1"># scope="per_user" is the default</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="n">cache</span><span class="p">)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Each user has their own cache partition</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">))</span>  <span class="c1"># Alice's cache</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">CallerContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s2">"bob"</span><span class="p">))</span>    <span class="c1"># Bob's cache (separate)</span>
 </span></code></pre></div>
 <p><strong>How it works internally:</strong>
 - Cache key prefix is <code>user:{user_id}</code> — Alice's entries are keyed <code>user:alice</code>, Bob's are <code>user:bob</code>
@@ -9756,30 +9826,33 @@
 - Similarity search only runs within a user's own partition — no cross-user matching possible
 - If no <code>CallerContext</code> is provided, caching is silently disabled for that request (with a debug log: <code>"Cache: no CallerContext or user_id provided"</code>)
 - <code>purge_user("alice")</code> removes all of Alice's cached entries (GDPR compliance)</p>
-<p><strong>Per-session mode</strong> isolates even further — each conversation session has its own cache:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">"per_session"</span><span class="p">)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">caller</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"session_id"</span><span class="p">:</span> <span class="s2">"sess_abc123"</span><span class="p">},</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">)</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">caller</span><span class="p">)</span>
+<p><strong>Per-session mode</strong> isolates even further — each of a user's sessions has its own cache:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">"per_session"</span><span class="p">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">caller</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">user_id</span><span class="o">=</span><span class="s2">"alice"</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"session_id"</span><span class="p">:</span> <span class="s2">"sess_abc123"</span><span class="p">},</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">)</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">caller</span><span class="o">=</span><span class="n">caller</span><span class="p">)</span>
 </span></code></pre></div>
+<p>A session partition belongs to the user and session together, so two users who pass the same <code>session_id</code> never share entries. A caller without a <code>user_id</code> is not cached, as with <code>per_user</code>; a caller without a <code>session_id</code> uses the user's partition. <code>purge_user()</code> removes the user partition only — per-session entries expire with their TTL — and a write evicts only the session it happened in.</p>
 <hr />
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">"memory"</span><span class="p">,</span>                <span class="c1"># "memory" or "redis"</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">similarity_threshold</span><span class="o">=</span><span class="mf">0.92</span><span class="p">,</span>       <span class="c1"># 0.0-1.0 (higher = stricter matching)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">default_ttl</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>                <span class="c1"># seconds</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">scope</span><span class="o">=</span><span class="s2">"per_user"</span><span class="p">,</span>                <span class="c1"># "per_user", "per_session", "shared"</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">max_entries_per_user</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">max_total_entries</span><span class="o">=</span><span class="mi">100_000</span><span class="p">,</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">invalidate_on_write</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>        <span class="c1"># evict cache when write tools fire</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="n">ttl_patterns</span><span class="o">=</span><span class="p">{</span>                   <span class="c1"># regex → TTL for time-sensitive queries</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>        <span class="sa">r</span><span class="s2">"current|now|today|latest"</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="sa">r</span><span class="s2">"price|stock|rate"</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="p">},</span>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">"memory"</span><span class="p">,</span>                <span class="c1"># "memory" or "redis"</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">similarity_threshold</span><span class="o">=</span><span class="mf">0.92</span><span class="p">,</span>       <span class="c1"># 0.0-1.0 (higher = stricter matching)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">default_ttl</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>                <span class="c1"># seconds</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">scope</span><span class="o">=</span><span class="s2">"per_user"</span><span class="p">,</span>                <span class="c1"># "per_user", "per_session", "shared"</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">max_entries_per_user</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">max_total_entries</span><span class="o">=</span><span class="mi">100_000</span><span class="p">,</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">invalidate_on_write</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>        <span class="c1"># evict cache when write tools fire</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="n">cache_multi_turn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>          <span class="c1"># follow-ups bypass the cache</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="n">cache_tool_turns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>          <span class="c1"># turns that called tools are not cached</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">ttl_patterns</span><span class="o">=</span><span class="p">{</span>                   <span class="c1"># regex → TTL for time-sensitive queries</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        <span class="sa">r</span><span class="s2">"current|now|today|latest"</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="sa">r</span><span class="s2">"price|stock|rate"</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="p">},</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -9855,13 +9928,31 @@
 <td><code>invalidate_on_write</code></td>
 <td><code>bool</code></td>
 <td><code>True</code></td>
-<td>Evict cache on write tool calls</td>
+<td>Evict the caller's cached answers when a write tool runs</td>
 </tr>
 <tr>
 <td><code>cache_multi_turn</code></td>
 <td><code>bool</code></td>
 <td><code>False</code></td>
-<td>Cache multi-turn conversations</td>
+<td>Cache requests with earlier turns; the history is part of the key</td>
+</tr>
+<tr>
+<td><code>cache_tool_turns</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Cache answers from turns that called only read-only tools</td>
+</tr>
+<tr>
+<td><code>write_tools</code></td>
+<td><code>list[str]</code></td>
+<td><code>None</code></td>
+<td>Tool names (<code>*</code> wildcards) always treated as writes</td>
+</tr>
+<tr>
+<td><code>read_only_tools</code></td>
+<td><code>list[str]</code></td>
+<td><code>None</code></td>
+<td>Tool names (<code>*</code> wildcards) treated as read-only</td>
 </tr>
 </tbody>
 </table>
@@ -9869,15 +9960,15 @@
 <h2 id="cache-backends">Cache Backends<a class="headerlink" href="#cache-backends" title="Link to this section">&para;</a></h2>
 <h3 id="in-memory-default">In-Memory (default)<a class="headerlink" href="#in-memory-default" title="Link to this section">&para;</a></h3>
 <p>Zero dependencies. Sub-millisecond lookups. Lost on restart. Single-process only.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="s2">"memory"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="s2">"memory"</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="redis">Redis<a class="headerlink" href="#redis" title="Link to this section">&para;</a></h3>
 <p>Shared across workers and servers. Survives restarts. Optional AES encryption at rest.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">"redis"</span><span class="p">,</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">redis_url</span><span class="o">=</span><span class="s2">"redis://localhost:6379"</span><span class="p">,</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">encrypt_values</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># AES encryption — set PROMPTISE_CACHE_KEY env var</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">"redis"</span><span class="p">,</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">redis_url</span><span class="o">=</span><span class="s2">"redis://localhost:6379"</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">encrypt_values</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># AES encryption — set PROMPTISE_CACHE_KEY env var</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Requires <code>pip install redis</code>. Encryption requires <code>pip install cryptography</code>.</p>
 <p>Set <code>PROMPTISE_CACHE_KEY</code> to a Fernet key for persistent encryption across restarts. If not set, a key is auto-generated per process (cache won't survive restart).</p>
@@ -9885,28 +9976,28 @@
 <hr />
 <h2 id="embedding-providers">Embedding Providers<a class="headerlink" href="#embedding-providers" title="Link to this section">&para;</a></h2>
 <h3 id="local-default">Local (default)<a class="headerlink" href="#local-default" title="Link to this section">&para;</a></h3>
-<p>Uses <code>sentence-transformers</code> — the same model used for semantic tool optimization. Zero API calls, runs locally.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">()</span>  <span class="c1"># all-MiniLM-L6-v2</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">embedding</span><span class="o">=</span><span class="s2">"BAAI/bge-small-en-v1.5"</span><span class="p">)</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">embedding</span><span class="o">=</span><span class="s2">"/models/local/custom"</span><span class="p">)</span>
+<p>Uses <code>sentence-transformers</code> — the same model used for semantic tool optimization. Zero API calls, runs locally. It needs <code>sentence-transformers</code> and <code>numpy</code> (<code>pip install "promptise[all]"</code>); if either is missing, <code>build_agent(cache=...)</code> raises <code>ImportError</code> naming the package, rather than building an agent that never caches. Call <code>cache.warmup()</code> at startup to load the model before the first request.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">()</span>  <span class="c1"># all-MiniLM-L6-v2</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">embedding</span><span class="o">=</span><span class="s2">"BAAI/bge-small-en-v1.5"</span><span class="p">)</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">embedding</span><span class="o">=</span><span class="s2">"/models/local/custom"</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="openai-azure-openai">OpenAI / Azure OpenAI<a class="headerlink" href="#openai-azure-openai" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenAIEmbeddingProvider</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">embedding</span><span class="o">=</span><span class="n">OpenAIEmbeddingProvider</span><span class="p">(</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>        <span class="n">model</span><span class="o">=</span><span class="s2">"text-embedding-3-small"</span><span class="p">,</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>        <span class="n">api_key</span><span class="o">=</span><span class="s2">"$</span><span class="si">{OPENAI_API_KEY}</span><span class="s2">"</span><span class="p">,</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="p">),</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenAIEmbeddingProvider</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">embedding</span><span class="o">=</span><span class="n">OpenAIEmbeddingProvider</span><span class="p">(</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>        <span class="n">model</span><span class="o">=</span><span class="s2">"text-embedding-3-small"</span><span class="p">,</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>        <span class="n">api_key</span><span class="o">=</span><span class="s2">"$</span><span class="si">{OPENAI_API_KEY}</span><span class="s2">"</span><span class="p">,</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="p">),</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="custom-provider">Custom provider<a class="headerlink" href="#custom-provider" title="Link to this section">&para;</a></h3>
 <p>Any object implementing the <code>EmbeddingProvider</code> protocol:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyProvider</span><span class="p">:</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">embed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">texts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>        <span class="k">return</span> <span class="n">my_model</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">texts</span><span class="p">)</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">embedding</span><span class="o">=</span><span class="n">MyProvider</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyProvider</span><span class="p">:</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">embed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">texts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]:</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>        <span class="k">return</span> <span class="n">my_model</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">texts</span><span class="p">)</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">cache</span> <span class="o">=</span> <span class="n">SemanticCache</span><span class="p">(</span><span class="n">embedding</span><span class="o">=</span><span class="n">MyProvider</span><span class="p">())</span>
 </span></code></pre></div>
 <hr />
 <h2 id="cache-key">Cache Key<a class="headerlink" href="#cache-key" title="Link to this section">&para;</a></h2>
@@ -9929,7 +10020,7 @@
 </tr>
 <tr>
 <td>Context fingerprint</td>
-<td>Stale answers after memory/history changes</td>
+<td>Stale answers after memory changes; one conversation's follow-up answering another's</td>
 </tr>
 <tr>
 <td>Model ID</td>
@@ -9941,32 +10032,42 @@
 </tr>
 </tbody>
 </table>
-<p>If any component changes, the cache misses and a fresh LLM call is made.</p>
+<p>The context fingerprint hashes the injected memory content and every message before the query — system messages, and with <code>cache_multi_turn=True</code> the earlier turns — not just how many there are.</p>
+<p>With a <a href="../fallback/"><code>FallbackChain</code></a> the model ID is the chain member that is serving: answers are stored under the model that wrote them, and looked up under the first model whose circuit is not open. An answer from a fallback model is never served as the primary's.</p>
+<p>If any component changes, the cache misses and a fresh LLM call is made. A similar entry stored under a different context does not hide one that matches: the closest entry <em>with the same context, model and instructions</em> is served.</p>
 <hr />
 <h2 id="write-invalidation">Write Invalidation<a class="headerlink" href="#write-invalidation" title="Link to this section">&para;</a></h2>
-<p>When a tool with <code>read_only_hint=False</code> fires (create, update, delete), the cache for that scope is evicted. This prevents stale data:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>"How many tickets are open?" → cached "47"
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>create_ticket() fires → cache evicted
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>"How many tickets are open?" → fresh LLM call → "48"
+<p>When the agent calls a write tool, every cached answer in the caller's scope is evicted, so nothing computed before the write is served after it:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>"How many tickets are open?" → cached "47"        (cache_tool_turns=True)
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>create_ticket() runs → cache evicted
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>"How many tickets are open?" → fresh LLM call → "48"
 </span></code></pre></div>
-<p>Disable with <code>invalidate_on_write=False</code> if your tools don't affect query results.</p>
+<p><strong>What counts as a write.</strong> MCP servers describe their tools with annotations; a tool is read-only when it declares <code>readOnlyHint: true</code> (<code>@server.tool(read_only_hint=True)</code> in Promptise's server SDK). Any other tool — including one with no annotations, the MCP default — counts as a write. Override per tool name:</p>
+<ul>
+<li><code>read_only_tools=[...]</code> — read-only whatever the annotations say; use it for <code>extra_tools</code> and other tools without annotations.</li>
+<li><code>write_tools=[...]</code> — always a write; wins over <code>read_only_tools</code> and annotations. Annotations come from the server, so list a tool here if you don't trust its server.</li>
+</ul>
+<p><strong>When.</strong> The eviction happens as soon as the write tool finishes or fails — before the agent writes its answer, and even if the run fails afterwards. It also happens for runs made with <code>astream()</code> and <code>astream_with_tools()</code>. A request in the same scope that was already running when the write landed does not store its answer, since it may have read the old data. Writes made outside the agent are not seen: bound them with <code>default_ttl</code> and <code>ttl_patterns</code>.</p>
+<p>To evict by hand, for example after a webhook reports a change: <code>await cache.invalidate_for_write("orders_updated", caller=caller)</code>.</p>
+<p>Disable with <code>invalidate_on_write=False</code> if your tools don't affect query results. Turns that called a write tool are still never cached.</p>
 <hr />
 <h2 id="gdpr-compliance">GDPR Compliance<a class="headerlink" href="#gdpr-compliance" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Delete all cached data for a user</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">count</span> <span class="o">=</span> <span class="k">await</span> <span class="n">cache</span><span class="o">.</span><span class="n">purge_user</span><span class="p">(</span><span class="s2">"user-42"</span><span class="p">)</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Tenant-scoped callers: purge exactly that tenant's scope</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">count</span> <span class="o">=</span> <span class="k">await</span> <span class="n">cache</span><span class="o">.</span><span class="n">purge_user</span><span class="p">(</span><span class="s2">"user-42"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Delete all cached data for a user</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">count</span> <span class="o">=</span> <span class="k">await</span> <span class="n">cache</span><span class="o">.</span><span class="n">purge_user</span><span class="p">(</span><span class="s2">"user-42"</span><span class="p">)</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Tenant-scoped callers: purge exactly that tenant's scope</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">count</span> <span class="o">=</span> <span class="k">await</span> <span class="n">cache</span><span class="o">.</span><span class="n">purge_user</span><span class="p">(</span><span class="s2">"user-42"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="observability">Observability<a class="headerlink" href="#observability" title="Link to this section">&para;</a></h2>
-<p>Cache events appear in the observability timeline:</p>
+<p>With <code>observe=True</code>, cache events appear in the observability timeline:</p>
 <ul>
-<li><code>cache.hit</code> — response served from cache (with similarity score, cache age)</li>
+<li><code>cache.hit</code> — response served from cache; <code>metadata</code> carries <code>similarity</code> (cosine similarity to the stored query), <code>age_seconds</code>, <code>scope</code> and <code>ttl</code></li>
 <li><code>cache.miss</code> — no cache hit, proceeding to LLM</li>
 <li><code>cache.store</code> — new response stored in cache</li>
-<li><code>cache.error</code> — cache operation failed (non-blocking)</li>
 </ul>
+<p>A cache failure (Redis unreachable, embedding API down) never fails the request: it is logged as a warning on the <code>promptise.cache</code> or <code>promptise.agent</code> logger and the request goes to the LLM.</p>
+<p><code>await cache.stats()</code> returns a <code>CacheStats</code> with <code>hits</code>, <code>misses</code>, <code>stores</code>, <code>evictions</code> and <code>hit_rate</code>. Each looked-up request counts once, as a hit or a miss; a request that bypasses the cache (a follow-up with <code>cache_multi_turn=False</code>) counts as neither.</p>
 <hr />
 <h2 id="whats-next">What's Next?<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
 <ul>
@@ -9996,7 +10097,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:40:35 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:55:54 UTC">2026-10-10</span>
   </span>
 
     

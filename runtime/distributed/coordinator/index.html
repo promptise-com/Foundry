@@ -5923,6 +5923,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#unregistering-nodes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9443,6 +9454,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#unregistering-nodes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9711,23 +9733,24 @@
 
 
 <h1 id="distributed-coordinator">Distributed Coordinator<a class="headerlink" href="#distributed-coordinator" title="Link to this section">&para;</a></h1>
-<p>The <code>RuntimeCoordinator</code> is the central brain of a distributed agent runtime deployment. It tracks runtime nodes across the cluster, monitors their health with periodic checks, aggregates status information, and provides remote operations for starting, stopping, and injecting events into processes on remote nodes.</p>
+<p>The <code>RuntimeCoordinator</code> is the central brain of a distributed agent runtime deployment. It tracks runtime nodes across the cluster, monitors their health with periodic checks, aggregates status information, and provides remote operations for starting, stopping, and injecting events into processes on remote nodes. It does not move processes on its own: when a node fails, your code picks a healthy node (<code>healthy_nodes</code>) and starts the process there (<code>start_process_on_node</code>).</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime.distributed.coordinator</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeCoordinator</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">async</span> <span class="k">with</span> <span class="n">RuntimeCoordinator</span><span class="p">(</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">health_check_interval</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">node_timeout</span><span class="o">=</span><span class="mf">45.0</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="k">as</span> <span class="n">coordinator</span><span class="p">:</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">coordinator</span><span class="o">.</span><span class="n">register_node</span><span class="p">(</span><span class="s2">"node-1"</span><span class="p">,</span> <span class="s2">"http://host1:9100"</span><span class="p">)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">coordinator</span><span class="o">.</span><span class="n">register_node</span><span class="p">(</span><span class="s2">"node-2"</span><span class="p">,</span> <span class="s2">"http://host2:9100"</span><span class="p">)</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="c1"># Check cluster health</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">health</span> <span class="o">=</span> <span class="k">await</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">check_health</span><span class="p">()</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">health</span><span class="p">)</span>
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="c1"># {"node-1": {"status": "healthy"}, "node-2": {"status": "healthy"}}</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="c1"># Get aggregated cluster status</span>
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">status</span> <span class="o">=</span> <span class="k">await</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">cluster_status</span><span class="p">()</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">auth_token</span><span class="o">=</span><span class="s2">"cluster-token"</span><span class="p">,</span>  <span class="c1"># bearer token for the nodes' RuntimeTransport</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="k">as</span> <span class="n">coordinator</span><span class="p">:</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">coordinator</span><span class="o">.</span><span class="n">register_node</span><span class="p">(</span><span class="s2">"node-1"</span><span class="p">,</span> <span class="s2">"http://host1:9100"</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">coordinator</span><span class="o">.</span><span class="n">register_node</span><span class="p">(</span><span class="s2">"node-2"</span><span class="p">,</span> <span class="s2">"http://host2:9100"</span><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1"># Check cluster health</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">health</span> <span class="o">=</span> <span class="k">await</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">check_health</span><span class="p">()</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">health</span><span class="p">)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="c1"># {"node-1": {"status": "healthy"}, "node-2": {"status": "healthy"}}</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="c1"># Get aggregated cluster status</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">status</span> <span class="o">=</span> <span class="k">await</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">cluster_status</span><span class="p">()</span>
 </span></code></pre></div>
 <hr />
 <h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
@@ -9765,8 +9788,11 @@
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="s2">"node-2"</span><span class="p">,</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="s2">"http://host2:9100"</span><span class="p">,</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"region"</span><span class="p">:</span> <span class="s2">"us-east"</span><span class="p">,</span> <span class="s2">"capacity"</span><span class="p">:</span> <span class="s2">"high"</span><span class="p">},</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">auth_token</span><span class="o">=</span><span class="s2">"node-2-token"</span><span class="p">,</span>  <span class="c1"># overrides the coordinator's auth_token</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Link to this section">&para;</a></h3>
+<p>Nodes that bind a non-loopback address must run <code>RuntimeTransport(auth_token=...)</code>. The coordinator sends <code>Authorization: Bearer &lt;token&gt;</code> on every request: the node's own <code>auth_token</code> from <code>register_node()</code>, or else the coordinator's <code>auth_token</code>. Tokens are never included in <code>NodeInfo.to_dict()</code> or <code>cluster_status()</code>.</p>
 <h3 id="unregistering-nodes">Unregistering nodes<a class="headerlink" href="#unregistering-nodes" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">coordinator</span><span class="o">.</span><span class="n">unregister_node</span><span class="p">(</span><span class="s2">"node-1"</span><span class="p">)</span>
 </span></code></pre></div>
@@ -9856,7 +9882,8 @@
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1">#     "node-2": {"status": "unhealthy", "error": "Connection refused"},</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># }</span>
 </span></code></pre></div>
-<p>Health checks make HTTP GET requests to each node's <code>/health</code> endpoint. Nodes that respond with status 200 are marked healthy; all others are marked unhealthy.</p>
+<p>Health checks make HTTP GET requests to each node's <code>/health</code> endpoint. Nodes that respond with status 200 are marked healthy. A node that has never answered, or has failed checks for longer than <code>node_timeout</code> since its last successful one, is marked unhealthy. A healthy node that misses a check within <code>node_timeout</code> stays healthy (its entry in the result carries <code>"missed_check": true</code> and the error), so one dropped request does not flap the cluster view.</p>
+<p>A failing health round is logged and the background monitor keeps running.</p>
 <h3 id="starting-and-stopping-the-monitor">Starting and stopping the monitor<a class="headerlink" href="#starting-and-stopping-the-monitor" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">coordinator</span> <span class="o">=</span> <span class="n">RuntimeCoordinator</span><span class="p">()</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">await</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">start_health_monitor</span><span class="p">()</span>
@@ -9892,6 +9919,7 @@
 </span></code></pre></div>
 <hr />
 <h2 id="remote-operations">Remote Operations<a class="headerlink" href="#remote-operations" title="Link to this section">&para;</a></h2>
+<p>Remote operations raise <code>RuntimeError</code> when the node answers with an error status (<code>401</code> wrong token, <code>404</code> unknown process, <code>500</code> failed start, ...), so a failure is never mistaken for success.</p>
 <h3 id="start-a-process-on-a-remote-node">Start a process on a remote node<a class="headerlink" href="#start-a-process-on-a-remote-node" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">coordinator</span><span class="o">.</span><span class="n">start_process_on_node</span><span class="p">(</span><span class="s2">"node-1"</span><span class="p">,</span> <span class="s2">"data-watcher"</span><span class="p">)</span>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="c1"># {"status": "started", "name": "data-watcher"}</span>
@@ -9921,11 +9949,11 @@
 </thead>
 <tbody>
 <tr>
-<td><code>RuntimeCoordinator(health_check_interval, node_timeout)</code></td>
+<td><code>RuntimeCoordinator(health_check_interval, node_timeout, auth_token)</code></td>
 <td>Create a coordinator</td>
 </tr>
 <tr>
-<td><code>register_node(node_id, url, metadata)</code></td>
+<td><code>register_node(node_id, url, metadata, *, auth_token)</code></td>
 <td>Register a runtime node</td>
 </tr>
 <tr>
@@ -9993,8 +10021,8 @@
 <p>All HTTP-based operations (health checks, remote commands, status queries) use <code>aiohttp</code>, which is included in the base <code>pip install promptise</code>.</p>
 </div>
 <div class="admonition warning">
-<p class="admonition-title">No authentication</p>
-<p>The coordinator communicates with nodes over plain HTTP. In production, use a reverse proxy with TLS and authentication, or deploy within a private network.</p>
+<p class="admonition-title">Plain HTTP</p>
+<p>The coordinator authenticates with bearer tokens but talks to nodes over plain HTTP unless the node URLs are <code>https://</code>. Across an untrusted network, put the nodes behind a TLS reverse proxy.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Coordinator is a single point of failure</p>
@@ -10029,7 +10057,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 20, 2026 13:13:52 UTC">2026-04-20</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:22:26 UTC">2026-10-10</span>
   </span>
 
     

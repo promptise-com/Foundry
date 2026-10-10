@@ -5550,6 +5550,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#per-call-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-call enforcement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#enforcement-actions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9559,6 +9570,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#per-call-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-call enforcement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#enforcement-actions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9895,8 +9917,18 @@
 </span></code></pre></div>
 <p>This lets the agent prioritize — if it's running low on budget, it can choose cheaper tools or skip non-essential operations. In open mode, the agent can also call <code>check_budget</code> to inspect remaining limits programmatically.</p>
 <hr />
+<h2 id="per-call-enforcement">Per-call enforcement<a class="headerlink" href="#per-call-enforcement" title="Link to this section">&para;</a></h2>
+<p>Tool-call, cost and irreversible-action limits are checked <strong>before each tool call runs</strong>. A call that would push a counter past its limit (or any call once <code>max_llm_turns_per_run</code> is exceeded) is refused: the tool body never executes, the call is not counted, and the agent receives a <code>BudgetExceededError</code> as the tool's result, telling it to stop calling tools and answer. Parallel tool calls in one turn are checked one by one, so a limit of 2 lets exactly 2 of 3 parallel calls through.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">BudgetExceededError</span>  <span class="c1"># error the agent sees as the tool result</span>
+</span></code></pre></div>
+<p>After the invocation finishes, the first violation of the run triggers the action configured in <code>on_exceeded</code> (below). <code>max_runs_per_day</code> is checked when an invocation starts; a run over that limit does not start.</p>
+<div class="admonition note">
+<p class="admonition-title">Changed in 1.3.0</p>
+<p>Earlier versions counted tool calls and applied <code>on_exceeded</code> only after the invocation had finished, so an agent could exceed <code>max_irreversible_per_run</code> (or any per-run limit) within a single run.</p>
+</div>
+<hr />
 <h2 id="enforcement-actions">Enforcement actions<a class="headerlink" href="#enforcement-actions" title="Link to this section">&para;</a></h2>
-<p>When a limit is exceeded:</p>
+<p>When a limit is exceeded (after the invocation in which it happened):</p>
 <table>
 <thead>
 <tr>
@@ -9920,24 +9952,25 @@
 </tbody>
 </table>
 <p>Escalation sends a POST to the configured webhook URL with violation details:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"budget_exceeded"</span><span class="p">,</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">"process_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"support-agent"</span><span class="p">,</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">"violation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"max_cost_per_day exceeded (102.5 / 100.0)"</span><span class="p">,</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-23T14:30:00Z"</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"budget_exceeded"</span><span class="p">,</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"process_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"support-agent"</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"violation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"max_cost_per_day exceeded (102.5 / 100.0)"</span><span class="p">,</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-23T14:30:00Z"</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">}</span>
 </span></code></pre></div>
+<p>The webhook URL must resolve to a public address (SSRF protection). The host is resolved before every notification, the notification is dropped with a warning if any address is private, loopback, link-local (cloud metadata) or otherwise internal, and the POST goes to the address that was checked, so a DNS record that changes in between (DNS rebinding) cannot send it to an internal service. Redirects are not followed. The same applies to health and mission escalations.</p>
 <hr />
 <h2 id="irreversible-action-tracking">Irreversible action tracking<a class="headerlink" href="#irreversible-action-tracking" title="Link to this section">&para;</a></h2>
 <p>Tools marked <code>irreversible=True</code> are tracked separately. Use <code>max_irreversible_per_run</code> to limit how many destructive actions the agent can take per invocation:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">budget</span><span class="o">=</span><span class="n">BudgetConfig</span><span class="p">(</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">max_irreversible_per_run</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>  <span class="c1"># Max 2 irreversible actions per invocation</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">tool_costs</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>        <span class="s2">"delete_record"</span><span class="p">:</span> <span class="n">ToolCostAnnotation</span><span class="p">(</span><span class="n">cost_weight</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">irreversible</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="s2">"send_email"</span><span class="p">:</span> <span class="n">ToolCostAnnotation</span><span class="p">(</span><span class="n">cost_weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">irreversible</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="s2">"search"</span><span class="p">:</span> <span class="n">ToolCostAnnotation</span><span class="p">(</span><span class="n">cost_weight</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>  <span class="c1"># Not irreversible</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    <span class="p">},</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">budget</span><span class="o">=</span><span class="n">BudgetConfig</span><span class="p">(</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">max_irreversible_per_run</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>  <span class="c1"># Max 2 irreversible actions per invocation</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">tool_costs</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        <span class="s2">"delete_record"</span><span class="p">:</span> <span class="n">ToolCostAnnotation</span><span class="p">(</span><span class="n">cost_weight</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">irreversible</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>        <span class="s2">"send_email"</span><span class="p">:</span> <span class="n">ToolCostAnnotation</span><span class="p">(</span><span class="n">cost_weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">irreversible</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>        <span class="s2">"search"</span><span class="p">:</span> <span class="n">ToolCostAnnotation</span><span class="p">(</span><span class="n">cost_weight</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>  <span class="c1"># Not irreversible</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="p">},</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>The agent can call <code>search</code> as many times as the cost budget allows, but it can only call <code>delete_record</code> and/or <code>send_email</code> a combined total of 2 times per invocation.</p>
 <hr />
@@ -10068,8 +10101,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>.record_tool_call(tool_name)</code></td>
-<td>Record a tool call and add its <code>cost_weight</code> to run and daily totals. Returns a <code>BudgetViolation</code> if any limit is exceeded, or <code>None</code>.</td>
+<td><code>.record_tool_call(tool_name, *, enforce=False)</code></td>
+<td>Record a tool call and add its <code>cost_weight</code> to run and daily totals. Returns a <code>BudgetViolation</code> if any limit is exceeded, or <code>None</code>. With <code>enforce=True</code> the call is checked first: if it would exceed a limit it is <strong>not</strong> counted and the violation has <code>blocked=True</code> (the caller must not run the tool).</td>
+</tr>
+<tr>
+<td><code>.record_tool_call_sync(tool_name, *, enforce=False)</code></td>
+<td>Thread-safe synchronous form, used by the runtime's budget guard (synchronous tools run on worker threads).</td>
 </tr>
 <tr>
 <td><code>.record_llm_turn()</code></td>
@@ -10122,7 +10159,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 21:07:09 UTC">2026-10-10</span>
   </span>
 
     

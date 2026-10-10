@@ -9518,8 +9518,10 @@ more reliable.</p>
 <p>The model writes code, so the code runs <strong>contained</strong>:</p>
 <ul>
 <li><strong>Hardened sandbox</strong> — the program executes in Promptise's Docker sandbox:
-  read-only rootfs, dropped capabilities, seccomp, resource limits, and
-  <strong><code>network="none"</code></strong> (auto-set for this pattern).</li>
+  read-only rootfs, dropped capabilities, Docker's default seccomp profile,
+  CPU/memory/process limits, and <strong><code>network="none"</code></strong>. The network stays off
+  even when you pass your own <code>sandbox={...}</code> without a <code>network</code> key. When
+  <code>exec_timeout</code> expires the program's processes are killed.</li>
 <li><strong>No direct host access</strong> — the program's <em>only</em> reach to the outside world is
   your tools, via the bridge. It can't touch the host filesystem or network.</li>
 <li><strong>Tools keep their protections</strong> — each bridged call invokes the real
@@ -9571,15 +9573,30 @@ bounded number of fixes (<code>max_repairs</code>, default 1) before giving up. 
 recovers the common "off-by-one in the parsing" class of errors without an
 unbounded loop.</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Link to this section">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptGraph</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">PromptGraph</span><span class="o">.</span><span class="n">code_action</span><span class="p">(</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">tools</span><span class="o">=</span><span class="n">my_tools</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">system_prompt</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">sandbox_factory</span><span class="o">=...</span><span class="p">,</span>   <span class="c1"># injected by build_agent; supply your own for custom graphs</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">max_repairs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>         <span class="c1"># stderr-driven self-repair attempts</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">exec_timeout</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>      <span class="c1"># seconds the program may run inside the sandbox</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
+<p>From <code>build_agent</code>, pass <code>code_action=</code> (a dict or a
+<code>promptise.engine.CodeActionConfig</code>; unknown keys are rejected):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">my_servers</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"code-action"</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">code_action</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="s2">"exec_timeout"</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span>    <span class="c1"># seconds the program may run (default 120)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="s2">"max_repairs"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>      <span class="c1"># stderr-driven self-repair attempts (default 1)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="s2">"max_tool_calls"</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>  <span class="c1"># hard per-run cap on bridged tool calls (default 50)</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">},</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span><span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"1G"</span><span class="p">},</span>  <span class="c1"># optional; network stays "none"</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>For a custom graph, use the factory directly:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptGraph</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">PromptGraph</span><span class="o">.</span><span class="n">code_action</span><span class="p">(</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">tools</span><span class="o">=</span><span class="n">my_tools</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">system_prompt</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">sandbox_factory</span><span class="o">=...</span><span class="p">,</span>   <span class="c1"># injected by build_agent; supply your own for custom graphs</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">max_repairs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>         <span class="c1"># stderr-driven self-repair attempts</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">exec_timeout</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>      <span class="c1"># seconds the program may run inside the sandbox</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="honest-limits">Honest limits<a class="headerlink" href="#honest-limits" title="Link to this section">&para;</a></h2>
 <ul>
@@ -9622,7 +9639,7 @@ unbounded loop.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 8, 2026 18:01:17 UTC">2026-06-08</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:47:11 UTC">2026-10-10</span>
   </span>
 
     

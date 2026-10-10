@@ -10005,7 +10005,7 @@
 <td><code>trace_tools</code></td>
 <td><code>bool</code></td>
 <td><code>False</code></td>
-<td>Print each tool invocation and result to stdout.</td>
+<td>Print each tool invocation and result to stdout. Covers MCP, cross-agent, sandbox and <code>extra_tools</code> tools.</td>
 </tr>
 <tr>
 <td><code>observe</code></td>
@@ -10027,9 +10027,15 @@
 </tr>
 <tr>
 <td><code>sandbox</code></td>
-<td><code>bool \| dict \| None</code></td>
+<td><code>bool \| dict \| SandboxConfig \| None</code></td>
 <td><code>None</code></td>
-<td>Enable sandboxed code execution. <code>True</code> uses defaults; a dict provides custom config.</td>
+<td>Enable sandboxed code execution. <code>True</code> uses defaults; a dict provides custom config (unknown keys raise; the network is <code>"none"</code> unless set). Raises if the sandbox cannot be started. See <a href="../../sandbox/">Sandbox</a>.</td>
+</tr>
+<tr>
+<td><code>code_action</code></td>
+<td><code>dict \| CodeActionConfig \| None</code></td>
+<td><code>None</code></td>
+<td>Only with <code>agent_pattern="code-action"</code>: <code>exec_timeout</code> (default 120), <code>max_repairs</code> (default 1), <code>max_tool_calls</code> (default 50).</td>
 </tr>
 <tr>
 <td><code>observer</code></td>
@@ -10050,6 +10056,18 @@
 <td>Peer agents exposed as <code>ask_agent_&lt;name&gt;</code> tools. See <a href="../cross-agent/">Cross-Agent Delegation</a>.</td>
 </tr>
 <tr>
+<td><code>expose_resources</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Give the agent the MCP servers' resources: adds <code>read_resource</code> (its description lists the resources and URI templates) and <code>list_resources</code>.</td>
+</tr>
+<tr>
+<td><code>expose_prompts</code></td>
+<td><code>bool</code></td>
+<td><code>False</code></td>
+<td>Give the agent the MCP servers' prompts: adds <code>get_prompt</code> (its description lists the prompts and their arguments), which returns the rendered prompt for the agent to follow. Like MCP tool calls, both send the invoking caller's bearer token to servers with <code>forward_caller_token</code> (the default), so the server's roles and guards judge the user, not the agent.</td>
+</tr>
+<tr>
 <td><code>extra_tools</code></td>
 <td><code>list[BaseTool] \| None</code></td>
 <td><code>None</code></td>
@@ -10057,9 +10075,9 @@
 </tr>
 <tr>
 <td><code>flow</code></td>
-<td><code>ConversationFlow \| None</code></td>
+<td><code>ConversationFlow \| type \| Callable \| None</code></td>
 <td><code>None</code></td>
-<td>A conversation flow that evolves the system prompt across turns.</td>
+<td>A conversation flow that evolves the system prompt across turns: an instance (used as a template), a subclass, or a factory. Each session or caller gets its own copy. See <a href="../../../prompting/flows/#integration-with-build_agent">ConversationFlow</a>.</td>
 </tr>
 <tr>
 <td><code>guardrails</code></td>
@@ -10104,6 +10122,12 @@
 <td>Webhook/event notifications. Emits structured events on invocation, tool, guardrail, budget, and process events. See <a href="../../events/">Events</a>.</td>
 </tr>
 <tr>
+<td><code>on_tool_progress</code></td>
+<td><code>Callable \| None</code></td>
+<td><code>None</code></td>
+<td>Called as <code>(tool_name, progress, total, message)</code> for each progress notification an MCP tool sends during a call; sync or async. Progress is also emitted as <code>tool.progress</code> events when <code>events</code> is set. See <a href="../../../mcp/server/resilience-patterns/#receiving-progress-in-a-promptise-client-or-agent">Progress Reporting</a>.</td>
+</tr>
+<tr>
 <td><code>max_invocation_time</code></td>
 <td><code>float</code></td>
 <td><code>0</code></td>
@@ -10119,17 +10143,21 @@
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Summarize sales.csv"</span><span class="p">}]</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">})</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Async streaming</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Async streaming: the conversation after each step of the agent's graph</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">astream</span><span class="p">({</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Explain quantum computing"</span><span class="p">}]</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">}):</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">chunk</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># the last chunk is what ainvoke() returns</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># Synchronous invocation (convenience wrapper)</span>
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">result</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">invoke</span><span class="p">({</span>
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="s2">"messages"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Hello"</span><span class="p">}]</span>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="p">})</span>
 </span></code></pre></div>
+<p><code>astream()</code> yields <code>{"messages": [...]}</code> once per step (a model call and the
+tools it asked for), applying input and output guardrails, memory and
+observability as <code>ainvoke()</code> does. For token-by-token text and tool activity —
+what a chat UI needs — use <a href="../../streaming/"><code>astream_with_tools()</code></a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Sync invocation and memory</p>
 <p><code>invoke()</code> delegates to <code>ainvoke()</code> internally when memory is enabled because memory search requires async I/O. If a running event loop is already active (e.g. inside Jupyter), memory injection is skipped for the sync path. Use <code>ainvoke()</code> in async contexts to ensure memory always works.</p>
@@ -10263,7 +10291,7 @@
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">caller</span> <span class="o">=</span> <span class="n">CallerContext</span><span class="p">(</span>
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">user_id</span><span class="o">=</span><span class="s2">"user-alice-001"</span><span class="p">,</span>           <span class="c1"># Scopes memory, cache, conversations</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">tenant_id</span><span class="o">=</span><span class="s2">"acme"</span><span class="p">,</span>                   <span class="c1"># Tenant-qualifies ALL isolation keys (multi-tenant SaaS)</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">bearer_token</span><span class="o">=</span><span class="s2">"eyJhbGciOi..."</span><span class="p">,</span>       <span class="c1"># Forwarded to MCP servers as Authorization header</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">bearer_token</span><span class="o">=</span><span class="s2">"eyJhbGciOi..."</span><span class="p">,</span>       <span class="c1"># Sent to HTTP MCP servers on this invocation's tool calls</span>
 </span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">roles</span><span class="o">=</span><span class="p">{</span><span class="s2">"analyst"</span><span class="p">,</span> <span class="s2">"viewer"</span><span class="p">},</span>         <span class="c1"># Agent-side role info</span>
 </span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">scopes</span><span class="o">=</span><span class="p">{</span><span class="s2">"read"</span><span class="p">,</span> <span class="s2">"write"</span><span class="p">},</span>            <span class="c1"># Agent-side scope info</span>
 </span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">"team"</span><span class="p">:</span> <span class="s2">"finance"</span><span class="p">},</span>        <span class="c1"># Custom metadata</span>
@@ -10288,7 +10316,7 @@
 </tr>
 <tr>
 <td><code>bearer_token</code></td>
-<td>Forwarded as <code>Authorization: Bearer &lt;token&gt;</code> to every MCP server</td>
+<td>Sent as <code>Authorization: Bearer &lt;token&gt;</code> on this invocation's tool calls to every HTTP/SSE MCP server (unless its spec sets <code>forward_caller_token=False</code>), over a session opened for this token</td>
 <td>Validated by <code>AuthMiddleware</code>, extracted into <code>ClientContext</code> with roles/scopes/claims</td>
 </tr>
 <tr>
@@ -10310,13 +10338,14 @@
 </table>
 <h3 id="identity-flow-agent-mcp-server">Identity Flow: Agent → MCP Server<a class="headerlink" href="#identity-flow-agent-mcp-server" title="Link to this section">&para;</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>CallerContext(bearer_token="eyJ...")
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    → MCPClient sets Authorization header
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>        → HTTP request to MCP server
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>            → AuthMiddleware validates JWT
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>                → Extracts roles, scopes, claims
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>                → Builds ClientContext
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>                    → Guards check HasRole, HasScope
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>                        → Handler receives ctx.client
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    → the tool call goes over an MCP session opened with this token
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>      (one per caller; never shared with another caller)
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>        → HTTP request to MCP server with Authorization: Bearer eyJ...
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>            → AuthMiddleware validates JWT
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>                → Extracts roles, scopes, claims
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>                → Builds ClientContext
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>                    → Guards check HasRole, HasScope
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>                        → Handler receives ctx.client
 </span></code></pre></div>
 <p>Only the <code>bearer_token</code> crosses the wire. Everything else is extracted server-side from the JWT payload.</p>
 <h3 id="per-user-isolation">Per-User Isolation<a class="headerlink" href="#per-user-isolation" title="Link to this section">&para;</a></h3>
@@ -10579,7 +10608,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 19, 2026 13:53:24 UTC">2026-09-19</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:08:19 UTC">2026-10-10</span>
   </span>
 
     

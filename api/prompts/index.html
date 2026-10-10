@@ -7765,6 +7765,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#promptise.prompts.core.Prompt.description" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        description
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.prompts.core.Prompt.model" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9079,6 +9090,17 @@
   
     <nav class="md-nav" aria-label="ConversationFlow">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.prompts.flows.ConversationFlow.current_phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        current_phase
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#promptise.prompts.flows.ConversationFlow.get_prompt" class="md-nav__link">
@@ -12991,6 +13013,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#promptise.prompts.core.Prompt.description" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        description
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.prompts.core.Prompt.model" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -14305,6 +14338,17 @@
   
     <nav class="md-nav" aria-label="ConversationFlow">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.prompts.flows.ConversationFlow.current_phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        current_phase
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#promptise.prompts.flows.ConversationFlow.get_prompt" class="md-nav__link">
@@ -16765,7 +16809,7 @@
 
 
 <h4 id="promptise.prompts.core.prompt" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">prompts</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s1">'openai:gpt-5-mini'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">observe</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">inspect</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">prompts</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">prompt</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="s1">'openai:gpt-5-mini'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">observe</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">inspect</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.prompts.core.prompt" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -16839,6 +16883,23 @@ result = await summarize("long article...")
             <td>
               <div class="doc-md-description">
                 <p>Optional :class:<code>PromptInspector</code> for assembly tracing.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>description</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>What the prompt is for.  Shown to MCP clients when the
+prompt is served with <code>MCPServer.include_prompts()</code>.</p>
               </div>
             </td>
             <td>
@@ -16921,6 +16982,29 @@ messages = await prompt.to_messages(ctx)  # LangChain messages
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="promptise.prompts.core.Prompt.description" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">description</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#promptise.prompts.core.Prompt.description" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>What the prompt is for (<code>@prompt(description=...)</code> or a YAML file's
+<code>description</code>), or <code>None</code>.</p>
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-attribute">
 
@@ -17218,7 +17302,11 @@ the full pipeline.</p>
 
         <p>Async render with context providers (no LLM call).</p>
 <p>Full pipeline: blocks → template → context providers → perspective →
-strategy → constraints.</p>
+strategy → constraints.  When the prompt has an inspector, the
+rendered text and block assembly are recorded as a trace.  Guards
+don't run here: they check an LLM call's input and output, which
+a render doesn't make (as agent <code>instructions</code>, the agent runs
+them on each turn).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -20227,6 +20315,60 @@ it in a Prompt with all configured components.</p>
         <p>Base class for conversation flow state machines.</p>
 <p>Subclass this and use the <code>@phase</code> decorator to define phase
 handlers.  Set <code>base_blocks</code> for blocks that are always active.</p>
+<p>One instance holds the state of one conversation.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>token_budget</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Cap on the assembled prompt, in estimated tokens.
+Over budget, blocks are dropped lowest-priority first (see
+:meth:<code>PromptAssembler.assemble</code>).  Defaults to the class
+attribute, <code>None</code> (unlimited).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>inspector</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="promptise.prompts.inspector.PromptInspector" href="#promptise.prompts.inspector.PromptInspector">PromptInspector</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>:class:<code>~promptise.prompts.inspector.PromptInspector</code>
+that records a trace, with phase and turn, each time
+:meth:<code>start</code>, :meth:<code>next_turn</code> or :meth:<code>transition</code>
+assembles the prompt.  Defaults to the class attribute.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -20250,6 +20392,28 @@ handlers.  Set <code>base_blocks</code> for blocks that are always active.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.prompts.flows.ConversationFlow.token_budget">token_budget</span></code></td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Default token budget for every instance.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.prompts.flows.ConversationFlow.inspector">inspector</span></code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="promptise.prompts.inspector.PromptInspector" href="#promptise.prompts.inspector.PromptInspector">PromptInspector</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Default inspector for every instance.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -20270,6 +20434,28 @@ handlers.  Set <code>base_blocks</code> for blocks that are always active.</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="promptise.prompts.flows.ConversationFlow.current_phase" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">current_phase</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#promptise.prompts.flows.ConversationFlow.current_phase" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Name of the current phase, or <code>None</code> before :meth:<code>start</code>.</p>
+
+    </div>
+
+</div>
 
 
 
@@ -20429,7 +20615,7 @@ and returns the updated prompt.</p>
 
 
 <h5 id="promptise.prompts.flows.ConversationFlow.start" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">start</span><span class="p">()</span></code>
+            <code class="highlight language-python"><span class="n">start</span><span class="p">(</span><span class="n">user_message</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -20441,7 +20627,40 @@ and returns the updated prompt.</p>
     <div class="doc doc-contents ">
 
         <p>Initialize the flow and enter the initial phase.</p>
-<p>Returns the first assembled prompt.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>user_message</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The conversation's first user message.  It is
+recorded in the history before the initial phase handler
+runs, so the handler can act on it (turn 0).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+        <p>Returns the first assembled prompt.</p>
 
 
 <p><span class="doc-section-title">Raises:</span></p>

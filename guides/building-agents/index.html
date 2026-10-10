@@ -9854,8 +9854,8 @@
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># Get aggregate statistics</span>
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">get_stats</span><span class="p">()</span>
 </span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total tokens: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'total_tokens'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Tool calls: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'tool_calls'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Duration: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'total_duration_ms'</span><span class="p">]</span><span class="si">}</span><span class="s2">ms"</span><span class="p">)</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LLM calls: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'llm_call_count'</span><span class="p">]</span><span class="si">}</span><span class="s2">, tool calls: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'tool_call_count'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Errors: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">'error_count'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>
 </span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="c1"># Generate an interactive HTML report</span>
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="n">agent</span><span class="o">.</span><span class="n">generate_report</span><span class="p">(</span><span class="s2">"report.html"</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">"Sales Analysis"</span><span class="p">)</span>
@@ -9875,7 +9875,7 @@
 </span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>            <span class="n">TransporterType</span><span class="o">.</span><span class="n">STRUCTURED_LOG</span><span class="p">,</span> <span class="c1"># JSONL file</span>
 </span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>            <span class="n">TransporterType</span><span class="o">.</span><span class="n">CONSOLE</span><span class="p">,</span>        <span class="c1"># Live terminal output</span>
 </span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>            <span class="n">TransporterType</span><span class="o">.</span><span class="n">PROMETHEUS</span><span class="p">,</span>     <span class="c1"># Prometheus /metrics</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>            <span class="n">TransporterType</span><span class="o">.</span><span class="n">OTEL</span><span class="p">,</span>           <span class="c1"># OpenTelemetry spans</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>            <span class="n">TransporterType</span><span class="o">.</span><span class="n">OTLP</span><span class="p">,</span>           <span class="c1"># OpenTelemetry traces</span>
 </span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>            <span class="n">TransporterType</span><span class="o">.</span><span class="n">WEBHOOK</span><span class="p">,</span>        <span class="c1"># HTTP POST on events</span>
 </span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>        <span class="p">],</span>
 </span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>        <span class="n">output_dir</span><span class="o">=</span><span class="s2">"./reports"</span><span class="p">,</span>
@@ -9950,7 +9950,7 @@
 </span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
 </span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
 </span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="s2">"network_mode"</span><span class="p">:</span> <span class="s2">"restricted"</span><span class="p">,</span>  <span class="c1"># "none", "restricted", "full"</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="s2">"network"</span><span class="p">:</span> <span class="s2">"none"</span><span class="p">,</span>  <span class="c1"># the default; "restricted" or "full" to open it</span>
 </span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span>
 </span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>        <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
 </span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>        <span class="s2">"timeout"</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>
@@ -9967,37 +9967,41 @@
 </thead>
 <tbody>
 <tr>
-<td><code>execute_code</code></td>
-<td>Run Python code in the sandbox</td>
+<td><code>sandbox_exec</code></td>
+<td>Run a shell command in the sandbox</td>
 </tr>
 <tr>
-<td><code>read_file</code></td>
+<td><code>sandbox_read_file</code></td>
 <td>Read a file from the sandbox workspace</td>
 </tr>
 <tr>
-<td><code>write_file</code></td>
+<td><code>sandbox_write_file</code></td>
 <td>Write a file to the sandbox workspace</td>
 </tr>
 <tr>
-<td><code>list_files</code></td>
+<td><code>sandbox_list_files</code></td>
 <td>List files in the sandbox workspace</td>
 </tr>
 <tr>
-<td><code>install_package</code></td>
-<td>Install a pip package in the sandbox</td>
+<td><code>sandbox_install_package</code></td>
+<td>Install a package (pip, npm, cargo, go) into the workspace</td>
 </tr>
 </tbody>
 </table>
 <p>Security layers applied automatically:</p>
 <ul>
 <li><strong>Docker isolation</strong> -- code runs in a container, not on your host</li>
-<li><strong>Seccomp filtering</strong> -- blocks dangerous syscalls</li>
-<li><strong>Capability dropping</strong> -- removes ~40 Linux capabilities</li>
-<li><strong>Read-only rootfs</strong> -- only the workspace directory is writable</li>
-<li><strong>Resource limits</strong> -- CPU, memory, and time constraints</li>
-<li><strong>Network isolation</strong> -- configurable per agent (none/restricted/full)</li>
+<li><strong>Seccomp filtering</strong> -- Docker's default seccomp profile blocks dangerous syscalls</li>
+<li><strong>Capability dropping</strong> -- removes ~40 Linux capabilities; <code>no-new-privileges</code> is always set</li>
+<li><strong>Read-only rootfs</strong> -- only the size-capped workspace and <code>/tmp</code> are writable</li>
+<li><strong>Resource limits</strong> -- CPU, memory, process count and time; timed-out commands are killed</li>
+<li><strong>Network isolation</strong> -- no network unless you set <code>network</code> to <code>"restricted"</code> or <code>"full"</code></li>
 <li><strong>Optional gVisor</strong> -- userspace kernel for additional isolation</li>
 </ul>
+<p>Unknown keys raise an error, and if the sandbox cannot start (Docker not
+running, <code>pip install "promptise[sandbox]"</code> missing, gVisor not installed),
+<code>build_agent</code> raises instead of building an agent without it. See
+<a href="../../core/sandbox/">Sandbox</a> for every option.</p>
 <hr />
 <h2 id="step-6-cross-agent-delegation">Step 6: Cross-Agent Delegation<a class="headerlink" href="#step-6-cross-agent-delegation" title="Link to this section">&para;</a></h2>
 <p>Let agents ask questions to peer agents via HTTP with JWT authentication:</p>
@@ -10068,15 +10072,13 @@
 </span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="w">  </span><span class="nt">output_dir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./reports</span>
 </span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a>
 </span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="nt">sandbox</span><span class="p">:</span>
-</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a><span class="w">  </span><span class="nt">network_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">restricted</span>
-</span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a><span class="w">  </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1G</span>
-</span><span id="__span-11-32"><a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a>
-</span><span id="__span-11-33"><a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a><span class="nt">cross_agents</span><span class="p">:</span>
-</span><span id="__span-11-34"><a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a><span class="w">  </span><span class="nt">researcher</span><span class="p">:</span>
-</span><span id="__span-11-35"><a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://research-agent:8001</span>
-</span><span id="__span-11-36"><a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a><span class="w">    </span><span class="nt">jwt_secret</span><span class="p">:</span><span class="w"> </span><span class="s">"${CROSS_AGENT_SECRET}"</span>
-</span><span id="__span-11-37"><a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Expert at finding research papers.</span>
+</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="w">  </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1G</span><span class="w">   </span><span class="c1"># network stays "none" unless set</span>
+</span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>
+</span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a><span class="nt">cross_agents</span><span class="p">:</span>
+</span><span id="__span-11-32"><a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a><span class="w">  </span><span class="nt">researcher</span><span class="p">:</span>
+</span><span id="__span-11-33"><a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://research-agent:8001</span>
+</span><span id="__span-11-34"><a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a><span class="w">    </span><span class="nt">jwt_secret</span><span class="p">:</span><span class="w"> </span><span class="s">"${CROSS_AGENT_SECRET}"</span>
+</span><span id="__span-11-35"><a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Expert at finding research papers.</span>
 </span></code></pre></div>
 <p>Load and run:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.superagent</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_superagent</span>
@@ -10229,7 +10231,7 @@
 </span><span id="__span-15-34"><a id="__codelineno-15-34" name="__codelineno-15-34" href="#__codelineno-15-34"></a>            <span class="n">transporters</span><span class="o">=</span><span class="p">[</span><span class="n">TransporterType</span><span class="o">.</span><span class="n">HTML</span><span class="p">,</span> <span class="n">TransporterType</span><span class="o">.</span><span class="n">STRUCTURED_LOG</span><span class="p">],</span>
 </span><span id="__span-15-35"><a id="__codelineno-15-35" name="__codelineno-15-35" href="#__codelineno-15-35"></a>            <span class="n">output_dir</span><span class="o">=</span><span class="s2">"./reports"</span><span class="p">,</span>
 </span><span id="__span-15-36"><a id="__codelineno-15-36" name="__codelineno-15-36" href="#__codelineno-15-36"></a>        <span class="p">),</span>
-</span><span id="__span-15-37"><a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a>        <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span><span class="s2">"network_mode"</span><span class="p">:</span> <span class="s2">"restricted"</span><span class="p">,</span> <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"1G"</span><span class="p">},</span>
+</span><span id="__span-15-37"><a id="__codelineno-15-37" name="__codelineno-15-37" href="#__codelineno-15-37"></a>        <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span><span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"1G"</span><span class="p">},</span>  <span class="c1"># network stays "none" unless set</span>
 </span><span id="__span-15-38"><a id="__codelineno-15-38" name="__codelineno-15-38" href="#__codelineno-15-38"></a>        <span class="n">cross_agents</span><span class="o">=</span><span class="p">{</span>
 </span><span id="__span-15-39"><a id="__codelineno-15-39" name="__codelineno-15-39" href="#__codelineno-15-39"></a>            <span class="s2">"researcher"</span><span class="p">:</span> <span class="n">CrossAgent</span><span class="p">(</span>
 </span><span id="__span-15-40"><a id="__codelineno-15-40" name="__codelineno-15-40" href="#__codelineno-15-40"></a>                <span class="n">url</span><span class="o">=</span><span class="s2">"http://research-agent:8001"</span><span class="p">,</span>
@@ -10302,7 +10304,7 @@
 </span><span id="__span-17-22"><a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="n">graph</span><span class="p">,</span>
 </span><span id="__span-17-23"><a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a><span class="p">)</span>
 </span></code></pre></div>
-<p>10 built-in patterns: <code>react</code> (default), <code>verify</code>, <code>managed</code>, <code>code-action</code>, <code>peoatr</code>, <code>research</code>, <code>autonomous</code>, <code>deliberate</code>, <code>debate</code>, <code>pipeline</code>. See <a href="../../core/agents/reasoning-patterns/">Reasoning Patterns</a>.</p>
+<p>Pattern names: <code>react</code> (default), <code>verify</code>, <code>managed</code>, <code>code-action</code>, <code>peoatr</code>, <code>research</code>, <code>autonomous</code>, <code>deliberate</code>, <code>debate</code> — any other string raises <code>ValueError</code>. For a sequential chain pass <code>agent_pattern=PromptGraph.pipeline(node_a, node_b)</code>. See <a href="../../core/agents/reasoning-patterns/">Reasoning Patterns</a>.</p>
 <hr />
 <h2 id="error-handling-troubleshooting">Error Handling &amp; Troubleshooting<a class="headerlink" href="#error-handling-troubleshooting" title="Link to this section">&para;</a></h2>
 <h3 id="agent-invocation-errors">Agent Invocation Errors<a class="headerlink" href="#agent-invocation-errors" title="Link to this section">&para;</a></h3>
@@ -10316,30 +10318,34 @@
 </span></code></pre></div>
 <h3 id="mcp-server-connection-failures">MCP Server Connection Failures<a class="headerlink" href="#mcp-server-connection-failures" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Check which tools were discovered</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">get_stats</span><span class="p">()</span>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Tools available: </span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'tools_count'</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="c1"># If 0 tools — server connection failed. Check:</span>
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="c1"># 1. Is the server running? (stdio: is the command correct? http: is the URL reachable?)</span>
-</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># 2. Are credentials valid? (bearer_token, api_key)</span>
-</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="c1"># 3. Is the server healthy? (check server logs)</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Tools available: </span><span class="si">{</span><span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">name</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">agent</span><span class="o">.</span><span class="n">tools</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># If 0 tools — server connection failed. Check:</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="c1"># 1. Is the server running? (stdio: is the command correct? http: is the URL reachable?)</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="c1"># 2. Are credentials valid? (bearer_token, api_key)</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># 3. Is the server healthy? (check server logs)</span>
 </span></code></pre></div>
 <h3 id="timeout-handling">Timeout Handling<a class="headerlink" href="#timeout-handling" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
 </span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">my_servers</span><span class="p">,</span>
 </span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="n">max_agent_iterations</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>   <span class="c1"># Limit total reasoning steps</span>
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mf">120.0</span><span class="p">,</span>             <span class="c1"># Hard timeout in seconds</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="n">max_invocation_time</span><span class="o">=</span><span class="mf">120.0</span><span class="p">,</span> <span class="c1"># Hard timeout per invocation, in seconds</span>
 </span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="guardrail-rejections">Guardrail Rejections<a class="headerlink" href="#guardrail-rejections" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">last_msg</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">content</span>
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># If guardrails blocked the input, the response will contain the rejection reason</span>
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="c1"># Check observability for details:</span>
-</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="n">report</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">generate_report</span><span class="p">()</span>
-</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.guardrails</span><span class="w"> </span><span class="kn">import</span> <span class="n">GuardrailViolation</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">ainvoke</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="k">except</span> <span class="n">GuardrailViolation</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="c1"># The input was blocked before the model was called.</span>
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Blocked: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>
+</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="c1"># With observe=True the blocked run is recorded as an agent.error event:</span>
+</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">collector</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">event_types</span><span class="o">=</span><span class="p">[</span><span class="s2">"agent.error"</span><span class="p">]):</span>
+</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"error_type"</span><span class="p">],</span> <span class="n">event</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"error"</span><span class="p">])</span>
+</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="n">agent</span><span class="o">.</span><span class="n">generate_report</span><span class="p">(</span><span class="s2">"guardrails-report.html"</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="whats-next">What's Next<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
@@ -10422,7 +10428,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 19, 2026 13:53:51 UTC">2026-09-19</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:46:05 UTC">2026-10-10</span>
   </span>
 
     

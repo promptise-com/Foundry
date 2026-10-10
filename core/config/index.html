@@ -9615,9 +9615,9 @@ stdio transport.</p>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="httpserverspec">HTTPServerSpec<a class="headerlink" href="#httpserverspec" title="Link to this section">&para;</a></h3>
-<p>Use <code>HTTPServerSpec</code> when the MCP server is reachable over the network.  Three
-transport variants are supported: <code>"http"</code> (Streamable HTTP, the default),
-<code>"streamable-http"</code>, and <code>"sse"</code> (Server-Sent Events).</p>
+<p>Use <code>HTTPServerSpec</code> when the MCP server is reachable over the network.  Two
+transports are supported: <code>"http"</code> (MCP Streamable HTTP, the default — <code>"streamable-http"</code>
+is an alias for the same transport) and <code>"sse"</code> (the legacy HTTP+SSE transport).</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTTPServerSpec</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Unauthenticated</span>
@@ -9777,7 +9777,7 @@ building custom pipelines.</p>
 <td><code>transport</code></td>
 <td><code>Literal["http", "streamable-http", "sse"]</code></td>
 <td><code>"http"</code></td>
-<td>HTTP transport variant</td>
+<td><code>"http"</code> and its alias <code>"streamable-http"</code>: Streamable HTTP; <code>"sse"</code>: legacy HTTP+SSE</td>
 </tr>
 <tr>
 <td><code>headers</code></td>
@@ -9879,7 +9879,7 @@ development.  The agent <strong>never</strong> generates tokens itself.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="June 4, 2026 21:05:06 UTC">2026-06-04</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:00:40 UTC">2026-10-10</span>
   </span>
 
     

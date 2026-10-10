@@ -9710,7 +9710,11 @@ headers, so a passthrough server fails with <code>UPSTREAM_AUTH_MISSING</code> t
    tools module per resource), the <code>server.py</code> launcher, <code>tests/</code>,
    <code>README.md</code>, and the scaffold (<code>pyproject.toml</code>, <code>Dockerfile</code>,
    <code>.env.example</code>, <code>.gitignore</code>) on first write. The package depends only on
-   <code>promptise</code> and <code>httpx</code>.</li>
+   <code>promptise</code> and <code>httpx</code>. Every tool parameter advertises the spec's JSON
+   Schema in <code>tools/list</code> — enums, patterns, bounds, lengths, formats,
+   defaults, nullability, <code>oneOf</code>/<code>anyOf</code>, nested objects with their
+   <code>required</code> lists, descriptions — not just its Python type; <code>readOnly</code>
+   properties are not inputs.</li>
 <li><strong>Eval</strong> — <code>--eval</code> drives the generated server with a real agent and
    grades it. See <a href="#agent-readiness-score">Agent Readiness Score</a>.</li>
 </ol>
@@ -9903,7 +9907,16 @@ post-conditions enforced in <code>check_postconditions()</code>:</p>
   collapsed tool, the floor is the most severe class among its operations;</li>
 <li>adjusted parameters exist on the tool's operations; a hidden parameter that
   any route requires carries a default; examples use only visible parameters;</li>
-<li>deprecated operations are dropped.</li>
+<li>deprecated operations are dropped;</li>
+<li><strong>descriptions name only tools that exist.</strong> A tool or parameter description
+  may not name a tool the generated server will not have: a tool the safety
+  profile excludes (the model wrote <code>delete_pet</code>, then <code>--profile standard</code>
+  removed it), an operation that was dropped, or one merged into another tool
+  (<code>get_pet_by_id</code> when <code>find_pets</code> serves it). A candidate is any snake_case
+  word with an underscore that is the name of a proposed tool or the
+  snake_case form of an <code>operationId</code> in the spec, and is neither an exposed
+  tool nor a parameter name. The violation names each offending tool, why it
+  is missing, and the tools that may be named instead.</li>
 </ul>
 <div class="admonition warning">
 <p class="admonition-title">Risk is never downgraded</p>
@@ -9916,7 +9929,13 @@ reason rather than exposed.</p>
 <p>A proposal that violates a post-condition (or is not parseable JSON) is sent
 back to the model with the violations as feedback, up to <code>max_attempts</code> (3).
 After that the run <strong>fails loudly</strong> with <code>MCPcastError</code> (exit 1) and suggests
-<code>--no-curate</code> — it never falls back to a silently different plan. Operations
+<code>--no-curate</code> — it never falls back to a silently different plan. The one
+exception is a dangling tool reference: if the last attempt is otherwise valid
+but a description still names a tool that does not exist, the sentence naming
+it is removed (a description left empty falls back to the spec's) rather than
+failing the run — the tool surface is unchanged, and a hint to the agent is not
+worth discarding a curated design over. The sentence is removed whole, so check
+what remains in the review. Operations
 the model never mentions are dropped with the reason <code>not selected by
 curation</code>. A tool without an example gets one generated from its required
 visible parameters; a tool without tags inherits the union of its operations'
@@ -10305,13 +10324,42 @@ auth mode:</p>
 </tr>
 </tbody>
 </table>
+<p>With <code>elicitation</code>, the calling client has to support MCP elicitation, or the
+gated call is denied. A client that supports it shows the server's prompt to
+its user. A Promptise agent hands it to the agent's approval handler: pass <code>approval=</code> to <code>build_agent()</code>. With no handler the agent
+declares no elicitation support, so <code>add_pet</code> and every other gated tool come
+back <code>APPROVAL_DENIED</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_agent</span><span class="p">,</span> <span class="n">CallbackApprovalHandler</span><span class="p">,</span> <span class="n">StdioServerSpec</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">ask_human</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">context_summary</span><span class="p">)</span>  <span class="c1"># Server 'petstore' asks: Approval required: call tool 'add_pet' ...</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="k">return</span> <span class="nb">input</span><span class="p">(</span><span class="s2">"Approve? [y/N] "</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"y"</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>        <span class="s2">"petstore"</span><span class="p">:</span> <span class="n">StdioServerSpec</span><span class="p">(</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>            <span class="n">command</span><span class="o">=</span><span class="s2">"python"</span><span class="p">,</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>            <span class="n">args</span><span class="o">=</span><span class="p">[</span><span class="s2">"petstore-mcp/server.py"</span><span class="p">],</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>            <span class="n">env</span><span class="o">=</span><span class="p">{</span><span class="s2">"MCPCAST_UPSTREAM_TOKEN"</span><span class="p">:</span> <span class="s2">"Bearer &lt;your API token&gt;"</span><span class="p">},</span>
+</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>        <span class="p">)</span>
+</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>    <span class="p">},</span>
+</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>    <span class="n">approval</span><span class="o">=</span><span class="n">CallbackApprovalHandler</span><span class="p">(</span><span class="n">ask_human</span><span class="p">),</span>
+</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>The handler sees the server's message and, when the call can be identified,
+the tool name and the arguments the agent sent. Only an explicit approval
+releases the call. A denial, a timeout or a handler error declines, and the
+upstream request never happens. See
+<a href="../../../core/approval/#server-side-approval-gates">Server-side approval gates</a>
+for the full mapping and security model.</p>
 <p><code>pending</code> needs identified callers, so it is only available with
 <code>--auth api-key</code> — under <code>passthrough</code>, <code>env-token</code> or <code>none</code> the server does
 not know who is calling, and a "different human" could not be told from the
 caller. Requesting it anyway is a plan error. Reviewers are ordinary MCP
 clients whose key carries the <code>approver</code> role and their tenant:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MCPCAST_CLIENT_KEYS</span><span class="o">=</span><span class="s1">'{"sk-&lt;agent key&gt;": {"client_id": "acme-agent", "tenant_id": "acme", "roles": []},</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="s1">                            "sk-&lt;reviewer key&gt;": {"client_id": "dana", "tenant_id": "acme", "roles": ["approver"]}}'</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MCPCAST_CLIENT_KEYS</span><span class="o">=</span><span class="s1">'{"sk-&lt;agent key&gt;": {"client_id": "acme-agent", "tenant_id": "acme", "roles": []},</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="s1">                            "sk-&lt;reviewer key&gt;": {"client_id": "dana", "tenant_id": "acme", "roles": ["approver"]}}'</span>
 </span></code></pre></div>
 <p>Reviewers decide on the arguments the agent supplied. Values the plan hides
 from the agent (<code>hidden: true</code> with a <code>default</code>) are sent on every call
@@ -10363,37 +10411,37 @@ running a <strong>real agent</strong> against the generated server:</p>
 <p>The score is <code>0.6 × success rate + 0.4 × selection rate</code>, graded
 <strong>A</strong> ≥ 0.90, <strong>B</strong> ≥ 0.75, <strong>C</strong> ≥ 0.60, <strong>D</strong> ≥ 0.40, otherwise <strong>F</strong>. The
 terminal summary is the grade plus <em>specific</em> tool-design fixes:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>Agent Readiness: B  (17/20 tasks succeeded)
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  ✗ `list_pets` vs `get_pet_by_id` are ambiguous — the agent picked `get_pet_by_id` in 2/9 runs that needed `list_pets` → merge them, or say in each description when NOT to use it
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  ✗ `create_pet`: 2 parameter errors — `tag` has no description and no example
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  • 1 tool was never used even when a task needed it: `place_order` — consider dropping them or sharpening their descriptions
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  • 2 tools not covered by any task: `delete_order`, `update_pet` — raise --eval-tasks to score them
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  • `list_pets` has no example — agents lean on examples heavily
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>Agent Readiness: B  (17/20 tasks succeeded)
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>  ✗ `list_pets` vs `get_pet_by_id` are ambiguous — the agent picked `get_pet_by_id` in 2/9 runs that needed `list_pets` → merge them, or say in each description when NOT to use it
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>  ✗ `create_pet`: 2 parameter errors — `tag` has no description and no example
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>  • 1 tool was never used even when a task needed it: `place_order` — consider dropping them or sharpening their descriptions
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>  • 2 tools not covered by any task: `delete_order`, `update_pet` — raise --eval-tasks to score them
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>  • `list_pets` has no example — agents lean on examples heavily
 </span></code></pre></div>
 <p>Two files are written under the project: <code>eval/tasks.yaml</code> (the generated
 tasks, re-usable as a fixed benchmark through the Python API) and
 <code>eval/report.md</code>, which starts with the same headline, lists the metrics and
 fixes, and ends with a per-task table of what was expected, what was called,
 and the result:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a># Agent Readiness: B  (17/20 tasks succeeded)
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>- Score: 0.87
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>- Correct tool selected first: 90%
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>- Parameter error rate: 10%
-</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>- Tools never used: 1
-</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>- Tools not covered by any task: 2
-</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
-</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>## Fixes
-</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>…
-</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>## Tasks
-</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>
-</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>| # | Task | Expected | Called | Result |
-</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>|---|---|---|---|---|
-</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>| t1 | Show me the pets that are available for adoption | `list_pets` | list_pets | ✓ |
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a># Agent Readiness: B  (17/20 tasks succeeded)
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>- Score: 0.87
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>- Correct tool selected first: 90%
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>- Parameter error rate: 10%
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>- Tools never used: 1
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>- Tools not covered by any task: 2
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>## Fixes
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>…
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>## Tasks
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>| # | Task | Expected | Called | Result |
+</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>|---|---|---|---|---|
+</span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>| t1 | Show me the pets that are available for adoption | `list_pets` | list_pets | ✓ |
 </span></code></pre></div>
 <p>Fix the plan — merge the ambiguous pair into one multi-route tool, describe
 <code>tag</code>, drop <code>place_order</code> — regenerate, and re-evaluate:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>mcpcast.plan.yaml<span class="w"> </span>--eval
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>mcpcast.plan.yaml<span class="w"> </span>--eval
 </span></code></pre></div>
 <p>When the input is a plan, the spec it was generated from (<code>api.spec_source</code>)
 is re-read so the mocks keep their response shapes; a spec that can no longer
@@ -10428,16 +10476,16 @@ variable touched is restored before the error is raised.</p>
 </div>
 <h2 id="python-api">Python API<a class="headerlink" href="#python-api" title="Link to this section">&para;</a></h2>
 <p>The deterministic path — no model, no network beyond fetching a spec URL:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcpcast</span><span class="w"> </span><span class="kn">import</span> <span class="n">SafetyProfile</span><span class="p">,</span> <span class="n">mcpcast</span><span class="p">,</span> <span class="n">write_project</span>
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
-</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">plan</span> <span class="o">=</span> <span class="n">mcpcast</span><span class="p">(</span><span class="s2">"openapi.yaml"</span><span class="p">,</span> <span class="n">profile</span><span class="o">=</span><span class="n">SafetyProfile</span><span class="o">.</span><span class="n">STANDARD</span><span class="p">)</span>
-</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
-</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">risk</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="s2">"approval"</span> <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">requires_approval</span> <span class="k">else</span> <span class="s2">""</span><span class="p">)</span>
-</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="k">for</span> <span class="n">dropped</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">dropped</span><span class="p">:</span>
-</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">"dropped:"</span><span class="p">,</span> <span class="n">dropped</span><span class="o">.</span><span class="n">operation_id</span><span class="p">,</span> <span class="s2">"—"</span><span class="p">,</span> <span class="n">dropped</span><span class="o">.</span><span class="n">reason</span><span class="p">)</span>
-</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
-</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="n">write_project</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="s2">"petstore-mcp"</span><span class="p">)</span>   <span class="c1"># the whole project: package, launcher, tests, scaffold</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcpcast</span><span class="w"> </span><span class="kn">import</span> <span class="n">SafetyProfile</span><span class="p">,</span> <span class="n">mcpcast</span><span class="p">,</span> <span class="n">write_project</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="n">plan</span> <span class="o">=</span> <span class="n">mcpcast</span><span class="p">(</span><span class="s2">"openapi.yaml"</span><span class="p">,</span> <span class="n">profile</span><span class="o">=</span><span class="n">SafetyProfile</span><span class="o">.</span><span class="n">STANDARD</span><span class="p">)</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">tool</span><span class="o">.</span><span class="n">risk</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="s2">"approval"</span> <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">requires_approval</span> <span class="k">else</span> <span class="s2">""</span><span class="p">)</span>
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="k">for</span> <span class="n">dropped</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">dropped</span><span class="p">:</span>
+</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">"dropped:"</span><span class="p">,</span> <span class="n">dropped</span><span class="o">.</span><span class="n">operation_id</span><span class="p">,</span> <span class="s2">"—"</span><span class="p">,</span> <span class="n">dropped</span><span class="o">.</span><span class="n">reason</span><span class="p">)</span>
+</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>
+</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="n">write_project</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="s2">"petstore-mcp"</span><span class="p">)</span>   <span class="c1"># the whole project: package, launcher, tests, scaffold</span>
 </span></code></pre></div>
 <p><code>mcpcast()</code> is <code>load_spec()</code> → <code>extract_operations()</code> → <code>build_plan()</code>; call
 them separately to inspect operations, pass precomputed <code>classifications</code>, or
@@ -10448,51 +10496,51 @@ a written project through its launcher, and <code>MCPcastPlan.load()</code> / <c
 round-trip the plan file.</p>
 <p>Curation and evaluation are async, and both call the model through
 <code>build_agent()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcpcast</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="n">SafetyProfile</span><span class="p">,</span>
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="n">api_name_from_spec</span><span class="p">,</span>
-</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="n">curate</span><span class="p">,</span>
-</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    <span class="n">evaluate</span><span class="p">,</span>
-</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>    <span class="n">extract_operations</span><span class="p">,</span>
-</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>    <span class="n">load_generated_server</span><span class="p">,</span>
-</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>    <span class="n">load_spec</span><span class="p">,</span>
-</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>    <span class="n">write_eval</span><span class="p">,</span>
-</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>    <span class="n">write_project</span><span class="p">,</span>
-</span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="p">)</span>
-</span><span id="__span-21-14"><a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>
-</span><span id="__span-21-15"><a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a>
-</span><span id="__span-21-16"><a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-21-17"><a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a>    <span class="n">spec</span> <span class="o">=</span> <span class="n">load_spec</span><span class="p">(</span><span class="s2">"openapi.yaml"</span><span class="p">)</span>
-</span><span id="__span-21-18"><a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a>    <span class="n">operations</span> <span class="o">=</span> <span class="n">extract_operations</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
-</span><span id="__span-21-19"><a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a>
-</span><span id="__span-21-20"><a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a>    <span class="n">plan</span> <span class="o">=</span> <span class="k">await</span> <span class="n">curate</span><span class="p">(</span>
-</span><span id="__span-21-21"><a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a>        <span class="n">operations</span><span class="p">,</span>
-</span><span id="__span-21-22"><a id="__codelineno-21-22" name="__codelineno-21-22" href="#__codelineno-21-22"></a>        <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-21-23"><a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a>        <span class="n">max_tools</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
-</span><span id="__span-21-24"><a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a>        <span class="n">profile</span><span class="o">=</span><span class="n">SafetyProfile</span><span class="o">.</span><span class="n">FULL</span><span class="p">,</span>
-</span><span id="__span-21-25"><a id="__codelineno-21-25" name="__codelineno-21-25" href="#__codelineno-21-25"></a>        <span class="n">name</span><span class="o">=</span><span class="n">api_name_from_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="s2">"openapi.yaml"</span><span class="p">),</span>
-</span><span id="__span-21-26"><a id="__codelineno-21-26" name="__codelineno-21-26" href="#__codelineno-21-26"></a>        <span class="n">description</span><span class="o">=</span><span class="s2">"Petstore API: Manage pets, orders and store inventory."</span><span class="p">,</span>
-</span><span id="__span-21-27"><a id="__codelineno-21-27" name="__codelineno-21-27" href="#__codelineno-21-27"></a>        <span class="n">spec_source</span><span class="o">=</span><span class="s2">"openapi.yaml"</span><span class="p">,</span>
-</span><span id="__span-21-28"><a id="__codelineno-21-28" name="__codelineno-21-28" href="#__codelineno-21-28"></a>    <span class="p">)</span>
-</span><span id="__span-21-29"><a id="__codelineno-21-29" name="__codelineno-21-29" href="#__codelineno-21-29"></a>    <span class="n">write_project</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="s2">"petstore-mcp"</span><span class="p">)</span>
-</span><span id="__span-21-30"><a id="__codelineno-21-30" name="__codelineno-21-30" href="#__codelineno-21-30"></a>
-</span><span id="__span-21-31"><a id="__codelineno-21-31" name="__codelineno-21-31" href="#__codelineno-21-31"></a>    <span class="c1"># Import the generated project (through its launcher) for its build_server() factory.</span>
-</span><span id="__span-21-32"><a id="__codelineno-21-32" name="__codelineno-21-32" href="#__codelineno-21-32"></a>    <span class="n">module</span> <span class="o">=</span> <span class="n">load_generated_server</span><span class="p">(</span><span class="s2">"petstore-mcp/server.py"</span><span class="p">)</span>
-</span><span id="__span-21-33"><a id="__codelineno-21-33" name="__codelineno-21-33" href="#__codelineno-21-33"></a>
-</span><span id="__span-21-34"><a id="__codelineno-21-34" name="__codelineno-21-34" href="#__codelineno-21-34"></a>    <span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">evaluate</span><span class="p">(</span>
-</span><span id="__span-21-35"><a id="__codelineno-21-35" name="__codelineno-21-35" href="#__codelineno-21-35"></a>        <span class="n">plan</span><span class="p">,</span>
-</span><span id="__span-21-36"><a id="__codelineno-21-36" name="__codelineno-21-36" href="#__codelineno-21-36"></a>        <span class="n">module</span><span class="o">.</span><span class="n">build_server</span><span class="p">,</span>
-</span><span id="__span-21-37"><a id="__codelineno-21-37" name="__codelineno-21-37" href="#__codelineno-21-37"></a>        <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-21-38"><a id="__codelineno-21-38" name="__codelineno-21-38" href="#__codelineno-21-38"></a>        <span class="n">tasks</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>                 <span class="c1"># or a list[EvalTask] loaded from eval/tasks.yaml</span>
-</span><span id="__span-21-39"><a id="__codelineno-21-39" name="__codelineno-21-39" href="#__codelineno-21-39"></a>        <span class="n">operations</span><span class="o">=</span><span class="n">operations</span><span class="p">,</span>    <span class="c1"># mock responses derived from the spec's response schemas</span>
-</span><span id="__span-21-40"><a id="__codelineno-21-40" name="__codelineno-21-40" href="#__codelineno-21-40"></a>    <span class="p">)</span>
-</span><span id="__span-21-41"><a id="__codelineno-21-41" name="__codelineno-21-41" href="#__codelineno-21-41"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">render_summary</span><span class="p">())</span>
-</span><span id="__span-21-42"><a id="__codelineno-21-42" name="__codelineno-21-42" href="#__codelineno-21-42"></a>    <span class="n">write_eval</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">task</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">results</span><span class="p">],</span> <span class="s2">"petstore-mcp"</span><span class="p">)</span>
-</span><span id="__span-21-43"><a id="__codelineno-21-43" name="__codelineno-21-43" href="#__codelineno-21-43"></a>
-</span><span id="__span-21-44"><a id="__codelineno-21-44" name="__codelineno-21-44" href="#__codelineno-21-44"></a>
-</span><span id="__span-21-45"><a id="__codelineno-21-45" name="__codelineno-21-45" href="#__codelineno-21-45"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcpcast</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="n">SafetyProfile</span><span class="p">,</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="n">api_name_from_spec</span><span class="p">,</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>    <span class="n">curate</span><span class="p">,</span>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    <span class="n">evaluate</span><span class="p">,</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>    <span class="n">extract_operations</span><span class="p">,</span>
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>    <span class="n">load_generated_server</span><span class="p">,</span>
+</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>    <span class="n">load_spec</span><span class="p">,</span>
+</span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>    <span class="n">write_eval</span><span class="p">,</span>
+</span><span id="__span-22-12"><a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>    <span class="n">write_project</span><span class="p">,</span>
+</span><span id="__span-22-13"><a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="p">)</span>
+</span><span id="__span-22-14"><a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>
+</span><span id="__span-22-15"><a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>
+</span><span id="__span-22-16"><a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-22-17"><a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>    <span class="n">spec</span> <span class="o">=</span> <span class="n">load_spec</span><span class="p">(</span><span class="s2">"openapi.yaml"</span><span class="p">)</span>
+</span><span id="__span-22-18"><a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a>    <span class="n">operations</span> <span class="o">=</span> <span class="n">extract_operations</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+</span><span id="__span-22-19"><a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a>
+</span><span id="__span-22-20"><a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a>    <span class="n">plan</span> <span class="o">=</span> <span class="k">await</span> <span class="n">curate</span><span class="p">(</span>
+</span><span id="__span-22-21"><a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a>        <span class="n">operations</span><span class="p">,</span>
+</span><span id="__span-22-22"><a id="__codelineno-22-22" name="__codelineno-22-22" href="#__codelineno-22-22"></a>        <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-22-23"><a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a>        <span class="n">max_tools</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+</span><span id="__span-22-24"><a id="__codelineno-22-24" name="__codelineno-22-24" href="#__codelineno-22-24"></a>        <span class="n">profile</span><span class="o">=</span><span class="n">SafetyProfile</span><span class="o">.</span><span class="n">FULL</span><span class="p">,</span>
+</span><span id="__span-22-25"><a id="__codelineno-22-25" name="__codelineno-22-25" href="#__codelineno-22-25"></a>        <span class="n">name</span><span class="o">=</span><span class="n">api_name_from_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="s2">"openapi.yaml"</span><span class="p">),</span>
+</span><span id="__span-22-26"><a id="__codelineno-22-26" name="__codelineno-22-26" href="#__codelineno-22-26"></a>        <span class="n">description</span><span class="o">=</span><span class="s2">"Petstore API: Manage pets, orders and store inventory."</span><span class="p">,</span>
+</span><span id="__span-22-27"><a id="__codelineno-22-27" name="__codelineno-22-27" href="#__codelineno-22-27"></a>        <span class="n">spec_source</span><span class="o">=</span><span class="s2">"openapi.yaml"</span><span class="p">,</span>
+</span><span id="__span-22-28"><a id="__codelineno-22-28" name="__codelineno-22-28" href="#__codelineno-22-28"></a>    <span class="p">)</span>
+</span><span id="__span-22-29"><a id="__codelineno-22-29" name="__codelineno-22-29" href="#__codelineno-22-29"></a>    <span class="n">write_project</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="s2">"petstore-mcp"</span><span class="p">)</span>
+</span><span id="__span-22-30"><a id="__codelineno-22-30" name="__codelineno-22-30" href="#__codelineno-22-30"></a>
+</span><span id="__span-22-31"><a id="__codelineno-22-31" name="__codelineno-22-31" href="#__codelineno-22-31"></a>    <span class="c1"># Import the generated project (through its launcher) for its build_server() factory.</span>
+</span><span id="__span-22-32"><a id="__codelineno-22-32" name="__codelineno-22-32" href="#__codelineno-22-32"></a>    <span class="n">module</span> <span class="o">=</span> <span class="n">load_generated_server</span><span class="p">(</span><span class="s2">"petstore-mcp/server.py"</span><span class="p">)</span>
+</span><span id="__span-22-33"><a id="__codelineno-22-33" name="__codelineno-22-33" href="#__codelineno-22-33"></a>
+</span><span id="__span-22-34"><a id="__codelineno-22-34" name="__codelineno-22-34" href="#__codelineno-22-34"></a>    <span class="n">report</span> <span class="o">=</span> <span class="k">await</span> <span class="n">evaluate</span><span class="p">(</span>
+</span><span id="__span-22-35"><a id="__codelineno-22-35" name="__codelineno-22-35" href="#__codelineno-22-35"></a>        <span class="n">plan</span><span class="p">,</span>
+</span><span id="__span-22-36"><a id="__codelineno-22-36" name="__codelineno-22-36" href="#__codelineno-22-36"></a>        <span class="n">module</span><span class="o">.</span><span class="n">build_server</span><span class="p">,</span>
+</span><span id="__span-22-37"><a id="__codelineno-22-37" name="__codelineno-22-37" href="#__codelineno-22-37"></a>        <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-22-38"><a id="__codelineno-22-38" name="__codelineno-22-38" href="#__codelineno-22-38"></a>        <span class="n">tasks</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>                 <span class="c1"># or a list[EvalTask] loaded from eval/tasks.yaml</span>
+</span><span id="__span-22-39"><a id="__codelineno-22-39" name="__codelineno-22-39" href="#__codelineno-22-39"></a>        <span class="n">operations</span><span class="o">=</span><span class="n">operations</span><span class="p">,</span>    <span class="c1"># mock responses derived from the spec's response schemas</span>
+</span><span id="__span-22-40"><a id="__codelineno-22-40" name="__codelineno-22-40" href="#__codelineno-22-40"></a>    <span class="p">)</span>
+</span><span id="__span-22-41"><a id="__codelineno-22-41" name="__codelineno-22-41" href="#__codelineno-22-41"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">render_summary</span><span class="p">())</span>
+</span><span id="__span-22-42"><a id="__codelineno-22-42" name="__codelineno-22-42" href="#__codelineno-22-42"></a>    <span class="n">write_eval</span><span class="p">(</span><span class="n">report</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">task</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">results</span><span class="p">],</span> <span class="s2">"petstore-mcp"</span><span class="p">)</span>
+</span><span id="__span-22-43"><a id="__codelineno-22-43" name="__codelineno-22-43" href="#__codelineno-22-43"></a>
+</span><span id="__span-22-44"><a id="__codelineno-22-44" name="__codelineno-22-44" href="#__codelineno-22-44"></a>
+</span><span id="__span-22-45"><a id="__codelineno-22-45" name="__codelineno-22-45" href="#__codelineno-22-45"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <p><code>curate()</code> raises <code>MCPcastError</code> after <code>max_attempts</code> rejected proposals;
 <code>evaluate()</code> raises if a task names a tool the plan does not have. Pass
@@ -10570,9 +10618,24 @@ an API key in the environment.</p>
   type …</code> rather than emitted as a tool that could never work. An object
   body with no properties (Stripe's empty bodies on <code>GET</code>) adds no
   parameter.</li>
-<li><strong>An explicit <code>null</code> cannot be sent.</strong> <code>None</code> means "not provided" and the
-  value is omitted, so PATCH-style <code>{"assignee": null}</code> is unreachable through
-  generated tools.</li>
+<li><strong>An explicit <code>null</code> is sent only for a required, nullable JSON body
+  property.</strong> Its <code>None</code> cannot mean "not provided" (the property is
+  required), so it is sent as <code>null</code>. Everywhere else <code>None</code> means "not
+  provided" and the value is omitted, so a PATCH-style <code>{"assignee": null}</code>
+  on an <em>optional</em> property is unreachable through generated tools, and a
+  path or query string cannot carry a <code>null</code> at all.</li>
+<li><strong>Schemas are advertised, the API enforces them.</strong> Each parameter's JSON
+  Schema comes from the spec (OpenAPI 3.0's <code>nullable</code>, Swagger 2's
+  <code>x-nullable</code> and boolean <code>exclusiveMinimum</code>/<code>exclusiveMaximum</code> are
+  translated to JSON Schema; <code>discriminator</code>, <code>xml</code>, vendor <code>x-</code> keys and
+  leftover <code>$ref</code> keys are dropped). The generated handler validates the base
+  type only (<code>str</code>, <code>int</code>, <code>dict[str, Any]</code>); an enum, pattern or bound is the
+  API's to reject. One parameter advertises at most 4,000 characters of
+  schema and one tool 24,000: past that, nested descriptions, then nested
+  structure, then the enum are cut, and
+  <code>promptise.mcpcast.emit.trimmed_schemas(plan)</code>, the guided setup's review
+  and the Agent Readiness report name the tool. A recursive
+  schema bottoms out at a plain <code>{"type": "object"}</code> after a few <code>$ref</code> hops.</li>
 <li><strong><code>passthrough</code> and <code>api-key</code> need HTTP or SSE.</strong> Both rely on request
   headers, which stdio clients cannot send; over stdio use <code>--auth env-token</code>
   (or <code>none</code> for an open API).</li>
@@ -10636,7 +10699,7 @@ an API key in the environment.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 19, 2026 13:53:51 UTC">2026-09-19</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 21:15:17 UTC">2026-10-10</span>
   </span>
 
     

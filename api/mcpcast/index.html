@@ -4901,6 +4901,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="TaskResult">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcpcast.TaskResult.mocked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mocked
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -5194,6 +5211,17 @@
   
     <nav class="md-nav" aria-label="EvalTransport">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcpcast.readiness.EvalTransport.mocked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mocked
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#promptise.mcpcast.readiness.EvalTransport.unmatched" class="md-nav__link">
@@ -16096,6 +16124,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="TaskResult">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcpcast.TaskResult.mocked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mocked
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -16389,6 +16434,17 @@
   
     <nav class="md-nav" aria-label="EvalTransport">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcpcast.readiness.EvalTransport.mocked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mocked
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#promptise.mcpcast.readiness.EvalTransport.unmatched" class="md-nav__link">
@@ -17826,7 +17882,10 @@
             <td>
               <div class="doc-md-description">
                 <p>Proposals rejected for violations are retried with the
-violations as feedback, up to this many times.</p>
+violations as feedback, up to this many times.  On the last
+attempt a description that still names a tool the server will
+not have loses the sentence that names it (see
+:func:<code>apply_curation</code>) instead of failing the run.</p>
               </div>
             </td>
             <td>
@@ -22177,7 +22236,7 @@ shows a call that works.</p>
 
 
 <h4 id="promptise.mcpcast.apply_curation" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">mcpcast</span><span class="o">.</span><span class="n">apply_curation</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">operations</span><span class="p">,</span> <span class="n">classifications</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">max_tools</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">AuthMode</span><span class="o">.</span><span class="n">PASSTHROUGH</span><span class="p">,</span> <span class="n">approval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'api'</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">spec_source</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">mcpcast</span><span class="o">.</span><span class="n">apply_curation</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">operations</span><span class="p">,</span> <span class="n">classifications</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">max_tools</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">auth</span><span class="o">=</span><span class="n">AuthMode</span><span class="o">.</span><span class="n">PASSTHROUGH</span><span class="p">,</span> <span class="n">approval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">'api'</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="n">spec_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">spec_operations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">repair_references</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#promptise.mcpcast.apply_curation" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -22185,6 +22244,63 @@ shows a call that works.</p>
     <div class="doc doc-contents first">
 
         <p>Turn an accepted proposal into a validated :class:<code>MCPcastPlan</code>.</p>
+<p>A tool or parameter description that names a tool the plan does not
+expose — one the profile excluded, an operation that was dropped or
+merged, any snake_case form of an operation id in the spec that is not a
+tool — is a violation.  With <em>repair_references</em> (<code>curate()</code> sets it
+on its last attempt) the sentences naming such a tool are removed
+instead; a description left empty falls back to the spec's.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>spec_operations</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Iterable">Iterable</span>[<a class="autorefs autorefs-internal" title="promptise.mcpcast.Operation (promptise.mcpcast.parse.Operation)" href="#promptise.mcpcast.Operation">Operation</a>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Every operation in the spec, including any not
+passed as <em>operations</em> (unmappable ones); their would-be tool
+names count as references to tools that do not exist.  Defaults
+to <em>operations</em>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>repair_references</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Strip dangling tool references instead of
+rejecting the proposal.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
 <p><span class="doc-section-title">Raises:</span></p>
@@ -22646,6 +22762,30 @@ in either spelling; a path from elsewhere is shown as it is.</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="promptise.mcpcast.TaskResult.mocked" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">mocked</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#promptise.mcpcast.TaskResult.mocked" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The mocked replies the agent received during this task — values it may
+have reused, which exist nowhere in the real API.</p>
+
+    </div>
+
+</div>
 
 
 
@@ -23129,6 +23269,28 @@ generated <code>config.py</code> reads it (:func:<code>base_url_override</code>)
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="promptise.mcpcast.readiness.EvalTransport.mocked" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">mocked</span> <span class="o">=</span> <span class="p">[]</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#promptise.mcpcast.readiness.EvalTransport.mocked" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Every reply the transport made up, in order.</p>
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-attribute">
 
@@ -24603,6 +24765,8 @@ path and an upper bound for curation (which may merge or drop tools).</p>
   tool that does not exist.</li>
 <li>Parameters hidden from the agent (sent as fixed defaults), which your
   users may need to set.</li>
+<li>A tool whose parameter schemas are too large to advertise in full
+  (see :func:<code>~promptise.mcpcast.emit.trimmed_schemas</code>).</li>
 </ul>
 
 

@@ -11181,7 +11181,7 @@ instances with stable <code>id</code> fields so re-indexing is idempotent.</p>
         for p in Path(self.path).rglob("*.md"):
             docs.append(Document(
                 id=str(p.relative_to(self.path)),
-                text=p.read_text(),
+                text=p.read_text(encoding="utf-8"),
                 metadata={"source": str(p), "filename": p.name},
             ))
         return docs
@@ -11328,7 +11328,22 @@ result. Override for sources that are too large to fit in memory.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>list(await self.iter_load())</code>.</p>
+                <p>documents through :meth:<code>iter_load</code>, so a loader only needs</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="promptise.rag.Document
+
+
+  
+      dataclass
+  " href="#promptise.rag.Document">Document</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>one of the two.</p>
               </div>
             </td>
           </tr>
@@ -12254,7 +12269,11 @@ to preserve context across boundaries. Set to ~10-20% of
             <td>
               <div class="doc-md-description">
                 <p>Ordered list of separator patterns to try. Defaults
-to <code>["\n\n", "\n", ". ", " "]</code>.</p>
+to <code>["\n\n", "\n", ". ", " "]</code>. When none of them
+splits a piece small enough, the piece is cut into
+<code>chunk_size</code>-character windows that share <code>overlap</code>
+characters. An empty string <code>""</code> in the list means that
+character-level cut.</p>
               </div>
             </td>
             <td>
@@ -12315,6 +12334,12 @@ to <code>["\n\n", "\n", ". ", " "]</code>.</p>
 <p>Uses brute-force cosine similarity against a list of stored chunks.
 Suitable for testing, small demo corpora, and as a reference
 implementation to copy when building your own :class:<code>VectorStore</code>.</p>
+<p>Scores are cosine similarity mapped from <code>[-1, 1]</code> onto
+<code>[0, 1]</code> as <code>(cosine + 1) / 2</code>, so an unrelated (orthogonal)
+chunk scores <code>0.5</code>. Metadata filters match exactly: every key must
+be present on the chunk with an equal value. Chunks are copied on
+the way in and out, so changing a returned result never changes the
+stored chunk.</p>
 <p>For production, adapt the methods to Pinecone, Qdrant, Weaviate,
 etc. The interface is the same — only the backend changes.</p>
 
@@ -12340,7 +12365,8 @@ etc. The interface is the same — only the backend changes.</p>
             <td>
               <div class="doc-md-description">
                 <p>Expected embedding dimension. When set, :meth:<code>add</code>
-raises if a chunk's embedding has the wrong length.</p>
+raises if a chunk's embedding has the wrong length, and
+:meth:<code>search</code> raises if the query vector has the wrong length.</p>
               </div>
             </td>
             <td>
@@ -12574,6 +12600,11 @@ for hit in hits:
     <div class="doc doc-contents ">
 
         <p>Remove a document and all of its chunks from the store.</p>
+<p>Uses :meth:<code>VectorStore.delete_by_document</code> when the store
+implements it. Otherwise the chunks this pipeline instance
+indexed for the document are deleted by id; chunks indexed by
+another process can't be found that way, and a warning is logged
+when nothing is known about the document.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -12650,6 +12681,12 @@ for hit in hits:
     <div class="doc doc-contents ">
 
         <p>Load, chunk, embed, and store documents.</p>
+<p>Indexing a document whose <code>id</code> is already in the store replaces
+it: its old chunks are removed before the new ones are stored, so
+text that was removed from the document can no longer be
+retrieved. A document whose chunks fail to embed keeps its
+previous version. When the same <code>id</code> appears twice in one call,
+the last one wins.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -12678,7 +12715,8 @@ for hit in hits:
             <td>
               <div class="doc-md-description">
                 <p>Optional pre-loaded documents. When <code>None</code>,
-the configured :class:<code>DocumentLoader</code> is called.</p>
+the configured :class:<code>DocumentLoader</code> is read through
+:meth:<code>DocumentLoader.iter_load</code>.</p>
               </div>
             </td>
             <td>
@@ -12799,7 +12837,7 @@ configured.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Maximum number of results.</p>
+                <p>Maximum number of results (at least 1).</p>
               </div>
             </td>
             <td>
@@ -12854,6 +12892,29 @@ configured.</p>
     </table>
 
 
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>limit</code> is less than 1.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
     </div>
 
 </div>
@@ -12881,9 +12942,20 @@ configured.</p>
     <div class="doc doc-contents first">
 
         <p>Wrap a :class:<code>RAGPipeline</code> as a LangChain tool the agent can call.</p>
-<p>The returned tool has a single <code>query</code> argument. When the LLM
-invokes it, the pipeline embeds the query, retrieves the top <code>limit</code>
-chunks, and formats them for display.</p>
+<p>The returned tool has a <code>query</code> argument and an optional <code>limit</code>.
+When the LLM invokes it, the pipeline embeds the query, retrieves the
+top <code>limit</code> chunks, and formats them for display.</p>
+<p>Retrieved text is untrusted: anyone who can put text in an indexed
+document can write instructions aimed at the model. The tool output
+therefore says that the results are data, not instructions. In the
+<code>"markdown"</code> and <code>"text"</code> formats the results sit inside a block
+delimited by a random tag generated for each call, so a document
+can't close the block early; the <code>"json"</code> format returns
+<code>{"notice": ..., "results": [...]}</code>.</p>
+<p>Every caller of the agent searches the same pipeline: the tool does
+not scope results to the caller. Index only documents that every
+caller may read, or see the RAG guide for scoping retrieval per
+caller.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -12956,9 +13028,9 @@ call it. Be clear about what's in the knowledge base.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Default number of results per query. The tool exposes
-this as a parameter so the LLM can override for broad vs.
-narrow searches.</p>
+                <p>Default number of results per query (at least 1). The
+tool exposes this as a parameter so the LLM can override it
+for broad vs. narrow searches.</p>
               </div>
             </td>
             <td>
@@ -13013,6 +13085,30 @@ and LLM friendly), <code>"json"</code> (structured), or <code>"text"</code>
             <td>
               <div class="doc-md-description">
                 <p>via the <code>extra_tools</code> parameter.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>format</code> is not one of the three formats or
+<code>limit</code> is less than 1.</p>
               </div>
             </td>
           </tr>

@@ -3109,52 +3109,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#security-profiles" class="md-nav__link">
+  <a href="#security-layers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Security Profiles
+        Security Layers
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Security Profiles">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#seccomp-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Seccomp Profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#apparmor-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AppArmor Profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#capability-dropping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Capability Dropping
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -9770,52 +9731,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#security-profiles" class="md-nav__link">
+  <a href="#security-layers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Security Profiles
+        Security Layers
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Security Profiles">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#seccomp-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Seccomp Profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#apparmor-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        AppArmor Profile
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#capability-dropping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Capability Dropping
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -9922,22 +9844,36 @@
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Detailed: configure resource limits and network mode</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Detailed: configure resource limits (the network stays off unless you set it)</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span><span class="s2">"network_mode"</span><span class="p">:</span> <span class="s2">"restricted"</span><span class="p">,</span> <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span> <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span><span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span> <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">)</span>
 </span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Install</p>
+<p>The sandbox needs the Docker Python client: <code>pip install "promptise[sandbox]"</code>.
+Docker itself must be installed and running on the host.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">No silent fallback</p>
+<p>If the sandbox cannot be started (the <code>docker</code> package is missing, the
+Docker daemon is not running, gVisor is requested but <code>runsc</code> is not
+installed, or <code>network="restricted"</code> cannot be enforced), <code>build_agent</code>
+raises instead of building an agent without it. To run without a sandbox,
+leave <code>sandbox</code> unset (or pass <code>None</code>/<code>False</code>).</p>
+</div>
 <hr />
 <h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
 <p>The sandbox provides a secure execution environment for agent-generated code. When an agent creates or runs code (especially in <a href="../../runtime/meta-tools/">Open Mode</a>), the sandbox ensures that code runs inside an isolated container with:</p>
 <ul>
-<li><strong>Resource limits</strong> -- CPU, memory, and disk quotas</li>
-<li><strong>Network isolation</strong> -- no access, restricted (DNS-filtered), or full</li>
-<li><strong>Filesystem isolation</strong> -- read-only root, writable workspace only</li>
-<li><strong>Capability dropping</strong> -- minimal Linux capabilities</li>
-<li><strong>Security profiles</strong> -- seccomp and AppArmor enforcement</li>
+<li><strong>Resource limits</strong> -- CPU, memory, process count, workspace size, and execution time</li>
+<li><strong>Network isolation</strong> -- no network by default; restricted (DNS + HTTP/HTTPS egress) or full when you ask for it</li>
+<li><strong>Filesystem isolation</strong> -- read-only root, size-capped writable workspace</li>
+<li><strong>Capability dropping</strong> -- ~40 Linux capabilities dropped, <code>no-new-privileges</code> always set</li>
+<li><strong>Syscall filtering</strong> -- Docker's default seccomp profile; optional gVisor kernel</li>
+<li><strong>Timeouts that stop the code</strong> -- a command that exceeds its timeout is killed</li>
 </ul>
 <hr />
 <h2 id="sandboxconfig">SandboxConfig<a class="headerlink" href="#sandboxconfig" title="Link to this section">&para;</a></h2>
@@ -9979,32 +9915,32 @@
 <tr>
 <td><code>disk_limit</code></td>
 <td><code>str</code></td>
-<td><code>"10G"</code></td>
-<td>Maximum disk space</td>
+<td><code>"1G"</code></td>
+<td>Size of the writable workspace (a tmpfs at <code>workdir</code>; counts toward <code>memory_limit</code>). <code>/tmp</code> and <code>/var/tmp</code> are capped at the same size or less.</td>
+</tr>
+<tr>
+<td><code>pids_limit</code></td>
+<td><code>int</code></td>
+<td><code>256</code></td>
+<td>Maximum processes and threads (contains fork bombs)</td>
 </tr>
 <tr>
 <td><code>network</code></td>
 <td><code>NetworkMode</code></td>
-<td><code>RESTRICTED</code></td>
+<td><code>NONE</code></td>
 <td>Network isolation mode</td>
 </tr>
 <tr>
 <td><code>persistent</code></td>
 <td><code>bool</code></td>
 <td><code>False</code></td>
-<td>Keep workspace between runs</td>
+<td>Keep the container after the session ends</td>
 </tr>
 <tr>
 <td><code>timeout</code></td>
 <td><code>int</code></td>
 <td><code>300</code></td>
-<td>Max execution time in seconds (1-3600)</td>
-</tr>
-<tr>
-<td><code>tools</code></td>
-<td><code>list[str]</code></td>
-<td><code>["python"]</code></td>
-<td>Pre-installed tool ecosystems</td>
+<td>Default per-command timeout in seconds (1-3600)</td>
 </tr>
 <tr>
 <td><code>workdir</code></td>
@@ -10016,19 +9952,19 @@
 <td><code>env</code></td>
 <td><code>dict[str, str]</code></td>
 <td><code>{}</code></td>
-<td>Additional environment variables</td>
+<td>Additional environment variables (<code>HOME</code> defaults to <code>workdir</code>)</td>
 </tr>
 <tr>
 <td><code>allow_sudo</code></td>
 <td><code>bool</code></td>
 <td><code>False</code></td>
-<td>Allow sudo access in container</td>
+<td>Keep <code>CAP_SETUID</code>/<code>CAP_SETGID</code> so <code>sudo</code> works in images that ship it</td>
 </tr>
 <tr>
 <td><code>runtime</code></td>
 <td><code>str \| None</code></td>
 <td><code>None</code></td>
-<td>Container runtime (e.g., <code>"runsc"</code> for gVisor)</td>
+<td>Docker runtime (e.g., <code>"runsc"</code> for gVisor)</td>
 </tr>
 <tr>
 <td><code>read_only_rootfs</code></td>
@@ -10038,6 +9974,15 @@
 </tr>
 </tbody>
 </table>
+<p>Unknown keys are rejected with a hint, so a misspelled option fails loudly
+instead of being ignored:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">SandboxConfig</span><span class="o">.</span><span class="n">from_dict</span><span class="p">({</span><span class="s2">"network_mode"</span><span class="p">:</span> <span class="s2">"none"</span><span class="p">})</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># ValidationError: Unknown sandbox option(s): 'network_mode': use 'network'</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># ("none", "restricted" or "full"). Valid options: backend, image, ...</span>
+</span></code></pre></div>
+<p>There is no option to pre-install tool ecosystems: use an <code>image</code> that already
+contains what the code needs (for example <code>node:22-slim</code>, or your own image
+built <code>FROM python:3.11-slim</code> with the packages baked in).</p>
 <h3 id="networkmode">NetworkMode<a class="headerlink" href="#networkmode" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
@@ -10049,11 +9994,11 @@
 <tbody>
 <tr>
 <td><code>NetworkMode.NONE</code></td>
-<td>No network access whatsoever</td>
+<td>No network interface besides loopback (default)</td>
 </tr>
 <tr>
 <td><code>NetworkMode.RESTRICTED</code></td>
-<td>Limited network with DNS filtering (default)</td>
+<td>Outbound DNS (port 53) and TCP 80/443 to any host; everything else dropped, IPv4 and IPv6</td>
 </tr>
 <tr>
 <td><code>NetworkMode.FULL</code></td>
@@ -10061,22 +10006,31 @@
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.sandbox.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SandboxConfig</span><span class="p">,</span> <span class="n">NetworkMode</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfig</span><span class="p">(</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">"gvisor"</span><span class="p">,</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">cpu_limit</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">memory_limit</span><span class="o">=</span><span class="s2">"8G"</span><span class="p">,</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">network</span><span class="o">=</span><span class="n">NetworkMode</span><span class="o">.</span><span class="n">FULL</span><span class="p">,</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="s2">"python"</span><span class="p">,</span> <span class="s2">"node"</span><span class="p">,</span> <span class="s2">"rust"</span><span class="p">],</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
+<p>The network is <code>"none"</code> unless you set <code>network</code> explicitly, for <code>sandbox=True</code>,
+for a custom dict, and for <code>agent_pattern="code-action"</code>.</p>
+<p><code>"restricted"</code> is enforced with <code>iptables</code>/<code>ip6tables</code> rules installed in the
+container before any sandboxed code runs. It <strong>fails closed</strong>: if the image
+does not ship <code>iptables</code> and <code>ip6tables</code> (the default <code>python:3.11-slim</code> does
+not), the container is removed and the session refuses to start. Use an image
+that includes them, or choose <code>"none"</code> or <code>"full"</code> explicitly. Note that
+restricted mode does not filter by host name: any host is reachable on ports
+80 and 443.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.sandbox.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SandboxConfig</span><span class="p">,</span> <span class="n">NetworkMode</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfig</span><span class="p">(</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">backend</span><span class="o">=</span><span class="s2">"gvisor"</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">cpu_limit</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">memory_limit</span><span class="o">=</span><span class="s2">"8G"</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">pids_limit</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">network</span><span class="o">=</span><span class="n">NetworkMode</span><span class="o">.</span><span class="n">FULL</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="sandboxmanager">SandboxManager<a class="headerlink" href="#sandboxmanager" title="Link to this section">&para;</a></h2>
 <p><code>SandboxManager</code> is responsible for creating and managing sandbox sessions. It normalizes configuration from <code>bool</code>, <code>dict</code>, or <code>SandboxConfig</code> and provides an async context manager for lifecycle management.</p>
 <h3 id="constructor">Constructor<a class="headerlink" href="#constructor" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">SandboxManager</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">SandboxConfig</span> <span class="o">|</span> <span class="nb">dict</span> <span class="o">|</span> <span class="nb">bool</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">SandboxManager</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">SandboxConfig</span> <span class="o">|</span> <span class="nb">dict</span> <span class="o">|</span> <span class="nb">bool</span><span class="p">)</span>
 </span></code></pre></div>
 <ul>
 <li><strong><code>SandboxConfig</code></strong> -- used directly.</li>
@@ -10107,24 +10061,24 @@
 </table>
 <p><code>SandboxManager</code> also supports use as an async context manager, which calls <code>cleanup_all()</code> on exit.</p>
 <h3 id="example">Example<a class="headerlink" href="#example" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.sandbox</span><span class="w"> </span><span class="kn">import</span> <span class="n">SandboxManager</span><span class="p">,</span> <span class="n">SandboxConfig</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfig</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="s2">"python:3.11-slim"</span><span class="p">,</span> <span class="n">cpu_limit</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">memory_limit</span><span class="o">=</span><span class="s2">"4G"</span><span class="p">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">async</span> <span class="k">with</span> <span class="n">SandboxManager</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">manager</span><span class="p">:</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">create_session</span><span class="p">()</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python -c 'print(42)'"</span><span class="p">)</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>  <span class="c1"># "42\n"</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">cleanup_all</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.sandbox</span><span class="w"> </span><span class="kn">import</span> <span class="n">SandboxManager</span><span class="p">,</span> <span class="n">SandboxConfig</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfig</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="s2">"python:3.11-slim"</span><span class="p">,</span> <span class="n">cpu_limit</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">memory_limit</span><span class="o">=</span><span class="s2">"4G"</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">async</span> <span class="k">with</span> <span class="n">SandboxManager</span><span class="p">(</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">manager</span><span class="p">:</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">session</span> <span class="o">=</span> <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">create_session</span><span class="p">()</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python -c 'print(42)'"</span><span class="p">)</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>  <span class="c1"># "42\n"</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">cleanup_all</span><span class="p">()</span>
 </span></code></pre></div>
 <hr />
 <h2 id="sandboxsession">SandboxSession<a class="headerlink" href="#sandboxsession" title="Link to this section">&para;</a></h2>
 <p><code>SandboxSession</code> manages a persistent sandbox session for command execution. It provides a high-level interface for running commands, reading/writing files, and installing packages.</p>
 <h3 id="creating-a-session">Creating a Session<a class="headerlink" href="#creating-a-session" title="Link to this section">&para;</a></h3>
 <p>Sessions are typically created by <code>SandboxManager.create_session()</code>. They support async context managers for automatic cleanup:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">sandbox_session</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python --version"</span><span class="p">)</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Container is automatically cleaned up on exit</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">sandbox_session</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python --version"</span><span class="p">)</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Container is automatically cleaned up on exit</span>
 </span></code></pre></div>
 <h3 id="method-reference">Method Reference<a class="headerlink" href="#method-reference" title="Link to this section">&para;</a></h3>
 <table>
@@ -10149,7 +10103,7 @@
 <tr>
 <td><code>write_file</code></td>
 <td><code>write_file(path, content)</code></td>
-<td>Write a file into the sandbox filesystem.</td>
+<td>Write a file into the writable workspace (or <code>/tmp</code>). Missing parent directories are created.</td>
 </tr>
 <tr>
 <td><code>list_files</code></td>
@@ -10170,48 +10124,58 @@
 </table>
 <p><code>SandboxSession</code> also supports use as an async context manager, which calls <code>cleanup()</code> on exit.</p>
 <h3 id="full-example">Full Example<a class="headerlink" href="#full-example" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">session</span><span class="p">:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="c1"># Execute a command</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python -c 'print(42)'"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>       <span class="c1"># "42\n"</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">exit_code</span><span class="p">)</span>    <span class="c1"># 0</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>      <span class="c1"># True</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="c1"># File operations</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">write_file</span><span class="p">(</span><span class="s2">"/workspace/script.py"</span><span class="p">,</span> <span class="s2">"print('hello')"</span><span class="p">)</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">content</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="s2">"/workspace/script.py"</span><span class="p">)</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">files</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="s2">"/workspace"</span><span class="p">)</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    <span class="c1"># Install a package</span>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">install_package</span><span class="p">(</span><span class="s2">"requests"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">session</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="c1"># Execute a command</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python -c 'print(42)'"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>       <span class="c1"># "42\n"</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">exit_code</span><span class="p">)</span>    <span class="c1"># 0</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>      <span class="c1"># True</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="c1"># File operations</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">write_file</span><span class="p">(</span><span class="s2">"/workspace/script.py"</span><span class="p">,</span> <span class="s2">"print('hello')"</span><span class="p">)</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">content</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="s2">"/workspace/script.py"</span><span class="p">)</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="n">files</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="s2">"/workspace"</span><span class="p">)</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="c1"># Install a package</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">install_package</span><span class="p">(</span><span class="s2">"requests"</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="executing-commands">Executing Commands<a class="headerlink" href="#executing-commands" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python script.py"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">else</span><span class="p">:</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed (exit code </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">exit_code</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">stderr</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python script.py"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">else</span><span class="p">:</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed (exit code </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">exit_code</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">stderr</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
+<p>When a command exceeds its timeout, every process it started is killed inside
+the container (children and background jobs included) and the result has
+<code>timeout=True</code>. If the processes cannot be killed individually (for example a
+fork bomb has used up <code>pids_limit</code>), the container is restarted, which also
+empties the workspace.</p>
 <h3 id="file-operations">File Operations<a class="headerlink" href="#file-operations" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Write a file into the sandbox</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">write_file</span><span class="p">(</span><span class="s2">"/workspace/script.py"</span><span class="p">,</span> <span class="s2">"print('hello')"</span><span class="p">)</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Read a file from the sandbox</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">content</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="s2">"/workspace/script.py"</span><span class="p">)</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># List files in a directory</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">files</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="s2">"/workspace"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Write a file into the sandbox (works with the read-only root filesystem)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">write_file</span><span class="p">(</span><span class="s2">"/workspace/script.py"</span><span class="p">,</span> <span class="s2">"print('hello')"</span><span class="p">)</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Read a file from the sandbox</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">content</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="s2">"/workspace/script.py"</span><span class="p">)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># List files in a directory</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">files</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">list_files</span><span class="p">(</span><span class="s2">"/workspace"</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="installing-packages">Installing Packages<a class="headerlink" href="#installing-packages" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Python packages</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">install_package</span><span class="p">(</span><span class="s2">"pandas"</span><span class="p">,</span> <span class="n">tool</span><span class="o">=</span><span class="s2">"python"</span><span class="p">)</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Node.js packages</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">install_package</span><span class="p">(</span><span class="s2">"lodash"</span><span class="p">,</span> <span class="n">tool</span><span class="o">=</span><span class="s2">"node"</span><span class="p">)</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Supported ecosystems: "python", "node", "rust", "go"</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Python packages</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">install_package</span><span class="p">(</span><span class="s2">"pandas"</span><span class="p">,</span> <span class="n">tool</span><span class="o">=</span><span class="s2">"python"</span><span class="p">)</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Node.js packages</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">install_package</span><span class="p">(</span><span class="s2">"lodash"</span><span class="p">,</span> <span class="n">tool</span><span class="o">=</span><span class="s2">"node"</span><span class="p">)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Supported ecosystems: "python", "node", "rust", "go"</span>
 </span></code></pre></div>
+<p>Packages are installed into the writable workspace (<code>HOME</code> points at it, so
+<code>pip</code> falls back to a user install under <code>/workspace/.local</code>; <code>npm</code> installs
+into <code>/workspace/node_modules</code>). Downloading needs network access, which the
+default <code>network="none"</code> does not provide. For packages the code always needs,
+build a custom image with them pre-installed instead.</p>
 <hr />
 <h2 id="commandresult">CommandResult<a class="headerlink" href="#commandresult" title="Link to this section">&para;</a></h2>
 <p>Every command execution returns a <code>CommandResult</code> dataclass.</p>
@@ -10256,9 +10220,9 @@
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python -c 'import sys; sys.exit(1)'"</span><span class="p">)</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">assert</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">exit_code</span> <span class="o">==</span> <span class="mi">1</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"python -c 'import sys; sys.exit(1)'"</span><span class="p">)</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">assert</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">exit_code</span> <span class="o">==</span> <span class="mi">1</span>
 </span></code></pre></div>
 <hr />
 <h2 id="sandboxbackend">SandboxBackend<a class="headerlink" href="#sandboxbackend" title="Link to this section">&para;</a></h2>
@@ -10298,77 +10262,124 @@
 </tr>
 <tr>
 <td><code>health_check()</code></td>
-<td>Verify the backend is available and functional.</td>
+<td>Return whether the backend is available and functional.</td>
 </tr>
 </tbody>
 </table>
+<p><code>ensure_available()</code> (not abstract) raises with the actual reason the backend
+cannot run containers; <code>SandboxManager.create_session()</code> calls it, so a missing
+gVisor runtime is reported as such rather than as "Docker is not running".</p>
 <h3 id="dockerbackend">DockerBackend<a class="headerlink" href="#dockerbackend" title="Link to this section">&para;</a></h3>
 <p><code>DockerBackend</code> is the default backend. It communicates with the Docker daemon to create isolated containers. When the <code>runtime</code> field in <code>SandboxConfig</code> is set to <code>"runsc"</code>, Docker uses gVisor for additional kernel-level isolation.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.sandbox.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SandboxConfig</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># Standard Docker</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfig</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="s2">"docker"</span><span class="p">)</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1"># Docker with gVisor runtime</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfig</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="s2">"docker"</span><span class="p">,</span> <span class="n">runtime</span><span class="o">=</span><span class="s2">"runsc"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.sandbox.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">SandboxConfig</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c1"># Standard Docker</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfig</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="s2">"docker"</span><span class="p">)</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="c1"># Docker with gVisor runtime (equivalent to backend="gvisor")</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">config</span> <span class="o">=</span> <span class="n">SandboxConfig</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="s2">"docker"</span><span class="p">,</span> <span class="n">runtime</span><span class="o">=</span><span class="s2">"runsc"</span><span class="p">)</span>
 </span></code></pre></div>
+<p>If <code>runsc</code> is not registered with Docker, <code>create_session()</code> raises
+<code>RuntimeError: ... gVisor runtime 'runsc' is not registered with Docker
+(available runtimes: ...)</code>. The sandbox never falls back to the default runtime.</p>
 <hr />
 <h2 id="integration-with-build_agent">Integration with build_agent<a class="headerlink" href="#integration-with-build_agent" title="Link to this section">&para;</a></h2>
 <h3 id="simple-boolean">Simple Boolean<a class="headerlink" href="#simple-boolean" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Uses SandboxConfig defaults</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="detailed-configuration">Detailed Configuration<a class="headerlink" href="#detailed-configuration" title="Link to this section">&para;</a></h3>
-<p>Pass a dict to customize sandbox settings:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>        <span class="s2">"network_mode"</span><span class="p">:</span> <span class="s2">"restricted"</span><span class="p">,</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>        <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>        <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>        <span class="s2">"timeout"</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        <span class="s2">"tools"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"python"</span><span class="p">,</span> <span class="s2">"node"</span><span class="p">],</span>
-</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="p">},</span>
-</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="p">)</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Uses SandboxConfig defaults</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="detailed-configuration">Detailed Configuration<a class="headerlink" href="#detailed-configuration" title="Link to this section">&para;</a></h3>
+<p>Pass a dict to customize sandbox settings:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>        <span class="s2">"image"</span><span class="p">:</span> <span class="s2">"node:22-slim"</span><span class="p">,</span>  <span class="c1"># an image with the tools the code needs</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>        <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>        <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="s2">"pids_limit"</span><span class="p">:</span> <span class="mi">128</span><span class="p">,</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="s2">"timeout"</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>        <span class="c1"># "network": "full",      # only if the code must reach the network</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="p">},</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>When the sandbox is enabled, five tools are added to the agent:
+<code>sandbox_exec</code>, <code>sandbox_read_file</code>, <code>sandbox_write_file</code>, <code>sandbox_list_files</code>
+and <code>sandbox_install_package</code>. With <code>trace_tools=True</code> their calls are printed
+like any other tool call.</p>
 <hr />
-<h2 id="security-profiles">Security Profiles<a class="headerlink" href="#security-profiles" title="Link to this section">&para;</a></h2>
-<p>The sandbox ships with default security profiles that restrict container capabilities.</p>
-<h3 id="seccomp-profile">Seccomp Profile<a class="headerlink" href="#seccomp-profile" title="Link to this section">&para;</a></h3>
-<p>The default seccomp profile uses a whitelist approach: only explicitly allowed syscalls are permitted. This blocks dangerous operations like kernel module loading, raw device access, and privilege escalation.</p>
-<h3 id="apparmor-profile">AppArmor Profile<a class="headerlink" href="#apparmor-profile" title="Link to this section">&para;</a></h3>
-<p>The AppArmor profile restricts filesystem access:</p>
-<ul>
-<li><code>/workspace/**</code> and <code>/tmp/**</code> -- read-write (agent workspace)</li>
-<li><code>/usr/**</code>, <code>/lib/**</code>, <code>/etc/**</code> -- read-only (system files)</li>
-<li><code>/home/**</code>, <code>/root/**</code> -- denied</li>
-<li><code>/dev/mem</code>, <code>/dev/kmem</code> -- denied</li>
-<li><code>/proc/sys/kernel/**</code> -- write denied</li>
-</ul>
-<h3 id="capability-dropping">Capability Dropping<a class="headerlink" href="#capability-dropping" title="Link to this section">&para;</a></h3>
-<p>By default, most Linux capabilities are dropped, including <code>CAP_NET_ADMIN</code>, <code>CAP_SYS_ADMIN</code>, <code>CAP_SYS_PTRACE</code>, and others. Only the minimal capabilities needed for running user code are retained.</p>
+<h2 id="security-layers">Security Layers<a class="headerlink" href="#security-layers" title="Link to this section">&para;</a></h2>
+<p>What every sandbox container gets, and what it does not:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What is applied</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Network</td>
+<td>No network interface besides loopback by default (<code>network="none"</code>, see <a href="#networkmode">NetworkMode</a>)</td>
+</tr>
+<tr>
+<td>Seccomp</td>
+<td>Docker's default seccomp profile, which blocks ~44 syscalls such as <code>mount</code>, <code>reboot</code>, <code>kexec_load</code> and kernel module loading. Promptise does not ship a custom profile.</td>
+</tr>
+<tr>
+<td>AppArmor</td>
+<td>Docker's <code>docker-default</code> profile on hosts with AppArmor enabled. Promptise does not load a custom profile.</td>
+</tr>
+<tr>
+<td>Capabilities</td>
+<td>~40 capabilities dropped, including <code>CAP_SYS_ADMIN</code>, <code>CAP_NET_ADMIN</code>, <code>CAP_SYS_PTRACE</code> and <code>CAP_SETUID</code>/<code>CAP_SETGID</code> (kept only with <code>allow_sudo=True</code>). <code>CAP_SYS_ADMIN</code> is never re-added.</td>
+</tr>
+<tr>
+<td>Privileges</td>
+<td><code>no-new-privileges</code> always set; never a privileged container</td>
+</tr>
+<tr>
+<td>Filesystem</td>
+<td>Read-only root; writable size-capped tmpfs at <code>workdir</code>, <code>/tmp</code> and <code>/var/tmp</code> (<code>/tmp</code> and <code>/var/tmp</code> are <code>noexec</code>)</td>
+</tr>
+<tr>
+<td>Resources</td>
+<td><code>cpu_limit</code>, <code>memory_limit</code> (swap disabled), <code>pids_limit</code>, <code>disk_limit</code></td>
+</tr>
+<tr>
+<td>Time</td>
+<td>Per-command timeout; the command's processes are killed when it expires</td>
+</tr>
+<tr>
+<td>Kernel</td>
+<td>Optional gVisor (<code>backend="gvisor"</code>) for a user-space kernel</td>
+</tr>
+</tbody>
+</table>
+<p>The egress filter for <code>network="restricted"</code> and the kill of a timed-out
+command run as short privileged <code>exec</code>s issued by the host-side backend; the
+sandboxed code itself never gains those privileges.</p>
 <hr />
 <h2 id="open-mode-sandboxing">Open Mode Sandboxing<a class="headerlink" href="#open-mode-sandboxing" title="Link to this section">&para;</a></h2>
 <p>When using <a href="../../runtime/meta-tools/">Open Mode</a>, agent-created tools can be sandboxed automatically:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">ExecutionMode</span><span class="p">,</span> <span class="n">OpenModeConfig</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">execution_mode</span><span class="o">=</span><span class="n">ExecutionMode</span><span class="o">.</span><span class="n">OPEN</span><span class="p">,</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">open_mode</span><span class="o">=</span><span class="n">OpenModeConfig</span><span class="p">(</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>        <span class="n">allow_tool_creation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="n">sandbox_custom_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Agent-written code runs in sandbox</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="p">),</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">ExecutionMode</span><span class="p">,</span> <span class="n">OpenModeConfig</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">execution_mode</span><span class="o">=</span><span class="n">ExecutionMode</span><span class="o">.</span><span class="n">OPEN</span><span class="p">,</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">open_mode</span><span class="o">=</span><span class="n">OpenModeConfig</span><span class="p">(</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="n">allow_tool_creation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>        <span class="n">sandbox_custom_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Agent-written code runs in sandbox</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    <span class="p">),</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>When <code>sandbox_custom_tools=True</code>, any Python tools the agent creates at runtime are executed inside the sandbox with restricted builtins, preventing access to the host filesystem, network, and system resources.</p>
 <div class="admonition warning">
 <p class="admonition-title">Docker required</p>
-<p>The sandbox requires Docker to be installed and running on the host machine. The <code>gvisor</code> backend requires additional setup (install <code>runsc</code>).</p>
+<p>The sandbox requires Docker to be installed and running on the host machine and the <code>promptise[sandbox]</code> extra. The <code>gvisor</code> backend requires additional setup (install <code>runsc</code>).</p>
 </div>
 <hr />
 <h2 id="whats-next">What's Next?<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
@@ -10399,7 +10410,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:47:11 UTC">2026-10-10</span>
   </span>
 
     

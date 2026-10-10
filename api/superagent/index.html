@@ -8257,6 +8257,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="HTTPServerConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.superagent_schema.HTTPServerConfig.reject_auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reject_auth
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -10180,6 +10197,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="HTTPServerConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.superagent_schema.HTTPServerConfig.reject_auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reject_auth
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -10532,6 +10566,18 @@ loading cross-agent references, and converting to native types.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.superagent.SuperAgentLoader.cross_loaders">cross_loaders</span></code></td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="promptise.superagent.SuperAgentLoader" href="#promptise.superagent.SuperAgentLoader">SuperAgentLoader</a>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Loaders of the referenced cross-agent files (after
+resolve_cross_agents()), each with its own <code>cross_loaders</code>.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -10782,7 +10828,7 @@ Supports .superagent, .superagent.yaml, and .superagent.yml extensions.</p>
 
 
 <h4 id="promptise.superagent.SuperAgentLoader.resolve_cross_agents" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">resolve_cross_agents</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">resolve_cross_agents</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">resolve_env</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#promptise.superagent.SuperAgentLoader.resolve_cross_agents" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -10791,7 +10837,10 @@ Supports .superagent, .superagent.yaml, and .superagent.yml extensions.</p>
 
         <p>Load and resolve cross-agent references.</p>
 <p>Loads .superagent files referenced in the cross_agents section,
-with circular reference detection.</p>
+with circular reference detection. The result is also stored in
+:attr:<code>cross_loaders</code>, and — when <em>recursive</em> — every loaded file's
+own references in its <code>cross_loaders</code>, so the whole team is
+reachable from this loader.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -10815,6 +10864,24 @@ with circular reference detection.</p>
             <td>
               <div class="doc-md-description">
                 <p>If True, recursively load cross-agents of cross-agents.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>resolve_env</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, resolve each loaded file's environment
+variables (raising if one is missing). <code>promptise validate</code>
+passes False to report missing variables instead.</p>
               </div>
             </td>
             <td>
@@ -11201,6 +11268,11 @@ expected by LangChain's init_chat_model() function.</p>
         <p>Convert server configurations to ServerSpec objects.</p>
 <p>Converts the parsed YAML server configs to Foundry's native
 ServerSpec types (HTTPServerSpec and StdioServerSpec).</p>
+<p>Paths in a stdio server are relative to the file's folder, not the
+working directory: the server starts in the file's folder unless
+<code>cwd:</code> says otherwise (a relative <code>cwd:</code> is resolved against the
+file's folder too), and a relative <code>command:</code> that contains a path
+separator (<code>./bin/server</code>) is resolved against the file's folder.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -11254,9 +11326,13 @@ ServerSpec types (HTTPServerSpec and StdioServerSpec).</p>
     <div class="doc doc-contents ">
 
         <p>Check for missing environment variables.</p>
-<p>Scans the schema for ${VAR} references and checks if each variable
-is set in the environment. Variables with defaults (${VAR:-default})
-are not reported as missing.</p>
+<p>Loads the nearest <code>.env</code> file first — the same file, with the same
+rule, as the <code>promptise</code> CLI: the working directory or a parent up
+to the project root, never overriding a variable that is already
+set, skipped when <code>PROMPTISE_NO_DOTENV=1</code>. Then scans the schema
+for ${VAR} references and checks if each variable is set in the
+environment. Variables with defaults (${VAR:-default}) are not
+reported as missing.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -11379,7 +11455,38 @@ directly to build_agent().</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Raw cross-agent configs (resolved separately).</p>
+                <p>Cross-agent references (<code>CrossAgentConfig</code>), built
+into agents by :func:<code>build_superagent</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.superagent.SuperAgentConfig.max_delegation_depth">max_delegation_depth</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Nested-delegation limit passed to build_agent.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.superagent.SuperAgentConfig.delegation_timeout">delegation_timeout</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Default seconds to wait for a cross-agent.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.superagent.SuperAgentConfig.include_broadcast">include_broadcast</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Add the <code>broadcast_to_agents</code> tool.</p>
               </div>
             </td>
           </tr>
@@ -11431,7 +11538,7 @@ directly to build_agent().</p>
 
 
 <h4 id="promptise.superagent.SuperAgentConfig.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">servers</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">identity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cross_agents</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sandbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">observe</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">optimize_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">approval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">adaptive</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">guardrails</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_invocation_time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">servers</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">identity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cross_agents</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_delegation_depth</span><span class="o">=</span><span class="n">DEFAULT_MAX_DELEGATION_DEPTH</span><span class="p">,</span> <span class="n">delegation_timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">include_broadcast</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sandbox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">observe</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">optimize_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">approval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">adaptive</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">guardrails</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_invocation_time</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
 
 <a href="#promptise.superagent.SuperAgentConfig.__init__" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -11541,15 +11648,63 @@ directly to build_agent().</p>
                 <code>cross_agents</code>
             </td>
             <td>
-                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="promptise.superagent_schema.CrossAgentConfig" href="#promptise.superagent_schema.CrossAgentConfig">CrossAgentConfig</a>] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Cross-agent configuration dict.</p>
+                <p>Cross-agent references from the file.</p>
               </div>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_delegation_depth</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Nested-delegation limit.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="promptise.cross_agent.DEFAULT_MAX_DELEGATION_DEPTH">DEFAULT_MAX_DELEGATION_DEPTH</span></code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>delegation_timeout</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Default seconds to wait for a cross-agent.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>include_broadcast</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Add the <code>broadcast_to_agents</code> tool.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -11644,7 +11799,7 @@ directly to build_agent().</p>
 
 
 <h4 id="promptise.superagent.SuperAgentConfig.to_build_kwargs" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">to_build_kwargs</span><span class="p">()</span></code>
+            <code class="highlight language-python"><span class="n">to_build_kwargs</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">cross_agents</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.superagent.SuperAgentConfig.to_build_kwargs" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -11652,6 +11807,47 @@ directly to build_agent().</p>
     <div class="doc doc-contents ">
 
         <p>Convert to kwargs dict for build_agent().</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>cross_agents</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="promptise.cross_agent.CrossAgent
+
+
+  
+      dataclass
+  " href="../cross-agent/#promptise.cross_agent.CrossAgent">CrossAgent</a>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The built peer agents for this file's
+<code>cross_agents:</code> section. A cross-agent is an agent of its
+own, so it cannot be built here; :func:<code>build_superagent</code>
+builds the whole team and passes them in. When the file
+declares cross-agents and none are given, a <code>UserWarning</code>
+says so and the agent is built without them.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -11677,16 +11873,12 @@ directly to build_agent().</p>
     </table>
 
 
-<details class="note" open>
-  <summary>Note</summary>
-  <p>cross_agents needs special handling to build actual CrossAgent
-objects - see CLI integration for example.</p>
-</details>
-
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">to_build_kwargs</span><span class="p">()</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># A file with cross_agents: build the whole team instead</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_superagent</span><span class="p">(</span><span class="s2">"coordinator.superagent"</span><span class="p">)</span>
 </span></code></pre></div>
 
 
@@ -11715,8 +11907,9 @@ objects - see CLI integration for example.</p>
     <div class="doc doc-contents first">
 
         <p>Convenience function to load a .superagent file with all resolutions.</p>
-<p>Loads the file, resolves environment variables, and optionally resolves
-cross-agent references in a single call.</p>
+<p>Loads the file, resolves environment variables (after loading the
+nearest <code>.env</code> file, like the <code>promptise</code> CLI), and optionally
+resolves cross-agent references — at every depth — in a single call.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -11777,11 +11970,21 @@ cross-agent references in a single call.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="promptise.superagent.SuperAgentLoader" href="#promptise.superagent.SuperAgentLoader">SuperAgentLoader</a>, <span title="dict">dict</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="promptise.superagent.SuperAgentLoader" href="#promptise.superagent.SuperAgentLoader">SuperAgentLoader</a>]]</code>
+                  <code><a class="autorefs autorefs-internal" title="promptise.superagent.SuperAgentLoader" href="#promptise.superagent.SuperAgentLoader">SuperAgentLoader</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Tuple of (main_loader, cross_agent_loaders).</p>
+                <p>Tuple of (main_loader, cross_agent_loaders). The cross-agent loaders</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="promptise.superagent.SuperAgentLoader" href="#promptise.superagent.SuperAgentLoader">SuperAgentLoader</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>carry their own references in <code>cross_loaders</code>.</p>
               </div>
             </td>
           </tr>
@@ -11815,7 +12018,7 @@ cross-agent references in a single call.</p>
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">main</span><span class="p">,</span> <span class="n">cross_agents</span> <span class="o">=</span> <span class="n">load_superagent_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">config</span> <span class="o">=</span> <span class="n">main</span><span class="o">.</span><span class="n">to_agent_config</span><span class="p">()</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Build the agent</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Build the agent (a file with cross_agents: use build_superagent)</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="o">.</span><span class="n">to_build_kwargs</span><span class="p">())</span>
 </span></code></pre></div>
 
@@ -11866,7 +12069,8 @@ at least one of servers, cross_agents, or sandbox is configured.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Schema version (currently "1.0").</p>
+                <p>Schema version. Optional; <code>"1.0"</code> (the only version) is
+the default.</p>
               </div>
             </td>
           </tr>
@@ -12344,25 +12548,51 @@ or Server-Sent Events (SSE) transports.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="promptise.superagent_schema.HTTPServerConfig.auth">auth</span></code></td>
+            <td><code><span title="promptise.superagent_schema.HTTPServerConfig.bearer_token">bearer_token</span></code></td>
             <td>
                   <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Optional auth token (supports ${ENV_VAR}).</p>
+                <p>Token sent as <code>Authorization: Bearer &lt;token&gt;</code>
+(supports ${ENV_VAR}).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.superagent_schema.HTTPServerConfig.api_key">api_key</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pre-shared key sent as <code>x-api-key: &lt;key&gt;</code>
+(supports ${ENV_VAR}).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.superagent_schema.HTTPServerConfig.audience">audience</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Resource audience for a credential minted from the
+agent's <code>identity:</code> (used when no <code>bearer_token</code> is set).</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
+        <p>The old <code>auth:</code> field is rejected: it was never sent to the server.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
     <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">server</span> <span class="o">=</span> <span class="n">HTTPServerConfig</span><span class="p">(</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">... </span>    <span class="nb">type</span><span class="o">=</span><span class="s2">"http"</span><span class="p">,</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">url</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8000/mcp"</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">"Authorization"</span><span class="p">:</span> <span class="s2">"Bearer $</span><span class="si">{API_TOKEN}</span><span class="s2">"</span><span class="p">}</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">api_key</span><span class="o">=</span><span class="s2">"$</span><span class="si">{INCIDENTS_API_KEY}</span><span class="s2">"</span><span class="p">,</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span><span class="p">)</span>
 </span></code></pre></div>
 
@@ -12386,6 +12616,28 @@ or Server-Sent Events (SSE) transports.</p>
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h6 id="promptise.superagent_schema.HTTPServerConfig.reject_auth" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">reject_auth</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#promptise.superagent_schema.HTTPServerConfig.reject_auth" class="headerlink" title="Link to this section">&para;</a></h6>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Reject <code>auth:</code>, which earlier versions accepted but never sent.</p>
+
+
+    </div>
+
+</div>
 
 
 
@@ -12947,7 +13199,18 @@ the matching environment variable is not required.  <code>name:</code> and
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Maximum disk space (e.g., "10G").</p>
+                <p>Size of the writable workspace (e.g., "1G").</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.superagent_schema.SandboxConfigSection.pids_limit">pids_limit</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Maximum number of processes and threads.</p>
               </div>
             </td>
           </tr>
@@ -12969,7 +13232,7 @@ the matching environment variable is not required.  <code>name:</code> and
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Keep workspace between runs.</p>
+                <p>Keep the container after the session ends.</p>
               </div>
             </td>
           </tr>
@@ -12981,17 +13244,6 @@ the matching environment variable is not required.  <code>name:</code> and
             <td>
               <div class="doc-md-description">
                 <p>Max execution time in seconds.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="promptise.superagent_schema.SandboxConfigSection.tools">tools</span></code></td>
-            <td>
-                  <code><span title="list">list</span>[<span title="str">str</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Pre-installed tools list.</p>
               </div>
             </td>
           </tr>
@@ -13121,6 +13373,18 @@ allowing multi-agent coordination and delegation.</p>
             <td>
               <div class="doc-md-description">
                 <p>Human-readable description for tool discovery.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.superagent_schema.CrossAgentConfig.timeout">timeout</span></code></td>
+            <td>
+                  <code><span title="float">float</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seconds to wait for this agent's answer (overrides the
+file's <code>delegation_timeout</code>).</p>
               </div>
             </td>
           </tr>

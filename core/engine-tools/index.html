@@ -4015,6 +4015,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#without-build_agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Without build_agent
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -9232,6 +9243,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#without-build_agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Without build_agent
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -9305,12 +9327,13 @@
 <p>When you use <code>build_agent(servers=...)</code>, MCP tools are discovered at startup. For the default ReAct pattern, these tools are automatically available. For custom graphs, you control which nodes get tools.</p>
 <h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Link to this section">&para;</a></h2>
 <ol>
-<li><code>build_agent()</code> discovers tools from MCP servers</li>
+<li><code>build_agent()</code> discovers tools from MCP servers (plus <code>extra_tools</code>, cross-agent and sandbox tools)</li>
 <li>Tools are converted to LangChain <code>BaseTool</code> instances</li>
-<li>The engine collects all tools and passes them via <code>config["_engine_tools"]</code></li>
-<li>Nodes with <code>inject_tools=True</code> receive all discovered tools at runtime</li>
-<li>Injected tools merge with any explicitly configured tools (no duplicates)</li>
+<li><code>build_agent()</code> hands them to the engine: <code>PromptGraphEngine(graph, model, tools=discovered)</code></li>
+<li>Nodes with <code>inject_tools=True</code> receive those tools at runtime, together with every tool another node of the graph declares</li>
+<li>Injected tools merge with the node's own <code>tools</code> (no duplicates — the node's own tool wins on a name clash)</li>
 </ol>
+<p>Nodes without <code>inject_tools=True</code> see only their own <code>tools</code>. <code>agent.tool_names</code> lists what was discovered; it does not mean every node can call them.</p>
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Link to this section">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptGraph</span><span class="p">,</span> <span class="n">PromptNode</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -9341,7 +9364,7 @@
 </span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
 </span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">pattern</span><span class="o">=</span><span class="n">graph</span><span class="p">,</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="n">graph</span><span class="p">,</span>
 </span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="when-to-use">When to Use<a class="headerlink" href="#when-to-use" title="Link to this section">&para;</a></h2>
@@ -9381,6 +9404,10 @@
 </tr>
 </tbody>
 </table>
+<h2 id="without-build_agent">Without build_agent<a class="headerlink" href="#without-build_agent" title="Link to this section">&para;</a></h2>
+<p>Running a graph directly, pass the tools to the engine yourself:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">engine</span> <span class="o">=</span> <span class="n">PromptGraphEngine</span><span class="p">(</span><span class="n">graph</span><span class="o">=</span><span class="n">graph</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="n">my_tools</span><span class="p">)</span>
+</span></code></pre></div>
 
 
 
@@ -9403,7 +9430,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:24:39 UTC">2026-10-10</span>
   </span>
 
     

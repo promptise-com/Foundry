@@ -4984,6 +4984,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Authentication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#browsers-cant-drive-a-local-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browsers can't drive a local API
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9438,6 +9455,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Authentication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#browsers-cant-drive-a-local-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browsers can't drive a local API
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9767,15 +9801,40 @@
 </span></code></pre></div>
 <hr />
 <h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Link to this section">&para;</a></h2>
-<p>Every request (except <code>/api/v1/health</code>) requires a Bearer token:</p>
+<p>When <code>auth_token</code> is set, every request except <code>GET /api/v1/health</code> needs a Bearer token, including requests to unknown paths:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Authorization: Bearer &lt;your-token&gt;
 </span></code></pre></div>
 <ul>
-<li><strong>Localhost</strong> (<code>127.0.0.1</code>): auth token is optional</li>
-<li><strong>Non-localhost</strong>: auth token is <strong>required</strong> — the API refuses to start without one</li>
+<li><strong>Loopback</strong> (<code>127.0.0.1</code>, <code>localhost</code>, <code>::1</code>): auth token is optional</li>
+<li><strong>Anything else</strong>: auth token is <strong>required</strong> — the API refuses to start without one (an empty token is refused too)</li>
 <li>Comparison is timing-safe (<code>hmac.compare_digest</code>)</li>
 <li>Token supports env var resolution: <code>${ORCHESTRATION_API_TOKEN}</code></li>
 </ul>
+<h3 id="browsers-cant-drive-a-local-api">Browsers can't drive a local API<a class="headerlink" href="#browsers-cant-drive-a-local-api" title="Link to this section">&para;</a></h3>
+<p>A loopback bind is reachable by any web page open in a browser on the same machine. On a loopback bind the API therefore refuses:</p>
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Status</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Host</code> header that isn't a loopback name</td>
+<td><code>421</code> <code>MISDIRECTED_REQUEST</code></td>
+<td>DNS rebinding: a page whose own host name resolves to <code>127.0.0.1</code></td>
+</tr>
+<tr>
+<td><code>Origin</code> header from a non-loopback site</td>
+<td><code>403</code> <code>CROSS_ORIGIN_REFUSED</code></td>
+<td>A cross-site <code>fetch</code> or form post from a page you visit</td>
+</tr>
+</tbody>
+</table>
+<p><code>curl</code>, scripts and the Promptise clients send a loopback <code>Host</code> and no <code>Origin</code>, so they are unaffected. A local web UI served from <code>http://localhost:&lt;port&gt;</code> is allowed. Set an <code>auth_token</code> even on loopback if other users share the machine.</p>
+<p>Request bodies must be JSON objects. Anything else (a list, a string, invalid JSON) gets <code>400</code> <code>INVALID_JSON</code>; routes that take no body accept an empty one.</p>
 <hr />
 <h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Link to this section">&para;</a></h2>
 <h3 id="process-lifecycle">Process Lifecycle<a class="headerlink" href="#process-lifecycle" title="Link to this section">&para;</a></h3>
@@ -9882,6 +9941,7 @@
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"max_cost_per_day": 500.0}'</span>
 </span></code></pre></div>
+<p>The body of a <code>budget</code>, <code>health</code> or <code>mission</code> patch holds the fields to change, named as in <a href="../governance/budget/"><code>BudgetConfig</code>, <code>HealthConfig</code> and <code>MissionConfig</code></a>. The patched section is validated against its model before anything changes, with the same limits as at deploy time and strict JSON types (<code>"5"</code> is not a number, <code>1</code> is not <code>true</code>). A field the model does not declare, including inside <code>escalation</code> or <code>tool_costs</code>, is answered with <code>422 UNKNOWN_FIELD</code>; an invalid value with <code>422 INVALID_CONFIG</code>. In both cases nothing is changed, even when other fields in the same patch are valid. <code>null</code> clears an optional field such as <code>max_cost_per_day</code>.</p>
 <h3 id="trigger-management">Trigger Management<a class="headerlink" href="#trigger-management" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
@@ -10525,6 +10585,16 @@
 <td>Required field missing from request</td>
 </tr>
 <tr>
+<td>422</td>
+<td><code>INVALID_CONFIG</code></td>
+<td>Config fails validation (deploy, add trigger, <code>PATCH</code> budget/health/mission)</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>UNKNOWN_FIELD</code></td>
+<td><code>PATCH</code> budget/health/mission names a field the config model does not declare</td>
+</tr>
+<tr>
 <td>429</td>
 <td><code>RATE_LIMITED</code></td>
 <td>Inbox rate limit exceeded</td>
@@ -10544,7 +10614,7 @@
 <li>Config validated via Pydantic before process creation</li>
 <li>Secret values are never returned in API responses (only names and TTL status)</li>
 <li>Health endpoint has no auth (for Kubernetes probes)</li>
-<li>Config updates restricted to declared model fields only (prevents attribute injection)</li>
+<li>Config updates (<code>PATCH</code> budget/health/mission) are validated against the config models before they are applied; unknown fields, out-of-range values and wrong types are refused with <code>422</code> and change nothing</li>
 <li>All mutating operations (POST/PATCH/DELETE) are logged</li>
 </ul>
 <hr />
@@ -10576,7 +10646,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 21:07:09 UTC">2026-10-10</span>
   </span>
 
     
