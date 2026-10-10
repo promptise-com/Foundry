@@ -555,6 +555,9 @@ class EventSinkConfig(BaseModel):
     )
     max_retries: int = Field(3, ge=0, description="Max retry attempts")
     redact_sensitive: bool = Field(True, description="Redact PII in payloads")
+    allow_private_networks: bool = Field(
+        False, description="Allow url to point at localhost or a private network"
+    )
 
 
 class EventsSection(BaseModel):
@@ -563,6 +566,12 @@ class EventsSection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sinks: list[EventSinkConfig] = Field(default_factory=list, description="Notification sinks")
+    shutdown_timeout: float = Field(
+        10.0, ge=0, description="Seconds shutdown waits for queued events to be delivered"
+    )
+    slow_tool_threshold: float | None = Field(
+        5.0, ge=0, description="Seconds after which a tool call emits tool.slow (null = off)"
+    )
 
 
 class AdaptiveSection(BaseModel):

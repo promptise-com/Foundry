@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pytest
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.tools import tool
 
 from promptise.fallback import FallbackChain, _CircuitState
 
@@ -301,3 +304,373 @@ class TestExports:
         from promptise import FallbackChain
 
         assert FallbackChain is not None
+
+
+# ---------------------------------------------------------------------------
+# Tool binding
+# ---------------------------------------------------------------------------
+
+
+class ToolModel(BaseChatModel):
+    """Chat model that supports bind_tools and records what it was called with."""
+
+    model_name: str = "tool-model"
+    fail: bool = False
+    seen: Any = None  # a shared list; typed Any so pydantic does not copy it
+
+    @property
+    def _llm_type(self) -> str:
+        return "tool-model"
+
+    def bind_tools(self, tools, *, tool_choice=None, **kwargs):
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
+        return self.bind(tools=[getattr(t, "name", t) for t in tools], **kwargs)
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        self.seen.append((self.model_name, kwargs))
+        if self.fail:
+            raise RuntimeError(f"{self.model_name} is down")
+        return _make_result(f"Response from {self.model_name}")
+
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        return self._generate(messages, stop, run_manager, **kwargs)
+
+
+class NoToolsModel(BaseChatModel):
+    @property
+    def _llm_type(self) -> str:
+        return "no-tools"
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        return _make_result("plain")
+
+
+@tool
+def lookup(order_id: str) -> str:
+    """Look up an order."""
+    return f"order {order_id}"
+
+
+class TestBindTools:
+    @pytest.mark.asyncio
+    async def test_tools_reach_every_model_in_the_chain(self):
+        seen: list = []
+        primary = ToolModel(model_name="primary", fail=True, seen=seen)
+        backup = ToolModel(model_name="backup", seen=seen)
+        chain = FallbackChain([primary, backup])
+
+        bound = chain.bind_tools([lookup], tool_choice="auto")
+        result = await bound.ainvoke([HumanMessage(content="Where is order 7?")])
+
+        assert result.content == "Response from backup"
+        assert seen == [
+            ("primary", {"tools": ["lookup"], "tool_choice": "auto"}),
+            ("backup", {"tools": ["lookup"], "tool_choice": "auto"}),
+        ]
+
+    def test_sync_path_uses_the_bound_tools(self):
+        seen: list = []
+        chain = FallbackChain([ToolModel(model_name="primary", seen=seen)])
+        chain.bind_tools([lookup]).invoke([HumanMessage(content="Hi")])
+        assert seen == [("primary", {"tools": ["lookup"]})]
+
+    def test_returns_a_fallback_chain_and_leaves_the_original_unbound(self):
+        seen: list = []
+        chain = FallbackChain([ToolModel(model_name="primary", seen=seen)])
+        bound = chain.bind_tools([lookup])
+        assert isinstance(bound, FallbackChain) and bound is not chain
+
+        chain.invoke([HumanMessage(content="Hi")])
+        assert seen == [("primary", {})]
+
+    @pytest.mark.asyncio
+    async def test_bound_chain_shares_circuit_breakers_and_serving_model(self):
+        primary = ToolModel(model_name="primary", fail=True, seen=[])
+        backup = ToolModel(model_name="backup", seen=[])
+        chain = FallbackChain([primary, backup], failure_threshold=2)
+        bound = chain.bind_tools([lookup])
+
+        for _ in range(2):
+            await bound.ainvoke([HumanMessage(content="Hi")])
+
+        assert chain.get_chain_status()[0]["state"] == "open"
+        assert chain.model_name == "backup"
+        # A later binding (the engine binds on every step) sees the open circuit
+        assert chain.bind_tools([lookup]).active_model == "backup"
+
+    @pytest.mark.asyncio
+    async def test_answer_records_the_serving_model(self):
+        chain = FallbackChain(
+            [
+                ToolModel(model_name="primary", fail=True, seen=[]),
+                ToolModel(model_name="backup", seen=[]),
+            ]
+        )
+        result = await chain.bind_tools([lookup]).ainvoke([HumanMessage(content="Hi")])
+        assert result.response_metadata["fallback_model"] == "backup"
+
+    def test_model_without_tool_support_is_named(self):
+        chain = FallbackChain([ToolModel(model_name="primary", seen=[]), NoToolsModel()])
+        with pytest.raises(NotImplementedError, match="NoToolsModel"):
+            chain.bind_tools([lookup])
+
+    @pytest.mark.asyncio
+    async def test_binding_that_is_not_plain_kwargs_is_invoked(self):
+        from langchain_core.runnables import RunnableLambda
+
+        class Wrapped(ToolModel):
+            def bind_tools(self, tools, **kwargs):
+                return RunnableLambda(lambda messages: AIMessage(content=f"wrapped {len(tools)}"))
+
+        chain = FallbackChain([Wrapped(model_name="w", seen=[])])
+        result = await chain.bind_tools([lookup]).ainvoke([HumanMessage(content="Hi")])
+        assert result.content == "wrapped 1"
+        assert result.response_metadata["fallback_model"] == "w"
+
+    @pytest.mark.asyncio
+    async def test_build_agent_with_tools(self):
+        """The docs' own setup: a FallbackChain driving an agent with tools."""
+        from promptise import build_agent
+
+        class CallsLookup(ToolModel):
+            async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+                if self.fail:
+                    raise RuntimeError("down")
+                if "tools" in kwargs and not any(m.type == "tool" for m in messages):
+                    call = {"name": "lookup", "args": {"order_id": "7"}, "id": "c1"}
+                    return ChatResult(
+                        generations=[
+                            ChatGeneration(message=AIMessage(content="", tool_calls=[call]))
+                        ]
+                    )
+                return _make_result(f"{self.model_name}: {messages[-1].content}")
+
+        chain = FallbackChain(
+            [CallsLookup(model_name="primary", fail=True), CallsLookup(model_name="backup")]
+        )
+        agent = await build_agent(model=chain, servers={}, extra_tools=[lookup])
+        try:
+            result = await agent.ainvoke(
+                {"messages": [{"role": "user", "content": "Where is order 7?"}]}
+            )
+        finally:
+            await agent.shutdown()
+        assert result["messages"][-1].content == "backup: order 7"
+
+
+# ---------------------------------------------------------------------------
+# Which errors count toward the circuit breaker
+# ---------------------------------------------------------------------------
+
+
+class _StatusError(Exception):
+    """Shaped like the OpenAI / Anthropic SDK errors: carries status_code."""
+
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"HTTP {status_code}")
+        self.status_code = status_code
+
+
+class _Response:
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+
+
+class _HTTPStatusError(Exception):
+    """Shaped like httpx.HTTPStatusError: the status is on .response."""
+
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"HTTP {status_code}")
+        self.response = _Response(status_code)
+
+
+class RaisingModel(FakeModel):
+    def __init__(self, name: str, exc: Exception) -> None:
+        super().__init__(name)
+        self._exc = exc
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        self._call_count += 1
+        raise self._exc
+
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        self._call_count += 1
+        raise self._exc
+
+
+class TestErrorClassification:
+    @pytest.mark.asyncio
+    async def test_rejected_request_falls_back_but_does_not_trip_the_circuit(self):
+        """One oversized prompt must not take the primary out for everyone."""
+        primary = RaisingModel("primary", _StatusError(400))
+        backup = FakeModel("backup")
+        chain = FallbackChain([primary, backup], failure_threshold=1)
+        chain._ensure_resolved()
+        chain._resolved = [primary, backup]
+
+        result = await chain._agenerate([HumanMessage(content="x" * 10_000)])
+
+        assert result.generations[0].message.content == "Response from backup"
+        assert chain.get_chain_status()[0]["state"] == "closed"
+        assert chain.active_model == "primary"
+
+    @pytest.mark.parametrize("exc", [_StatusError(413), _HTTPStatusError(422)])
+    def test_other_request_errors_do_not_trip_the_circuit_either(self, exc):
+        chain = FallbackChain([RaisingModel("primary", exc), FakeModel("backup")])
+        chain._ensure_resolved()
+        chain._resolved = [RaisingModel("primary", exc), FakeModel("backup")]
+        chain.failure_threshold = 1
+        for c in chain._circuits:
+            c.failure_threshold = 1
+        chain._generate([HumanMessage(content="hi")])
+        assert chain.get_chain_status()[0]["state"] == "closed"
+
+    @pytest.mark.parametrize(
+        "exc",
+        [_StatusError(429), _StatusError(503), _StatusError(401), TimeoutError(), RuntimeError()],
+    )
+    @pytest.mark.asyncio
+    async def test_provider_failures_trip_the_circuit(self, exc):
+        primary = RaisingModel("primary", exc)
+        chain = FallbackChain([primary, FakeModel("backup")], failure_threshold=1)
+        chain._ensure_resolved()
+        chain._resolved = [primary, FakeModel("backup")]
+        await chain._agenerate([HumanMessage(content="hi")])
+        assert chain.get_chain_status()[0]["state"] == "open"
+
+    @pytest.mark.asyncio
+    async def test_all_failed_error_keeps_the_last_cause(self):
+        last = _StatusError(503)
+        chain = FallbackChain([RaisingModel("a", RuntimeError("a down")), RaisingModel("b", last)])
+        chain._ensure_resolved()
+        chain._resolved = [RaisingModel("a", RuntimeError("a down")), RaisingModel("b", last)]
+        with pytest.raises(RuntimeError, match="All 2 models") as info:
+            await chain._agenerate([HumanMessage(content="hi")])
+        assert info.value.__cause__ is last
+
+
+# ---------------------------------------------------------------------------
+# Streaming
+# ---------------------------------------------------------------------------
+
+
+class StreamingModel(BaseChatModel):
+    """Streams its answer word by word; can fail before or after the first word."""
+
+    model_name: str = "streaming"
+    fail_before: bool = False
+    fail_after: bool = False
+
+    @property
+    def _llm_type(self) -> str:
+        return "streaming"
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        if self.fail_before or self.fail_after:
+            raise RuntimeError(f"{self.model_name} is down")
+        return _make_result(f"Hello from {self.model_name}")
+
+    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+        from langchain_core.messages import AIMessageChunk
+        from langchain_core.outputs import ChatGenerationChunk
+
+        if self.fail_before:
+            raise RuntimeError(f"{self.model_name} is down")
+        for n, word in enumerate(["Hello", " from", f" {self.model_name}"]):
+            if self.fail_after and n == 1:
+                raise RuntimeError("connection dropped mid-answer")
+            yield ChatGenerationChunk(message=AIMessageChunk(content=word))
+
+
+class TestStreaming:
+    @pytest.mark.asyncio
+    async def test_streams_token_by_token_from_the_fallback(self):
+        chain = FallbackChain(
+            [
+                StreamingModel(model_name="primary", fail_before=True),
+                StreamingModel(model_name="backup"),
+            ]
+        )
+        chunks = [c async for c in chain.astream([HumanMessage(content="Hi")])]
+        assert [c.content for c in chunks if c.content] == ["Hello", " from", " backup"]
+        assert chain.model_name == "backup"
+        merged = chunks[0]
+        for c in chunks[1:]:
+            merged = merged + c
+        assert merged.response_metadata["fallback_model"] == "backup"
+
+    @pytest.mark.asyncio
+    async def test_failure_after_the_first_chunk_is_raised_not_spliced(self):
+        backup = StreamingModel(model_name="backup")
+        chain = FallbackChain([StreamingModel(model_name="primary", fail_after=True), backup])
+        seen: list[str] = []
+        with pytest.raises(RuntimeError, match="mid-answer"):
+            async for chunk in chain.astream([HumanMessage(content="Hi")]):
+                seen.append(chunk.content)
+        assert seen == ["Hello"]  # no " backup" glued onto the primary's words
+        assert chain.get_chain_status()[0]["failures"] == 1
+
+    @pytest.mark.asyncio
+    async def test_non_streaming_member_answers_in_one_chunk_with_tool_calls(self):
+        class ToolCaller(BaseChatModel):
+            @property
+            def _llm_type(self) -> str:
+                return "tool-caller"
+
+            def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+                call = {"name": "lookup", "args": {"order_id": "7"}, "id": "c1"}
+                return ChatResult(
+                    generations=[ChatGeneration(message=AIMessage(content="", tool_calls=[call]))]
+                )
+
+        chain = FallbackChain(
+            [StreamingModel(model_name="primary", fail_before=True), ToolCaller()]
+        )
+        chunks = [c async for c in chain.astream([HumanMessage(content="Where is order 7?")])]
+        merged = chunks[0]
+        for c in chunks[1:]:
+            merged = merged + c
+        assert [(t["name"], t["args"]) for t in merged.tool_calls] == [
+            ("lookup", {"order_id": "7"})
+        ]
+
+    @pytest.mark.asyncio
+    async def test_first_chunk_timeout_falls_back(self):
+        class Slow(StreamingModel):
+            async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+                await asyncio.sleep(5)
+                async for chunk in super()._astream(messages, stop, run_manager, **kwargs):
+                    yield chunk
+
+        chain = FallbackChain(
+            [Slow(model_name="slow"), StreamingModel(model_name="backup")], timeout_per_model=0.05
+        )
+        chunks = [c async for c in chain.astream([HumanMessage(content="Hi")])]
+        assert "".join(str(c.content) for c in chunks) == "Hello from backup"
+
+    @pytest.mark.asyncio
+    async def test_agent_streams_the_answer_through_a_fallback_chain(self):
+        from promptise import build_agent
+        from promptise.streaming import DoneEvent, TokenEvent
+
+        chain = FallbackChain(
+            [
+                StreamingModel(model_name="primary", fail_before=True),
+                StreamingModel(model_name="backup"),
+            ]
+        )
+        agent = await build_agent(model=chain, servers={})
+        try:
+            events = [
+                e
+                async for e in agent.astream_with_tools(
+                    {"messages": [{"role": "user", "content": "Hi"}]}
+                )
+            ]
+        finally:
+            await agent.shutdown()
+        tokens = [e.text for e in events if isinstance(e, TokenEvent)]
+        done = [e for e in events if isinstance(e, DoneEvent)]
+        assert tokens == ["Hello", " from", " backup"]
+        assert done and done[0].full_response == "Hello from backup"
