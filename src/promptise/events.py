@@ -61,6 +61,11 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 _PII_PATTERNS: list[tuple[_re.Pattern[str], str]] = [
+    # URL credentials first: the email pattern would otherwise consume
+    # ``password@host`` and leave the user name behind.  User info never
+    # contains whitespace, quotes, ``/`` or (unencoded) ``@``, so a match
+    # cannot run on into the next field of a serialised payload.
+    (_re.compile(r"://[^\s:/@\"']+:[^\s/@\"']+@"), "://[REDACTED]@"),
     (_re.compile(r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"), "[CARD]"),
     (_re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN]"),
     (_re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"), "[EMAIL]"),
@@ -68,7 +73,6 @@ _PII_PATTERNS: list[tuple[_re.Pattern[str], str]] = [
     (_re.compile(r"\b(AKIA[A-Z0-9]{16})\b"), "[AWS_KEY]"),
     (_re.compile(r"\b(ghp_[a-zA-Z0-9]{36})\b"), "[GITHUB_TOKEN]"),
     (_re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*"), "Bearer [REDACTED]"),
-    (_re.compile(r"://[^:]+:[^@]+@"), "://[REDACTED]@"),
 ]
 
 

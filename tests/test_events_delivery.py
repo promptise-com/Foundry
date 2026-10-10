@@ -533,6 +533,30 @@ class TestWebhookRedactionScope:
         assert redacted["event_type"] == "invocation.complete"
         assert redacted["timestamp"] == payload["timestamp"]
 
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            (
+                "postgres://admin:s3cret@db.internal:5432/app",
+                "postgres://[REDACTED]@db.internal:5432/app",
+            ),
+            ("redis://default:p:a:ss@cache:6379/0", "redis://[REDACTED]@cache:6379/0"),
+            ("https://bot:tok3n@hooks.example.com/x", "https://[REDACTED]@hooks.example.com/x"),
+        ],
+    )
+    def test_url_credentials_redact_user_and_password(self, url, expected):
+        from promptise.events import default_pii_sanitizer
+
+        redacted = default_pii_sanitizer({"error": f"could not connect to {url}"})
+        assert redacted == {"error": f"could not connect to {expected}"}
+        assert "admin" not in str(redacted) and "s3cret" not in str(redacted)
+
+    def test_url_credentials_pattern_stays_within_one_value(self):
+        from promptise.events import default_pii_sanitizer
+
+        data = {"link": "see http://docs.example/page", "note": "x:y@z", "n": 1}
+        assert default_pii_sanitizer(data) == data
+
     def test_no_redaction_when_disabled(self):
         sink = WebhookSink("https://hooks.example.com/x", redact_sensitive=False)
         payload = _event("x", user_id="maya@shop.example").to_dict()
