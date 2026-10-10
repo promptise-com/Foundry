@@ -19,15 +19,22 @@ post-conditions that are enforced here, not trusted to the model:
 - parameters exist on the operations they belong to; hidden required
   parameters carry a default; examples only use visible parameters
 - deprecated operations are dropped
+- descriptions only name tools the generated server exposes — not a tool
+  the safety profile excluded, an operation that was dropped or merged
+  into another tool, or anything else that is not in the final tool set
 
 A proposal that violates a post-condition is sent back with the violations
 for another attempt; after ``max_attempts`` the run fails loudly.  Nothing
-falls back to a silently different plan.
+falls back to a silently different plan.  The one exception is a dangling
+tool reference that survives every attempt: the sentence naming it is
+removed (see :func:`apply_curation`), because a hint to the agent is not
+worth failing a run over — the same reasoning as repairing a bad example.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable
 from typing import Any
 
@@ -37,7 +44,9 @@ from ._llm import Completer, completer_for, extract_json_object
 from .classify import Classification, classify
 from .parse import Operation
 from .plan import (
+    _describe,
     credential_slot,
+    derive_tool_name,
     example_mismatch,
     make_example,
     refuse_unrelayable_credential,
@@ -152,7 +161,9 @@ Rules, in priority order:
 4. RENAME — name tools as intents in the product's domain language, lowercase
    snake_case (cancel_subscription, not post_v2_customers_id_subscriptions_cancel).
 5. DESCRIBE FOR AN LLM — what the tool does, WHEN to use it, when NOT to, and what comes
-   back. Two to four sentences. Mention related tools by name.
+   back. Two to four sentences. Mention related tools by name — but ONLY tools in your
+   proposal whose risk the safety profile exposes. A tool the profile excludes, or an
+   operation you dropped or merged, does not exist in the server: never name it.
 6. PARAM DIET — keep required parameters visible; hide rarely-needed optionals by setting
    hidden=true with a sensible default; improve parameter descriptions.
 7. EXAMPLE — one realistic worked example per tool using only visible parameters.
@@ -216,13 +227,16 @@ def render_curation_prompt(
     ops = list(operations)
     catalogue = [_catalogue_entry(op, classifications[op.operation_id]) for op in ops]
     intro = f"API: {api_name}"
+    exposed = ", ".join(r.value for r in RiskClass if profile.allows(r))
     if api_description:
         intro += f" — {api_description.strip()[:500]}"
     return (
         f"{intro}\n"
         f"Operations in the spec: {len(ops)}. Tool budget: at most {max_tools} tools.\n"
         f"Safety profile that will be applied afterwards: {profile.value} "
-        "(design the best surface regardless; exposure is gated later).\n\n"
+        "(design the best surface regardless; exposure is gated later). "
+        f"It exposes only these risk classes: {exposed}; tools of any other class are "
+        "removed, so no description may name them.\n\n"
         "Operation catalogue (JSON lines):\n"
         + "\n".join(json.dumps(entry, ensure_ascii=False) for entry in catalogue)
     )
@@ -366,6 +380,68 @@ def _repair_example(
     return kept or None
 
 
+_TOOL_LIKE = re.compile(r"(?<![A-Za-z0-9_])[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![A-Za-z0-9_])")
+"""A snake_case identifier with at least one underscore — the shape of a tool
+name.  Single words (``search``) are not matched: in prose they are English."""
+
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+(?=[^a-z])|\n+")
+
+
+def _phantom_tools(
+    result: CurationResult,
+    spec_operations: Iterable[Operation],
+    exposed: set[str],
+    profile: SafetyProfile,
+) -> dict[str, str]:
+    """Names an agent would read as a tool the generated server does not have.
+
+    Every name the model proposed and the would-be tool name of every
+    operation in the spec (``deletePet`` → ``delete_pet``), minus the tools
+    that are exposed — mapped to why each one is missing, for the feedback.
+    Parameter names are never phantoms, so ``pet_id`` in prose is not
+    mistaken for a tool.
+    """
+    owner = {oid: ct for ct in result.tools for oid in ct.operations}
+    phantoms: dict[str, str] = {}
+    for ct in result.tools:
+        if ct.name not in exposed:
+            phantoms.setdefault(ct.name, profile.exclusion_reason(ct.risk))
+    param_names: set[str] = set()
+    for op in spec_operations:
+        param_names.update(p.name for p in op.params)
+        name = derive_tool_name(op.operation_id)
+        if name in exposed or name in phantoms:
+            continue
+        tool = owner.get(op.operation_id)
+        if tool is None:
+            why = f"operation {op.operation_id!r} is not in the generated server"
+        elif tool.name in exposed:
+            why = f"operation {op.operation_id!r} is served by {tool.name!r}; name that instead"
+        else:
+            why = f"operation {op.operation_id!r} is {profile.exclusion_reason(tool.risk)}"
+        phantoms[name] = why
+    return {name: why for name, why in phantoms.items() if name not in param_names}
+
+
+def _named_phantoms(text: str, phantoms: dict[str, str]) -> list[str]:
+    """The phantom tools *text* names, in first-mention order."""
+    return list(dict.fromkeys(m for m in _TOOL_LIKE.findall(text) if m in phantoms))
+
+
+def _strip_phantoms(text: str, phantoms: dict[str, str]) -> str:
+    """*text* without the sentences that name a phantom tool."""
+    kept = [s.strip() for s in _SENTENCE_BREAK.split(text) if not _named_phantoms(s, phantoms)]
+    return " ".join(s for s in kept if s)
+
+
+def _dangling(where: str, named: list[str], phantoms: dict[str, str], exposed: list[str]) -> str:
+    return (
+        f"{where} names {', '.join(f'{n} ({phantoms[n]})' for n in named)} — no such tool "
+        "will exist in the generated server; remove the reference or name one of: "
+        + ", ".join(exposed)
+    )
+
+
 def _merge_params(ops: list[Operation], curated: dict[str, CuratedParam]) -> dict[str, ParamPlan]:
     """Agent-facing parameters: the union across routes, with the model's edits.
 
@@ -415,8 +491,25 @@ def apply_curation(
     name: str = "api",
     description: str = "",
     spec_source: str | None = None,
+    spec_operations: Iterable[Operation] | None = None,
+    repair_references: bool = False,
 ) -> MCPcastPlan:
     """Turn an accepted proposal into a validated :class:`MCPcastPlan`.
+
+    A tool or parameter description that names a tool the plan does not
+    expose — one the profile excluded, an operation that was dropped or
+    merged, any snake_case form of an operation id in the spec that is not a
+    tool — is a violation.  With *repair_references* (``curate()`` sets it
+    on its last attempt) the sentences naming such a tool are removed
+    instead; a description left empty falls back to the spec's.
+
+    Args:
+        spec_operations: Every operation in the spec, including any not
+            passed as *operations* (unmappable ones); their would-be tool
+            names count as references to tools that do not exist.  Defaults
+            to *operations*.
+        repair_references: Strip dangling tool references instead of
+            rejecting the proposal.
 
     Raises:
         CurationViolation: If any post-condition fails.
@@ -432,6 +525,11 @@ def apply_curation(
     if violations:
         raise CurationViolation(violations)
 
+    exposed = [ct.name for ct in result.tools if profile.allows(ct.risk)]
+    phantoms = _phantom_tools(
+        result, ops if spec_operations is None else spec_operations, set(exposed), profile
+    )
+    dangling: list[str] = []
     tools: list[ToolPlan] = []
     dropped: list[DroppedOp] = list(result.dropped)
     mentioned = {d.operation_id for d in dropped}
@@ -445,6 +543,36 @@ def apply_curation(
             )
             continue
         params = _merge_params(tool_ops, ct.params)
+        tool_description = ct.description
+        if named := _named_phantoms(tool_description, phantoms):
+            if repair_references:
+                tool_description = _strip_phantoms(tool_description, phantoms) or (
+                    _strip_phantoms(_describe(tool_ops[0]), phantoms)
+                    or f"{tool_ops[0].method} {tool_ops[0].path}"
+                )
+            else:
+                dangling.append(
+                    _dangling(f"tool {ct.name!r} description", named, phantoms, exposed)
+                )
+        for pname, pplan in params.items():
+            if named := _named_phantoms(pplan.description, phantoms):
+                if repair_references:
+                    spec_text = next(
+                        (p.description for op in tool_ops for p in op.params if p.name == pname),
+                        "",
+                    )
+                    pplan.description = _strip_phantoms(
+                        pplan.description, phantoms
+                    ) or _strip_phantoms(spec_text, phantoms)
+                else:
+                    dangling.append(
+                        _dangling(
+                            f"tool {ct.name!r} parameter {pname!r} description",
+                            named,
+                            phantoms,
+                            exposed,
+                        )
+                    )
         first_required = [
             p.name for p in tool_ops[0].params if p.required and p.location in _EXPOSED
         ]
@@ -452,7 +580,7 @@ def apply_curation(
         tools.append(
             ToolPlan(
                 name=ct.name,
-                description=ct.description,
+                description=tool_description,
                 risk=ct.risk,
                 routes=[route_from_operation(op, base_url=resolved_base) for op in tool_ops],
                 params=params,
@@ -461,6 +589,8 @@ def apply_curation(
                 tags=ct.tags or sorted({t for op in tool_ops for t in op.tags}),
             )
         )
+    if dangling:
+        raise CurationViolation(dangling)
     for op in ops:
         if op.operation_id not in mentioned:
             dropped.append(
@@ -523,7 +653,10 @@ async def curate(
         description: One-line API description (becomes server instructions).
         spec_source: Where the spec came from (recorded on the plan).
         max_attempts: Proposals rejected for violations are retried with the
-            violations as feedback, up to this many times.
+            violations as feedback, up to this many times.  On the last
+            attempt a description that still names a tool the server will
+            not have loses the sentence that names it (see
+            :func:`apply_curation`) instead of failing the run.
         complete: Override the completion function (tests inject a script).
 
     Raises:
@@ -591,7 +724,7 @@ async def curate(
 
     feedback = ""
     last_error = "no attempts made"
-    for _attempt in range(max_attempts):
+    for attempt in range(max_attempts):
         text = await completer(CURATION_SYSTEM, prompt + feedback)
         try:
             result = CurationResult.model_validate(extract_json_object(text))
@@ -615,6 +748,8 @@ async def curate(
                 name=name,
                 description=description,
                 spec_source=spec_source,
+                spec_operations=all_ops,
+                repair_references=attempt == max_attempts - 1,
             )
             if unmappable:
                 plan = plan.model_copy(update={"dropped": [*plan.dropped, *unmappable]})

@@ -9,6 +9,9 @@ async context manager that handles:
 - Custom header injection on every HTTP request
 - Proper session lifecycle (initialize → use → close)
 - Clear, typed errors when a server refuses the connection
+- MCP elicitation: an optional handler answers ``elicitation/create``
+  requests from the server (the elicitation capability is declared only
+  when one is configured)
 
 The transport and session live in a task owned by the client.  The MCP
 SDK's transports run their HTTP traffic in an anyio task group; owning
@@ -24,12 +27,18 @@ and passed in via ``bearer_token``, ``api_key``, or ``headers``.
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import itertools
 import logging
 from contextlib import AsyncExitStack
-from typing import Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from mcp.client.session import ClientSession
 from mcp.types import CallToolResult, ListToolsResult, Tool
+
+if TYPE_CHECKING:
+    from mcp.client.session import ElicitationFnT
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +93,36 @@ class MCPConnectionRejectedError(MCPClientError):
         )
 
 
+@dataclass(frozen=True)
+class InFlightToolCall:
+    """A ``call_tool`` request awaiting its result.
+
+    Exposed through :attr:`MCPClient.in_flight_calls` so an elicitation
+    handler can relate a server's ``elicitation/create`` request to the
+    tool call that triggered it.  MCP carries no such link on the wire,
+    so a request is attributed to a call only when exactly one is in flight.
+
+    Attributes:
+        name: The tool being called.
+        arguments: A copy of the arguments the call was sent with.
+        context: A snapshot of the caller's :mod:`contextvars` taken when
+            the call started (e.g. the agent's ``CallerContext``).  The
+            elicitation handler runs in the session's own task, so this
+            is the only way back to the caller's context.
+    """
+
+    name: str
+    arguments: dict[str, Any]
+    context: contextvars.Context = field(repr=False, compare=False)
+
+
+def _sdk_supports_elicitation() -> bool:
+    """Whether the installed MCP SDK's ``ClientSession`` accepts an elicitation callback."""
+    import inspect
+
+    return "elicitation_callback" in inspect.signature(ClientSession.__init__).parameters
+
+
 def _leaf_exceptions(exc: BaseException) -> list[BaseException]:
     """Flatten (possibly nested) exception groups into their leaf exceptions."""
     nested = getattr(exc, "exceptions", None)
@@ -120,6 +159,18 @@ class MCPClient:
         cwd: Working directory for the stdio subprocess.  When ``None``
             the subprocess inherits the parent process's working directory.
         timeout: HTTP request timeout in seconds.
+        elicitation_callback: Answers the server's MCP elicitation
+            requests (``elicitation/create``) — e.g. a server-side
+            approval gate asking the human behind this client to confirm
+            a tool call.  Same signature as the MCP SDK's
+            ``ClientSession`` callback: ``async (context, params) ->
+            ElicitResult | ErrorData``.  The client declares the
+            elicitation capability only when this is set; without it,
+            servers are told elicitation is unsupported and fail-closed
+            servers deny the gated call.  A callback that raises is
+            answered with an error, never an acceptance.  See
+            :func:`promptise.approval.approval_elicitation_callback` to
+            route requests to an approval handler.
 
     Example — unauthenticated::
 
@@ -169,6 +220,7 @@ class MCPClient:
         env: dict[str, str] | None = None,
         cwd: str | None = None,
         timeout: float = 30.0,
+        elicitation_callback: ElicitationFnT | None = None,
     ) -> None:
         self._url = url
         self._transport = transport
@@ -178,6 +230,17 @@ class MCPClient:
         self._env = env or {}
         self._cwd = cwd
         self._timeout = timeout
+        if elicitation_callback is not None and not _sdk_supports_elicitation():
+            raise MCPClientError(
+                "elicitation_callback requires mcp>=1.10 (the installed MCP SDK "
+                "has no client elicitation support)"
+            )
+        self._elicitation_callback = elicitation_callback
+
+        # Calls awaiting a result, so an elicitation handler can tell which
+        # call a server request belongs to (see ``in_flight_calls``).
+        self._in_flight: dict[int, InFlightToolCall] = {}
+        self._call_ids = itertools.count()
 
         # Session state (set on __aenter__).  The session is owned by
         # ``_runner``; ``_closing`` asks it to shut down, and ``_failure``
@@ -355,7 +418,14 @@ class MCPClient:
         try:
             async with AsyncExitStack() as stack:
                 streams = await stack.enter_async_context(open_transport())
-                session = await stack.enter_async_context(ClientSession(streams[0], streams[1]))
+                session_kwargs: dict[str, Any] = {}
+                if self._elicitation_callback is not None:
+                    # The SDK declares the elicitation capability only when a
+                    # callback is passed, so servers never see it otherwise.
+                    session_kwargs["elicitation_callback"] = self._answer_elicitation
+                session = await stack.enter_async_context(
+                    ClientSession(streams[0], streams[1], **session_kwargs)
+                )
                 await session.initialize()
                 self._session = session
                 if not ready.done():
@@ -373,6 +443,31 @@ class MCPClient:
             self._session = None
             if not ready.done():
                 ready.set_exception(MCPClientError(f"Connection to {self._target} closed"))
+
+    async def _answer_elicitation(self, context: Any, params: Any) -> Any:
+        """Run the configured elicitation callback, failing closed on errors.
+
+        A raising callback is answered with a JSON-RPC error rather than
+        tearing down the session or, worse, being read as consent.
+        """
+        from mcp import types
+
+        callback = self._elicitation_callback
+        if callback is None:  # only installed when set; kept for type narrowing
+            return types.ErrorData(code=types.INVALID_REQUEST, message="Elicitation not supported")
+        try:
+            return await callback(context, params)
+        except Exception as exc:
+            logger.error(
+                "Elicitation callback for %s failed (%s: %s) — answered with an error",
+                self._target,
+                type(exc).__name__,
+                exc,
+            )
+            return types.ErrorData(
+                code=types.INTERNAL_ERROR,
+                message=f"Elicitation handler failed: {type(exc).__name__}",
+            )
 
     def _connect_error(self, exc: BaseException, *, connected: bool = False) -> MCPClientError:
         """Translate a transport failure into a typed, readable error."""
@@ -481,6 +576,12 @@ class MCPClient:
             MCP ``CallToolResult`` with content list.
         """
         session = self._require_session()
+        call_id = next(self._call_ids)
+        self._in_flight[call_id] = InFlightToolCall(
+            name=name,
+            arguments=dict(arguments or {}),
+            context=contextvars.copy_context(),
+        )
         try:
             return await session.call_tool(name, arguments)
         except (TimeoutError, asyncio.TimeoutError) as exc:
@@ -491,6 +592,19 @@ class MCPClient:
             raise  # Don't double-wrap
         except Exception as exc:
             raise MCPClientError(f"Failed to call tool '{name}': {exc}") from exc
+        finally:
+            del self._in_flight[call_id]
+
+    @property
+    def in_flight_calls(self) -> list[InFlightToolCall]:
+        """Tool calls sent on this connection that have not returned yet.
+
+        An elicitation handler uses this to relate a server request to the
+        call that caused it.  With exactly one call in flight, a request
+        arriving meanwhile is attributed to that call; with none or several,
+        it cannot be tied to one.
+        """
+        return list(self._in_flight.values())
 
     @property
     def session(self) -> ClientSession | None:

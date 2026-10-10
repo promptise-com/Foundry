@@ -8,11 +8,19 @@ on tool discovery.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mcp.types import CallToolResult, Tool
 
-from ._client import MCPClient, MCPClientError, MCPConnectionRejectedError
+from ._client import (
+    MCPClient,
+    MCPClientError,
+    MCPConnectionRejectedError,
+    _sdk_supports_elicitation,
+)
+
+if TYPE_CHECKING:
+    from mcp.client.session import ElicitationFnT
 
 logger = logging.getLogger("promptise.mcp.client")
 
@@ -30,6 +38,12 @@ class MCPMultiClient:
 
     Args:
         clients: Mapping of server name → ``MCPClient`` instance.
+        elicitation_callback: Default handler for MCP elicitation requests,
+            installed on every client that was not given its own
+            ``elicitation_callback``.  Same signature as
+            :class:`MCPClient`'s.  The SDK callback does not say which
+            server asked, so set a callback per ``MCPClient`` instead when
+            the handler needs the server name.
 
     Example::
 
@@ -42,8 +56,22 @@ class MCPMultiClient:
             result = await multi.call_tool("search_employees", {"query": "python"})
     """
 
-    def __init__(self, clients: dict[str, MCPClient]) -> None:
+    def __init__(
+        self,
+        clients: dict[str, MCPClient],
+        *,
+        elicitation_callback: ElicitationFnT | None = None,
+    ) -> None:
         self._clients = clients
+        if elicitation_callback is not None:
+            if not _sdk_supports_elicitation():
+                raise MCPClientError(
+                    "elicitation_callback requires mcp>=1.10 (the installed MCP SDK "
+                    "has no client elicitation support)"
+                )
+            for client in clients.values():
+                if client._elicitation_callback is None:
+                    client._elicitation_callback = elicitation_callback
         # tool_name → server_name mapping (populated on connect)
         self._tool_to_server: dict[str, str] = {}
         self._connected = False

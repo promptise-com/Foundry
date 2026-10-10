@@ -8,6 +8,8 @@ A production MCP client with:
 - **Header injection**: Custom headers sent on every request
 - **Multi-server**: Connect to multiple MCP servers simultaneously
 - **Transport auto-detection**: HTTP, SSE, and stdio support
+- **Elicitation**: Answer server ``elicitation/create`` requests (e.g. a
+  server-side approval gate) through ``elicitation_callback``
 - **LangChain integration**: Converts MCP tools to LangChain ``BaseTool`` with
   recursive schema handling (nested Pydantic models, ``$ref``/``$defs``, etc.)
 
@@ -49,11 +51,12 @@ With API key auth::
         tools = await client.list_tools()
 """
 
-from ._client import MCPClient, MCPClientError, MCPConnectionRejectedError
+from ._client import InFlightToolCall, MCPClient, MCPClientError, MCPConnectionRejectedError
 from ._multi import MCPMultiClient
 from ._tool_adapter import MCPToolAdapter
 
 __all__ = [
+    "InFlightToolCall",
     "MCPClient",
     "MCPClientError",
     "MCPConnectionRejectedError",

@@ -10,6 +10,9 @@ Require human approval before executing sensitive tool calls. The agent pauses, 
     [Approval Gates (Server-Side HITL)](../mcp/server/approval-gates.md).
     Both share the same `ApprovalRequest` / `ApprovalDecision` /
     `ApprovalHandler` protocol, so handlers written for one work with the other.
+    When such a gate asks the calling client for confirmation, the agent's
+    `approval=` handler answers it. See
+    [Server-side approval gates](#server-side-approval-gates) below.
 
 ```python
 from promptise import build_agent, ApprovalPolicy, CallbackApprovalHandler, ApprovalDecision
@@ -162,7 +165,7 @@ Every handler receives an `ApprovalRequest` with these fields:
 | `context_summary` | `str` | The last `context_messages` user/assistant messages of the conversation the invocation started from, one per line (`user: ...` / `assistant: ...`, each cut to 500 characters). Redacted like the arguments. Empty outside `ainvoke()` / `chat()` / `astream()` or with `context_messages=0`. |
 | `timestamp` | `float` | When the request was created (`time.time()`). |
 | `timeout` | `float` | How long the handler has to respond before the default action triggers. |
-| `metadata` | `dict` | `source` (`"agent"`), `session_id` (from `chat()` or `CallerContext.metadata["session_id"]`) and `tenant_id` when known, plus whatever `ApprovalPolicy(metadata=...)` adds. |
+| `metadata` | `dict` | `source` (`"agent"`; server-side gates use `"mcp_elicitation"`), `session_id` (from `chat()` or `CallerContext.metadata["session_id"]`) and `tenant_id` when known, plus whatever `ApprovalPolicy(metadata=...)` adds. |
 
 For a `chat("Refund order A-1001, the mug arrived broken", session_id="s-9", caller=CallerContext(user_id="alice"))` on an agent built with `observer_agent_id="support-bot"`, the handler receives:
 
@@ -510,6 +513,88 @@ This stops the agent from wasting reviewer time by retrying the same denied acti
 
 ---
 
+## Server-side approval gates
+
+Some MCP servers enforce approval themselves. An `ApprovalGateMiddleware`
+with `ElicitationApprover` asks the human behind the *calling client* to
+confirm each gated call through MCP elicitation, and it is the default on
+[MCPcast](../mcp/server/mcpcast.md#human-approval)-generated servers with
+`env-token`, `passthrough` or `none` auth. `build_agent(approval=...)`
+routes those requests to the agent's approval handler, so the same reviewer
+approves both kinds of gate:
+
+```python
+from promptise import build_agent, CallbackApprovalHandler
+from promptise.config import StdioServerSpec
+
+async def ask_human(request):
+    print(request.context_summary)  # "Server 'petstore' asks: Approval required: call tool 'add_pet' ..."
+    print(f"{request.tool_name}({request.arguments})")
+    return input("Approve? [y/N] ").strip().lower() == "y"
+
+agent = await build_agent(
+    model="openai:gpt-5-mini",
+    servers={
+        "petstore": StdioServerSpec(
+            command="python",
+            args=["petstore-mcp/server.py"],
+            env={"MCPCAST_UPSTREAM_TOKEN": "Bearer <your API token>"},
+        )
+    },
+    approval=CallbackApprovalHandler(ask_human),
+)
+```
+
+`approval=` takes any of these:
+
+| `approval=` | Agent's own tool calls | Server-side gates |
+|---|---|---|
+| `ApprovalPolicy(tools=[...], handler=h)` | Gated by `tools` patterns | Answered by `h` for **every** gated server tool (the patterns don't apply: the server decided the call needs approval) |
+| An `ApprovalHandler` (`CallbackApprovalHandler`, `WebhookApprovalHandler`, `QueueApprovalHandler`, custom) or a callable | Not gated | Answered by the handler |
+| `None` (default) | Not gated | **Denied.** The agent declares no elicitation support and the server fails closed |
+
+If a policy pattern also matches a tool that the server gates, the reviewer
+is asked twice: once by the agent's gate before the call is sent, and once by
+the server's gate. The two gates are independent, and the server can't take
+the agent's word that a human approved. Use a bare handler when the server's
+gate is enough.
+
+### What the reviewer sees
+
+The handler receives an ordinary `ApprovalRequest`:
+
+| Field | Value |
+|---|---|
+| `context_summary` | `Server '<name>' asks: <the server's message>`. Show this to the reviewer, because it is the server's own description of what it will run |
+| `tool_name`, `arguments` | The call this agent sent, when it was the only call in flight to that server. Otherwise `""` and `{}`: the request can't be tied to one call, and `metadata["in_flight_tools"]` lists the candidates |
+| `caller_user_id` | The invoking `CallerContext.user_id`. The handler also runs in the caller's context, so `get_current_caller()` works |
+| `metadata` | `source="mcp_elicitation"`, `server`, `elicitation_message`, `requested_schema`, `in_flight_tools` |
+| `timeout` | The policy's `timeout`, or 300s for a bare handler |
+
+With a policy, `include_arguments` and `redact_sensitive` apply to the
+arguments as usual. `approval.requested` / `approval.granted` /
+`approval.denied` events carry `source="mcp_elicitation"` and `server`.
+
+### Security model
+
+- **Never auto-accepted.** The agent accepts a server's request only on an explicit approving decision from the handler. A denial, a timeout, a handler error or a decision with `modified_arguments` is sent back as `decline`, and the server denies the call. A timeout declines even with `on_timeout="allow"`, which governs only the agent's own gate. The server-side gate binds the arguments before it asks, so modified arguments can't be applied, and running the originals would execute something the reviewer didn't approve.
+- **Auto-approval rules don't apply.** An `AutoApprovalClassifier` handler is skipped in favour of its human `fallback`. Its allow rules were written for the agent's own calls and must not clear a gate the server put in front of a human.
+- **Only confirmations are answered.** Only an empty form, or a form whose single decision field is `approve`, `approved`, `confirm`, `confirmed`, `accept`, `accepted`, `proceed` or `allow` (a boolean), is answered. Its `reason` field gets the decision's reason. URL-mode requests and forms that ask for other input are declined without asking the handler.
+- **The two halves have different authors.** The message comes from the server; `tool_name` and `arguments` come from the agent's own record of the call it sent. Both reach the reviewer, so a server whose message doesn't match the call is visible.
+- **No handler, no capability.** Without `approval=`, the agent doesn't declare elicitation support, so gated calls are denied exactly as before.
+
+While a reviewer decides, other responses from the same server wait, because
+the MCP SDK handles server requests one at a time per connection. Keep the
+handler's timeout below the server's approval timeout (MCPcast:
+`MCPCAST_APPROVAL_TIMEOUT`, 300s by default), or a late approval arrives after
+the server has already denied the call.
+
+To use this without `build_agent()`, see
+[Answering elicitation](../mcp/client/index.md#answering-elicitation-server-side-approval-gates)
+(`approval_elicitation_callback`).
+
+---
+
 ## Security
 
 ### HMAC Request Signing
@@ -689,6 +774,8 @@ Cached responses bypass approval entirely — tools aren't called on cache hits,
 | **Reviewer modifies only some arguments** | Merged onto the original call; the other arguments are kept. |
 | **Reviewer modifies arguments to invalid values** | The merged arguments are validated against the tool's schema first. Invalid values fail the call with a validation error, and the tool doesn't run. |
 | **No CallerContext provided** | Approval still works. `caller_user_id` is `None` in the request. |
+| **A server-side gate asks for confirmation** | Routed to the handler (see [Server-side approval gates](#server-side-approval-gates)). Without `approval=`, the server denies the call. |
+| **Server-side gate times out or the handler fails** | Declined: the server denies the call, whatever `on_timeout` says. |
 
 ---
 
@@ -703,6 +790,7 @@ Cached responses bypass approval entirely — tools aren't called on cache hits,
 | `CallbackApprovalHandler` | `from promptise import CallbackApprovalHandler` | Wrap an async callable or plain function |
 | `WebhookApprovalHandler` | `from promptise import WebhookApprovalHandler` | POST to URL + poll for decision |
 | `QueueApprovalHandler` | `from promptise import QueueApprovalHandler` | asyncio.Queue for in-process UIs |
+| `approval_elicitation_callback` | `from promptise import approval_elicitation_callback` | MCP client elicitation callback that asks a handler (server-side gates) |
 | `verify_webhook_signature` | `from promptise.approval import verify_webhook_signature` | Check `X-Promptise-Signature` on your approval service |
 | `wrap_tools_with_approval` | `from promptise.approval import wrap_tools_with_approval` | Gate a list of tools without `build_agent()` |
 

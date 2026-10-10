@@ -254,6 +254,15 @@ class AutoApprovalClassifier:
         self._last_trace: ClassifierDecisionTrace | None = None
         self._lock = asyncio.Lock()
 
+    @property
+    def fallback(self) -> ApprovalHandler:
+        """The human handler that receives requests no rule decides.
+
+        Server-side approval gates reached through MCP elicitation go
+        straight here (see :func:`~promptise.approval.approval_elicitation_callback`).
+        """
+        return self._fallback
+
     # -- Protocol method --
 
     async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
