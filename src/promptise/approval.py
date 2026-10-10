@@ -503,11 +503,14 @@ class _ApprovalToolWrapper(BaseTool):
         used_request_ids: set[str],
         event_notifier: Any = None,
     ) -> None:
-        # Copy name, description, args_schema from inner tool
+        # Copy name, description, args_schema from inner tool -- and how it
+        # handles tool errors: _arun() calls the inner tool's _arun(), so a
+        # ToolException it raises (an MCP ToolError) must be handled here.
         super().__init__(
             name=inner.name,
             description=inner.description,
             args_schema=getattr(inner, "args_schema", None),
+            handle_tool_error=getattr(inner, "handle_tool_error", False),
         )
         self._inner = inner
         self._policy = policy

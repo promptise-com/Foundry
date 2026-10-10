@@ -13,7 +13,7 @@ import contextlib
 from collections.abc import Callable
 from typing import Any
 
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, ToolException
 from mcp.types import CallToolResult
 from pydantic import BaseModel, PrivateAttr
 
@@ -35,8 +35,6 @@ def _extract_text(result: CallToolResult) -> str:
     LangChain's ``BaseTool`` expects a plain string return value.
 
     Concatenates all text parts with newlines, returning a single string.
-    If the result contains an error (``isError=True``), the text is still
-    returned so the LLM can see the error message.
     """
     if not hasattr(result, "content") or not result.content:
         return ""
@@ -52,6 +50,13 @@ class _PromptiseMCPTool(BaseTool):
 
     Uses a persistent ``MCPMultiClient`` that stays connected for the
     agent's lifetime.
+
+    A result the server flags with ``isError=True`` (a ``ToolError``, a
+    failed validation…) is a tool error, reported the LangChain way: the
+    tool raises ``ToolException`` and handles it (``handle_tool_error``),
+    so the error text is still the output -- a plain ``ainvoke(args)``
+    returns it as a string, unchanged -- and a tool-call invocation returns
+    a ``ToolMessage`` with ``status="error"``.
     """
 
     name: str
@@ -76,7 +81,12 @@ class _PromptiseMCPTool(BaseTool):
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
     ) -> None:
-        super().__init__(name=name, description=description, args_schema=args_schema)
+        super().__init__(
+            name=name,
+            description=description,
+            args_schema=args_schema,
+            handle_tool_error=True,
+        )
         self._tool_name = tool_name
         self._multi = multi
         self._on_before = on_before
@@ -105,7 +115,12 @@ class _PromptiseMCPTool(BaseTool):
         # The MCP SDK returns a CallToolResult with a .content list of
         # TextContent / ImageContent / EmbeddedResource objects.
         # LangChain expects a plain string or serializable object.
-        return _extract_text(result)
+        text = _extract_text(result)
+        if getattr(result, "isError", False):
+            # The text still reaches the model (handle_tool_error=True);
+            # the exception marks the call as failed.
+            raise ToolException(text or f"MCP tool '{self._tool_name}' reported an error")
+        return text
 
     def _run(self, **kwargs: Any) -> Any:  # pragma: no cover
         import anyio

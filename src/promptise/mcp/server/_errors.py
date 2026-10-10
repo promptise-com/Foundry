@@ -1,8 +1,9 @@
 """Structured MCP errors that LLMs can understand.
 
-When raised inside a tool/resource/prompt handler, the error handling
-middleware converts these into ``CallToolResult`` with ``isError=True``
-and structured content that helps the LLM recover.
+When raised inside a tool handler, the server answers the call with a
+``CallToolResult`` that has ``isError=True`` and the structured error as its
+text content -- ``{"error": {"code", "message", ...}}`` -- which helps the
+LLM recover.
 """
 
 from __future__ import annotations

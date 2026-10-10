@@ -62,6 +62,17 @@ from ._validation import build_input_model, validate_arguments
 logger = logging.getLogger("promptise.server")
 
 
+class _ToolErrorResult(Exception):
+    """A tool call that failed; its message is the error payload (JSON text).
+
+    Raised from the low-level ``call_tool`` handler, which the MCP SDK turns
+    into ``CallToolResult(content=[TextContent(text=<message>)], isError=True)``
+    -- the spec's tool-execution error, so clients can tell a failure from a
+    result.  (Returning a ``CallToolResult`` directly needs a newer SDK than
+    the supported ``mcp>=1.9``.)
+    """
+
+
 class MCPServer:
     """Production-grade MCP server with decorator-based tool registration.
 
@@ -855,19 +866,16 @@ class MCPServer:
         async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[Any]:
             tdef = tool_reg.get(name)
             if tdef is None:
-                return [
-                    TextContent(
-                        type="text",
-                        text=json.dumps(
-                            {
-                                "error": {
-                                    "code": "TOOL_NOT_FOUND",
-                                    "message": f"Unknown tool: {name}",
-                                }
+                raise _ToolErrorResult(
+                    json.dumps(
+                        {
+                            "error": {
+                                "code": "TOOL_NOT_FOUND",
+                                "message": f"Unknown tool: {name}",
                             }
-                        ),
+                        }
                     )
-                ]
+                )
 
             arguments = arguments or {}
 
@@ -1029,12 +1037,12 @@ class MCPServer:
                 return serialised
 
             except MCPError as exc:
-                return [TextContent(type="text", text=exc.to_text())]
+                raise _ToolErrorResult(exc.to_text()) from None
             except Exception as exc:
                 # Try custom exception handlers first
                 mapped = await exception_handlers.handle(ctx, exc)
                 if mapped is not None:
-                    return [TextContent(type="text", text=mapped.to_text())]
+                    raise _ToolErrorResult(mapped.to_text()) from None
 
                 logger.exception("Unhandled error in tool '%s'", name)
                 # Return a generic message to clients — full details
@@ -1049,7 +1057,7 @@ class MCPServer:
                         }
                     }
                 )
-                return [TextContent(type="text", text=err_text)]
+                raise _ToolErrorResult(err_text) from None
             finally:
                 await di_resolver.cleanup()
                 clear_context()
