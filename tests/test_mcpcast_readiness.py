@@ -20,6 +20,7 @@ from promptise.mcpcast.readiness import (
     NO_MOCK_STATUS,
     CallRecorder,
     EvalTask,
+    MockedReply,
     TaskResult,
     ToolCall,
     base_url_override,
@@ -691,6 +692,92 @@ class TestEvaluateEndToEnd:
         assert not any("no mocked route" in fix for fix in report.fixes)
 
     @pytest.mark.asyncio
+    async def test_an_id_from_a_mocked_write_is_attributed_to_the_mock(self, tmp_path, monkeypatch):
+        """The orders repro, task t5: ``create_order`` is mocked and answers id 1;
+        the agent then reads order 1 live and gets a 404. That is the mock's id,
+        not the plan's example (``order_id: 1001``, which exists)."""
+        spec = {
+            "openapi": "3.0.0",
+            "info": {"title": "Orders"},
+            "servers": [{"url": "https://orders.example"}],
+            "paths": {
+                "/orders": {
+                    "post": {
+                        "operationId": "createOrder",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["customer"],
+                                        "properties": {"customer": {"type": "string"}},
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {
+                            "201": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {"id": {"type": "integer"}},
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    }
+                },
+                "/orders/{orderId}": {
+                    "get": {
+                        "operationId": "getOrder",
+                        "parameters": [
+                            {
+                                "name": "orderId",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "integer", "example": 1001},
+                            }
+                        ],
+                    }
+                },
+            },
+        }
+        with _upstream({"/orders/1001": (200, {"id": 1001})}) as (port, hits):
+            monkeypatch.setenv("MCPCAST_BASE_URL", f"http://127.0.0.1:{port}")
+            plan = mcpcast(spec, name="orders", profile=SafetyProfile.STANDARD, auth="none")  # type: ignore[arg-type]
+            assert plan.tool("get_order").example == {"orderId": 1001}
+            out = tmp_path / "proj"
+            write_project(plan, out)
+            module = _import(out / "server.py")
+            model = _scripted_model(
+                [
+                    [{"name": "create_order", "args": {"customer": "globex"}}],
+                    [{"name": "get_order", "args": {"orderId": 1}}],
+                    "Created order 1.",
+                ]
+            )
+            report = await evaluate(
+                plan,
+                module.build_server,
+                model=model,
+                tasks=[
+                    EvalTask(
+                        id="t5", prompt="Create an order for globex.", expected_tool="create_order"
+                    )
+                ],
+                operations=extract_operations(spec),
+            )
+        assert hits == ["GET /orders/1"]  # the write was mocked, the read went live
+        (result,) = report.results
+        assert [m.operation_id for m in result.mocked] == ["createOrder"]
+        assert result.mocked[0].body == {"id": 1}
+        text = "\n".join(report.fixes)
+        assert "replace those example values" not in text
+        assert "`get_order` (task t5: orderId=1 from the mocked `create_order` reply)" in text
+
+    @pytest.mark.asyncio
     async def test_a_request_the_transport_has_no_route_for_is_never_a_success(
         self, tmp_path, monkeypatch
     ):
@@ -1037,32 +1124,110 @@ def test_task_ids_are_unique_even_when_model_repeats_them():
     assert [t.id for t in tasks] == ["t2", "t1", "t3"]
 
 
-class TestStaleExampleIdentifiers:
-    """A 404 on a read is usually the plan's own example teaching a bad id."""
+def _not_found(tool: str, **arguments) -> ToolCall:
+    return ToolCall(
+        tool=tool, arguments=arguments, ok=False, error_code="UPSTREAM_ERROR", details_status=404
+    )
 
-    def test_upstream_404_on_a_read_names_the_examples(self):
+
+def _attempt(prompt, calls, mocked=()):
+    return TaskResult(
+        task=EvalTask(id="t8", prompt=prompt, expected_tool="get_pet"),
+        calls=calls,
+        mocked=list(mocked),
+    )
+
+
+class TestStaleExampleIdentifiers:
+    """An upstream 404 is blamed on whoever supplied the identifier.
+
+    The plan's example (``petId: 1``) is only at fault when the call used its
+    values; an id the task writer invented, one from a mocked write's reply,
+    or one the agent guessed each get their own hint.
+    """
+
+    def test_upstream_404_with_the_example_values_names_the_examples(self):
         plan = _plan()
         results = [
-            _result(
-                "get_pet",
-                [
-                    ToolCall(
-                        tool="get_pet", ok=False, error_code="UPSTREAM_ERROR", details_status=404
-                    )
-                ],
-            ),
+            _result("get_pet", [_not_found("get_pet", petId=1)]),
             _result(
                 "add_pet",
                 [
                     ToolCall(
-                        tool="add_pet", ok=False, error_code="UPSTREAM_ERROR", details_status=500
+                        tool="add_pet",
+                        arguments={"name": "rex"},
+                        ok=False,
+                        error_code="UPSTREAM_ERROR",
+                        details_status=500,
                     )
                 ],
             ),
         ]
         text = "\n".join(score(plan, results).fixes)
-        assert "`get_pet` called the API with identifiers it does not recognise" in text
-        assert "add_pet` called the API with identifiers" not in text  # a 500 is not a bad id
+        assert (
+            "✗ `get_pet` (task tget_pet: petId=1) called the API with identifiers from the "
+            "plan's example that it does not recognise" in text
+        )
+        assert "add_pet` (" not in text  # a 500 is not a bad id
+
+    def test_an_identifier_the_task_invented_is_not_blamed_on_the_example(self):
+        """The orders repro: the plan's example (1001) was valid; the task asked for 2045."""
+        report = score(
+            _plan(), [_attempt("Show me pet 2045's details.", [_not_found("get_pet", petId=2045)])]
+        )
+        text = "\n".join(report.fixes)
+        assert "replace those example values" not in text
+        assert (
+            '• `get_pet` (task t8: petId=2045) got "not found" for identifiers the task itself '
+            "made up (they are in no tool example)" in text
+        )
+
+    def test_an_identifier_from_a_mocked_reply_names_the_mocked_tool(self):
+        """The agent created a pet (mocked: id 7 exists nowhere) and then fetched it."""
+        report = score(
+            _plan(),
+            [
+                _attempt(
+                    "Add a pet called rex, then show it.",
+                    [_not_found("get_pet", petId=7)],
+                    mocked=[MockedReply(operation_id="addPet", body={"id": 7, "name": "rex"})],
+                )
+            ],
+        )
+        text = "\n".join(report.fixes)
+        assert "replace those example values" not in text
+        assert (
+            '• `get_pet` (task t8: petId=7 from the mocked `add_pet` reply) got "not found" for '
+            "an identifier from a mocked reply" in text
+        )
+
+    def test_an_identifier_from_nowhere_is_the_agent_guessing(self):
+        report = score(
+            _plan(), [_attempt("Show me my newest pet.", [_not_found("get_pet", petId=31337)])]
+        )
+        text = "\n".join(report.fixes)
+        assert "replace those example values" not in text
+        assert (
+            "✗ `get_pet` (task t8: petId=31337) called the API with identifiers it does not "
+            "recognise, found in no example, task or earlier reply — the agent guessed them"
+        ) in text
+
+    def test_each_cause_gets_its_own_hint(self):
+        report = score(
+            _plan(),
+            [
+                _attempt("Show me pet 1.", [_not_found("get_pet", petId=1)]),
+                _attempt("Show me pet 2045.", [_not_found("get_pet", petId=2045)]),
+            ],
+        )
+        (example,) = [f for f in report.fixes if "from the plan's example" in f]
+        (task,) = [f for f in report.fixes if "the task itself made up" in f]
+        assert "petId=1)" in example and "2045" not in example
+        assert "petId=2045" in task
+
+    def test_a_404_without_arguments_names_no_identifier(self):
+        report = score(_plan(), [_attempt("List pets.", [_not_found("get_pet")])])
+        assert not any("not found" in f or "does not recognise" in f for f in report.fixes)
 
     @pytest.mark.asyncio
     async def test_status_is_recorded_from_the_tool_error(self):

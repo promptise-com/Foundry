@@ -47,6 +47,7 @@ __all__ = [
     "EvalReport",
     "EvalTask",
     "EvalTransport",
+    "MockedReply",
     "TaskResult",
     "ToolCall",
     "base_url_override",
@@ -71,6 +72,8 @@ You write realistic evaluation tasks for an AI agent that has a set of MCP tools
 Each task is one natural user request that a competent agent should complete by calling
 ONE specific tool (it may need to call that tool once or twice). Tasks must be concrete —
 include the identifiers, names, or values the agent needs, taken from the tool examples.
+Never invent an identifier (an order number, a user id) that no example shows: a made-up
+one fails upstream with "not found" and measures nothing about the tools.
 Spread tasks across the tools; every tool should be the target of at least one task when
 the count allows. Phrase tasks the way real users talk, not like API documentation.
 
@@ -106,6 +109,13 @@ class ToolCall(BaseModel):
     """Upstream HTTP status when the tool reported one."""
 
 
+class MockedReply(BaseModel):
+    """One upstream response the evaluation transport made up instead of calling the API."""
+
+    operation_id: str
+    body: Any = None
+
+
 class TaskResult(BaseModel):
     """What happened when the agent attempted one task."""
 
@@ -115,6 +125,9 @@ class TaskResult(BaseModel):
     selected_correctly: bool = False
     answer: str = ""
     error: str | None = None
+    mocked: list[MockedReply] = Field(default_factory=list)
+    """The mocked replies the agent received during this task — values it may
+    have reused, which exist nowhere in the real API."""
 
 
 class ConfusedPair(BaseModel):
@@ -444,6 +457,8 @@ class EvalTransport(httpx.AsyncBaseTransport):
         self._real = httpx.AsyncHTTPTransport()
         self.unmatched: list[str] = []
         """``"METHOD /path"`` of every request no route in the plan matched, in order."""
+        self.mocked: list[MockedReply] = []
+        """Every reply the transport made up, in order."""
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         """Route *request*: live for a ``read`` tool's route, a mock for every other route.
@@ -470,6 +485,7 @@ class EvalTransport(httpx.AsyncBaseTransport):
         if match is not None:
             schema = self._responses.get(match[0])
             body = example_value(schema, match[0]) if schema else {"ok": True, "mock": match[0]}
+            self.mocked.append(MockedReply(operation_id=match[0], body=body))
             return httpx.Response(200, json=body, request=request)
         where = f"{request.method} {request.url.path}"
         self.unmatched.append(where)
@@ -559,6 +575,80 @@ def _auto_approve(request: Any) -> bool:
 def _looks_missing(call: ToolCall) -> bool:
     """``True`` when an upstream error reads like a 404 for a made-up identifier."""
     return call.details_status in (404, 410) if call.details_status else False
+
+
+def _scalars(value: Any, key: str = "") -> list[tuple[str, str]]:
+    """``(name, text)`` of every string or number in *value*, nested ones included."""
+    if isinstance(value, dict):
+        return [pair for k, v in value.items() for pair in _scalars(v, str(k))]
+    if isinstance(value, list):
+        return [pair for v in value for pair in _scalars(v, key)]
+    if isinstance(value, bool) or value is None:
+        return []
+    if isinstance(value, (str, int, float)):
+        return [(key, str(value))]
+    return []
+
+
+def _in_text(value: str, text: str) -> bool:
+    """Whether *value* appears in *text* as a whole token (``2045`` in "order 2045's")."""
+    return re.search(rf"(?<![\w-]){re.escape(value)}(?![\w-])", text) is not None
+
+
+def _not_found_causes(
+    plan: MCPcastPlan, results: Sequence[TaskResult]
+) -> dict[str, dict[str, list[str]]]:
+    """Where the arguments of each upstream "not found" came from.
+
+    ``{cause: {tool: ["task t8: order_id=2045", …]}}`` with *cause* one of:
+
+    - ``"example"`` — every argument is a value from a tool example in the
+      plan: the example names something the API does not have.
+    - ``"mock"`` — an argument matches a value in a mocked reply the agent
+      received earlier in the task (a write's made-up id).
+    - ``"task"`` — an argument appears in the task's prompt but in no
+      example: the task writer invented it.
+    - ``"agent"`` — an argument comes from none of these: the agent guessed.
+
+    The first cause that applies wins, in the order ``example`` (all values),
+    then ``mock``, ``task``, ``agent`` for the values the examples do not
+    account for.
+    """
+    from_examples = {text for tool in plan.tools for _, text in _scalars(tool.example or {})}
+    op_tool = {r.operation_id: t.name for t in plan.tools for r in t.routes}
+    causes: dict[str, dict[str, list[str]]] = {}
+    for result in results:
+        mocked: dict[str, str] = {}
+        for reply in result.mocked:
+            for _, text in _scalars(reply.body):
+                mocked.setdefault(text, op_tool.get(reply.operation_id, reply.operation_id))
+        for call in result.calls:
+            if call.error_code != "UPSTREAM_ERROR" or not _looks_missing(call):
+                continue
+            arguments = _scalars(call.arguments)
+            if not arguments:
+                continue  # no identifier was sent: nothing to attribute
+            unexplained = [(k, v) for k, v in arguments if v not in from_examples]
+            shown = ", ".join(f"{k}={v}" for k, v in (unexplained or arguments))
+            if not unexplained:
+                cause, note = "example", shown
+            elif any(v in mocked for _, v in unexplained):
+                source = next(mocked[v] for _, v in unexplained if v in mocked)
+                cause, note = "mock", f"{shown} from the mocked `{source}` reply"
+            elif any(_in_text(v, result.task.prompt) for _, v in unexplained):
+                cause, note = "task", shown
+            else:
+                cause, note = "agent", shown
+            entry = f"task {result.task.id}: {note}"
+            causes.setdefault(cause, {}).setdefault(call.tool, []).append(entry)
+    return causes
+
+
+def _listed(by_tool: dict[str, list[str]]) -> str:
+    """```tool` (task t8: order_id=2045)``, joined — at most eight tools."""
+    shown = [f"`{tool}` ({'; '.join(notes[:3])})" for tool, notes in list(by_tool.items())[:8]]
+    more = f" (+{len(by_tool) - 8} more)" if len(by_tool) > 8 else ""
+    return ", ".join(shown) + more
 
 
 # ---------------------------------------------------------------------------
@@ -674,20 +764,32 @@ def score(
             f"`{pair.chosen}` in {pair.count}/{n} runs that needed `{pair.expected}` → merge "
             "them, or say in each description when NOT to use it"
         )
-    stale = sorted(
-        {
-            c.tool
-            for r in results
-            for c in r.calls
-            if c.error_code == "UPSTREAM_ERROR" and _looks_missing(c)
-        }
-    )
-    if stale:
-        listed = ", ".join(f"`{n}`" for n in stale[:8])
+    # An upstream "not found" is only the plan's fault when the plan supplied
+    # the identifier: tell the example apart from the task, a mock and a guess.
+    not_found = _not_found_causes(plan, results)
+    if "example" in not_found:
         fixes.append(
-            f"✗ {listed} called the API with identifiers it does not recognise — the "
-            "example in the plan teaches both the task writer and the agent, so replace "
-            "those example values with ones that exist"
+            f"✗ {_listed(not_found['example'])} called the API with identifiers from the "
+            "plan's example that it does not recognise — the example teaches both the task "
+            "writer and the agent, so replace those example values with ones that exist"
+        )
+    if "agent" in not_found:
+        fixes.append(
+            f"✗ {_listed(not_found['agent'])} called the API with identifiers it does not "
+            "recognise, found in no example, task or earlier reply — the agent guessed them: "
+            "say in the description where they come from (for example, which tool lists them)"
+        )
+    if "task" in not_found:
+        fixes.append(
+            f'• {_listed(not_found["task"])} got "not found" for identifiers the task '
+            "itself made up (they are in no tool example) — the failure measures the task, "
+            "not the tool design; nothing to change in the plan"
+        )
+    if "mock" in not_found:
+        fixes.append(
+            f'• {_listed(not_found["mock"])} got "not found" for an identifier from a '
+            "mocked reply — writes are mocked during the evaluation, so the ids they return "
+            "do not exist in the API; nothing to change in the plan"
         )
     errors_by_tool: Counter[str] = Counter(c.tool for c in param_errors)
     for tool_name, n in errors_by_tool.most_common():
@@ -924,6 +1026,7 @@ async def evaluate(
                 headers,
                 max_agent_iterations,
                 unmatched=transport.unmatched,
+                mocked=transport.mocked,
             )
     return report
 
@@ -938,6 +1041,7 @@ async def _run_tasks(
     max_agent_iterations: int,
     *,
     unmatched: Sequence[str] = (),
+    mocked: Sequence[MockedReply] = (),
 ) -> EvalReport:
     from promptise.agent import build_agent
 
@@ -956,6 +1060,7 @@ async def _run_tasks(
     results: list[TaskResult] = []
     for task in task_list:
         recorder.begin(task.id)
+        first_mock = len(mocked)
         answer, error = "", None
         try:
             out = await agent.ainvoke({"messages": [HumanMessage(content=task.prompt)]})
@@ -973,6 +1078,7 @@ async def _run_tasks(
                 selected_correctly=bool(calls) and calls[0].tool == task.expected_tool,
                 answer=answer,
                 error=error,
+                mocked=list(mocked[first_mock:]),
             )
         )
     if all(r.error for r in results):
