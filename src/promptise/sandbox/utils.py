@@ -26,7 +26,8 @@ class SandboxContainerManager:
         """Initialize container manager."""
         if docker is None:
             raise RuntimeError(
-                "Docker Python client not installed. Install with: pip install docker"
+                "The 'docker' package is required for the sandbox. "
+                "Install it with: pip install 'promptise[sandbox]'"
             )
         self.client = docker.from_env()
         self.label_prefix = "promptise.sandbox"

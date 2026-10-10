@@ -185,7 +185,9 @@ class TestErrorHandling:
         result = await client.call_tool("crash", {"x": 1})
         parsed = json.loads(result[0].text)
         assert parsed["error"]["code"] == "INTERNAL_ERROR"
-        assert "Unexpected failure" in parsed["error"]["message"]
+        # Parity with the live server: never leak the exception text
+        assert "Unexpected failure" not in parsed["error"]["message"]
+        assert parsed["error"]["message"] == "An internal error occurred."
 
 
 # =====================================================================

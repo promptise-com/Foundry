@@ -26,7 +26,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ._context import RequestContext
-from ._errors import RateLimitError
+from ._errors import ConcurrencyLimitError
 
 logger = logging.getLogger("promptise.server")
 
@@ -35,7 +35,8 @@ class ConcurrencyLimiter:
     """Middleware that limits concurrent in-flight tool executions.
 
     When the limit is reached, incoming requests receive a retryable
-    ``RateLimitError`` instead of queueing indefinitely.
+    ``ConcurrencyLimitError`` (code ``CONCURRENCY_LIMIT_EXCEEDED``)
+    instead of queueing indefinitely.
 
     Args:
         max_concurrent: Maximum number of concurrent tool calls.
@@ -52,9 +53,9 @@ class ConcurrencyLimiter:
     async def __call__(self, ctx: RequestContext, call_next: Callable[..., Any]) -> Any:
         if self._semaphore is not None:
             if self._semaphore.locked():
-                raise RateLimitError(
+                raise ConcurrencyLimitError(
                     f"Server at capacity ({self._max} concurrent requests)",
-                    suggestion="Retry after a short delay",
+                    suggestion="The server is busy. Retry in a moment.",
                 )
             async with self._semaphore:
                 return await self._execute(ctx, call_next)
@@ -102,7 +103,12 @@ class PerToolConcurrencyLimiter:
     Reads ``max_concurrent`` from the ``ToolDef`` stored in
     ``ctx.state["tool_def"]``.  When a tool has ``max_concurrent``
     set and the limit is reached, additional calls receive a
-    retryable ``RateLimitError``.
+    retryable ``ConcurrencyLimitError`` (code ``CONCURRENCY_LIMIT_EXCEEDED``).
+
+    Added automatically — by the server and by ``TestClient`` — when any
+    tool declares ``max_concurrent``.  It is placed just outside the first
+    ``CircuitBreakerMiddleware``, so a call refused for capacity never
+    reaches the breaker.
 
     Semaphores are lazily created per tool name on first use.
     """
@@ -124,10 +130,26 @@ class PerToolConcurrencyLimiter:
 
         sem = self._semaphores[tool_name]
         if sem.locked():
-            raise RateLimitError(
-                f"Tool '{tool_name}' at capacity ({limit} concurrent calls)",
-                suggestion="Retry after a short delay",
+            raise ConcurrencyLimitError(
+                f"Tool '{tool_name}' at capacity ({limit} concurrent calls)"
             )
 
         async with sem:
             return await call_next(ctx)
+
+
+def insert_per_tool_limiter(middlewares: list[Any], limiter: PerToolConcurrencyLimiter) -> None:
+    """Add *limiter* to *middlewares* (in place) unless one is already there.
+
+    It goes just before the first ``CircuitBreakerMiddleware`` — so a call
+    refused for capacity never reaches a breaker — or at the end.
+    """
+    if any(isinstance(m, PerToolConcurrencyLimiter) for m in middlewares):
+        return
+    from ._circuit_breaker import CircuitBreakerMiddleware
+
+    index = next(
+        (i for i, m in enumerate(middlewares) if isinstance(m, CircuitBreakerMiddleware)),
+        len(middlewares),
+    )
+    middlewares.insert(index, limiter)

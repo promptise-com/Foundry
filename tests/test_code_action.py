@@ -73,6 +73,10 @@ class FakeSession:
             return self.program_results.pop(0)
         return CommandResult(0, "", "")
 
+    async def write_file(self, path: str, content: str) -> None:
+        self.execs.append(f"write {path}")
+        self.fs[path] = content
+
     async def list_files(self, directory: str) -> list[str]:
         prefix = directory.rstrip("/") + "/"
         return [

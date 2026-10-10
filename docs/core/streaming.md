@@ -265,7 +265,8 @@ Tool results are automatically summarized for display:
 - ✅ Output guardrails (PII redaction on `full_response`; tokens are streamed as the model generates them, before the check)
 - ✅ Observability (callback handler records timeline)
 - ✅ Event notifications (invocation.start/complete emitted)
-- ✅ CallerContext propagation (multi-user safe)
+- ✅ CallerContext propagation (multi-user safe; the ambient caller is inherited when none is passed)
+- ✅ Adaptive strategy (failed tool calls are recorded, learned lessons injected)
 
 ---
 

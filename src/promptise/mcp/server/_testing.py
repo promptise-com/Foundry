@@ -101,9 +101,13 @@ class TestClient:
         # Parity with the live server, which auto-inserts declared per-tool
         # rate-limit enforcement at build time. One persistent instance per
         # TestClient so token buckets accumulate across calls like production.
+        from ._concurrency import PerToolConcurrencyLimiter
         from ._rate_limit import DeclaredRateLimitMiddleware
 
         self._declared_rate_limiter = DeclaredRateLimitMiddleware()
+        # Likewise for @server.tool(max_concurrent=...): one limiter shared by
+        # every call through this client, so concurrent calls see one limit.
+        self._per_tool_limiter = PerToolConcurrencyLimiter()
 
     # ------------------------------------------------------------------
     # Tool operations
@@ -217,6 +221,12 @@ class TestClient:
 
             # 3) Build middleware chain: server-level + router-level
             all_mw = list(self._server._middlewares)
+            # Enforce a declared @server.tool(max_concurrent=...) like the live
+            # server: auto-inserted outside any circuit breaker
+            if tdef.max_concurrent:
+                from ._concurrency import insert_per_tool_limiter
+
+                insert_per_tool_limiter(all_mw, self._per_tool_limiter)
             # Enforce a declared @server.tool(rate_limit=...) exactly like the
             # live server (auto-inserted, guard against a user-installed copy)
             if tdef.rate_limit:
@@ -244,6 +254,11 @@ class TestClient:
 
                 effective_handler = _guarded
 
+            if tdef.timeout:
+                from ._middleware import with_tool_timeout
+
+                effective_handler = with_tool_timeout(effective_handler, tdef.timeout, name)
+
             if all_mw:
                 chain = MiddlewareChain(all_mw)
                 result = await chain.run(ctx, effective_handler, arguments)
@@ -261,7 +276,11 @@ class TestClient:
             return serialised
 
         except MCPError as exc:
-            return [TextContent(type="text", text=exc.to_text())]
+            # A handler registered for this MCPError subclass may reshape it
+            mapped = None
+            if hasattr(self._server, "_exception_handlers"):
+                mapped = await self._server._exception_handlers.handle(ctx, exc)
+            return [TextContent(type="text", text=(mapped or exc).to_text())]
         except Exception as exc:
             # Try custom exception handlers first
             if hasattr(self._server, "_exception_handlers"):
@@ -269,12 +288,14 @@ class TestClient:
                 if mapped is not None:
                     return [TextContent(type="text", text=mapped.to_text())]
 
+            # Same generic message as the live server — the exception text
+            # (DB URLs, file paths, ...) goes to the log, never the client.
             logger.exception("Unhandled error in tool '%s'", name)
             err_text = json.dumps(
                 {
                     "error": {
                         "code": "INTERNAL_ERROR",
-                        "message": str(exc),
+                        "message": "An internal error occurred.",
                         "retryable": False,
                     }
                 }
@@ -284,10 +305,35 @@ class TestClient:
             await di_resolver.cleanup()
             clear_context()
 
-    async def list_tools(self) -> list[Tool]:
-        """List all registered tools (including annotations)."""
+    def _request_meta(self, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        """Transport headers, then client meta, then per-call headers."""
+        from ._context import get_request_headers
+
+        return {**dict(get_request_headers()), **dict(self._meta), **(headers or {})}
+
+    async def list_tools(self, *, headers: dict[str, str] | None = None) -> list[Tool]:
+        """List the registered tools (including annotations).
+
+        With ``MCPServer(hide_unauthorized_tools=True)`` only the tools the
+        client's credentials may call are listed, as on the live server.
+
+        Args:
+            headers: Simulated HTTP headers, merged over the client meta.
+        """
+        if getattr(self._server, "_require_tenant", False):
+            self._server._apply_require_tenant()
+        tdefs = self._server._tool_registry.list_all()
+        if getattr(self._server, "_hide_unauthorized_tools", False):
+            from ._visibility import visible_tools
+
+            tdefs = await visible_tools(
+                tdefs,
+                self._server._middlewares,
+                server_name=self._server.name,
+                meta=self._request_meta(headers),
+            )
         tools: list[Tool] = []
-        for tdef in self._server._tool_registry.list_all():
+        for tdef in tdefs:
             mcp_annotations = None
             if tdef.annotations is not None:
                 mcp_annotations = MCPToolAnnotations(
@@ -327,7 +373,9 @@ class TestClient:
         # Try static resource first
         rdef = res_reg.get(uri)
         if rdef is not None:
-            ctx = RequestContext(server_name=self._server.name, tool_name=rdef.name)
+            ctx = RequestContext(
+                server_name=self._server.name, tool_name=rdef.name, meta=self._request_meta()
+            )
             set_context(ctx)
             try:
                 result = rdef.handler()
@@ -344,6 +392,7 @@ class TestClient:
             ctx = RequestContext(
                 server_name=self._server.name,
                 tool_name=tmpl_def.name,
+                meta=self._request_meta(),
             )
             set_context(ctx)
             try:

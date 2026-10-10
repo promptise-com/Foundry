@@ -13,13 +13,24 @@ agent = await build_agent(
     sandbox=True,
 )
 
-# Detailed: configure resource limits and network mode
+# Detailed: configure resource limits (the network stays off unless you set it)
 agent = await build_agent(
     servers={"tools": HTTPServerSpec(url="http://localhost:8000/mcp")},
     model="openai:gpt-5-mini",
-    sandbox={"network_mode": "restricted", "memory_limit": "512M", "cpu_limit": 2},
+    sandbox={"memory_limit": "512M", "cpu_limit": 2},
 )
 ```
+
+!!! note "Install"
+    The sandbox needs the Docker Python client: `pip install "promptise[sandbox]"`.
+    Docker itself must be installed and running on the host.
+
+!!! warning "No silent fallback"
+    If the sandbox cannot be started (the `docker` package is missing, the
+    Docker daemon is not running, gVisor is requested but `runsc` is not
+    installed, or `network="restricted"` cannot be enforced), `build_agent`
+    raises instead of building an agent without it. To run without a sandbox,
+    leave `sandbox` unset (or pass `None`/`False`).
 
 ---
 
@@ -27,11 +38,12 @@ agent = await build_agent(
 
 The sandbox provides a secure execution environment for agent-generated code. When an agent creates or runs code (especially in [Open Mode](../runtime/meta-tools.md)), the sandbox ensures that code runs inside an isolated container with:
 
-- **Resource limits** -- CPU, memory, and disk quotas
-- **Network isolation** -- no access, restricted (DNS-filtered), or full
-- **Filesystem isolation** -- read-only root, writable workspace only
-- **Capability dropping** -- minimal Linux capabilities
-- **Security profiles** -- seccomp and AppArmor enforcement
+- **Resource limits** -- CPU, memory, process count, workspace size, and execution time
+- **Network isolation** -- no network by default; restricted (DNS + HTTP/HTTPS egress) or full when you ask for it
+- **Filesystem isolation** -- read-only root, size-capped writable workspace
+- **Capability dropping** -- ~40 Linux capabilities dropped, `no-new-privileges` always set
+- **Syscall filtering** -- Docker's default seccomp profile; optional gVisor kernel
+- **Timeouts that stop the code** -- a command that exceeds its timeout is killed
 
 ---
 
@@ -45,24 +57,48 @@ The sandbox provides a secure execution environment for agent-generated code. Wh
 | `image` | `str` | `"python:3.11-slim"` | Base container image |
 | `cpu_limit` | `int` | `2` | Maximum CPU cores (1-32) |
 | `memory_limit` | `str` | `"4G"` | Maximum memory (e.g. `"512M"`, `"4G"`) |
-| `disk_limit` | `str` | `"10G"` | Maximum disk space |
-| `network` | `NetworkMode` | `RESTRICTED` | Network isolation mode |
-| `persistent` | `bool` | `False` | Keep workspace between runs |
-| `timeout` | `int` | `300` | Max execution time in seconds (1-3600) |
-| `tools` | `list[str]` | `["python"]` | Pre-installed tool ecosystems |
+| `disk_limit` | `str` | `"1G"` | Size of the writable workspace (a tmpfs at `workdir`; counts toward `memory_limit`). `/tmp` and `/var/tmp` are capped at the same size or less. |
+| `pids_limit` | `int` | `256` | Maximum processes and threads (contains fork bombs) |
+| `network` | `NetworkMode` | `NONE` | Network isolation mode |
+| `persistent` | `bool` | `False` | Keep the container after the session ends |
+| `timeout` | `int` | `300` | Default per-command timeout in seconds (1-3600) |
 | `workdir` | `str` | `"/workspace"` | Working directory inside container |
-| `env` | `dict[str, str]` | `{}` | Additional environment variables |
-| `allow_sudo` | `bool` | `False` | Allow sudo access in container |
-| `runtime` | `str \| None` | `None` | Container runtime (e.g., `"runsc"` for gVisor) |
+| `env` | `dict[str, str]` | `{}` | Additional environment variables (`HOME` defaults to `workdir`) |
+| `allow_sudo` | `bool` | `False` | Keep `CAP_SETUID`/`CAP_SETGID` so `sudo` works in images that ship it |
+| `runtime` | `str \| None` | `None` | Docker runtime (e.g., `"runsc"` for gVisor) |
 | `read_only_rootfs` | `bool` | `True` | Read-only root filesystem |
+
+Unknown keys are rejected with a hint, so a misspelled option fails loudly
+instead of being ignored:
+
+```python
+SandboxConfig.from_dict({"network_mode": "none"})
+# ValidationError: Unknown sandbox option(s): 'network_mode': use 'network'
+# ("none", "restricted" or "full"). Valid options: backend, image, ...
+```
+
+There is no option to pre-install tool ecosystems: use an `image` that already
+contains what the code needs (for example `node:22-slim`, or your own image
+built `FROM python:3.11-slim` with the packages baked in).
 
 ### NetworkMode
 
 | Mode | Description |
 |---|---|
-| `NetworkMode.NONE` | No network access whatsoever |
-| `NetworkMode.RESTRICTED` | Limited network with DNS filtering (default) |
+| `NetworkMode.NONE` | No network interface besides loopback (default) |
+| `NetworkMode.RESTRICTED` | Outbound DNS (port 53) and TCP 80/443 to any host; everything else dropped, IPv4 and IPv6 |
 | `NetworkMode.FULL` | Full unrestricted network access |
+
+The network is `"none"` unless you set `network` explicitly, for `sandbox=True`,
+for a custom dict, and for `agent_pattern="code-action"`.
+
+`"restricted"` is enforced with `iptables`/`ip6tables` rules installed in the
+container before any sandboxed code runs. It **fails closed**: if the image
+does not ship `iptables` and `ip6tables` (the default `python:3.11-slim` does
+not), the container is removed and the session refuses to start. Use an image
+that includes them, or choose `"none"` or `"full"` explicitly. Note that
+restricted mode does not filter by host name: any host is reachable on ports
+80 and 443.
 
 ```python
 from promptise.sandbox.config import SandboxConfig, NetworkMode
@@ -71,8 +107,8 @@ config = SandboxConfig(
     backend="gvisor",
     cpu_limit=4,
     memory_limit="8G",
+    pids_limit=512,
     network=NetworkMode.FULL,
-    tools=["python", "node", "rust"],
     timeout=600,
 )
 ```
@@ -138,7 +174,7 @@ async with sandbox_session as session:
 |---|---|---|
 | `execute` | `execute(command, timeout=None, workdir=None) -> CommandResult` | Run a shell command inside the container. |
 | `read_file` | `read_file(path) -> str` | Read a file from the sandbox filesystem. |
-| `write_file` | `write_file(path, content)` | Write a file into the sandbox filesystem. |
+| `write_file` | `write_file(path, content)` | Write a file into the writable workspace (or `/tmp`). Missing parent directories are created. |
 | `list_files` | `list_files(directory="/workspace") -> list[str]` | List files in a directory inside the sandbox. |
 | `install_package` | `install_package(package, tool="python") -> CommandResult` | Install a package using the specified ecosystem (`python`, `node`, `rust`, `go`). |
 | `cleanup` | `cleanup()` | Stop and remove the container. If `persistent=True`, the container keeps running for reuse. |
@@ -175,10 +211,16 @@ else:
     print(f"Failed (exit code {result.exit_code}): {result.stderr}")
 ```
 
+When a command exceeds its timeout, every process it started is killed inside
+the container (children and background jobs included) and the result has
+`timeout=True`. If the processes cannot be killed individually (for example a
+fork bomb has used up `pids_limit`), the container is restarted, which also
+empties the workspace.
+
 ### File Operations
 
 ```python
-# Write a file into the sandbox
+# Write a file into the sandbox (works with the read-only root filesystem)
 await session.write_file("/workspace/script.py", "print('hello')")
 
 # Read a file from the sandbox
@@ -199,6 +241,12 @@ result = await session.install_package("lodash", tool="node")
 
 # Supported ecosystems: "python", "node", "rust", "go"
 ```
+
+Packages are installed into the writable workspace (`HOME` points at it, so
+`pip` falls back to a user install under `/workspace/.local`; `npm` installs
+into `/workspace/node_modules`). Downloading needs network access, which the
+default `network="none"` does not provide. For packages the code always needs,
+build a custom image with them pre-installed instead.
 
 ---
 
@@ -237,7 +285,11 @@ assert result.exit_code == 1
 | `write_file()` | Write a file into the container filesystem. |
 | `stop_container()` | Stop a running container. |
 | `remove_container()` | Remove a stopped container. |
-| `health_check()` | Verify the backend is available and functional. |
+| `health_check()` | Return whether the backend is available and functional. |
+
+`ensure_available()` (not abstract) raises with the actual reason the backend
+cannot run containers; `SandboxManager.create_session()` calls it, so a missing
+gVisor runtime is reported as such rather than as "Docker is not running".
 
 ### DockerBackend
 
@@ -249,9 +301,13 @@ from promptise.sandbox.config import SandboxConfig
 # Standard Docker
 config = SandboxConfig(backend="docker")
 
-# Docker with gVisor runtime
+# Docker with gVisor runtime (equivalent to backend="gvisor")
 config = SandboxConfig(backend="docker", runtime="runsc")
 ```
+
+If `runsc` is not registered with Docker, `create_session()` raises
+`RuntimeError: ... gVisor runtime 'runsc' is not registered with Docker
+(available runtimes: ...)`. The sandbox never falls back to the default runtime.
 
 ---
 
@@ -276,38 +332,42 @@ agent = await build_agent(
     servers={"tools": HTTPServerSpec(url="http://localhost:8000/mcp")},
     model="openai:gpt-5-mini",
     sandbox={
-        "network_mode": "restricted",
+        "image": "node:22-slim",  # an image with the tools the code needs
         "memory_limit": "512M",
         "cpu_limit": 2,
+        "pids_limit": 128,
         "timeout": 120,
-        "tools": ["python", "node"],
+        # "network": "full",      # only if the code must reach the network
     },
 )
 ```
 
+When the sandbox is enabled, five tools are added to the agent:
+`sandbox_exec`, `sandbox_read_file`, `sandbox_write_file`, `sandbox_list_files`
+and `sandbox_install_package`. With `trace_tools=True` their calls are printed
+like any other tool call.
+
 ---
 
-## Security Profiles
+## Security Layers
 
-The sandbox ships with default security profiles that restrict container capabilities.
+What every sandbox container gets, and what it does not:
 
-### Seccomp Profile
+| Layer | What is applied |
+|---|---|
+| Network | No network interface besides loopback by default (`network="none"`, see [NetworkMode](#networkmode)) |
+| Seccomp | Docker's default seccomp profile, which blocks ~44 syscalls such as `mount`, `reboot`, `kexec_load` and kernel module loading. Promptise does not ship a custom profile. |
+| AppArmor | Docker's `docker-default` profile on hosts with AppArmor enabled. Promptise does not load a custom profile. |
+| Capabilities | ~40 capabilities dropped, including `CAP_SYS_ADMIN`, `CAP_NET_ADMIN`, `CAP_SYS_PTRACE` and `CAP_SETUID`/`CAP_SETGID` (kept only with `allow_sudo=True`). `CAP_SYS_ADMIN` is never re-added. |
+| Privileges | `no-new-privileges` always set; never a privileged container |
+| Filesystem | Read-only root; writable size-capped tmpfs at `workdir`, `/tmp` and `/var/tmp` (`/tmp` and `/var/tmp` are `noexec`) |
+| Resources | `cpu_limit`, `memory_limit` (swap disabled), `pids_limit`, `disk_limit` |
+| Time | Per-command timeout; the command's processes are killed when it expires |
+| Kernel | Optional gVisor (`backend="gvisor"`) for a user-space kernel |
 
-The default seccomp profile uses a whitelist approach: only explicitly allowed syscalls are permitted. This blocks dangerous operations like kernel module loading, raw device access, and privilege escalation.
-
-### AppArmor Profile
-
-The AppArmor profile restricts filesystem access:
-
-- `/workspace/**` and `/tmp/**` -- read-write (agent workspace)
-- `/usr/**`, `/lib/**`, `/etc/**` -- read-only (system files)
-- `/home/**`, `/root/**` -- denied
-- `/dev/mem`, `/dev/kmem` -- denied
-- `/proc/sys/kernel/**` -- write denied
-
-### Capability Dropping
-
-By default, most Linux capabilities are dropped, including `CAP_NET_ADMIN`, `CAP_SYS_ADMIN`, `CAP_SYS_PTRACE`, and others. Only the minimal capabilities needed for running user code are retained.
+The egress filter for `network="restricted"` and the kill of a timed-out
+command run as short privileged `exec`s issued by the host-side backend; the
+sandboxed code itself never gains those privileges.
 
 ---
 
@@ -331,7 +391,7 @@ config = ProcessConfig(
 When `sandbox_custom_tools=True`, any Python tools the agent creates at runtime are executed inside the sandbox with restricted builtins, preventing access to the host filesystem, network, and system resources.
 
 !!! warning "Docker required"
-    The sandbox requires Docker to be installed and running on the host machine. The `gvisor` backend requires additional setup (install `runsc`).
+    The sandbox requires Docker to be installed and running on the host machine and the `promptise[sandbox]` extra. The `gvisor` backend requires additional setup (install `runsc`).
 
 ---
 

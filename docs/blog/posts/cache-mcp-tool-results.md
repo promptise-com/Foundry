@@ -36,7 +36,6 @@ from promptise.mcp.server import (
     MCPServer,
     TestClient,
     cached,
-    get_context,
 )
 
 server = MCPServer(name="pricing")
@@ -55,14 +54,8 @@ cache = InMemoryCache(max_size=500)
 backend_hits: dict[str, int] = {}
 
 
-def client_scoped_key(func_name: str, args: dict) -> str:
-    """Scope every cache entry to the authenticated caller."""
-    ctx = get_context()
-    return f"{ctx.client.client_id}:{func_name}:{args.get('sku', '')}"
-
-
 @server.tool(auth=True, read_only_hint=True)
-@cached(ttl=300, backend=cache, key_func=client_scoped_key)
+@cached(ttl=300, backend=cache)  # entries are scoped to the caller by default
 async def get_price(sku: str) -> dict:
     """Expensive priced lookup — hits a paid pricing API on a miss."""
     backend_hits[sku] = backend_hits.get(sku, 0) + 1
@@ -98,36 +91,27 @@ acme sees      : {"sku": "A-1", "price": 42.0}
 
 Read that count carefully, because it is the whole point. `acme` called `get_price("A-1")` **three** times and the handler ran **once** — the two repeats were served from cache. `globex` called the identical SKU string and the handler ran **again**, giving a total of two backend executions rather than four. That second execution is not a bug; it is the per-client scoping doing its job, which the next section unpacks.
 
-The `@cached` decorator takes `ttl` (seconds), an optional `backend`, and an optional `key_func`. Without a `key_func` the default key is the function name plus a hash of the JSON-serialised arguments, so `get_price("A-1")` and `get_price("A-2")` are naturally separate entries. The [caching guide](../../mcp/server/caching-performance.md) documents the full decorator surface, including combining it with per-tool rate limits, timeouts, and concurrency caps on the same tool.
+The `@cached` decorator takes `ttl` (seconds), an optional `backend`, an optional `key_func`, and a `scope`. The default key is the server, the function, a hash of the JSON-serialised arguments and the authenticated caller, so `get_price("A-1")` and `get_price("A-2")` are naturally separate entries, and so are acme's and globex's. The [caching guide](../../mcp/server/caching-performance.md) documents the full decorator surface, including combining it with per-tool rate limits, timeouts, and concurrency caps on the same tool.
 
 ## Per-client keys: one tenant's cache never answers another's
 
-The default argument-hash key has a sharp edge on any shared server: it keys **only** on arguments, so `get_price("A-1")` from tenant *acme* and `get_price("A-1")` from tenant *globex* collide on the same entry — and whoever misses first fills a cache the other then reads. On a multi-tenant server that is a cross-tenant data leak dressed up as a performance win.
+A cache keyed **only** on arguments has a sharp edge on any shared server: `get_price("A-1")` from tenant *acme* and `get_price("A-1")` from tenant *globex* collide on the same entry — and whoever misses first fills a cache the other then reads. On a multi-tenant server that is a cross-tenant data leak dressed up as a performance win.
 
-A custom `key_func` closes it. The signature is `(func_name: str, args: dict) -> str`, and inside it you can reach the authenticated request with `get_context()`. Keying on `ctx.client.client_id` (or `ctx.client.tenant_id` on a tenant-aware server) gives you a **per-client tool result cache** where entries are partitioned by caller:
-
-```python
-def client_scoped_key(func_name: str, args: dict) -> str:
-    ctx = get_context()
-    return f"{ctx.client.client_id}:{func_name}:{args.get('sku', '')}"
-```
-
-Because the caller identity is read from the active request context — populated by `AuthMiddleware`, not passed as a tool argument — a client can't spoof its way into another client's partition. This is the same structural invariant Promptise applies across the stack: when a caller carries a `tenant_id`, it becomes part of every isolation key, so [multi-tenancy](../../mcp/server/multi-tenancy.md) is enforced by key derivation rather than a naming convention someone forgets in one handler. The identical question on the agent-side cache — whether a reworded prompt can surface another tenant's cached answer — is dissected in [Can a Paraphrase Leak Another Tenant's Cached Answer?](semantic-cache-cross-tenant-leak.md); the server-side cache faces the same threat and defends it with the same idea: put the principal in the key.
-
-## InMemoryCache vs RedisCache: picking a backend
-
-The decorator is storage-agnostic — you pass it a backend. Two ship in the box.
-
-`InMemoryCache` is an in-process store with TTL expiry and optional LRU eviction. It's the right default for a single-process server and for the fastest possible hit path:
+So Promptise keys every entry on the caller by default: the token's issuer, the tenant and the client id, taken from the authenticated request rather than from a tool argument, so it can't be spoofed. That holds even when the handler reads the caller through `get_context()` instead of taking a `ctx` parameter. Widening the sharing is an explicit opt-out with `scope`:
 
 ```python
-from promptise.mcp.server import InMemoryCache
+@server.tool(auth=True, read_only_hint=True)
+@cached(ttl=300, backend=cache, scope="tenant")   # one entry per tenant
+async def org_price_list(ctx: RequestContext) -> list[dict]:
+    return await pricing.list_for(ctx.client.tenant_id)
 
-cache = InMemoryCache(
-    max_size=1000,          # evict oldest when full (0 = unlimited)
-    cleanup_interval=60.0,  # background sweep for expired entries (seconds)
-)
+@server.tool(read_only_hint=True)
+@cached(ttl=300, backend=cache, scope="shared")   # same answer for everyone
+async def exchange_rate(currency: str) -> float:
+    return await fx.rate(currency)
 ```
+
+A custom `key_func` (`(func_name: str, args: dict) -> str`) still lets you decide which arguments matter, for example ignoring a page number; its key is prefixed with the scope, so it can't widen sharing by accident.
 
 Its one limitation is honest and unavoidable: it is per-process. Run `uvicorn --workers 4` and you have four independent caches, so a hit rate that looked great on one worker dilutes across the pool, and there's no shared invalidation. When that matters, switch the backend — the decorator and your handler don't change. A **Redis cache for your MCP server** gives every instance one shared store:
 
@@ -137,13 +121,13 @@ from promptise.mcp.server import RedisCache, cached
 cache = RedisCache(url="redis://localhost:6379/0", prefix="pricing:")
 
 @server.tool(read_only_hint=True)
-@cached(ttl=300, backend=cache, key_func=client_scoped_key)
+@cached(ttl=300, backend=cache, scope="shared")  # a forecast is the same for everyone
 async def get_forecast(city: str, days: int = 5) -> dict:
     """5-day forecast — cached in Redis, shared across all server instances."""
     return await weather_api.forecast(city, days)
 ```
 
-`RedisCache` JSON-serialises values and namespaces keys under `prefix`, so several services can share one Redis without colliding. It needs `pip install redis`. If you'd rather not decorate tools one at a time, `CacheMiddleware(backend=cache, ttl=120)` applies caching server-wide to every tool at once — the same backends, the same TTL semantics, applied as a middleware instead of a decorator. And if your storage is neither in-memory nor Redis, implement the `CacheBackend` protocol (`get`, `set`, `delete`, `clear`) and pass your own — DynamoDB, Memcached, whatever your platform already runs. The [core cache concepts](../../core/cache.md) page contrasts this server-side result cache with the agent-side semantic cache so you can reason about both layers together.
+`RedisCache` JSON-serialises values and namespaces keys under `prefix`, so several services can share one Redis without colliding. It needs `pip install redis`. If you'd rather not decorate tools one at a time, `CacheMiddleware(backend=cache, ttl=120)` applies caching server-wide to every tool at once — the same backends, TTL semantics and per-caller scoping, applied as a middleware instead of a decorator. Add it after `AuthMiddleware`, and only on servers whose tools are all reads: it caches every tool. And if your storage is neither in-memory nor Redis, implement the `CacheBackend` protocol (`get`, `set`, `delete`, `clear`) and pass your own — DynamoDB, Memcached, whatever your platform already runs. The [core cache concepts](../../core/cache.md) page contrasts this server-side result cache with the agent-side semantic cache so you can reason about both layers together.
 
 ## What other frameworks do today
 
@@ -160,7 +144,7 @@ None of this means those stacks *can't* cache tool results — with enough glue 
 
 ### Does caching apply before or after authentication and guards?
 
-After. Auth middleware runs first and populates the request context, which is exactly why a `key_func` can read `get_context().client.client_id` to scope entries per caller. A client that isn't authorized for a tool is rejected by its guard before the cache is ever consulted — the cache never serves a result to a caller who couldn't have called the tool.
+After. Auth middleware runs first and populates the request context, which is where the per-caller key comes from. With `@cached`, a client that isn't authorized for a tool is rejected by its guard before the cache is ever consulted. `CacheMiddleware` runs the tool's guards on every cache hit, so neither serves a result to a caller who couldn't have called the tool.
 
 ### Which tools should I cache, and which should I never cache?
 
@@ -168,7 +152,7 @@ Cache **read-only** tools whose output is stable for a while — lookups, prices
 
 ### How do I stop one tenant's cached result from answering another tenant?
 
-Pass a `key_func` that embeds the caller. Keying on `ctx.client.client_id` partitions entries per API-key principal; on a tenant-aware server, key on `ctx.client.tenant_id` so two clients in the same org share a partition while different orgs stay isolated. Because the identity comes from the authenticated context and not a tool argument, it can't be spoofed. The runnable example above proves it: `globex` re-executes the handler for a SKU string `acme` had already cached.
+You don't have to: entries are scoped to the authenticated caller by default. `scope="tenant"` lets two clients in the same org share a partition while different orgs stay isolated; `scope="shared"` is for data that is the same for everyone. Because the identity comes from the authenticated context and not a tool argument, it can't be spoofed. The runnable example above proves it: `globex` re-executes the handler for a SKU string `acme` had already cached.
 
 ### Do InMemoryCache and RedisCache use the same TTL and eviction semantics?
 
@@ -180,4 +164,4 @@ Not with `InMemoryCache` — it's per-process, so `uvicorn --workers 4` means fo
 
 ## Next steps
 
-Wrap your single most expensive read-only tool in `@cached` with an `InMemoryCache`, add a `key_func` that keys on `ctx.client.client_id`, and run it under `TestClient` the way the example above does — watch redundant backend calls collapse to one per TTL window while a second client still gets its own execution. When one process stops being enough, change one line to `RedisCache` and re-run to confirm the hit path is identical across workers. From there, read the [Caching & Performance guide](../../mcp/server/caching-performance.md) to compose caching with rate limiting, concurrency caps, and timeouts on the same tool, the [core cache concepts](../../core/cache.md) to pair it with the agent-side semantic cache, and [Multi-Tenancy](../../mcp/server/multi-tenancy.md) to make per-tenant isolation a server-wide invariant rather than a per-handler habit.
+Wrap your single most expensive read-only tool in `@cached` with an `InMemoryCache` and run it under `TestClient` the way the example above does — watch redundant backend calls collapse to one per TTL window while a second client still gets its own execution. When one process stops being enough, change one line to `RedisCache` and re-run to confirm the hit path is identical across workers. From there, read the [Caching & Performance guide](../../mcp/server/caching-performance.md) to compose caching with rate limiting, concurrency caps, and timeouts on the same tool, the [core cache concepts](../../core/cache.md) to pair it with the agent-side semantic cache, and [Multi-Tenancy](../../mcp/server/multi-tenancy.md) to make per-tenant isolation a server-wide invariant rather than a per-handler habit.

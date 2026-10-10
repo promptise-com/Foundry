@@ -38,6 +38,7 @@ from promptise.mcp.server._guards import (
     HasAllScopes,
     HasRole,
     HasScope,
+    HasTenant,
     RequireAuth,
     RequireClientId,
 )
@@ -442,7 +443,18 @@ class TestDescriptiveGuardErrors:
         ctx.client_id = "agent-999"
         msg = guard.describe_denial(ctx)
         assert "agent-999" in msg
-        assert "agent-007" in msg
+        # The allowed clients are never revealed to a refused caller.
+        assert "agent-007" not in msg and "agent-008" not in msg
+
+    def test_has_tenant_denial_never_names_other_tenants(self):
+        guard = HasTenant("acme", "initech")
+        ctx = RequestContext(server_name="test")
+        ctx.client = ClientContext(tenant_id="globex")
+        msg = guard.describe_denial(ctx)
+        assert "globex" in msg
+        assert "acme" not in msg and "initech" not in msg
+        ctx.client = ClientContext()
+        assert "acme" not in guard.describe_denial(ctx)
 
     def test_has_scope_denial(self):
         guard = HasScope("read", "write")

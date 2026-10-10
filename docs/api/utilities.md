@@ -100,6 +100,13 @@ Pause the agent before destructive actions and wait for explicit human approval.
       show_source: false
       heading_level: 4
 
+### approval_elicitation_callback
+
+::: promptise.approval.approval_elicitation_callback
+    options:
+      show_source: false
+      heading_level: 4
+
 ---
 
 ## Semantic Cache
@@ -364,7 +371,7 @@ Multi-head security scanner: prompt injection (DeBERTa ML), PII detection (69 re
 
 ## Tool Optimization
 
-Static schema minification + semantic tool selection (local embeddings) to cut prompt tokens by 40-70% on agents with many tools.
+Static schema minification + semantic tool selection (local embeddings) that offers each model call only the relevant tools. See [Tool Optimization](../core/tool-optimization.md) for measured savings.
 
 ### OptimizationLevel
 
@@ -376,6 +383,20 @@ Static schema minification + semantic tool selection (local embeddings) to cut p
 ### ToolOptimizationConfig
 
 ::: promptise.tool_optimization.ToolOptimizationConfig
+    options:
+      show_source: false
+      heading_level: 4
+
+### ToolIndex
+
+::: promptise.tool_optimization.ToolIndex
+    options:
+      show_source: false
+      heading_level: 4
+
+### build_selection_query
+
+::: promptise.tool_optimization.build_selection_query
     options:
       show_source: false
       heading_level: 4
@@ -410,6 +431,13 @@ Failure classification and strategy learning. Agents track past failures, catego
 ### AdaptiveStrategyManager
 
 ::: promptise.strategy.AdaptiveStrategyManager
+    options:
+      show_source: false
+      heading_level: 4
+
+### AdaptiveLesson
+
+::: promptise.strategy.AdaptiveLesson
     options:
       show_source: false
       heading_level: 4

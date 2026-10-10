@@ -27,6 +27,7 @@ from promptise.engine import PromptGraph, PromptGraphEngine, PromptNode
 from promptise.engine.base import BaseNode
 from promptise.engine.execution import GraphExecutionError
 from promptise.engine.state import NodeEvent, NodeResult
+from promptise.mcp.client import MCPToolError
 from promptise.mcp.client._tool_adapter import _PromptiseMCPTool
 from promptise.mcp.server import MCPServer, ToolError
 
@@ -125,7 +126,9 @@ class _ErrorResultMulti:
     def __init__(self, text: str) -> None:
         self.text = text
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> CallToolResult:
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any], **kwargs: Any
+    ) -> CallToolResult:
         return CallToolResult(content=[TextContent(type="text", text=self.text)], isError=True)
 
 
@@ -450,14 +453,6 @@ class TestToolErrors:
         assert events[-1].full_response == "The lookup failed."
 
     @pytest.mark.asyncio
-    async def test_mcp_tool_error_is_still_text_for_plain_invocation(self):
-        tool = _mcp_tool_returning_error("No order Z-9.")
-
-        out = await tool.ainvoke({"order_id": "Z-9"})
-
-        assert json.loads(out)["error"]["message"] == "No order Z-9."
-
-    @pytest.mark.asyncio
     async def test_approval_wrapper_keeps_the_error_status(self):
         from unittest.mock import AsyncMock
 
@@ -476,10 +471,10 @@ class TestToolErrors:
         )
         [wrapped] = wrap_tools_with_approval([_mcp_tool_returning_error("No order Z-9.")], policy)
 
-        out = await wrapped.ainvoke(_tool_call("get_order_status", {"order_id": "Z-9"}, "c1"))
-
-        assert isinstance(out, ToolMessage)
-        assert out.status == "error"
+        # The wrapper does not turn the server's error into a result.
+        with pytest.raises(MCPToolError) as info:
+            await wrapped.ainvoke(_tool_call("get_order_status", {"order_id": "Z-9"}, "c1"))
+        assert info.value.message == "No order Z-9."
 
 
 class TestServerToolErrors:
@@ -837,7 +832,7 @@ class _CountingErrorMulti(_ErrorResultMulti):
 
     async def call_tool(self, name: str, arguments: dict[str, Any], **kwargs: Any) -> Any:
         self.count += 1
-        return await super().call_tool(name, arguments)
+        return await super().call_tool(name, arguments, **kwargs)
 
 
 class TestToolErrorBookkeeping:
@@ -1011,3 +1006,112 @@ class TestStreamingCallerAndMemory:
 
         stored = [content for content, *_rest in provider._store.values()]
         assert any("Capital of France?" in c and "Paris." in c for c in stored)
+
+
+# ---------------------------------------------------------------------------
+# Adaptive strategy while streaming: failures recorded, lessons injected
+# ---------------------------------------------------------------------------
+
+
+class _Synthesis:
+    """Lesson synthesis model: answers with one lesson, records prompts."""
+
+    LESSON = "Order IDs look like A-1001: the letter A, a dash and four digits."
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    async def ainvoke(self, prompt: Any) -> Any:
+        from types import SimpleNamespace
+
+        self.prompts.append(str(prompt))
+        lessons = [{"tool": "get_order_status", "lesson": self.LESSON}]
+        return SimpleNamespace(content=json.dumps({"lessons": lessons}))
+
+
+class TestStreamingAdaptiveStrategy:
+    @staticmethod
+    def _failing_turn(order_id: str, call_id: str) -> list[AIMessage]:
+        return [
+            AIMessage(
+                content="",
+                tool_calls=[_tool_call("get_order_status", {"order_id": order_id}, call_id)],
+            ),
+            AIMessage(content="I could not find it."),
+        ]
+
+    @staticmethod
+    async def _adaptive_agent(model: ScriptedModel, synth: _Synthesis, monkeypatch) -> Any:
+        from promptise import build_agent
+        from promptise.memory import InMemoryProvider
+        from promptise.strategy import AdaptiveStrategyConfig
+
+        monkeypatch.setenv("PROMPTISE_NO_DOTENV", "1")
+        return await build_agent(
+            model=model,
+            servers={},
+            extra_tools=[_mcp_tool_returning_error("No order found with ID Z-9.")],
+            memory=InMemoryProvider(),
+            adaptive=AdaptiveStrategyConfig(
+                enabled=True, synthesis_threshold=1, synthesis_model=synth
+            ),
+        )
+
+    @pytest.mark.asyncio
+    async def test_astream_with_tools_records_failures_and_injects_lessons(self, monkeypatch):
+        from promptise.agent import CallerContext
+
+        alice = CallerContext(user_id="alice")
+        synth = _Synthesis()
+        model = ScriptedModel(
+            script=self._failing_turn("Z-9", "c1") + [AIMessage(content="Hello again.")]
+        )
+        agent = await self._adaptive_agent(model, synth, monkeypatch)
+        try:
+            events = [
+                e
+                async for e in agent.astream_with_tools(
+                    {"messages": [{"role": "user", "content": "Where is order Z-9?"}]}, caller=alice
+                )
+            ]
+            assert next(e for e in events if e.type == "tool_end").success is False
+            # The MCP error reached adaptive strategy, under its MCP code.
+            assert len(synth.prompts) == 1
+            assert "Tool 'get_order_status' failed with TOOL_ERROR" in synth.prompts[0]
+
+            # The next streamed run gets the lesson.
+            async for _event in agent.astream_with_tools(
+                {"messages": [{"role": "user", "content": "Where is order Z-9?"}]}, caller=alice
+            ):
+                pass
+            prompt = "\n".join(str(m.content) for m in model.calls[-1])
+            assert _Synthesis.LESSON in prompt
+        finally:
+            await agent.shutdown()
+
+    @pytest.mark.asyncio
+    async def test_astream_records_failures_and_injects_lessons(self, monkeypatch):
+        from promptise.agent import CallerContext
+
+        alice = CallerContext(user_id="alice")
+        synth = _Synthesis()
+        model = ScriptedModel(
+            script=self._failing_turn("Z-9", "c1") + [AIMessage(content="Hello again.")]
+        )
+        agent = await self._adaptive_agent(model, synth, monkeypatch)
+        try:
+            async for _chunk in agent.astream(
+                {"messages": [{"role": "user", "content": "Where is order Z-9?"}]}, caller=alice
+            ):
+                pass
+            assert len(synth.prompts) == 1
+            assert "Tool 'get_order_status' failed with TOOL_ERROR" in synth.prompts[0]
+
+            async for _chunk in agent.astream(
+                {"messages": [{"role": "user", "content": "Where is order Z-9?"}]}, caller=alice
+            ):
+                pass
+            prompt = "\n".join(str(m.content) for m in model.calls[-1])
+            assert _Synthesis.LESSON in prompt
+        finally:
+            await agent.shutdown()

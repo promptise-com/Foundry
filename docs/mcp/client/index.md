@@ -126,7 +126,10 @@ async with MCPClient(
 | `command` | `str \| None` | `None` | Executable for stdio transport |
 | `args` | `list[str]` | `[]` | Arguments for the stdio command |
 | `env` | `dict[str, str]` | `{}` | Environment variables for the stdio process |
+| `cwd` | `str \| None` | `None` | Working directory for the stdio process |
 | `timeout` | `float` | `30.0` | HTTP request timeout in seconds |
+| `elicitation_callback` | SDK `ElicitationFnT \| None` | `None` | Answers the server's MCP elicitation requests; the elicitation capability is declared only when set. See [Answering elicitation](#answering-elicitation-server-side-approval-gates) |
+| `auto_reconnect` | `bool` | `True` | Open a new session and retry once when an HTTP/SSE server has lost the session — see [Reconnecting after a server restart](#reconnecting-after-a-server-restart). Ignored for stdio |
 
 ### Fetching tokens
 
@@ -170,6 +173,19 @@ async with MCPClient(url="http://localhost:8080/mcp", bearer_token=token) as cli
             print(item.text)
 ```
 
+### Progress notifications
+
+Long-running tools can report progress (`ProgressReporter` on a Promptise server). Pass a `progress_callback` to receive it; it is awaited for each notification the server sends for that call:
+
+```python
+async def on_progress(progress: float, total: float | None, message: str | None) -> None:
+    print(f"{progress}/{total} {message or ''}")
+
+result = await client.call_tool("crawl_site", {"pages": 3}, progress_callback=on_progress)
+```
+
+Without a callback the call carries no progress token, and servers don't send progress for it. `MCPMultiClient.call_tool()` accepts the same argument. Agents built with `build_agent()` take `on_tool_progress=` instead -- see [Progress Reporting](../server/resilience-patterns.md#receiving-progress-in-a-promptise-client-or-agent).
+
 ### Accessing the session
 
 For advanced use cases, access the underlying MCP `ClientSession`:
@@ -179,6 +195,70 @@ async with MCPClient(url="http://localhost:8080/mcp") as client:
     session = client.session  # mcp.client.session.ClientSession
     headers = client.headers  # Read-only copy of HTTP headers
 ```
+
+### Answering elicitation (server-side approval gates)
+
+A server can ask the human behind the client for input mid-call through MCP
+elicitation. The common case is a server-side
+[approval gate](../server/approval-gates.md): `ElicitationApprover` (the
+default on [MCPcast](../server/mcpcast.md#human-approval)-generated servers
+with `env-token`, `passthrough` or `none` auth) asks the client to confirm each
+gated tool call.
+
+By default `MCPClient` declares **no** elicitation support, so such a server
+denies the call with `APPROVAL_DENIED` and nothing runs. That is fail-closed and
+stays the behaviour until you pass `elicitation_callback`. The callback has the
+MCP SDK's signature, `async (context, params) -> ElicitResult | ErrorData`. To
+send the requests to a human through any
+[approval handler](../../core/approval.md), use
+`approval_elicitation_callback`:
+
+```python
+from promptise.approval import CallbackApprovalHandler, approval_elicitation_callback
+from promptise.mcp.client import MCPClient
+
+async def ask_human(request):
+    print(request.context_summary)                     # the server's own message
+    print(f"{request.tool_name}({request.arguments})") # the call this client sent
+    return input("Approve? [y/N] ").strip().lower() == "y"
+
+client = MCPClient(
+    transport="stdio",
+    command="python",
+    args=["petstore-mcp/server.py"],
+    env={"MCPCAST_UPSTREAM_TOKEN": "Bearer <your API token>"},
+    elicitation_callback=approval_elicitation_callback(
+        CallbackApprovalHandler(ask_human),
+        server_name="petstore",
+        in_flight=lambda: client.in_flight_calls,
+    ),
+)
+async with client:
+    result = await client.call_tool("add_pet", {"name": "Rex"})
+```
+
+`build_agent(approval=...)` does this for every server automatically (see
+[Server-side approval gates](../../core/approval.md#server-side-approval-gates)).
+`examples/mcp/approve_server_gates.py` runs both cases, with and without a
+handler, against a gated server and needs no LLM.
+
+A request carries no tool name on the wire, so the client relates it to a call
+itself. `client.in_flight_calls` lists the `call_tool` requests still awaiting a
+result (`InFlightToolCall`: `name`, `arguments` and the caller's `contextvars`
+snapshot). With exactly one call in flight, the approval request gets that
+call's tool name and arguments. Otherwise the reviewer decides from the
+server's message alone.
+
+What the client guarantees:
+
+- **No acceptance without a handler decision.** A callback that raises is answered with a JSON-RPC error, which a fail-closed server reads as a denial, and the session stays up.
+- **Only confirmations are answered.** `approval_elicitation_callback` accepts only an empty form or a form whose one decision field is a boolean from `CONFIRMATION_FIELDS` (`approve`, `confirm`, `proceed`, ...). URL-mode requests, and forms that ask for anything else, are declined without asking the handler.
+- **Elicitation is sequential per connection.** The MCP SDK handles server requests on the session's receive loop, so while a reviewer decides, other responses from that server wait. Keep handler timeouts below the server's approval timeout.
+
+`MCPMultiClient(clients, elicitation_callback=...)` installs a default callback
+on every client that has none of its own. The SDK callback does not say which
+server asked, so give each `MCPClient` its own callback when the handler needs
+the server name.
 
 ## MCPMultiClient
 
@@ -204,6 +284,35 @@ async with multi:
     print(multi.tool_to_server)  # {"search_employees": "hr", "search_docs": "docs"}
     print(multi.servers)         # {"hr": <MCPClient>, "docs": <MCPClient>}
 ```
+
+### Calling a tool as a specific user
+
+`call_tool(..., bearer_token=...)` sends that token as
+`Authorization: Bearer <token>` instead of the server's configured
+credentials. It is what `build_agent()` uses to make each invocation's tool
+calls as the invoking user (`CallerContext.bearer_token`):
+
+```python
+async with multi:
+    await multi.list_tools()
+    alice_view = await multi.call_tool("my_tickets", {}, bearer_token=alice_jwt)
+    bob_view = await multi.call_tool("my_tickets", {}, bearer_token=bob_jwt)
+```
+
+Each distinct token gets its own MCP session to the server: opened on first
+use, reused by later calls with the same token, and closed after
+`caller_session_idle_timeout` seconds unused (default 300). At most
+`max_caller_sessions` idle sessions stay open (default 256; least recently
+used first). Concurrent calls with different tokens never share a session
+or a header, and a session in use is never closed. The token replaces any
+`Authorization` header the client was configured with; other headers,
+including `x-api-key`, are kept. A server that rejects the token raises
+`MCPConnectionRejectedError` for that call only.
+
+stdio servers have no request headers: the token is ignored for them and a
+warning is logged once per server. `MCPClient.with_bearer_token(token)`
+returns an unconnected copy of a client that authenticates with *token*, if
+you manage sessions yourself.
 
 ### Tool name collisions
 
@@ -238,9 +347,38 @@ except MCPConnectionRejectedError as e:
     #  401 Unauthorized. Check the bearer_token/api_key configured for it."
 ```
 
-Through `MCPMultiClient` and `build_agent()` the message names the server instead (`Server 'orders' rejected the connection: 401 Unauthorized. ...`) and `e.server_name` is set. A `404` points you at the URL instead of the credentials. Retrying with the same configuration fails the same way, so fix the credentials or URL instead of retrying.
+Through `MCPMultiClient` and `build_agent()` the message names the server instead (`Server 'orders' rejected the connection: 401 Unauthorized. ...`) and `e.server_name` is set. A `404` — usually a URL without the `/mcp` path — points you at the URL instead of the credentials:
 
-Other connection failures (server down, connection refused) raise a plain `MCPClientError` such as `Failed to connect to http://localhost:8080/mcp (ConnectError: ...)`. If an established connection drops later, the next call raises `MCPClientError` (`Connection to ... was lost`). The failure never cancels the task that opened the client, because the client owns its transport in a task of its own. That also makes it safe to close a client from a different task than the one that opened it.
+```text
+Server at http://localhost:8080 rejected the connection: 404 Not Found.
+Check the URL (http://localhost:8080); Promptise servers serve MCP at /mcp.
+```
+
+Retrying with the same configuration fails the same way, so fix the credentials or URL instead of retrying.
+
+Other connection failures (server down, connection refused) raise a plain `MCPClientError` such as `Failed to connect to http://localhost:8080/mcp (ConnectError: ...)`. If an established connection drops during a call, that call raises `MCPClientError` (`Connection to ... was lost`) at once. The failure never cancels the task that opened the client, because the client owns its transport in a task of its own. That also makes it safe to close a client from a different task than the one that opened it.
+
+### Reconnecting after a server restart
+
+A Streamable HTTP server keeps its sessions in memory. After a restart or redeploy it answers the old `mcp-session-id` with `404`, and the MCP specification requires the client to start a new session. `MCPClient` does this transparently:
+
+1. A call answered `404` for its session opens a new session (`initialize`) and is retried **once**. The server refused the request without running it, so the retry cannot run a tool twice. Concurrent calls that hit the same lost session share one re-initialisation.
+2. A connection that drops **during** a call (the server died mid-request) is not retried — the tool may already have run — and that call raises `MCPClientError`. The next call opens a new session, so the client recovers as soon as the server is back.
+3. `MCPMultiClient` (and so every agent from `build_agent()`) then re-lists that server's tools, so routing follows the tools the new deployment serves.
+
+```python
+async with MCPClient(url="http://localhost:8080/mcp") as client:
+    await client.call_tool("check_stock", {"sku": "SKU-1"})
+    # ... the server is redeployed ...
+    await client.call_tool("check_stock", {"sku": "SKU-1"})  # new session, same result
+    print(client.session_generation)  # 2
+```
+
+`client.session_generation` counts the sessions the client has opened (`1` after connecting). Pass `auto_reconnect=False` to handle a lost session yourself; the call then raises `MCPClientError` saying the server no longer knows the session.
+
+If the retry is answered `404` as well, the request reached a process that does not hold the brand-new session either — typically several replicas or workers behind a load balancer without sticky sessions. The error says so; route each `mcp-session-id` to one process, or serve the app stateless (see [Deployment — Sessions, restarts and replicas](../server/deployment.md#sessions-restarts-and-replicas)).
+
+The legacy SSE transport has no session-level `404`: when its stream breaks, the call in progress fails and the next call opens a new session.
 
 ## MCPToolAdapter
 
@@ -291,11 +429,15 @@ def on_after(tool_name: str, result) -> None:
 def on_error(tool_name: str, exc: Exception) -> None:
     print(f"{tool_name} failed: {exc}")
 
+def on_progress(tool_name: str, progress: float, total: float | None, message: str | None) -> None:
+    print(f"{tool_name}: {progress}/{total} {message or ''}")  # may also be async
+
 adapter = MCPToolAdapter(
     multi,
     on_before=on_before,
     on_after=on_after,
     on_error=on_error,
+    on_progress=on_progress,  # progress notifications during a call
 )
 lc_tools = await adapter.as_langchain_tools()
 ```
@@ -364,15 +506,18 @@ asyncio.run(main())
 | `MCPClient(url, transport, bearer_token, ...)` | Class | Single-server MCP client |
 | `MCPClient.fetch_token(url, client_id, secret)` | Static method | Acquire a JWT from a token endpoint |
 | `client.list_tools()` | Method | Discover all tools on the server |
-| `client.call_tool(name, arguments)` | Method | Call a tool and get a `CallToolResult` |
-| `client.session` | Property | Underlying MCP `ClientSession` |
+| `client.call_tool(name, arguments, progress_callback=None)` | Method | Call a tool and get a `CallToolResult`; the callback receives progress notifications |
+| `client.in_flight_calls` | Property | `InFlightToolCall`s awaiting a result (for relating elicitation to a call) |
+| `client.session` | Property | Underlying MCP `ClientSession` (no automatic reconnect for calls made on it directly) |
+| `client.session_generation` | Property | Number of sessions opened; grows by one on each transparent re-initialisation |
 | `client.headers` | Property | Read-only copy of HTTP headers |
-| `MCPMultiClient(clients)` | Class | Multi-server aggregating client |
+| `MCPMultiClient(clients, elicitation_callback=None)` | Class | Multi-server aggregating client |
+| `approval_elicitation_callback(handler, ...)` | Function | Elicitation callback that asks an approval handler (`promptise.approval`) |
 | `multi.list_tools()` | Method | Discover tools from all servers |
-| `multi.call_tool(name, arguments)` | Method | Call a tool, auto-routed to the correct server |
+| `multi.call_tool(name, arguments, progress_callback=None)` | Method | Call a tool, auto-routed to the correct server |
 | `multi.tool_to_server` | Property | Tool name to server name mapping |
 | `multi.servers` | Property | Server name to `MCPClient` mapping |
-| `MCPToolAdapter(multi, on_before, on_after, on_error)` | Class | MCP-to-LangChain tool converter |
+| `MCPToolAdapter(multi, on_before, on_after, on_error, on_progress)` | Class | MCP-to-LangChain tool converter |
 | `adapter.as_langchain_tools()` | Method | Convert MCP tools to `BaseTool` instances |
 | `adapter.list_tool_info()` | Method | Get tool metadata for introspection |
 | `MCPClientError` | Exception | Raised on client operation failures |

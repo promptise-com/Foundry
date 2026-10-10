@@ -34,9 +34,14 @@ from ._auth import (
 )
 from ._background import BackgroundTasks
 from ._batch import register_batch_tool
-from ._cache import CacheBackend, CacheMiddleware, InMemoryCache, cached
+from ._cache import CacheBackend, CacheMiddleware, CacheScope, InMemoryCache, cached
 from ._cancellation import CancellationToken, CancelledError
-from ._circuit_breaker import CircuitBreakerMiddleware, CircuitOpenError, CircuitState
+from ._circuit_breaker import (
+    CircuitBreakerMiddleware,
+    CircuitOpenError,
+    CircuitState,
+    is_upstream_failure,
+)
 from ._composition import mount
 from ._concurrency import ConcurrencyLimiter, PerToolConcurrencyLimiter
 from ._context import (
@@ -54,6 +59,7 @@ from ._elicitation import Elicitor
 from ._errors import (
     ApprovalDeniedError,
     AuthenticationError,
+    ConcurrencyLimitError,
     MCPError,
     PromptError,
     RateLimitError,
@@ -88,7 +94,7 @@ from ._openapi import OpenAPIProvider
 from ._otel import OTelMiddleware
 from ._progress import ProgressReporter
 from ._prometheus import PrometheusMiddleware
-from ._queue import InMemoryQueueBackend, MCPQueue, QueueBackend
+from ._queue import InMemoryQueueBackend, MCPQueue, QueueBackend, QueueCaller
 from ._rate_limit import (
     DeclaredRateLimitMiddleware,
     RateLimitMiddleware,
@@ -186,6 +192,7 @@ __all__ = [
     "PromptError",
     "AuthenticationError",
     "RateLimitError",
+    "ConcurrencyLimitError",
     "ValidationError",
     "CancelledError",
     # Background tasks
@@ -205,6 +212,7 @@ __all__ = [
     "InMemoryCache",
     "RedisCache",
     "CacheMiddleware",
+    "CacheScope",
     "cached",
     # Manifest
     "build_manifest",
@@ -250,6 +258,7 @@ __all__ = [
     # Circuit breaker
     "CircuitBreakerMiddleware",
     "CircuitOpenError",
+    "is_upstream_failure",
     "CircuitState",
     # Audit logging
     "AuditMiddleware",
@@ -263,4 +272,5 @@ __all__ = [
     "MCPQueue",
     "QueueBackend",
     "InMemoryQueueBackend",
+    "QueueCaller",
 ]

@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
+import json
 import logging
 import time
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
+from pydantic import PrivateAttr
 
 from promptise.engine import PromptGraph, PromptGraphEngine
 
@@ -22,6 +25,7 @@ from .cross_agent import CrossAgent, make_cross_agent_tools
 from .identity import AgentIdentity, IdentityError
 from .models import Model
 from .prompt import DEFAULT_SYSTEM_PROMPT
+from .prompts.flows import FlowSessions
 
 
 @dataclass
@@ -30,7 +34,7 @@ class CallerContext:
 
     Pass this to ``ainvoke()`` or ``chat()`` to carry per-request
     identity through the entire invocation — guardrails, conversation
-    ownership, observability, and (future) MCP token forwarding.
+    ownership, observability, and the MCP servers the agent calls.
 
     Attributes:
         user_id: Unique user identifier.  Used for conversation session
@@ -40,9 +44,16 @@ class CallerContext:
             isolation surface (semantic cache, memory search, conversation
             ownership) is scoped per tenant — two tenants with the same
             ``user_id`` can never see each other's data.
-        bearer_token: JWT or OAuth token for the caller.  Currently
-            available for guardrails and logging; MCP token forwarding
-            is a planned enhancement.
+        bearer_token: JWT or OAuth token for the caller.  Sent as
+            ``Authorization: Bearer <token>`` on every tool call to an
+            HTTP/SSE MCP server during this invocation, over a session
+            opened for this token — never shared with another caller —
+            so the server authenticates the user, not the credential the
+            agent was built with.  A server opts out with
+            ``HTTPServerSpec(forward_caller_token=False)``.  stdio servers
+            have no request headers and never receive it.  Tool
+            discovery at build time still uses the server spec's
+            credentials.
         roles: Caller's roles (e.g. ``{"admin", "analyst"}``).
             Available for custom guardrail rules and logging.
         scopes: OAuth scopes (e.g. ``{"read", "write"}``).
@@ -117,6 +128,12 @@ _caller_ctx_var: contextvars.ContextVar[CallerContext | None] = contextvars.Cont
     "promptise_caller", default=None
 )
 
+# Owner of the session that chat() is serving, when it was named with
+# ``user_id=`` rather than a CallerContext. Scopes per-session flow state.
+_session_owner_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "promptise_session_owner", default=None
+)
+
 
 def get_current_caller() -> CallerContext | None:
     """Return the :class:`CallerContext` for the current invocation.
@@ -128,10 +145,50 @@ def get_current_caller() -> CallerContext | None:
     return _caller_ctx_var.get()
 
 
+@dataclass(frozen=True)
+class _Invocation:
+    """The running ``ainvoke()`` / ``astream()`` call, for approval gates.
+
+    Attributes:
+        invocation_id: Random id, unique per invocation.
+        messages: The input messages the invocation started from.
+    """
+
+    invocation_id: str
+    messages: tuple[Any, ...]
+
+
+_invocation_ctx_var: contextvars.ContextVar[_Invocation | None] = contextvars.ContextVar(
+    "promptise_invocation", default=None
+)
+# The ``chat()`` session id, while that session's invocation runs.
+_session_ctx_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "promptise_session", default=None
+)
+
+
+def _begin_invocation(input: Any) -> contextvars.Token[_Invocation | None]:
+    """Record the invocation that is starting; reset the returned token after."""
+    import secrets
+
+    messages = input.get("messages") if isinstance(input, Mapping) else None
+    return _invocation_ctx_var.set(
+        _Invocation(
+            invocation_id=secrets.token_hex(8),
+            messages=tuple(messages) if isinstance(messages, (list, tuple)) else (),
+        )
+    )
+
+
+def get_current_session_id() -> str | None:
+    """Return the session id of the current ``chat()`` call, or ``None``."""
+    return _session_ctx_var.get()
+
+
 from .tools import MCPClientError
 
 # Model can be a provider string (handled by LangChain), a chat model instance, or a Runnable.
-ModelLike = str | Model | BaseChatModel | Runnable[Any, Any]
+ModelLike: TypeAlias = str | Model | BaseChatModel | Runnable[Any, Any]
 """Type alias for model parameter: string, BaseChatModel, Runnable, or FallbackChain."""
 
 logger = logging.getLogger("promptise.agent")
@@ -202,8 +259,7 @@ class PromptiseAgent:
         conversation_max_messages: int = 0,
         # Tool optimization (semantic selection)
         tool_index: Any | None = None,
-        all_tools: list[Any] | None = None,
-        graph_builder_fn: Any | None = None,
+        tool_optimization: Any | None = None,
         tools: list[BaseTool] | None = None,
         # Security guardrails
         guardrails: Any | None = None,
@@ -243,13 +299,17 @@ class PromptiseAgent:
         self._conversation_store = conversation_store
         self._conversation_max_messages = conversation_max_messages
 
-        # Conversation flow (Layer 2)
-        self._flow: Any | None = None
+        # Conversation flow (Layer 2): one flow per session or caller
+        self._flows: FlowSessions | None = None
 
-        # Tool optimization — semantic selection
+        # Tool optimization — semantic selection. The graph carries every tool;
+        # each run installs a selector that narrows them per model call.
         self._tool_index = tool_index
-        self._all_tools = all_tools or []
-        self._graph_builder_fn = graph_builder_fn
+        self._tool_selector: Any | None = None
+        if tool_index is not None and tool_optimization is not None:
+            from .tool_optimization import _ToolSelector
+
+            self._tool_selector = _ToolSelector(tool_index, tool_optimization)
         # Every tool the agent can call: MCP-discovered, extra_tools, sandbox,
         # cross-agent and meta tools alike.
         self._tools: list[BaseTool] = list(tools or [])
@@ -289,6 +349,20 @@ class PromptiseAgent:
         # build_agent). Used to attribute event notifications to the agent.
         self._actor_id: str | None = None
 
+    def _with_tool_selection(self, config: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Install the semantic tool selector in this run's *config*.
+
+        The engine calls it before every model call, so the offered tools
+        follow the conversation step by step (see ``_ToolSelector``).
+        """
+        if self._tool_selector is None:
+            return config
+        from .engine.nodes import TOOL_SELECTOR_KEY
+
+        config = dict(config) if config else {}
+        config[TOOL_SELECTOR_KEY] = self._tool_selector
+        return config
+
     def _actor(self) -> str | None:
         """Return the id to attribute the agent's events to.
 
@@ -310,6 +384,7 @@ class PromptiseAgent:
         config: dict[str, Any] | None = None,
         *,
         caller: CallerContext | None = None,
+        session_id: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """Invoke the agent asynchronously.
@@ -317,6 +392,9 @@ class PromptiseAgent:
         Args:
             input: LangGraph-style input dict with ``messages``.
             config: LangGraph config dict (callbacks, etc.).
+            session_id: Optional conversation ID.  With a conversation
+                ``flow``, each session (per caller) keeps its own flow
+                state.  :meth:`chat` passes its ``session_id`` here.
             caller: Optional :class:`CallerContext` with per-request
                 identity.  When provided, ``user_id`` is used for
                 conversation ownership and the full context is
@@ -341,13 +419,14 @@ class PromptiseAgent:
         if caller is None:
             caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
+        _inv_token = _begin_invocation(input)
         try:
             # Enforce max_invocation_time if configured
             timeout = getattr(self, "_max_invocation_time", 0)
             if timeout and timeout > 0:
                 try:
                     return await asyncio.wait_for(
-                        self._ainvoke_inner(input, config, **kwargs),
+                        self._ainvoke_inner(input, config, session_id=session_id, **kwargs),
                         timeout=timeout,
                     )
                 except asyncio.TimeoutError:
@@ -363,7 +442,7 @@ class PromptiseAgent:
                         )
                     raise TimeoutError(f"Agent invocation exceeded {timeout}s timeout")
             else:
-                return await self._ainvoke_inner(input, config, **kwargs)
+                return await self._ainvoke_inner(input, config, session_id=session_id, **kwargs)
         except Exception as exc:
             # Emit invocation.error event on any unhandled exception
             if self._event_notifier is not None:
@@ -378,12 +457,106 @@ class PromptiseAgent:
                 )
             raise
         finally:
+            _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
+
+    async def _assemble_with_engine(
+        self,
+        engine: Any,
+        input: dict[str, Any],
+        config: dict[str, Any] | None,
+        user_text: str,
+        memory_results: list[Any],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Build this call's input with the :class:`ContextEngine`.
+
+        The engine's layers (your ``add_layer`` content, memory, strategies,
+        conversation history) go in as system messages, budgeted.  The
+        input's own system messages and the current question pass through
+        unchanged.  The instructions and tool definitions count toward the
+        budget but are not sent twice (the graph sends them).  The budget
+        left over becomes the token budget for compacting the tool loop,
+        so the engine keeps bounding the context on every model call.
+        Registered layers are never modified.
+        """
+        from langchain_core.messages import AIMessage as _AI
+        from langchain_core.messages import HumanMessage as _HM
+        from langchain_core.messages import SystemMessage as _SM
+
+        from .engine.compaction import ContextCompaction, normalize_messages, split_input
+
+        messages = normalize_messages(input.get("messages", []))
+        question, head = split_input(messages)
+        history_lines: list[str] = []
+        for msg in head:
+            text = msg.content if isinstance(msg.content, str) else str(msg.content or "")
+            if msg is question or not text:
+                continue
+            if isinstance(msg, _HM):
+                history_lines.append(f"User: {text}")
+            elif isinstance(msg, _AI):
+                history_lines.append(f"Assistant: {text}")
+
+        # Layers this agent fills are overridden for this call only, so
+        # nothing carries over between calls and add_layer content persists.
+        turn: dict[str, str] = {
+            "identity": self._raw_instructions or "",
+            "tools": _tool_definitions_text(self._tools),
+            "user_message": user_text,
+            "conversation": "\n".join(history_lines),
+        }
+        if memory_results:
+            from .memory import _format_memory_context
+
+            turn["memory"] = _format_memory_context(memory_results)
+        if self._strategy_manager is not None and user_text:
+            try:
+                strategies = await self._strategy_manager.get_relevant_strategies(user_text)
+                if strategies:
+                    turn["strategies"] = self._strategy_manager.format_strategy_block(strategies)
+            except Exception:
+                logger.debug("Strategy lookup failed, continuing", exc_info=True)
+
+        # An engine built with auto_register_builtins=False may lack some of
+        # these layers: skip them rather than fail the call.
+        registered = {info["name"] for info in engine.get_layer_info()}
+        turn = {name: text for name, text in turn.items() if name in registered}
+        assembled = engine.assemble(turn, budget_only=("identity", "tools", "user_message"))
+
+        # [input system messages] [engine layers] [budgeted history]
+        # [current question, as given] [anything the input had after it]
+        rebuilt: list[Any] = [m for m in head if isinstance(m, _SM)]
+        rebuilt.extend(normalize_messages(assembled))
+        if "conversation" not in registered:
+            # No layer to budget the history in: pass it through unchanged.
+            rebuilt.extend(m for m in head if m is not question and not isinstance(m, _SM))
+        if question is not None:
+            rebuilt.append(question)
+            rebuilt.extend(messages[len(head) :])
+        elif user_text:
+            rebuilt.append(_HM(content=user_text))
+
+        # Budget the tool loop: what the window has left after the parts
+        # the graph sends itself (instructions, tool definitions).
+        report = engine.last_report
+        fixed = sum(
+            layer["tokens"]
+            for layer in (report.layers if report is not None else [])
+            if layer["name"] in ("identity", "tools")
+        )
+        base = getattr(self._inner, "compaction", None) or ContextCompaction()
+        config = dict(config) if config else {}
+        config["_engine_compaction"] = base.with_budget(
+            max(1, engine.budget - fixed), engine.count_tokens
+        )
+        return {**input, "messages": rebuilt}, config
 
     async def _ainvoke_inner(
         self,
         input: Any,
         config: dict[str, Any] | None = None,
+        *,
+        session_id: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """Inner implementation — runs with CallerContext in contextvar."""
@@ -411,25 +584,28 @@ class PromptiseAgent:
                 agent_id=self._actor(),
             )
 
-        # Step 0: Guardrails — scan input BEFORE anything else
+        # Step 0: Guardrails — scan input BEFORE anything else.  The guard
+        # may rewrite the user's message (redact_input); everything below
+        # sees the rewritten input.
+        _input_sink: list[str] | None = kwargs.pop("_promptise_input_sink", None)
         if self._guardrails is not None:
-            from .memory import _extract_user_text as _ext
+            try:
+                input = await self._guard_input(input)
+            except Exception as guard_exc:
+                if self._event_notifier is not None:
+                    from .events import emit_event
 
-            raw_text = _ext(input)
-            if raw_text:
-                try:
-                    await self._guardrails.check_input(raw_text)
-                except Exception as guard_exc:
-                    if self._event_notifier is not None:
-                        from .events import emit_event
+                    emit_event(
+                        self._event_notifier,
+                        "guardrail.blocked",
+                        "warning",
+                        {"direction": "input", "error": type(guard_exc).__name__},
+                    )
+                raise  # Re-raise — don't swallow the violation
+            if _input_sink is not None:
+                from .memory import _extract_user_text as _ext
 
-                        emit_event(
-                            self._event_notifier,
-                            "guardrail.blocked",
-                            "warning",
-                            {"direction": "input", "error": type(guard_exc).__name__},
-                        )
-                    raise  # Re-raise — don't swallow the violation
+                _input_sink.append(_ext(input))
 
         # ── Context Engine path (opt-in) ──
         # When a ContextEngine is configured, it replaces the ad-hoc
@@ -443,6 +619,13 @@ class PromptiseAgent:
 
         user_text = _extract_user_text(input) if input else ""
 
+        # Step 0.5: Guards of a Prompt used as instructions check the user message
+        if self._prompt_config is not None and user_text:
+            checked_text = await self._check_prompt_input(user_text)
+            if checked_text != user_text:
+                input = _replace_last_user_text(input, checked_text)
+                user_text = checked_text
+
         # Step 1: Memory — search (always, for cache fingerprint) and inject (legacy only)
         _memory_results: list[Any] = []
         if self.provider is not None:
@@ -454,78 +637,22 @@ class PromptiseAgent:
                 input = _inject_memory_into_messages(input, context)
 
         # Step 1.1: Adaptive strategy — inject learned strategies (legacy path only)
-        if self._strategy_manager is not None and user_text and not _engine_active:
-            try:
-                strategies = await self._strategy_manager.get_relevant_strategies(user_text)
-                if strategies:
-                    block = self._strategy_manager.format_strategy_block(strategies)
-                    if block and isinstance(input, dict) and "messages" in input:
-                        # Fix: create a copy to avoid mutating shared input
-                        from langchain_core.messages import SystemMessage as _SM
-
-                        messages = list(input["messages"])
-                        # Insert after all leading system messages (same algorithm as memory)
-                        insert_idx = 0
-                        for i, msg in enumerate(messages):
-                            is_sys = isinstance(msg, _SM) or (
-                                isinstance(msg, dict) and msg.get("role") == "system"
-                            )
-                            if is_sys:
-                                insert_idx = i + 1
-                            else:
-                                break
-                        messages.insert(insert_idx, _SM(content=block))
-                        input = {**input, "messages": messages}
-            except Exception:
-                logger.debug("Strategy injection failed, continuing", exc_info=True)
+        if not _engine_active:
+            input = await self._inject_strategies(input, user_text)
 
         # ── Context Engine assembly (when active, replaces ad-hoc injection) ──
-        if _engine_active:
+        if _engine_active and isinstance(input, dict):
             assert self._context_engine is not None  # narrowed by _engine_active
-            engine = self._context_engine
-            engine.clear_all()
+            input, config = await self._assemble_with_engine(
+                self._context_engine, input, config, user_text, _memory_results
+            )
 
-            # Populate layers from collected data
-            engine.set_content("identity", getattr(self, "_raw_instructions", "") or "")
-            if user_text:
-                engine.set_content("user_message", user_text)
-
-            # Preserve conversation history from original input
-            if isinstance(input, dict):
-                history_msgs = input.get("messages", [])
-                conv_lines = []
-                for msg in history_msgs:
-                    role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "type", "")
-                    content = (
-                        msg.get("content", "")
-                        if isinstance(msg, dict)
-                        else getattr(msg, "content", "")
-                    )
-                    if role in ("user", "human") and content and content != user_text:
-                        conv_lines.append(f"User: {content}")
-                    elif role in ("assistant", "ai") and content:
-                        conv_lines.append(f"Assistant: {content}")
-                if conv_lines:
-                    engine.set_content("conversation", "\n".join(conv_lines))
-
-            if _memory_results:
-                from .memory import _format_memory_context
-
-                engine.set_content("memory", _format_memory_context(_memory_results))
-            if self._strategy_manager is not None and user_text:
-                try:
-                    strategies = await self._strategy_manager.get_relevant_strategies(user_text)
-                    if strategies:
-                        engine.set_content(
-                            "strategies", self._strategy_manager.format_strategy_block(strategies)
-                        )
-                except Exception:
-                    pass
-
-            # Assemble with token budgeting
-            assembled = engine.assemble()
-            if assembled:
-                input = {"messages": assembled}
+        # Step 1.4: Conversation flow — evolve system prompt (legacy path only).
+        # Before the cache check, so a cache hit still advances the flow and a
+        # reply cached under another phase's prompt is not served.
+        _flow_text = ""
+        if self._flows is not None and not _engine_active:
+            input, _flow_text = await self._inject_flow_context(input, session_id)
 
         # Step 1.5: Cache check — AFTER memory so fingerprint includes memory content
         if self._cache is not None:
@@ -538,7 +665,10 @@ class PromptiseAgent:
                     _cache_query = _ext_cache(input)
 
                 if _cache_query:
-                    _inst_hash = compute_instruction_hash(getattr(self, "_raw_instructions", None))
+                    _instructions = getattr(self, "_raw_instructions", None)
+                    if _flow_text:
+                        _instructions = f"{_flow_text}\n\n{_instructions or ''}"
+                    _inst_hash = compute_instruction_hash(_instructions)
                     _ctx_fp = compute_context_fingerprint(
                         memory_results=_memory_results,
                         conversation_length=len(input.get("messages", []))
@@ -571,6 +701,8 @@ class PromptiseAgent:
                                 checked = await self._guardrails.check_output(response_text)
                                 if isinstance(checked, str) and checked != response_text:
                                     output = self._replace_response_text(output, checked)
+                        if self._prompt_config is not None:
+                            output = await self._check_prompt_output(output)
                         return output
                     else:
                         # Record cache miss
@@ -589,32 +721,9 @@ class PromptiseAgent:
         if self._prompt_config is not None and not _engine_active:
             input = await self._inject_prompt_context(input, user_text)
 
-        # Step 1.6: Conversation flow — evolve system prompt (legacy path only)
-        if self._flow is not None and not _engine_active:
-            input = await self._inject_flow_context(input, user_text)
-
-        # Step 1.8: Semantic tool selection — rebuild graph with relevant tools
-        _invocation_graph = None
-        if self._tool_index is not None and self._graph_builder_fn is not None:
-            query = user_text
-            if not query:
-                from .memory import _extract_user_text
-
-                query = _extract_user_text(input)
-            if query:
-                selected = self._tool_index.select(query)
-                # Build a per-invocation graph (don't mutate self._inner —
-                # concurrent ainvoke() calls would race on it)
-                _invocation_graph = self._graph_builder_fn(selected)
-            else:
-                _invocation_graph = None
-
-        # Use per-invocation graph if tool selection rebuilt it
-        _active_graph = (
-            _invocation_graph
-            if (_invocation_graph is not None and self._tool_index is not None)
-            else self._inner
-        )
+        # Step 1.8: Semantic tool selection — offer each model call only the
+        # tools relevant to the recent conversation (re-evaluated every step).
+        config = self._with_tool_selection(config)
 
         # Step 2: Observability — inject callback handler
         if self._handler is not None:
@@ -623,10 +732,18 @@ class PromptiseAgent:
             callbacks.append(self._handler)
             config["callbacks"] = callbacks
 
+        # Step 2.5: Adaptive strategy — collect this invocation's failed tool
+        # calls (independent of observability, never shared across calls)
+        config, _failure_recorder = self._attach_failure_recorder(config)
+
         # Step 3: Delegate to inner graph
-        output = await _active_graph.ainvoke(
-            input, config=cast("RunnableConfig | None", config), **kwargs
-        )
+        try:
+            output = await self._inner.ainvoke(
+                input, config=cast("RunnableConfig | None", config), **kwargs
+            )
+        except Exception:
+            await self._record_tool_failures(_failure_recorder)
+            raise
 
         # Step 3.5: Guardrails — scan output BEFORE returning
         if self._guardrails is not None:
@@ -646,6 +763,10 @@ class PromptiseAgent:
                             "info",
                             {"direction": "output"},
                         )
+
+        # Step 3.6: Guards of a Prompt used as instructions check the reply
+        if self._prompt_config is not None:
+            output = await self._check_prompt_output(output)
 
         # Step 3.75: Store in cache AFTER guardrails (store post-redacted output)
         if self._cache is not None and _cache_query:
@@ -691,27 +812,7 @@ class PromptiseAgent:
             await self._maybe_store(user_text, output)
 
         # Step 4.5: Adaptive strategy — record failures from this invocation
-        if self._strategy_manager is not None and self._handler is not None:
-            failures = getattr(self._handler, "_current_failures", [])
-            if failures:
-                from .strategy import FailureLog, classify_failure
-
-                for f in failures:
-                    category = classify_failure(f.get("error_type", ""), f.get("error_message", ""))
-                    try:
-                        await self._strategy_manager.record_failure(
-                            FailureLog(
-                                tool_name=f.get("tool_name", "unknown"),
-                                error_type=f.get("error_type", ""),
-                                error_message=f.get("error_message", ""),
-                                category=category,
-                                args_preview=f.get("args_preview", ""),
-                                timestamp=f.get("timestamp", time.time()),
-                            )
-                        )
-                    except Exception:
-                        pass
-                failures.clear()
+        await self._record_tool_failures(_failure_recorder)
 
         # Emit invocation.complete event
         if self._event_notifier is not None:
@@ -733,6 +834,7 @@ class PromptiseAgent:
         config: dict[str, Any] | None = None,
         *,
         caller: CallerContext | None = None,
+        session_id: str | None = None,
         **kwargs: Any,
     ) -> Any:
         """Invoke the agent synchronously.
@@ -756,11 +858,15 @@ class PromptiseAgent:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(
                     asyncio.run,
-                    self.ainvoke(input, config=config, caller=caller, **kwargs),
+                    self.ainvoke(
+                        input, config=config, caller=caller, session_id=session_id, **kwargs
+                    ),
                 )
                 return future.result()
         else:
-            return asyncio.run(self.ainvoke(input, config=config, caller=caller, **kwargs))
+            return asyncio.run(
+                self.ainvoke(input, config=config, caller=caller, session_id=session_id, **kwargs)
+            )
 
     async def astream(
         self,
@@ -793,10 +899,12 @@ class PromptiseAgent:
         if caller is None:
             caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
+        _inv_token = _begin_invocation(input)
         try:
             async for chunk in self._astream_inner(input, config, **kwargs):
                 yield chunk
         finally:
+            _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
 
     async def _astream_inner(
@@ -814,12 +922,11 @@ class PromptiseAgent:
             if "messages" in input:
                 input["messages"] = list(input["messages"])
 
-        user_text = _extract_user_text(input) if input else ""
-
-        # Step 0: Guardrails — scan input before anything else
-        if self._guardrails is not None and user_text:
+        # Step 0: Input guardrails — scan (and maybe rewrite) the user's
+        # message before anything else; a violation raises.
+        if self._guardrails is not None:
             try:
-                await self._guardrails.check_input(user_text)
+                input = await self._guard_input(input)
             except Exception as guard_exc:
                 if self._event_notifier is not None:
                     from .events import emit_event
@@ -832,6 +939,8 @@ class PromptiseAgent:
                     )
                 raise
 
+        user_text = _extract_user_text(input) if input else ""
+
         # Step 1: Memory — search and inject context
         if self.provider is not None:
             from .memory import _format_memory_context, _inject_memory_into_messages
@@ -841,6 +950,11 @@ class PromptiseAgent:
                 context = _format_memory_context(results)
                 input = _inject_memory_into_messages(input, context)
 
+        # Step 1.1: Adaptive strategy — inject learned strategies
+        input = await self._inject_strategies(input, user_text)
+
+        config = self._with_tool_selection(config)
+
         # Step 2: Observability — inject callback handler
         if self._handler is not None:
             config = dict(config) if config else {}
@@ -848,15 +962,23 @@ class PromptiseAgent:
             callbacks.append(self._handler)
             config["callbacks"] = callbacks
 
+        # Step 2.5: Adaptive strategy — collect this run's failed tool calls
+        config, _failure_recorder = self._attach_failure_recorder(config)
+
         # Step 3: Delegate to inner graph
         last_chunk: Any = None
-        async for chunk in self._inner.astream(
-            input, config=cast("RunnableConfig | None", config), **kwargs
-        ):
-            if self._guardrails is not None:
-                chunk = await self._guard_answer_chunk(chunk)
-            last_chunk = chunk
-            yield chunk
+        try:
+            async for chunk in self._inner.astream(
+                input, config=cast("RunnableConfig | None", config), **kwargs
+            ):
+                if self._guardrails is not None:
+                    chunk = await self._guard_answer_chunk(chunk)
+                last_chunk = chunk
+                yield chunk
+        finally:
+            # Step 3.5: Adaptive strategy — record failures, also when the
+            # run failed or the consumer stopped reading.
+            await self._record_tool_failures(_failure_recorder)
 
         # Step 4: Memory — auto-store the exchange
         if self.provider is not None and user_text and last_chunk is not None:
@@ -958,6 +1080,7 @@ class PromptiseAgent:
         if caller is None:
             caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
+        _inv_token = _begin_invocation(input)
         _start = time.monotonic()
         _cumulative = ""
         # The final answer: the text of the last model call (its run_id).
@@ -980,29 +1103,42 @@ class PromptiseAgent:
                     agent_id=self._actor(),
                 )
 
-            # Step 0: Input guardrails
+            # Step 0: Input guardrails (may rewrite the user's message)
             if self._guardrails is not None:
-                from .memory import _extract_user_text as _ext
+                try:
+                    input = await self._guard_input(input)
+                except Exception:
+                    if self._event_notifier is not None:
+                        from .events import emit_event
 
-                raw_text = _ext(input)
-                if raw_text:
+                        emit_event(
+                            self._event_notifier,
+                            "guardrail.blocked",
+                            "warning",
+                            {"direction": "input"},
+                        )
+                    yield ErrorEvent(
+                        message="Input blocked by safety policy.",
+                        recoverable=False,
+                    )
+                    return
+
+            # Step 0.5: Guards of a Prompt used as instructions
+            if self._prompt_config is not None:
+                from .memory import _extract_user_text as _ext_prompt
+
+                prompt_text = _ext_prompt(input)
+                if prompt_text:
                     try:
-                        await self._guardrails.check_input(raw_text)
+                        checked_text = await self._check_prompt_input(prompt_text)
                     except Exception:
-                        if self._event_notifier is not None:
-                            from .events import emit_event
-
-                            emit_event(
-                                self._event_notifier,
-                                "guardrail.blocked",
-                                "warning",
-                                {"direction": "input"},
-                            )
                         yield ErrorEvent(
-                            message="Input blocked by safety policy.",
+                            message="Input blocked by prompt guard.",
                             recoverable=False,
                         )
                         return
+                    if checked_text != prompt_text:
+                        input = _replace_last_user_text(input, checked_text)
 
             # Step 1: Memory injection
             if self.provider is not None:
@@ -1018,12 +1154,23 @@ class PromptiseAgent:
                     context = _format_memory_context(results)
                     input = _inject_memory_into_messages(input, context)
 
+            # Step 1.1: Adaptive strategy — inject learned strategies
+            if self._strategy_manager is not None:
+                from .memory import _extract_user_text as _ext_strategy
+
+                input = await self._inject_strategies(input, _ext_strategy(input))
+
+            config = self._with_tool_selection(config)
+
             # Step 2: Inject callback handler
             if self._handler is not None:
                 config = dict(config) if config else {}
                 callbacks = list(config.get("callbacks", []))
                 callbacks.append(self._handler)
                 config["callbacks"] = callbacks
+
+            # Step 2.5: Adaptive strategy — collect this run's failed tool calls
+            config, _failure_recorder = self._attach_failure_recorder(config)
 
             # Step 3: Stream the engine's events
             try:
@@ -1121,6 +1268,10 @@ class PromptiseAgent:
                         agent_id=self._actor(),
                     )
                 return
+            finally:
+                # Adaptive strategy: record failures, also when the run
+                # failed or the consumer stopped reading.
+                await self._record_tool_failures(_failure_recorder)
 
             # Step 4: Output guardrails on the final answer
             final_response = _answer
@@ -1139,26 +1290,39 @@ class PromptiseAgent:
                                 {"direction": "output", "streaming": True},
                             )
                 except Exception as guard_exc:
-                    # GuardrailViolation = output blocked. Yield error, don't
-                    # serve the unsafe response. Same security as ainvoke().
-                    guard_type = type(guard_exc).__name__
-                    if "Violation" in guard_type or "Guardrail" in guard_type:
-                        if self._event_notifier is not None:
-                            from .events import emit_event
+                    # A violation, or a guard that failed: either way don't
+                    # serve an unchecked response.  Same as ainvoke(), where
+                    # the exception propagates.
+                    if "Violation" not in type(guard_exc).__name__:
+                        logger.error("Output guardrail error in stream: %s", guard_exc)
+                    if self._event_notifier is not None:
+                        from .events import emit_event
 
-                            emit_event(
-                                self._event_notifier,
-                                "guardrail.blocked",
-                                "warning",
-                                {"direction": "output", "streaming": True},
-                            )
-                        yield ErrorEvent(
-                            message="Output blocked by safety policy.",
-                            recoverable=False,
+                        emit_event(
+                            self._event_notifier,
+                            "guardrail.blocked",
+                            "warning",
+                            {"direction": "output", "streaming": True},
                         )
-                        return
-                    # Other exceptions — log and continue with unredacted response
-                    logger.warning("Output guardrail error in stream: %s", guard_exc)
+                    yield ErrorEvent(
+                        message="Output blocked by safety policy.",
+                        recoverable=False,
+                    )
+                    return
+
+            if self._prompt_config is not None and final_response:
+                checked_output: Any = final_response
+                try:
+                    for g in self._prompt_guards("output"):
+                        checked_output = await g.check_output(checked_output)
+                except Exception:
+                    yield ErrorEvent(
+                        message="Output blocked by prompt guard.",
+                        recoverable=False,
+                    )
+                    return
+                if isinstance(checked_output, str):
+                    final_response = checked_output
 
             # Step 5: Memory auto-store
             if self.provider is not None and final_response:
@@ -1195,6 +1359,7 @@ class PromptiseAgent:
                 )
 
         finally:
+            _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
 
     # -----------------------------------------------------------------
@@ -1217,6 +1382,13 @@ class PromptiseAgent:
             except BaseException:
                 logger.debug("MCP cleanup error during shutdown", exc_info=True)
             self._mcp_multi = None
+
+        # Let background adaptive-strategy work (approval-denial learning) land
+        if self._strategy_manager is not None:
+            try:
+                await self._strategy_manager.drain()
+            except Exception:
+                logger.debug("Adaptive strategy drain error during shutdown", exc_info=True)
 
         # Flush observability transporters
         for t in self._transporters:
@@ -1315,6 +1487,70 @@ class PromptiseAgent:
         transporter.flush()
         return path
 
+    async def _inject_strategies(self, input: Any, user_text: str) -> Any:
+        """Insert the adaptive strategy's relevant lessons as a system message.
+
+        The block goes after the input's leading system messages.  Returns a
+        copy of *input* (never mutated), or *input* itself when there is
+        nothing to inject.
+        """
+        if self._strategy_manager is None or not user_text:
+            return input
+        try:
+            strategies = await self._strategy_manager.get_relevant_strategies(user_text)
+            if not strategies:
+                return input
+            block = self._strategy_manager.format_strategy_block(strategies)
+            if not block or not isinstance(input, dict) or "messages" not in input:
+                return input
+            from langchain_core.messages import SystemMessage as _SM
+
+            messages = list(input["messages"])
+            # Insert after all leading system messages (same algorithm as memory)
+            insert_idx = 0
+            for i, msg in enumerate(messages):
+                is_sys = isinstance(msg, _SM) or (
+                    isinstance(msg, dict) and msg.get("role") == "system"
+                )
+                if is_sys:
+                    insert_idx = i + 1
+                else:
+                    break
+            messages.insert(insert_idx, _SM(content=block))
+            return {**input, "messages": messages}
+        except Exception:
+            logger.debug("Strategy injection failed, continuing", exc_info=True)
+            return input
+
+    def _attach_failure_recorder(
+        self, config: dict[str, Any] | None
+    ) -> tuple[dict[str, Any] | None, Any | None]:
+        """Add a per-invocation tool failure recorder for adaptive strategy.
+
+        Independent of observability and never shared across calls.  Returns
+        ``(config, recorder)``; the recorder is ``None`` without adaptive
+        strategy.
+        """
+        if self._strategy_manager is None:
+            return config, None
+        from .strategy import _ToolFailureRecorder
+
+        recorder = _ToolFailureRecorder()
+        config = dict(config) if config else {}
+        config["callbacks"] = [*config.get("callbacks", []), recorder]
+        return config, recorder
+
+    async def _record_tool_failures(self, recorder: Any | None) -> None:
+        """Hand an invocation's failed tool calls to adaptive strategy."""
+        if recorder is None or self._strategy_manager is None:
+            return
+        failures, recorder.failures = recorder.failures, []
+        for failure in failures:
+            try:
+                await self._strategy_manager.record_failure(failure)
+            except Exception:
+                logger.debug("Adaptive strategy failed to record a failure", exc_info=True)
+
     # -----------------------------------------------------------------
     # Memory helpers (internal)
     # -----------------------------------------------------------------
@@ -1331,11 +1567,17 @@ class PromptiseAgent:
         # Memory scoping keys on the isolation key (tenant::user) so tenants
         # with identical user ids never share memories.
         user_id = caller.isolation_key if caller is not None else None
+        from .memory import is_adaptive_entry
+
+        # Adaptive strategy keeps failure logs and lessons in the same
+        # provider; they are not memories, so fetch extra and drop them.
+        fetch = self._memory_max * 2 if self._strategy_manager is not None else self._memory_max
         try:
             results = await asyncio.wait_for(
-                self.provider.search(query, limit=self._memory_max, user_id=user_id),
+                self.provider.search(query, limit=fetch, user_id=user_id),
                 timeout=self._memory_timeout,
             )
+            results = [r for r in results if not is_adaptive_entry(r.metadata)][: self._memory_max]
             if self._memory_min_score > 0.0:
                 results = [r for r in results if r.score >= self._memory_min_score]
             return results
@@ -1493,8 +1735,24 @@ class PromptiseAgent:
 
         lc_messages.append(HumanMessage(content=message))
 
-        # Step 4: Invoke the agent
-        output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+        # Step 4: Invoke the agent.  The session id scopes approval-gate state
+        # and the conversation flow; the owner scopes flow sessions per user.
+        # The sink receives the user's message as the input guardrail left it
+        # (redacted with redact_input), which is what gets persisted: history
+        # is replayed to the model unscanned.
+        input_sink: list[str] = []
+        _session_token = _session_ctx_var.set(session_id)
+        _owner_token = _session_owner_var.set(user_id)
+        try:
+            output = await self.ainvoke(
+                {"messages": lc_messages},
+                caller=caller,
+                session_id=session_id,
+                _promptise_input_sink=input_sink,
+            )
+        finally:
+            _session_owner_var.reset(_owner_token)
+            _session_ctx_var.reset(_session_token)
 
         # Step 5: Extract assistant response text
         response_text = _extract_response_text(output)
@@ -1503,7 +1761,7 @@ class PromptiseAgent:
         if self._conversation_store is not None:
             user_msg = Message(
                 role="user",
-                content=message,
+                content=input_sink[0] if input_sink else message,
                 metadata=metadata or {},
             )
             assistant_msg = Message(
@@ -1595,6 +1853,10 @@ class PromptiseAgent:
             existing = await self._conversation_store.get_session(session_id)
             if existing is not None:
                 self._enforce_ownership(existing, user_id)
+        if self._flows is not None:
+            self._flows.discard(
+                lambda key: isinstance(key, tuple) and key[0] == "session" and key[2] == session_id
+            )
         return await self._conversation_store.delete_session(session_id)
 
     async def update_session(
@@ -1701,6 +1963,32 @@ class PromptiseAgent:
                 owner_user_id=session_owner,
             )
 
+    async def _guard_input(self, input: Any) -> Any:
+        """Run the input guardrail on the user's message.
+
+        Raises whatever the guard raises (``GuardrailViolation`` on a
+        block).  When the guard returns different text (a redaction), the
+        message is replaced with it in a copy of *input*, which is
+        returned; the caller's input is never mutated.
+        """
+        from .memory import _extract_user_text
+
+        guard = self._guardrails
+        raw_text = _extract_user_text(input)
+        if guard is None or not raw_text:
+            return input
+        checked = await guard.check_input(raw_text)
+        if not isinstance(checked, str) or checked == raw_text:
+            return input
+        replaced = _replace_user_text(input, checked)
+        if replaced is None:
+            logger.warning(
+                "Input guardrail rewrote the message, but its content is not plain "
+                "text; sending it unchanged"
+            )
+            return input
+        return replaced
+
     @staticmethod
     def _replace_response_text(output: Any, new_text: str) -> Any:
         """Replace the last AI message content with redacted text."""
@@ -1711,6 +1999,52 @@ class PromptiseAgent:
                     if hasattr(msg, "type") and msg.type == "ai" and hasattr(msg, "content"):
                         msg.content = new_text
                         break
+        return output
+
+    def _prompt_guards(self, direction: str) -> list[Any]:
+        """Guards of the Prompt or PromptSuite used as instructions."""
+        from .prompts.core import Prompt
+        from .prompts.suite import PromptSuite
+
+        cfg = self._prompt_config
+        if isinstance(cfg, Prompt):
+            prompts = [cfg]
+        elif isinstance(cfg, PromptSuite):
+            prompts = list(cfg.prompts.values())
+        else:
+            return []
+        guards: list[Any] = []
+        seen: set[int] = set()
+        for p in prompts:
+            for g in p._input_guards if direction == "input" else p._output_guards:
+                if id(g) not in seen:
+                    seen.add(id(g))
+                    guards.append(g)
+        return guards
+
+    async def _check_prompt_input(self, user_text: str) -> str:
+        """Run the instruction Prompt's input guards on the user message.
+
+        A guard may transform the text or raise
+        :class:`~promptise.prompts.guards.GuardError` to reject it.
+        """
+        for g in self._prompt_guards("input"):
+            user_text = await g.check_input(user_text)
+        return user_text
+
+    async def _check_prompt_output(self, output: Any) -> Any:
+        """Run the instruction Prompt's output guards on the agent's reply."""
+        guards = self._prompt_guards("output")
+        if not guards:
+            return output
+        response_text = _extract_response_text(output)
+        if not response_text:
+            return output
+        checked: Any = response_text
+        for g in guards:
+            checked = await g.check_output(checked)
+        if isinstance(checked, str) and checked != response_text:
+            output = self._replace_response_text(output, checked)
         return output
 
     async def _inject_prompt_context(self, input: Any, user_text: str) -> Any:
@@ -1767,42 +2101,96 @@ class PromptiseAgent:
             logger.warning("Prompt context injection failed", exc_info=True)
             return input
 
-    async def _inject_flow_context(self, input: Any, user_text: str) -> Any:
-        """Run the conversation flow and inject its prompt as a SystemMessage.
+    def _flow_key(self, session_id: str | None) -> tuple[str, ...] | None:
+        """Identify the conversation whose flow state this call advances.
 
-        Callers must guard with ``self._flow is not None`` before invoking.
+        Flow state is kept per session (scoped to its owner) when a
+        ``session_id`` is given, otherwise per caller.  Calls with neither
+        get a throwaway flow, so state never leaks between conversations.
+        """
+        caller = _caller_ctx_var.get()
+        owner = caller.isolation_key if caller is not None else None
+        if owner is None:
+            owner = _session_owner_var.get()
+        if session_id is not None:
+            return ("session", owner or "", session_id)
+        if owner is not None:
+            return ("caller", owner)
+        return None
+
+    def get_flow(
+        self,
+        session_id: str | None = None,
+        *,
+        caller: CallerContext | None = None,
+        user_id: str | None = None,
+    ) -> Any | None:
+        """Return the conversation flow kept for a session or caller.
+
+        Use it to inspect a conversation's phase and prompt, e.g.
+        ``agent.get_flow("sess-1").get_prompt().included``.
+
+        Args:
+            session_id: The session passed to :meth:`chat` or :meth:`ainvoke`.
+            caller: The caller the session or calls were made with.
+            user_id: The ``user_id`` passed to :meth:`chat` (when no
+                ``caller`` was used).
+
+        Returns:
+            The :class:`~promptise.prompts.flows.ConversationFlow`, or
+            ``None`` if the agent has no flow or has not seen that
+            conversation.
+        """
+        if self._flows is None:
+            return None
+        owner = caller.isolation_key if caller is not None else None
+        if owner is None:
+            owner = user_id
+        if session_id is not None:
+            return self._flows.get(("session", owner or "", session_id))
+        if owner is not None:
+            return self._flows.get(("caller", owner))
+        return None
+
+    async def _inject_flow_context(self, input: Any, session_id: str | None) -> tuple[Any, str]:
+        """Advance this conversation's flow and put its prompt first.
+
+        Returns the new input and the flow's prompt text (``""`` if none).
+
+        The prompt goes in as a leading system message tagged
+        :data:`~promptise.engine.nodes.AGENT_PROMPT_MESSAGE_ID`; the
+        model node folds its own instructions and tool list into that
+        message, so the model gets one system prompt.
+
+        Callers must guard with ``self._flows is not None`` before invoking.
         """
         try:
-            from .prompts.flows import ConversationFlow
+            from langchain_core.messages import SystemMessage
 
-            assert self._flow is not None  # guarded by caller
-            flow: ConversationFlow = self._flow
-            if flow._current_phase is None:
-                # First turn — start the flow
-                assembled = await flow.start()
-            else:
-                assembled = await flow.next_turn(user_text)
+            from .engine.nodes import AGENT_PROMPT_MESSAGE_ID
+
+            assert self._flows is not None  # guarded by caller
+            _, assembled = await self._flows.advance(
+                self._flow_key(session_id), _user_messages(input)
+            )
 
             if not assembled.text:
-                return input
-
-            from langchain_core.messages import SystemMessage
+                return input, ""
 
             if isinstance(input, dict) and "messages" in input:
                 messages = list(input["messages"])
                 # Flow goes at index 0 — it defines the agent's current
                 # behavioral phase (e.g., "opening", "analysis", "conclusion")
                 # and has the highest effective priority in the context stack.
-                messages.insert(0, SystemMessage(content=assembled.text))
-                return {**input, "messages": messages}
+                messages.insert(
+                    0, SystemMessage(content=assembled.text, id=AGENT_PROMPT_MESSAGE_ID)
+                )
+                return {**input, "messages": messages}, assembled.text
 
-            return input
-        except ImportError:
-            logger.debug("Flows module not available, skipping flow injection")
-            return input
+            return input, ""
         except Exception:
             logger.warning("Flow context injection failed", exc_info=True)
-            return input
+            return input, ""
 
     # -----------------------------------------------------------------
     # Passthrough for inner graph attributes
@@ -1822,8 +2210,95 @@ class PromptiseAgent:
         """The names of :attr:`tools`, in binding order."""
         return [t.name for t in self._tools]
 
+    @property
+    def adaptive_strategy(self) -> Any | None:
+        """The :class:`~promptise.strategy.AdaptiveStrategyManager`, or ``None``.
+
+        Use it to record human corrections, review pending lessons
+        (``review_lessons=True``), or list, forget and reset lessons.
+        Outside an invocation pass ``caller=`` explicitly.
+        """
+        return self._strategy_manager
+
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
+
+
+def _replace_last_user_text(input: Any, text: str) -> Any:
+    """Return *input* with its last user message's text set to *text*."""
+    if isinstance(input, str):
+        return text
+    if not isinstance(input, dict) or not input.get("messages"):
+        return input
+    messages = list(input["messages"])
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if isinstance(msg, dict) and msg.get("role") in ("user", "human"):
+            messages[i] = {**msg, "content": text}
+            break
+        if getattr(msg, "type", None) == "human" and hasattr(msg, "model_copy"):
+            messages[i] = msg.model_copy(update={"content": text})
+            break
+    return {**input, "messages": messages}
+
+
+def _user_messages(input: Any) -> list[str]:
+    """Return the text of every user message in an invocation input, in order."""
+    if isinstance(input, str):
+        return [input] if input else []
+    if not isinstance(input, dict):
+        return []
+    texts: list[str] = []
+    for msg in input.get("messages", []) or []:
+        if isinstance(msg, dict):
+            if msg.get("role") not in ("user", "human"):
+                continue
+            content = msg.get("content", "")
+        elif getattr(msg, "type", None) == "human":
+            content = getattr(msg, "content", "")
+        else:
+            continue
+        if isinstance(content, list):
+            # Multimodal content: keep the text parts.
+            content = " ".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+                if isinstance(part, str) or (isinstance(part, dict) and part.get("type") == "text")
+            )
+        if content:
+            texts.append(str(content))
+    return texts
+
+
+def _replace_user_text(input: Any, new_text: str) -> Any | None:
+    """Return a copy of *input* with the user's message text replaced.
+
+    Mirrors :func:`promptise.memory._extract_user_text`: the last message
+    of ``{"messages": [...]}``, a plain string, or an ``input`` / ``query``
+    / ``question`` / ``text`` key.  Returns ``None`` when the message
+    content is not a plain string (multimodal blocks), so the caller can
+    tell the rewrite was not applied.
+    """
+    if isinstance(input, str):
+        return new_text
+    if not isinstance(input, dict):
+        return None
+    messages = input.get("messages")
+    if messages:
+        last = messages[-1]
+        if isinstance(last, dict):
+            if not isinstance(last.get("content"), str):
+                return None
+            new_last: Any = {**last, "content": new_text}
+        elif isinstance(getattr(last, "content", None), str) and hasattr(last, "model_copy"):
+            new_last = last.model_copy(update={"content": new_text})
+        else:
+            return None
+        return {**input, "messages": [*messages[:-1], new_last]}
+    for key in ("input", "query", "question", "text"):
+        if isinstance(input.get(key), str):
+            return {**input, key: new_text}
+    return None
 
 
 def _extract_response_text(output: Any) -> str:
@@ -1867,6 +2342,65 @@ def _extract_response_text(output: Any) -> str:
     return str(output)
 
 
+class _TracedTool(BaseTool):
+    """Fires the agent's tool callbacks around a tool that is not from MCP.
+
+    MCP-discovered tools report to ``trace_tools`` / ``observer`` from inside
+    the MCP adapter. Cross-agent, sandbox and ``extra_tools`` are wrapped in
+    this class so they report the same way. Transparent to the LLM: same
+    name, description and schema as the inner tool.
+    """
+
+    _inner: BaseTool = PrivateAttr()
+    _on_before: Any = PrivateAttr()
+    _on_after: Any = PrivateAttr()
+    _on_error: Any = PrivateAttr()
+
+    def __init__(
+        self,
+        inner: BaseTool,
+        on_before: Any,
+        on_after: Any,
+        on_error: Any,
+    ) -> None:
+        super().__init__(
+            name=inner.name,
+            description=inner.description,
+            args_schema=getattr(inner, "args_schema", None),
+            return_direct=inner.return_direct,
+        )
+        self._inner = inner
+        self._on_before = on_before
+        self._on_after = on_after
+        self._on_error = on_error
+
+    async def _arun(self, **kwargs: Any) -> Any:
+        with contextlib.suppress(Exception):
+            self._on_before(self.name, kwargs)
+        try:
+            result = await self._inner.ainvoke(kwargs)
+        except Exception as exc:
+            with contextlib.suppress(Exception):
+                self._on_error(self.name, exc)
+            raise
+        with contextlib.suppress(Exception):
+            self._on_after(self.name, result)
+        return result
+
+    def _run(self, **kwargs: Any) -> Any:
+        with contextlib.suppress(Exception):
+            self._on_before(self.name, kwargs)
+        try:
+            result = self._inner.invoke(kwargs)
+        except Exception as exc:
+            with contextlib.suppress(Exception):
+                self._on_error(self.name, exc)
+            raise
+        with contextlib.suppress(Exception):
+            self._on_after(self.name, result)
+        return result
+
+
 def _normalize_model(model: ModelLike) -> Runnable[Any, Any]:
     """Normalize the supplied model into a Runnable.
 
@@ -1908,14 +2442,17 @@ async def build_agent(
     cache: Any | None = None,
     approval: Any | None = None,
     events: Any | None = None,
+    on_tool_progress: Callable[[str, float, float | None, str | None], Any] | None = None,
     max_invocation_time: float = 0,
     adaptive: Any | None = None,
     context_engine: Any | None = None,
+    context_compaction: bool | int | Any | None = None,
     agent_pattern: str | Any | None = None,
     pattern: str | Any | None = None,  # Deprecated alias for agent_pattern
     graph_blocks: list[Any] | None = None,
     node_pool: list[Any] | None = None,
     max_agent_iterations: int = 25,
+    code_action: Any | None = None,
 ) -> PromptiseAgent:
     """Build an MCP-first agent and return a :class:`PromptiseAgent`.
 
@@ -1943,7 +2480,8 @@ async def build_agent(
             so the server can authenticate and attribute the calling
             agent. The identity is exposed as
             :attr:`PromptiseAgent.identity`.
-        trace_tools: Print each tool invocation and result to stdout.
+        trace_tools: Print each tool invocation and result to stdout. Covers
+            MCP tools, cross-agent tools, sandbox tools and ``extra_tools``.
         cross_agents: Optional mapping of peer name → CrossAgent.  Each
             peer is exposed as an ``ask_agent_<name>`` tool.
         memory: Optional :class:`~promptise.memory.MemoryProvider`.
@@ -1953,20 +2491,37 @@ async def build_agent(
         memory_auto_store: When ``True`` and *memory* is provided,
             automatically store each exchange in long-term memory after
             invocation.  Defaults to ``False``.
-        sandbox: Optional sandbox configuration (``True``, dict, or
-            ``None``).
+        sandbox: Optional sandbox configuration (``True``, a dict of
+            :class:`~promptise.sandbox.SandboxConfig` fields, a
+            ``SandboxConfig``, or ``None``). Unknown keys raise. The network
+            defaults to ``"none"``. When the sandbox cannot be started (no
+            ``docker`` package, Docker not running, ``network="restricted"``
+            not enforceable) ``build_agent`` raises instead of building an
+            agent without it. ``agent_pattern="code-action"`` enables a
+            sandbox automatically.
         observer: Optional :class:`ObservabilityCollector` to reuse.
         observer_agent_id: Agent identifier for tool-event recording.
         observe: Plug-and-play observability.  Can be:
             - ``True``: Enable with defaults (STANDARD level, HTML report).
+              Writes an HTML report file to ``./reports`` when the agent
+              shuts down; pass an :class:`ObservabilityConfig` with other
+              ``transporters`` or ``output_dir`` to change that.
             - :class:`ObservabilityConfig`: Full configuration.
             - ``None``/``False``: Disabled (default).
         extra_tools: Optional additional :class:`BaseTool` instances to
             include alongside MCP-discovered tools.  Used by the runtime
             for meta-tools (open mode) and custom agent-created tools.
-        flow: Optional :class:`~promptise.prompts.flows.ConversationFlow`.
-            When provided, the system prompt evolves across turns based
-            on the flow's phase and active blocks.
+        flow: Optional :class:`~promptise.prompts.flows.ConversationFlow`
+            instance, subclass, or zero-argument factory.  The system
+            prompt then evolves across turns with the flow's phase and
+            active blocks.  Each conversation gets its own flow: per
+            ``session_id`` (see :meth:`PromptiseAgent.chat`), else per
+            :class:`CallerContext`; an instance is deep-copied as a
+            template.  Calls with neither get a throwaway flow built from
+            the messages passed in.  The flow's prompt comes first, and
+            ``instructions`` and the tool list are appended to it in the
+            same system message; with no ``instructions``, the default
+            system prompt is not added.
         conversation_store: Optional
             :class:`~promptise.conversations.ConversationStore`.  When
             provided, the agent's :meth:`~PromptiseAgent.chat` method
@@ -1974,6 +2529,61 @@ async def build_agent(
         conversation_max_messages: Maximum messages to keep per session
             when using the conversation store.  ``0`` = unlimited.
             Oldest messages are dropped when the limit is reached.
+        context_engine: Optional :class:`~promptise.ContextEngine`.  Its
+            layers (including your ``add_layer`` content) are assembled
+            with token budgeting on every call, and what the budget leaves
+            after the instructions and tool definitions bounds the tool
+            loop through context compaction.  Its window is taken from the
+            chat model's profile metadata unless you passed
+            ``model_context_window``.
+        context_compaction: How long tool loops are compacted
+            (:class:`~promptise.engine.ContextCompaction`).  ``None`` or
+            ``True``: the defaults (compact after 6 tool results).
+            ``False``: never compact; the model always sees the full
+            transcript.  An ``int``: compact after that many tool results.
+            Applies to nodes with ``context_scope="auto"`` (the default
+            ReAct pattern) and the threshold-free settings of ``"ledger"``
+            nodes; a node's own ``compaction=`` wins.
+        approval: Human-in-the-loop approval.  An
+            :class:`~promptise.approval.ApprovalPolicy` gates the agent's
+            own tool calls that match its patterns.  Whatever is given —
+            a policy, an :class:`~promptise.approval.ApprovalHandler`, or a
+            callable — also answers **server-side** approval gates: MCP
+            servers that ask the client to confirm a gated call through
+            MCP elicitation (``ElicitationApprover``, MCPcast's default)
+            reach this handler instead of being declined.  A bare handler
+            does only the latter.  Without ``approval`` the agent declares
+            no elicitation support and such servers deny the call.  See
+            :func:`~promptise.approval.approval_elicitation_callback` for
+            the mapping and its fail-closed rules.
+        guardrails: Optional input/output scanner — a
+            :class:`~promptise.guardrails.PromptiseSecurityScanner` or any
+            object with ``check_input`` / ``check_output``.  ``True`` uses
+            :meth:`PromptiseSecurityScanner.default` (call ``warmup()`` on
+            your own scanner to load its model at startup instead of on the
+            first message).  When the scanner has
+            ``scan_tool_results=True``, every tool is wrapped so its result
+            is scanned before the model reads it.
+
+        code_action: Options for ``agent_pattern="code-action"``: a
+            :class:`~promptise.engine.CodeActionConfig` or a dict with
+            ``exec_timeout`` (seconds the program may run, default 120),
+            ``max_repairs`` (default 1) and ``max_tool_calls`` (default 50).
+            Raises ``ValueError`` with any other pattern.
+        events: Optional :class:`~promptise.events.EventNotifier`.  Besides
+            the agent's other events, it receives a ``tool.progress`` event
+            for each progress notification an MCP tool sends.
+        on_tool_progress: Optional callback for progress notifications
+            MCP servers send while a tool call runs (``ProgressReporter``
+            on a Promptise server), called as ``(tool_name, progress,
+            total, message)``; sync or async.  Progress is requested from
+            servers only when this, ``events`` or ``trace_tools`` is set.
+        adaptive: Adaptive strategy (learning from failed tool calls):
+            ``True``, an :class:`~promptise.strategy.AdaptiveStrategyConfig`
+            or a dict of its fields.  Requires ``memory``.  Independent of
+            ``observe``.  Failures and lessons are partitioned per caller
+            by default (``scope="per_user"``); the manager is available as
+            :attr:`PromptiseAgent.adaptive_strategy`.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -1982,6 +2592,10 @@ async def build_agent(
     """
     if model is None:  # Defensive check; CLI/code must always pass a model now.
         raise ValueError("A model is required. Provide a model instance or a provider id string.")
+
+    # Validate the flow before any server connects: a template that can't be
+    # copied per conversation fails here, not after resources are open.
+    _flow_sessions = FlowSessions(flow) if flow is not None else None
 
     # Attribute recorded events to the agent's identity by default, so the
     # observability timeline answers "which agent did what" without extra
@@ -2059,6 +2673,24 @@ async def build_agent(
                 },
             )
 
+    def _progress(name: str, progress: float, total: float | None, message: str | None) -> Any:
+        if trace_tools:
+            of_total = f"/{total:g}" if total is not None else ""
+            print(f"… {name} progress {progress:g}{of_total}" + (f": {message}" if message else ""))
+        if events is not None:
+            from .events import emit_event
+
+            emit_event(
+                events,
+                "tool.progress",
+                "info",
+                {"tool_name": name, "progress": progress, "total": total, "message": message},
+                agent_id=_obs_aid,
+            )
+        if on_tool_progress is not None:
+            return on_tool_progress(name, progress, total, message)
+        return None
+
     def _error(name: str, exc: Exception) -> None:
         if trace_tools:
             print(f"✖ {name} error: {exc}")
@@ -2090,6 +2722,24 @@ async def build_agent(
         else:
             _opt_config = ToolOptimizationConfig(level=OptimizationLevel.MINIMAL)
 
+        from .tool_optimization import _resolve_config, require_semantic_dependencies
+
+        # Validate the config and check optional dependencies before any MCP
+        # server is connected.
+        if _resolve_config(_opt_config).semantic_selection:
+            require_semantic_dependencies()
+
+    # ``approval`` is an ApprovalPolicy (gates the agent's own calls and
+    # answers server-side gates) or a bare handler (server-side gates only).
+    if approval is not None:
+        from .approval import ApprovalHandler, ApprovalPolicy
+
+        if not (isinstance(approval, (ApprovalPolicy, ApprovalHandler)) or callable(approval)):
+            raise TypeError(
+                "approval must be an ApprovalPolicy, an ApprovalHandler or a callable, "
+                f"got {type(approval).__name__}"
+            )
+
     # Only create MCP client if there are servers to connect to
     tools: list[BaseTool] = []
     _promptise_multi = None  # track for cleanup
@@ -2099,6 +2749,8 @@ async def build_agent(
         _cb_before = _before if _enable_callbacks else None
         _cb_after = _after if _enable_callbacks else None
         _cb_error = _error if _enable_callbacks else None
+        _wants_progress = trace_tools or events is not None or on_tool_progress is not None
+        _cb_progress = _progress if _wants_progress else None
 
         from .mcp.client import MCPClient, MCPMultiClient, MCPToolAdapter
 
@@ -2127,6 +2779,23 @@ async def build_agent(
                 return None
 
         clients: dict[str, MCPClient] = {}
+
+        # Server-side approval gates ask the client's human through MCP
+        # elicitation. Route those requests to the agent's approval handler;
+        # without one, no elicitation support is declared and the server
+        # denies the gated call (fail-closed).
+        def _elicitation_callback_for(sname: str) -> Any:
+            if approval is None:
+                return None
+            from .approval import approval_elicitation_callback
+
+            return approval_elicitation_callback(
+                approval,
+                server_name=sname,
+                in_flight=lambda: clients[sname].in_flight_calls,
+                event_notifier=events,
+            )
+
         for sname, spec in servers.items():
             if isinstance(spec, HTTPServerSpec):
                 clients[sname] = MCPClient(
@@ -2137,6 +2806,7 @@ async def build_agent(
                     if spec.bearer_token
                     else _identity_bearer_for(spec),
                     api_key=spec.api_key.get_secret_value() if spec.api_key else None,
+                    elicitation_callback=_elicitation_callback_for(sname),
                 )
             else:
                 # StdioServerSpec
@@ -2146,17 +2816,28 @@ async def build_agent(
                     args=spec.args,
                     env=spec.env,
                     cwd=spec.cwd,
+                    elicitation_callback=_elicitation_callback_for(sname),
                 )
 
         _promptise_multi = MCPMultiClient(clients)
         await _promptise_multi.__aenter__()
 
+        # Every server's tools send the invoking caller's bearer token unless
+        # its spec opts out. stdio servers are included so the multi-client
+        # can warn that the token cannot reach them.
+        forward_to = [
+            sname
+            for sname, spec in servers.items()
+            if not isinstance(spec, HTTPServerSpec) or spec.forward_caller_token
+        ]
         adapter = MCPToolAdapter(
             _promptise_multi,
             on_before=_cb_before,
             on_after=_cb_after,
             on_error=_cb_error,
             optimize=_opt_config,
+            forward_caller_token=forward_to,
+            on_progress=_cb_progress,
         )
         try:
             discovered = await adapter.as_langchain_tools()
@@ -2172,6 +2853,10 @@ async def build_agent(
                 f"Failed to initialize agent because tool discovery failed. Details: {exc}"
             ) from exc
 
+    # Tools added from here on are not MCP tools; they are wrapped for
+    # trace_tools / observer further down.
+    _mcp_tool_count = len(tools)
+
     # Attach cross-agent tools if provided
     if cross_agents:
         tools.extend(make_cross_agent_tools(cross_agents, caller_identity=identity))
@@ -2185,18 +2870,44 @@ async def build_agent(
         else (pattern if isinstance(pattern, str) else None)
     )
     _is_code_action = _ca_name == "code-action"
+
+    async def _close_mcp() -> None:
+        if _promptise_multi is not None:
+            try:
+                await _promptise_multi.__aexit__(None, None, None)
+            except Exception:
+                logger.debug("MCP multi-client cleanup error", exc_info=True)
+
+    _code_action_cfg = None
+    if code_action is not None:
+        from .engine.code_action import CodeActionConfig
+
+        try:
+            if not _is_code_action:
+                raise ValueError("code_action= is only valid with agent_pattern='code-action'")
+            _code_action_cfg = (
+                code_action
+                if isinstance(code_action, CodeActionConfig)
+                else CodeActionConfig.model_validate(dict(code_action))
+            )
+        except ValueError:
+            await _close_mcp()
+            raise
     if _is_code_action and not sandbox:
         sandbox = {"network": "none"}
 
-    # Attach sandbox tools if enabled
+    # Attach sandbox tools if enabled. There is no fallback: an agent that
+    # asked for a sandbox and cannot get one is not built.
     sandbox_manager = None
     sandbox_session = None
     if sandbox:
-        try:
-            from .sandbox import SandboxManager
-            from .sandbox.tools import create_sandbox_tools
+        from .sandbox import SandboxManager
+        from .sandbox.tools import create_sandbox_tools
 
-            print("[promptise] Initializing sandbox environment...")
+        print("[promptise] Initializing sandbox environment...")
+        try:
+            # Raises on an invalid config (unknown keys, bad values) or a
+            # missing ``docker`` package.
             sandbox_manager = SandboxManager(sandbox)
             if _is_code_action:
                 # code-action creates a fresh session per run and does NOT expose
@@ -2210,32 +2921,28 @@ async def build_agent(
                 )
             else:
                 sandbox_session = await sandbox_manager.create_session()
-                # Nested try to ensure cleanup if tool creation fails
                 try:
                     sandbox_tools = create_sandbox_tools(sandbox_session)
-                    tools.extend(sandbox_tools)
-                    print(
-                        f"[promptise] Sandbox ready: {len(sandbox_tools)} sandbox tools added "
-                        f"(backend: {sandbox_manager.config.backend})"
-                    )
-                except Exception as tool_error:
-                    # Clean up session before re-raising
-                    if sandbox_session:
-                        await sandbox_session.cleanup()
-                    raise tool_error
-
+                except Exception:
+                    await sandbox_session.cleanup()
+                    raise
+                tools.extend(sandbox_tools)
+                print(
+                    f"[promptise] Sandbox ready: {len(sandbox_tools)} sandbox tools added "
+                    f"(backend: {sandbox_manager.config.backend})"
+                )
+        except ValueError:
+            await _close_mcp()
+            raise
         except Exception as e:
-            if _is_code_action:
-                # No silent fallback — code-action cannot run without a sandbox.
-                raise RuntimeError(
-                    "agent_pattern='code-action' requires a working Docker sandbox, "
-                    f"but it could not be initialized: {e}"
-                ) from e
-            print(f"[promptise] Warning: Failed to initialize sandbox: {e}")
-            print("[promptise] Agent will continue without sandbox capabilities.")
-            # Ensure session is cleared on failure
-            sandbox_manager = None
-            sandbox_session = None
+            await _close_mcp()
+            requested_by = (
+                "agent_pattern='code-action'" if _is_code_action else "sandbox=" + repr(sandbox)
+            )
+            raise RuntimeError(
+                f"{requested_by} requires a working Docker sandbox, "
+                f"but it could not be initialized: {e}"
+            ) from e
 
     # code-action: a factory that yields a fresh sandbox session per run.
     _code_action_factory: Any | None = None
@@ -2268,6 +2975,13 @@ async def build_agent(
     if extra_tools:
         tools.extend(extra_tools)
 
+    # MCP tools report to trace_tools / observer from the MCP adapter; give
+    # every other tool the same callbacks.
+    if (trace_tools or _obs is not None) and len(tools) > _mcp_tool_count:
+        tools[_mcp_tool_count:] = [
+            _TracedTool(t, _before, _after, _error) for t in tools[_mcp_tool_count:]
+        ]
+
     if not tools:
         print("[promptise] No tools discovered from MCP servers; agent will run without tools.")
 
@@ -2290,6 +3004,9 @@ async def build_agent(
                 sys_prompt = str(instructions)
         except ImportError:
             sys_prompt = str(instructions)
+    elif flow is not None:
+        # The flow supplies the prompt; don't append the generic default.
+        sys_prompt = instructions or ""
     else:
         sys_prompt = instructions or DEFAULT_SYSTEM_PROMPT
 
@@ -2297,12 +3014,18 @@ async def build_agent(
     # Build the PromptGraph engine (replaces LangGraph).
     # ----------------------------------------------------------------------
 
-    def _build_graph(graph_tools: list[BaseTool]) -> Runnable[Any, Any]:
-        """Build a PromptGraph engine with the given tools.
+    from .engine.compaction import ContextCompaction
 
-        Extracted as a function so the semantic tool selection system
-        can cheaply rebuild the engine with different tool subsets.
-        """
+    _compaction = (
+        ContextCompaction.coerce(context_compaction) if context_compaction is not None else None
+    )
+
+    # Take the context window from the chat model's profile metadata.
+    if context_engine is not None and hasattr(context_engine, "_apply_model_profile"):
+        context_engine._apply_model_profile(chat)
+
+    def _build_graph(graph_tools: list[BaseTool]) -> Runnable[Any, Any]:
+        """Build a PromptGraph engine with the given tools."""
         # Resolve agent_pattern (with backward compat for pattern)
         _pattern = agent_pattern or pattern
 
@@ -2312,11 +3035,15 @@ async def build_agent(
         # Priority 2: PromptGraph instance passed directly
         elif isinstance(_pattern, PromptGraph):
             graph = _pattern
-            # If autonomous mode and no edges, wrap in AutonomousNode
+            # If autonomous mode and no edges, wrap in AutonomousNode — but
+            # only when there is a choice to make.  A single node runs as
+            # is: wrapping it makes a planner re-pick it after its answer.
             if graph.mode == "autonomous" and not graph.edges:
                 pool = list(graph.nodes.values())
-                if pool:
+                if len(pool) > 1:
                     graph = PromptGraph.from_pool(pool, system_prompt=sys_prompt)
+                elif pool and not graph.entry:
+                    graph.set_entry(pool[0].name)
         # Priority 3: String pattern name
         elif isinstance(_pattern, str):
             builders = {
@@ -2331,6 +3058,7 @@ async def build_agent(
                     system_prompt=sys_prompt,
                     blocks=graph_blocks,
                     sandbox_factory=_code_action_factory,
+                    **(_code_action_cfg.model_dump() if _code_action_cfg else {}),
                 ),
                 "verify": lambda: PromptGraph.verify(
                     tools=graph_tools, system_prompt=sys_prompt, blocks=graph_blocks
@@ -2374,16 +3102,83 @@ async def build_agent(
                 graph=graph,
                 model=cast(BaseChatModel, chat),
                 max_iterations=max_agent_iterations,
+                # inject_tools nodes in a custom graph get these tools
+                tools=graph_tools,
+                compaction=_compaction,
             ),
         )
 
     # ------------------------------------------------------------------
     # Wrap tools with approval gates if configured
     # ------------------------------------------------------------------
+    # (A bare handler only answers server-side gates; see the MCP clients above.)
+    adaptive_config = _resolve_adaptive(adaptive)
+    _adaptive_holder: list[Any] = []  # filled once the manager exists (below)
     if approval is not None:
-        from .approval import wrap_tools_with_approval
+        from .approval import ApprovalPolicy, wrap_tools_with_approval
 
-        tools = wrap_tools_with_approval(tools, approval, event_notifier=events)
+        if isinstance(approval, ApprovalPolicy):
+            if (
+                adaptive_config is not None
+                and _memory_provider is not None
+                and adaptive_config.learn_from_approval_denials
+            ):
+                import copy
+
+                from .strategy import _DenialLearningHandler
+
+                # A copy, so a policy shared with other agents isn't rewired.
+                approval = copy.copy(approval)
+                approval.handler = _DenialLearningHandler(approval.handler, _adaptive_holder)
+            tools = wrap_tools_with_approval(
+                tools, approval, event_notifier=events, agent_id=_obs_aid
+            )
+
+    # ------------------------------------------------------------------
+    # Guardrails: ``True`` is the default scanner; scan tool results when
+    # the scanner asks for it (outermost wrapper, so it sees what the
+    # model would see)
+    # ------------------------------------------------------------------
+    if guardrails is True:
+        from .guardrails import PromptiseSecurityScanner
+
+        guardrails = PromptiseSecurityScanner.default()
+    elif guardrails is False:
+        guardrails = None
+    if guardrails is not None and getattr(guardrails, "scan_tool_results", False):
+        if not hasattr(guardrails, "check_tool_result"):
+            raise TypeError(
+                "guardrails has scan_tool_results=True but no check_tool_result() method"
+            )
+        from .guardrails import wrap_tools_with_guardrails
+
+        tools = wrap_tools_with_guardrails(tools, guardrails, event_notifier=events)
+
+    # ------------------------------------------------------------------
+    # Semantic tool selection: index every tool and add the fallback. The
+    # graph carries all of them; at run time a selector narrows what each
+    # model call is offered (PromptiseAgent._with_tool_selection).
+    # ------------------------------------------------------------------
+    _tool_index = None
+    _semantic_config = None
+    if _opt_config is not None:
+        from .tool_optimization import ToolIndex, _RequestMoreToolsTool, _resolve_config
+
+        resolved = _resolve_config(_opt_config)
+        if resolved.semantic_selection and tools:
+            try:
+                _tool_index = ToolIndex(tools, model_name_or_path=resolved.embedding_model)
+            except BaseException:
+                # Don't leave MCP server connections (stdio subprocesses) behind.
+                if _promptise_multi is not None:
+                    with contextlib.suppress(Exception):
+                        await _promptise_multi.__aexit__(None, None, None)
+                raise
+            _semantic_config = resolved
+            if resolved.always_include_fallback:
+                tools.append(
+                    _RequestMoreToolsTool(tool_index=_tool_index, top_k=resolved.semantic_top_k)
+                )
 
     graph = _build_graph(tools)
 
@@ -2434,30 +3229,6 @@ async def build_agent(
     # ------------------------------------------------------------------
     # Construct unified PromptiseAgent — no wrapper chain needed
     # ------------------------------------------------------------------
-    # Set up semantic tool selection if enabled
-    # ------------------------------------------------------------------
-    _tool_index = None
-    _all_tools = None
-    _graph_builder_fn = None
-
-    if _opt_config is not None:
-        from .tool_optimization import ToolIndex, _RequestMoreToolsTool, _resolve_config
-
-        resolved = _resolve_config(_opt_config)
-        if resolved.semantic_selection and tools:
-            _tool_index = ToolIndex(tools, model_name_or_path=resolved.embedding_model)
-            _all_tools = list(tools)
-
-            # Add fallback tool if enabled
-            if resolved.always_include_fallback:
-                fallback = _RequestMoreToolsTool(tool_index=_tool_index)
-                tools.append(fallback)
-                # Rebuild graph with fallback included
-                graph = _build_graph(tools)
-
-            _graph_builder_fn = _build_graph
-
-    # ------------------------------------------------------------------
     # Resolve model name string for prompt context
     _model_name: str | None = None
     if isinstance(model, str):
@@ -2484,8 +3255,7 @@ async def build_agent(
         conversation_store=conversation_store,
         conversation_max_messages=conversation_max_messages,
         tool_index=_tool_index,
-        all_tools=_all_tools,
-        graph_builder_fn=_graph_builder_fn,
+        tool_optimization=_semantic_config,
         tools=list(tools),
         guardrails=guardrails,
         cache=cache,
@@ -2502,23 +3272,21 @@ async def build_agent(
         agent._max_invocation_time = max_invocation_time
 
     # Set up adaptive strategy manager
-    if adaptive is not None and _memory_provider is not None:
-        from .strategy import AdaptiveStrategyConfig, AdaptiveStrategyManager
-
-        if isinstance(adaptive, bool) and adaptive:
-            adaptive_config = AdaptiveStrategyConfig(enabled=True)
-        elif isinstance(adaptive, AdaptiveStrategyConfig):
-            adaptive_config = adaptive
+    if adaptive_config is not None:
+        if _memory_provider is None:
+            logger.warning("adaptive is set but memory is not: adaptive strategy is disabled")
         else:
-            adaptive_config = None
+            from .strategy import AdaptiveStrategyManager
 
-        if adaptive_config is not None and adaptive_config.enabled:
             agent._strategy_manager = AdaptiveStrategyManager(
                 config=adaptive_config,
                 memory=_memory_provider,
-                agent_model=_model_name,
+                # The model itself: an instance's bare model_name may not resolve.
+                agent_model=model.spec if isinstance(model, Model) else model,
                 guardrails=guardrails,
+                tool_names=[t.name for t in tools],
             )
+            _adaptive_holder.append(agent._strategy_manager)
 
     # Wire context engine
     if context_engine is not None:
@@ -2537,8 +3305,8 @@ async def build_agent(
     agent._raw_instructions = sys_prompt if isinstance(sys_prompt, str) else str(instructions or "")
 
     # Attach conversation flow if provided
-    if flow is not None:
-        agent._flow = flow
+    if _flow_sessions is not None:
+        agent._flows = _flow_sessions
 
     # Attach sandbox for cleanup on shutdown
     if sandbox_session is not None:
@@ -2547,6 +3315,45 @@ async def build_agent(
         agent._sandbox_manager = sandbox_manager
 
     return agent
+
+
+def _tool_definitions_text(tools: Sequence[BaseTool]) -> str:
+    """Tool names, descriptions and argument schemas, as the model receives them.
+
+    Used to count the tool definitions toward a ContextEngine budget.
+    """
+    lines: list[str] = []
+    for t in tools:
+        schema: Any = {}
+        try:
+            args_schema = getattr(t, "args_schema", None)
+            if isinstance(args_schema, dict):
+                schema = args_schema
+            elif args_schema is not None and hasattr(args_schema, "model_json_schema"):
+                schema = args_schema.model_json_schema()
+        except Exception:
+            schema = {}
+        lines.append(f"{t.name}: {t.description or ''} {json.dumps(schema, default=str)}")
+    return "\n".join(lines)
+
+
+def _resolve_adaptive(adaptive: Any) -> Any | None:
+    """The enabled :class:`AdaptiveStrategyConfig` for ``build_agent(adaptive=...)``, or ``None``."""
+    if adaptive is None or adaptive is False:
+        return None
+    from .strategy import AdaptiveStrategyConfig
+
+    if adaptive is True:
+        config = AdaptiveStrategyConfig(enabled=True)
+    elif isinstance(adaptive, AdaptiveStrategyConfig):
+        config = adaptive
+    elif isinstance(adaptive, Mapping):
+        config = AdaptiveStrategyConfig(**{"enabled": True, **adaptive})
+    else:
+        raise TypeError(
+            f"adaptive must be a bool, AdaptiveStrategyConfig or dict (got {type(adaptive).__name__})"
+        )
+    return config if config.enabled else None
 
 
 def _build_provider_from_config(config: dict[str, Any]) -> Any:

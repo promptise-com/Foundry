@@ -9,7 +9,7 @@ from promptise.config import HTTPServerSpec
 agent = await build_agent(
     servers={"tools": HTTPServerSpec(url="http://localhost:8000/mcp")},
     model="openai:gpt-5-mini",
-    optimize_tools=True,  # ~40% token savings on tool definitions
+    optimize_tools=True,  # "minimal": shorter tool definitions, same tools
 )
 ```
 
@@ -26,15 +26,15 @@ Tool optimization operates at two layers:
 **Layer 1: Static optimization** (applied once at build time) — reduces the per-tool token cost without changing which tools are available:
 
 - **Schema minification** — strips `description` metadata from Pydantic Field schemas. The LLM still sees field names, types, and required status — but not verbose per-field descriptions.
-- **Description truncation** — caps tool-level descriptions at N characters (word boundary).
+- **Description truncation** — caps tool-level descriptions at N characters, ending on a whole sentence when that keeps most of the budget, otherwise at a word boundary with a single `...`.
 - **Depth flattening** — replaces deeply nested objects with `dict` beyond a configurable depth.
 
-**Layer 2: Semantic tool selection** (applied per invocation) — the biggest optimization. Instead of sending all 50 tools, only the most relevant tools are selected for each query:
+**Layer 2: Semantic tool selection** (applied before every model call) — the biggest optimization. Instead of sending all 50 tools, only the most relevant ones are offered:
 
-1. At build time, all tool descriptions are embedded using a lightweight local model
-2. Before each `ainvoke()`, the user's query is embedded and compared against tool descriptions
-3. Only the top-K most relevant tools are included in the LLM call
-4. A `request_more_tools` fallback tool is included so the agent can self-recover if the semantic selection missed something
+1. At build time, every tool's name and description is embedded with a small local model.
+2. Before **each model call** (not just once per `ainvoke()`), a query is built from the recent conversation — the latest user message, the assistant reply it answers, the tool calls of the previous and current turn, and earlier user turns — and compared against the tool embeddings. A follow-up like "Yes, go ahead." therefore keeps the tools of the request it confirms, and the selection follows the agent as it calls tools.
+3. The model is offered the `semantic_top_k` most relevant tools, plus every tool in `preserve_tools`, tools already called in the previous or current turn, and the `request_more_tools` fallback.
+4. If the right tool is missing, the model calls `request_more_tools`; the tools it returns are offered from the next model call on.
 
 ---
 
@@ -48,6 +48,16 @@ agent = await build_agent(
     optimize_tools=True,  # Uses "minimal" preset
 )
 ```
+
+### Install
+
+Static optimization (`True`, `"minimal"`, `"standard"`) needs nothing extra. Semantic selection embeds tools with `sentence-transformers`:
+
+```bash
+pip install "promptise[tool-optimization]"   # also included in promptise[all]
+```
+
+Without it, `build_agent(optimize_tools="semantic")` raises an `ImportError` that names this extra, before connecting to any server.
 
 ### Preset levels
 
@@ -92,7 +102,9 @@ agent = await build_agent(
 | Semantic selection | No | No | Yes |
 | Semantic top-K | — | — | 8 |
 | Fallback tool | — | — | Yes |
-| **Estimated savings** | **~40%** | **~55%** | **~85%** |
+| **Measured savings** (see below) | **14%** | **14%** | **90%** |
+
+The savings are tool-definition tokens per model call, measured on one server: 90 tools with flat schemas (string parameters with one-line descriptions, tool descriptions under 200 characters). Static optimization saves what your schemas spend on parameter descriptions, long tool descriptions and nesting, so expect more on verbose or deeply nested schemas and less on terse ones; `standard` only pulls ahead of `minimal` when schemas are nested. Semantic selection's saving grows with the number of tools, since the model sees about `semantic_top_k` of them whatever the total. Measure your own payload with [observability](observability.md) before relying on a number.
 
 ---
 
@@ -107,11 +119,12 @@ agent = await build_agent(
 | `max_description_length` | `int \| None` | from preset | Truncate tool descriptions at N chars |
 | `strip_nested_descriptions` | `bool \| None` | from preset | Remove descriptions from nested model fields |
 | `max_schema_depth` | `int \| None` | from preset | Flatten nested objects beyond this depth to `dict` |
-| `semantic_selection` | `bool \| None` | from preset | Enable per-invocation semantic tool selection |
-| `semantic_top_k` | `int \| None` | from preset | Number of tools to select per invocation |
-| `always_include_fallback` | `bool \| None` | from preset | Include `request_more_tools` fallback |
+| `semantic_selection` | `bool \| None` | from preset | Select tools semantically before every model call (needs `promptise[tool-optimization]`) |
+| `semantic_top_k` | `int \| None` | from preset (8) | Most-relevant tools offered per model call; preserved, recently called and unlocked tools and the fallback come on top |
+| `semantic_context_turns` | `int \| None` | from preset (3) | Recent user turns that make up the selection query |
+| `always_include_fallback` | `bool \| None` | from preset | Include the `request_more_tools` fallback |
 | `embedding_model` | `str \| None` | `"all-MiniLM-L6-v2"` | Model name or **local path** for sentence-transformers |
-| `preserve_tools` | `set[str] \| None` | `None` | Tool names that are never optimized and always selected |
+| `preserve_tools` | `set[str] \| None` | `None` | Tool names that are never optimized and always offered |
 
 ### OptimizationLevel
 
@@ -161,22 +174,30 @@ optimize_tools=ToolOptimizationConfig(
 
 ### The `request_more_tools` fallback
 
-When semantic selection is active, a special fallback tool is automatically included:
+When semantic selection is active, every model call is also offered a fallback tool (turn it off with `always_include_fallback=False`):
 
 ```
-Tool: request_more_tools
-Description: "If you need a tool that is not currently available, call this
-             to see all available tools and their descriptions."
+Tool: request_more_tools(query?: str, tool_names?: list[str])
+"Call this when none of your current tools can do what is needed. Describe the
+ capability in `query` (or give exact `tool_names`); the matching tools are
+ returned and you can call them on your next step. Without arguments it lists
+ and enables every available tool."
 ```
 
-If the semantic search missed a relevant tool, the agent can self-recover by calling this and then retrying. This ensures the agent is never stuck.
+- `query` searches the index and returns the `semantic_top_k` best matches.
+- `tool_names` returns exactly those tools (unknown names are reported).
+- No arguments returns the whole catalogue — the escape hatch, at the cost of offering every tool from then on.
+
+Every tool the call returns is offered on the agent's next model call, and stays offered for the rest of that turn and the next one. Nothing is stored on the agent: the selection is recomputed from the `request_more_tools` call in the conversation, so concurrent requests never see each other's tools.
+
+A tool call the model makes for a tool that exists but wasn't offered on that step still runs — selection decides what the model is shown, it is not access control. Use [approval](approval.md) or server-side guards to restrict what may run.
 
 ### `preserve_tools`
 
 Tools listed in `preserve_tools` are:
 
-1. Never optimized (full descriptions and schemas are preserved)
-2. Always included in semantic selection (regardless of relevance score)
+1. Never optimized: the full tool description and every parameter description are kept
+2. Offered on every model call by semantic selection, on top of the `semantic_top_k` relevant tools
 
 Use this for critical tools that the agent must always have access to:
 
@@ -200,9 +221,31 @@ agent = await build_agent(
     optimize_tools="standard",
     observe=True,           # observability still tracks all tool calls
     memory=provider,        # memory injection happens before tool selection
-    sandbox=True,           # sandbox tools are added after optimization
+    sandbox=True,           # sandbox tools keep full schemas
 )
 ```
+
+Static optimization applies to tools discovered from MCP servers. Semantic selection covers every tool the agent has — MCP, `extra_tools`, sandbox and cross-agent tools — and applies to `ainvoke()`, `chat()`, `astream()` and `astream_with_tools()`.
+
+### Checking selection offline with `ToolIndex`
+
+`ToolIndex` (in `promptise.tool_optimization`) is the index semantic selection uses. Build one over an agent's tools to check, before paying for any model call, whether each of your typical requests would be offered the right tool — and to compare embedding models or description lengths:
+
+```python
+from promptise.tool_optimization import ToolIndex, build_selection_query
+
+tools = [t for t in agent.tools if t.name != "request_more_tools"]
+index = ToolIndex(tools, model_name_or_path="all-MiniLM-L6-v2")
+
+for request, expected in [("Suspend user u_42, she left.", "suspend_user")]:
+    offered = [t.name for t in index.select(request, top_k=8)]
+    print(request, "->", "ok" if expected in offered else f"missed (got {offered[:3]})")
+
+# The query the agent would use for a whole conversation:
+query = build_selection_query(messages, user_turns=3)
+```
+
+`index.select(query, top_k=8, preserve=None)` returns the `top_k` most relevant tools followed by the preserved ones (which don't take a relevance slot). Embeddings of repeated queries are cached.
 
 ---
 
@@ -214,7 +257,7 @@ Schema minification removes per-field descriptions but keeps field names, types,
 
 **What if semantic selection picks the wrong tools?**
 
-The `request_more_tools` fallback lets the agent self-recover. It lists all available tools, and the agent can retry with the right one. In practice, semantic selection with top-K=8 covers most use cases.
+The model can call `request_more_tools`, and the tools it returns are offered on the next model call. To catch misses before they cost anything, check your typical requests with [`ToolIndex`](#checking-selection-offline-with-toolindex). The two most effective fixes are longer tool descriptions in the index (raise `max_description_length` — the semantic preset truncates descriptions to 100 characters, and those truncated descriptions are what gets embedded) and adding must-have tools to `preserve_tools`.
 
 **Does this work with all LLM providers?**
 
