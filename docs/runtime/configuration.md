@@ -113,7 +113,7 @@ config = ProcessConfig(
 | `open_mode` | `OpenModeConfig` | defaults | Guardrails for open mode (ignored in strict) |
 | `servers` | `dict[str, Any]` | `{}` | MCP server specifications |
 | `triggers` | `list[TriggerConfig]` | `[]` | Trigger configurations |
-| `journal` | `JournalConfig` | defaults | Journal configuration |
+| `journal` | `JournalConfig` | off (`level="none"`) | Journal configuration; pass a `JournalConfig` to turn it on |
 | `context` | `ContextConfig` | defaults | AgentContext configuration |
 | `concurrency` | `int` | `1` | Max concurrent trigger invocations (1-100) |
 | `heartbeat_interval` | `float` | `10.0` | Heartbeat period in seconds |
@@ -121,7 +121,10 @@ config = ProcessConfig(
 | `max_lifetime` | `float` | `0.0` | Max process lifetime in seconds (0 = unlimited) |
 | `max_consecutive_failures` | `int` | `3` | Consecutive failures before FAILED state |
 | `restart_policy` | `str` | `"never"` | `"always"`, `"on_failure"`, or `"never"` |
-| `max_restarts` | `int` | `3` | Max restart attempts |
+| `max_restarts` | `int` | `3` | Max consecutive restart attempts (count resets after a successful invocation) |
+| `restart_backoff` | `float` | `1.0` | Seconds before the first restart; doubles per attempt, capped at 60 s |
+
+See [Restart Policies](processes.md#restart-policies) for how restarts behave.
 
 ---
 
@@ -196,30 +199,38 @@ TriggerConfig(type="sqs", custom_config={"queue_url": "https://sqs..."})
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `type` | `str` | required | Any registered type: `"cron"`, `"webhook"`, `"file_watch"`, `"event"`, `"message"`, or custom |
-| `cron_expression` | `str \| None` | `None` | Cron expression (required for `cron`) |
+| `cron_expression` | `str \| None` | `None` | Cron expression (required for `cron`); 5 fields, or 6 with trailing seconds |
+| `cron_timezone` | `str \| None` | `None` | IANA time zone for the schedule (`None` = UTC) |
 | `webhook_path` | `str` | `"/webhook"` | URL path (for `webhook`) |
 | `webhook_port` | `int` | `9090` | Listen port (for `webhook`, 1025-65535) |
+| `webhook_host` | `str` | `"127.0.0.1"` | Bind address (for `webhook`; `"0.0.0.0"` = all interfaces) |
+| `hmac_secret` | `SecretStr \| None` | `None` | Webhook signature secret; unsigned requests get 401 |
+| `signature_scheme` | `str` | `"generic"` | `"generic"`, `"github"` or `"stripe"` |
+| `signature_header` | `str \| None` | `None` | Override the signature header |
+| `signature_tolerance` | `int` | `300` | Max age (s) of a `stripe` signature timestamp |
+| `allowed_sources` | `list[str]` | `[]` | Client IPs / CIDRs allowed to call the webhook (empty = any) |
 | `watch_path` | `str \| None` | `None` | Directory to watch (required for `file_watch`) |
 | `watch_patterns` | `list[str]` | `["*"]` | Glob patterns (for `file_watch`) |
-| `watch_events` | `list[str]` | `["created", "modified"]` | FS events to react to |
+| `watch_events` | `list[str]` | `["created", "modified"]` | Merged FS events to react to: `created`, `modified`, `deleted`, `moved` |
+| `watch_debounce_seconds` | `float` | `0.5` | Window in which events for one file are merged |
 | `event_type` | `str \| None` | `None` | EventBus event type (required for `event`) |
 | `event_source` | `str \| None` | `None` | Optional source filter (for `event`) |
 | `topic` | `str \| None` | `None` | Broker topic (required for `message`) |
-| `filter_expression` | `str \| None` | `None` | Pre-filter before LLM invocation |
+| `filter_expression` | `str \| Callable \| None` | `None` | Safe expression or callable; non-matching events skip the agent ([syntax](triggers/index.md#filtering-events-before-the-agent-runs)) |
 | `custom_config` | `dict[str, Any]` | `{}` | Arbitrary config for custom trigger types |
 
 !!! warning "Validation for built-in types"
-    A `cron` trigger without `cron_expression`, or a `file_watch` without `watch_path`, will raise a `ValidationError` at construction time. Custom trigger types defer validation to their factory function.
+    A `cron` trigger without a valid `cron_expression`, a `file_watch` without `watch_path` or with unknown `watch_events`, an invalid `filter_expression`, time zone or `allowed_sources` entry, and any unknown key raise a `ValidationError` at construction time. Custom trigger types defer the rest of their validation to their factory function.
 
 ---
 
 ## JournalConfig
 
-Controls the durable audit log for process events.
+Controls the durable audit log for process events. A `ProcessConfig` has journaling **off** unless you set `journal=JournalConfig(...)` (or a `journal:` section in a manifest); a `JournalConfig` you create defaults to `level="checkpoint"`.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `level` | `str` | `"checkpoint"` | `"none"` (disabled), `"checkpoint"` (per cycle), `"full"` (every side effect) |
+| `level` | `str` | `"checkpoint"` | `"none"` (disabled), `"checkpoint"` (transitions, invocation results, checkpoints), `"full"` (also trigger events and tool calls/results) |
 | `backend` | `str` | `"file"` | `"file"` or `"memory"` |
 | `path` | `str` | `".promptise/journal"` | Base directory for journal files |
 
@@ -239,7 +250,8 @@ Configures the `AgentContext` layer: state management, memory, environment, and 
 | `memory_collection` | `str` | `"agent_memory"` | Collection name for ChromaDB |
 | `memory_persist_directory` | `str \| None` | `None` | Persist directory for ChromaDB |
 | `memory_user_id` | `str` | `"default"` | User ID for Mem0 scoping |
-| `conversation_max_messages` | `int` | `100` | Max messages in conversation buffer (0 = disabled) |
+| `conversation_max_messages` | `int` | `100` | Max messages in conversation buffer (**0 = unlimited**) |
+| `conversation_history` | `bool` | `True` | `False` turns short-term memory off: each run sees only its trigger event |
 | `file_mounts` | `dict[str, str]` | `{}` | Logical name to filesystem path mapping |
 | `env_prefix` | `str` | `"AGENT_"` | Prefix for exposed environment variables |
 | `initial_state` | `dict[str, Any]` | `{}` | Pre-populated key-value state |

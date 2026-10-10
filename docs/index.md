@@ -55,7 +55,7 @@ Read-only by default; writes, deletes and money-moving calls are only generated 
 | Subsystem | What it does | Start here |
 |-----------|-------------|------------|
 | **[Agent](core/index.md)** | Turn any LLM into a production agent. MCP tool discovery, memory, guardrails, semantic cache, streaming, approval workflows. | [Building Agents](guides/building-agents.md) |
-| **[Reasoning Engine](core/engine.md)** | Design how your agent thinks. 20 composable nodes, 7 prebuilt patterns, 16 typed flags, 0.02ms overhead. Custom reasoning patterns for any task. | [Custom Reasoning](guides/custom-reasoning.md) |
+| **[Reasoning Engine](core/engine.md)** | Design how your agent thinks. 20 composable nodes, 7 prebuilt patterns, 18 typed flags, 0.02ms overhead. Custom reasoning patterns for any task. | [Custom Reasoning](guides/custom-reasoning.md) |
 | **[MCP Server](mcp/index.md)** | Build tool APIs that agents call. JWT auth, guards, middleware, rate limiting, audit logs, TestClient. The FastAPI of MCP. | [Building Servers](guides/production-mcp-servers.md) |
 | **[Agent Runtime](runtime/index.md)** | Run agents autonomously. Cron triggers, crash recovery, budget enforcement, health monitoring, mission tracking, distributed coordination. | [Runtime Systems](guides/agentic-runtime.md) |
 | **[Prompting](prompting/index.md)** | Prompts as software. Typed blocks with token budgeting, conversation flows, composable strategies, guards, version control, testing. | [Prompt Engineering](guides/prompt-engineering.md) |

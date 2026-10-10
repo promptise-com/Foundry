@@ -30,7 +30,7 @@ This is the difference between multi-agent choreography that looks impressive in
 
 ## How cross-agent delegation actually works
 
-In Promptise, you expose a peer agent to a primary agent by passing it through `cross_agents`. Each peer becomes a standard tool the primary agent can call during planning: an `ask_agent_<name>` tool for a single peer and a `broadcast_to_agents` tool for fan-out to several peers in parallel. No new message bus, no extra service — peers are ordinary agent graphs.
+In Promptise, you expose a peer agent to a primary agent by passing it through `cross_agents`. Each peer becomes a standard tool the primary agent can call during planning: an `ask_agent_<name>` tool for a single peer and, with `include_broadcast=True`, a `broadcast_to_agents` tool for fan-out to several peers in parallel. No new message bus, no extra service — peers are ordinary agent graphs.
 
 The identity piece is what makes it *secure* rather than merely convenient. When the primary agent carries an `AgentIdentity`, every delegation injects a system message announcing the delegating agent's verified claims to the peer — the cheap descriptors (`agent_id`, issuer, roles), never a credential token. The peer now knows who is asking and can attribute, or refuse, accordingly.
 

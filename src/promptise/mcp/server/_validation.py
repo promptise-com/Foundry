@@ -279,6 +279,7 @@ def build_input_model(
     *,
     exclude: set[str] | None = None,
     param_docs: Mapping[str, str] | None = None,
+    untyped: Any = str,
 ) -> tuple[type[BaseModel], dict[str, Any]]:
     """Build a Pydantic model and JSON Schema from a function signature.
 
@@ -289,6 +290,7 @@ def build_input_model(
     ``Field(...)`` default.  *param_docs* maps parameter names to
     descriptions (usually parsed from the docstring's ``Args:`` section);
     an entry is used only when the parameter has no ``Field`` description.
+    *untyped* is the type assumed for parameters without an annotation.
 
     The returned schema has all ``$ref`` / ``$defs`` inlined for maximum
     MCP client compatibility.
@@ -316,7 +318,7 @@ def build_input_model(
 
         annotation = _unwrap_implicit_optional(resolved_hints.get(name, param.annotation))
         if annotation is inspect.Parameter.empty:
-            annotation = str  # default to str if untyped
+            annotation = untyped
 
         if isinstance(param.default, FieldInfo):
             # ``order_id: str = Field(description=...)``

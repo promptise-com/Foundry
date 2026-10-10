@@ -30,6 +30,7 @@ from typing import Any
 from uuid import UUID
 
 from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.messages import ToolMessage
 from langchain_core.outputs import LLMResult
 
 from .observability_config import ObserveLevel
@@ -62,10 +63,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         self.agent_id = agent_id
         self.record_prompts = record_prompts
         self.level = level
-
-        # --- Failure collection for adaptive strategy ---
-        self._current_failures: list[dict[str, Any]] = []
-        self._last_tool_inputs: dict[str, str] = {}  # run_id → input preview
 
         # --- Timing bookkeeping (run_id → start epoch) ---
         self._llm_starts: dict[UUID, float] = {}
@@ -295,8 +292,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         self._tool_starts[run_id] = time.time()
         self._run_parents[run_id] = parent_run_id
         self.tool_call_count += 1
-        # Track input for adaptive strategy failure collection
-        self._last_tool_inputs[str(run_id)] = self._truncate(input_str, 200)
 
         tool_name = serialized.get("name", "unknown")
 
@@ -323,10 +318,19 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         # Extract tool name from kwargs if available
         tool_name = kwargs.get("name", "unknown")
 
+        # A tool invoked as a tool call returns a ToolMessage; record its
+        # content, and its status when the tool reported an error.
+        status = None
+        if isinstance(output, ToolMessage):
+            status = output.status
+            output = output.content
+
         metadata: dict[str, Any] = {
             "result_preview": self._truncate(str(output)),
             "run_id": str(run_id),
         }
+        if status == "error":
+            metadata["status"] = "error"
         if duration is not None:
             metadata["latency_ms"] = round(duration * 1000, 1)
         if tool_name != "unknown":
@@ -350,7 +354,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         duration = time.time() - start if start else None
         self.error_count += 1
 
-        tool_name = kwargs.get("name", "unknown")
         self._record(
             "tool.error",
             details=f"Tool error: {type(error).__name__}: {str(error)[:200]}",
@@ -363,17 +366,6 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
                     "".join(traceback.format_exception(type(error), error, error.__traceback__))
                 ),
             },
-        )
-
-        # Collect failure for adaptive strategy
-        self._current_failures.append(
-            {
-                "tool_name": tool_name,
-                "error_type": type(error).__name__,
-                "error_message": str(error)[:500],
-                "args_preview": self._last_tool_inputs.pop(str(run_id), ""),
-                "timestamp": time.time(),
-            }
         )
 
     # ------------------------------------------------------------------

@@ -85,6 +85,8 @@ class HealthMonitor:
         self._last_anomaly_time: dict[AnomalyType, float] = {}
         self._anomalies: list[Anomaly] = []
         self._anomaly_count: dict[AnomalyType, int] = dict.fromkeys(AnomalyType, 0)
+        # Set when an anomaly fires; cleared by the next clean success.
+        self._unrecovered = False
 
     # ------------------------------------------------------------------
     # Properties
@@ -109,6 +111,18 @@ class HealthMonitor:
     # Recording API
     # ------------------------------------------------------------------
 
+    def begin_invocation(self) -> None:
+        """Start a new invocation: forget the previous run's tool calls.
+
+        Stuck and loop detection look for repetition *within* a run.  A
+        scheduled agent that calls the same tool once per run (e.g. a
+        queue check every minute) is behaving normally, so tool history
+        does not carry over between invocations.  Response lengths and
+        the error window do carry over: "three empty replies in a row"
+        and "half the recent runs failed" are cross-run signals.
+        """
+        self._tool_history.clear()
+
     async def record_tool_call(self, tool_name: str, args: dict[str, Any]) -> Anomaly | None:
         """Record a tool call and check for stuck/loop anomalies."""
         args_hash = self._hash_args(args)
@@ -122,7 +136,11 @@ class HealthMonitor:
         return None
 
     async def record_response(self, content: str) -> Anomaly | None:
-        """Record an agent response and check for empty response anomaly."""
+        """Record the agent's final reply and check for empty responses.
+
+        Pass the reply the agent gave at the end of an invocation, not
+        tool results: a tool returning ``[]`` is not an empty response.
+        """
         self._response_lengths.append(len(content.strip()))
         anomaly = self._detect_empty()
         if anomaly and self._is_cooled_down(anomaly.anomaly_type):
@@ -137,10 +155,10 @@ class HealthMonitor:
             ``True`` if this success clears a previous anomaly (recovery).
         """
         self._error_window.append(False)
-        # Recovery: if there was an active anomaly and this is a clean success,
-        # mark as recovered so process.py can emit health.recovered
-        if self._anomalies:
-            self._recovered = True
+        # Recovery: the first clean success after an anomaly (once, so
+        # process.py emits a single health.recovered per incident).
+        if self._unrecovered:
+            self._unrecovered = False
             return True
         return False
 
@@ -348,6 +366,7 @@ class HealthMonitor:
         self._anomalies.append(anomaly)
         self._anomaly_count[anomaly.anomaly_type] += 1
         self._last_anomaly_time[anomaly.anomaly_type] = time.monotonic()
+        self._unrecovered = True
         logger.warning(
             "Behavioral anomaly detected: %s — %s",
             anomaly.anomaly_type.value,

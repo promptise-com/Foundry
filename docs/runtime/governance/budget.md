@@ -212,9 +212,24 @@ This lets the agent prioritize — if it's running low on budget, it can choose 
 
 ---
 
+## Per-call enforcement
+
+Tool-call, cost and irreversible-action limits are checked **before each tool call runs**. A call that would push a counter past its limit (or any call once `max_llm_turns_per_run` is exceeded) is refused: the tool body never executes, the call is not counted, and the agent receives a `BudgetExceededError` as the tool's result, telling it to stop calling tools and answer. Parallel tool calls in one turn are checked one by one, so a limit of 2 lets exactly 2 of 3 parallel calls through.
+
+```python
+from promptise.runtime import BudgetExceededError  # error the agent sees as the tool result
+```
+
+After the invocation finishes, the first violation of the run triggers the action configured in `on_exceeded` (below). `max_runs_per_day` is checked when an invocation starts; a run over that limit does not start.
+
+!!! note "Changed in 1.3.0"
+    Earlier versions counted tool calls and applied `on_exceeded` only after the invocation had finished, so an agent could exceed `max_irreversible_per_run` (or any per-run limit) within a single run.
+
+---
+
 ## Enforcement actions
 
-When a limit is exceeded:
+When a limit is exceeded (after the invocation in which it happened):
 
 | Action | Behavior |
 |--------|----------|
@@ -285,7 +300,8 @@ The agent can call `search` as many times as the cost budget allows, but it can 
 
 | Method | Description |
 |--------|-------------|
-| `.record_tool_call(tool_name)` | Record a tool call and add its `cost_weight` to run and daily totals. Returns a `BudgetViolation` if any limit is exceeded, or `None`. |
+| `.record_tool_call(tool_name, *, enforce=False)` | Record a tool call and add its `cost_weight` to run and daily totals. Returns a `BudgetViolation` if any limit is exceeded, or `None`. With `enforce=True` the call is checked first: if it would exceed a limit it is **not** counted and the violation has `blocked=True` (the caller must not run the tool). |
+| `.record_tool_call_sync(tool_name, *, enforce=False)` | Thread-safe synchronous form, used by the runtime's budget guard (synchronous tools run on worker threads). |
 | `.record_llm_turn()` | Record an LLM turn (counts toward `max_llm_turns_per_run` only, no cost). Returns a `BudgetViolation` if limit exceeded. |
 | `.remaining()` | Dict of all remaining limits (tool calls, cost, LLM turns, irreversible actions). |
 | `.reset_run()` | Reset per-run counters. Called automatically at the start of each invocation. |

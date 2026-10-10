@@ -30,6 +30,13 @@ Client libraries for connecting to MCP servers.
       show_source: false
       heading_level: 3
 
+## InFlightToolCall
+
+::: promptise.mcp.client.InFlightToolCall
+    options:
+      show_source: false
+      heading_level: 3
+
 ## MCPToolAdapter
 
 ::: promptise.mcp.client.MCPToolAdapter

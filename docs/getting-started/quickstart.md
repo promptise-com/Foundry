@@ -201,19 +201,24 @@ agent = await build_agent(
 
 The agent now thinks before acting and synthesizes a structured answer — instead of jumping straight to tool calls.
 
-**10 built-in patterns available:**
+**9 built-in patterns, plus prebuilt graphs:**
 
 ```python
 agent = await build_agent(..., agent_pattern="react")       # Default tool loop
 agent = await build_agent(..., agent_pattern="verify")      # Plan → Solve → Self-check (1 turn)
 agent = await build_agent(..., agent_pattern="managed")     # Tool loop with facts-ledger context
 agent = await build_agent(..., agent_pattern="code-action") # Writes ONE sandboxed program (1 turn)
-agent = await build_agent(..., agent_pattern="peoatr")      # Plan → Act → Think → Reflect
+agent = await build_agent(..., agent_pattern="peoatr")      # Plan → Act → Think → Reflect → Answer
 agent = await build_agent(..., agent_pattern="research")    # Search → Verify → Synthesize
 agent = await build_agent(..., agent_pattern="autonomous")  # Agent picks from node pool
 agent = await build_agent(..., agent_pattern="deliberate")  # Think → Plan → Act → Observe → Reflect
 agent = await build_agent(..., agent_pattern="debate")      # Proposer ↔ Critic → Judge
-agent = await build_agent(..., agent_pattern="pipeline")    # Sequential chain
+
+# A pipeline chains your own nodes, so it is a graph rather than a name
+from promptise.engine import PromptGraph, PromptNode
+
+steps = PromptGraph.pipeline(PromptNode("extract"), PromptNode("analyze"))
+agent = await build_agent(..., agent_pattern=steps)
 ```
 
 ## Add Production Features (4 minutes)

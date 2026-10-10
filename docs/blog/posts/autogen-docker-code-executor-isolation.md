@@ -1,6 +1,6 @@
 ---
 title: "AutoGen Docker Executor vs a Hardened Agent Sandbox"
-description: "AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container but not seccomp…"
+description: "AutoGen genuinely ships DockerCommandLineCodeExecutor, so this credits it up front. The honest delta: that executor gives you a container at Docker's defaults, not cap-drop…"
 keywords: "autogen docker code executor isolation, hardened agent code sandbox, seccomp agent sandbox, gvisor agent code execution"
 date: 2026-07-16
 slug: autogen-docker-code-executor-isolation
@@ -33,9 +33,9 @@ So the container itself is real. What matters for a security decision is everyth
 
 ## What other frameworks do today
 
-To be fair and precise: a Docker container is not "wide open." Docker applies a default seccomp profile to every container and already drops a chunk of Linux capabilities. AutoGen inherits that baseline for free, and it is genuinely better than nothing. The honest delta is not "AutoGen has no isolation" — it is that AutoGen's executor stops at Docker's defaults and does not expose the knobs a hardened profile turns on:
+To be fair and precise: a Docker container is not "wide open." Docker applies a default seccomp profile to every container and already drops a chunk of Linux capabilities. AutoGen inherits that baseline for free, and it is genuinely better than nothing. The honest delta is not "AutoGen has no isolation" — it is that AutoGen's executor stops at Docker's defaults and does not expose the knobs a hardened profile turns on. (Seccomp is not one of them: Promptise also runs under Docker's default seccomp profile, so on syscall filtering the two are level.)
 
-- **No stricter seccomp whitelist.** You get Docker's default deny-list profile, not a tight allow-list tuned to the syscalls model code legitimately needs. `DockerCommandLineCodeExecutor` exposes no `security_opt`/seccomp parameter to swap it.
+- **No `no-new-privileges`.** `DockerCommandLineCodeExecutor` exposes no `security_opt` parameter, so a setuid binary in the image keeps its escalation path.
 - **No extra capability dropping.** The container keeps Docker's default capability set; there is no `cap_drop` switch to strip it down to the minimum.
 - **Writable root filesystem.** There is no `read_only` option, so the container's rootfs is writable — model code can overwrite system files or persist a foothold for the container's lifetime.
 - **Network on by default.** The executor exposes no network switch, so the container runs on Docker's default bridge network with outbound access — the exfiltration path a computation task never needed.
@@ -104,11 +104,11 @@ The one argument above already gives you the hardened defaults; when you want to
 
 | Layer | What it closes |
 |---|---|
-| **Seccomp whitelist** | An allow-list `seccomp agent sandbox` profile permits only the syscalls user code needs and blocks kernel-module loading, raw device access, and privilege escalation. |
+| **Seccomp + no-new-privileges** | Docker's default `seccomp agent sandbox` profile blocks roughly 44 dangerous syscalls (`mount`, `reboot`, `kexec_load`, …) — the same baseline AutoGen gets — and `no-new-privileges` stops setuid escalation, which AutoGen's executor does not set. |
 | **Capability dropping** | Roughly 40 Linux capabilities are stripped (`CAP_SYS_ADMIN`, `CAP_NET_ADMIN`, `CAP_SYS_PTRACE`, …), down to the minimum. |
-| **Read-only rootfs** | The root filesystem is mounted read-only; only `/workspace` and `/tmp` are writable, so code can't overwrite system files or persist a foothold. |
-| **Network isolation** | `network="none"` (or DNS-filtered `restricted`) removes the outbound exfiltration path entirely. |
-| **Resource limits** | CPU, memory, and an execution timeout kill a runaway or fork-bomb program instead of your host. |
+| **Read-only rootfs** | The root filesystem is mounted read-only; only `/workspace` and `/tmp` are writable, as size-capped tmpfs mounts, so code can't overwrite system files or persist a foothold. |
+| **Network isolation** | `network="none"`, the default, removes the outbound exfiltration path entirely; the opt-in `restricted` mode allows only DNS and HTTP/HTTPS, enforced with iptables. |
+| **Resource limits** | CPU, memory, a PID cap (default 256), and an execution timeout — a timed-out command is killed inside the container — stop a runaway or fork-bomb program instead of your host. |
 
 For untrusted input or an extra kernel-level boundary, switch the backend to **gVisor**, which intercepts syscalls in userspace so the container never talks to the host kernel directly — the strongest option for `gvisor agent code execution`:
 
@@ -134,11 +134,11 @@ Every one of these is documented layer by layer in the [sandbox reference](../..
 
 ### Does AutoGen's Docker executor apply seccomp?
 
-Indirectly — it inherits Docker's default seccomp profile, like any container, so it is not unprotected. What it does not do is apply a *stricter whitelist* profile tuned for untrusted model code, and `DockerCommandLineCodeExecutor` exposes no parameter to swap the profile, drop extra capabilities, mount the rootfs read-only, or disable networking. A `seccomp agent sandbox` in Promptise means an allow-list profile plus cap-drop, read-only rootfs, and `network="none"` turned on by default rather than left at Docker's baseline.
+Indirectly — it inherits Docker's default seccomp profile, like any container, so it is not unprotected. Promptise uses that same default seccomp profile, so syscall filtering is not the difference. What `DockerCommandLineCodeExecutor` does not do is drop extra capabilities, set `no-new-privileges`, mount the rootfs read-only, or disable networking — it exposes no parameter for any of them. A `seccomp agent sandbox` in Promptise means Docker's default seccomp profile plus cap-drop, `no-new-privileges`, a read-only rootfs, resource limits, and `network="none"`, all turned on by default.
 
 ### What makes a hardened agent code sandbox different from "just a container"?
 
-A container gives you isolation at Docker's defaults. A `hardened agent code sandbox` layers on a whitelist seccomp profile, ~40 dropped capabilities, a read-only root filesystem, a configurable network mode (defaulting to none for code-action), and resource limits — before any model code runs. In Promptise that profile is the default posture of `sandbox=True`, not a set of `docker run` flags you assemble yourself.
+A container gives you isolation at Docker's defaults. A `hardened agent code sandbox` keeps Docker's default seccomp profile and layers on ~40 dropped capabilities, `no-new-privileges`, a read-only root filesystem, a configurable network mode (defaulting to none), and resource limits — before any model code runs. In Promptise that profile is the default posture of `sandbox=True`, not a set of `docker run` flags you assemble yourself.
 
 ### Do I need gVisor for agent code execution?
 

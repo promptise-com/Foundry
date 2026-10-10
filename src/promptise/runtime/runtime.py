@@ -287,7 +287,11 @@ class AgentRuntime:
                     logger.error("AgentRuntime: failed to start %s: %s", name, exc)
 
     async def stop_all(self) -> None:
-        """Stop all running processes."""
+        """Stop all running processes.
+
+        Afterwards the shared event notifier (if any) is drained, so every
+        ``process.stopped`` event is delivered before this returns.
+        """
         for name, process in list(self._processes.items()):
             if process.state not in (
                 ProcessState.STOPPED,
@@ -303,7 +307,7 @@ class AgentRuntime:
             try:
                 await self._event_notifier.stop()
             except Exception as exc:
-                logger.error("AgentRuntime: failed to stop event notifier: %s", exc)
+                logger.error("AgentRuntime: failed to drain event notifier: %s", exc)
 
     # ------------------------------------------------------------------
     # Status and monitoring

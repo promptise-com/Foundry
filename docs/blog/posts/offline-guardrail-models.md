@@ -30,8 +30,8 @@ An air-gapped Promptise agent with full guardrails and semantic tool selection d
 
 | Model | Role | Detector / config | Size | How it loads |
 |-------|------|-------------------|------|--------------|
-| `protectai/deberta-v3-base-prompt-injection-v2` | Prompt-injection classification | `InjectionDetector(model=...)` | ~260 MB | `transformers` pipeline |
-| `knowledgator/gliner-pii-edge-v1.0` | Zero-shot NER for names/addresses | `NERDetector(model=...)` | ~200 MB | GLiNER / `transformers` |
+| `protectai/deberta-v3-base-prompt-injection-v2` | Prompt-injection classification | `InjectionDetector(model=...)` | ~750 MB | `transformers` pipeline |
+| `knowledgator/gliner-pii-edge-v1.0` | Zero-shot NER for names/addresses | `NERDetector(model=...)` | ~500 MB | `gliner` (separate install) |
 | `all-MiniLM-L6-v2` | Embeddings for semantic tool selection | `ToolOptimizationConfig(embedding_model=...)` | ~90 MB | `sentence-transformers` |
 | `llama-guard3` | 13-category content safety | `ContentSafetyDetector(provider="local")` | ~4.9 GB | Ollama model store |
 

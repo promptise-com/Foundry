@@ -203,6 +203,33 @@ class TestToolError:
         assert error.data["error"] == "Billing API did not answer"
 
     @pytest.mark.asyncio
+    async def test_mcp_tool_error_emits_once_with_code(self):
+        """MCP tools raise MCPToolError for error results: one event, with its code."""
+        from promptise.mcp.client import MCPToolError
+
+        @tool
+        def refund(invoice_id: str) -> str:
+            """Refund an invoice through the billing MCP server."""
+            raise MCPToolError(
+                "refund", "Billing API did not answer", code="UPSTREAM_TIMEOUT", retryable=True
+            )
+
+        notifier, seen = _collector()
+        agent = await build_agent(
+            servers={},
+            model=_model(("refund", {"invoice_id": "INV-1"}), "done"),
+            extra_tools=[refund],
+            events=notifier,
+            observe=True,
+        )
+        await _run(agent, notifier)
+        (error,) = _of(seen, "tool.error")
+        assert error.data["tool_name"] == "refund"
+        assert error.data["code"] == "UPSTREAM_TIMEOUT"
+        assert error.data["retryable"] is True
+        assert error.data["error_type"] == "MCPToolError"
+
+    @pytest.mark.asyncio
     async def test_streaming_events_are_attributed(self):
         notifier, seen = _collector()
         agent = await build_agent(
@@ -465,6 +492,34 @@ class TestPayloads:
         assert requested.data["tool_name"] == "issue_refund"
         assert requested.data["arguments"] == {"invoice_id": "INV-1", "amount": 110.0}
         assert _of(seen, "approval.denied")[0].data["reason"] == "too big"
+
+    @pytest.mark.asyncio
+    async def test_approval_requested_arguments_are_the_redacted_copy(self):
+        """The event carries what the reviewer sees, never the raw arguments."""
+        notifier, seen = _collector()
+        received: list[Any] = []
+
+        async def deny(request: Any) -> ApprovalDecision:
+            received.append(request)
+            return ApprovalDecision(approved=False, reason="no")
+
+        @tool
+        def email_receipt(to: str, amount: float) -> str:
+            """Email a receipt."""
+            return "sent"
+
+        agent = await build_agent(
+            servers={},
+            model=_model(("email_receipt", {"to": "dana@example.com", "amount": 18.5}), "done"),
+            extra_tools=[email_receipt],
+            events=notifier,
+            approval=ApprovalPolicy(tools=["email_receipt"], handler=deny),
+        )
+        await _run(agent, notifier)
+        (requested,) = _of(seen, "approval.requested")
+        assert requested.data["arguments"] == received[0].arguments
+        assert "dana@example.com" not in json.dumps(requested.data)
+        assert requested.data["arguments"]["amount"] == 18.5
 
     @pytest.mark.asyncio
     async def test_approval_arguments_respect_include_arguments(self):

@@ -16,9 +16,10 @@ Quick start::
 # Import prebuilts to register factory methods on PromptGraph
 from . import prebuilts as _prebuilts  # noqa: F401
 from .base import BaseNode, NodeProtocol, node
-from .code_action import CodeActionNode
+from .code_action import CodeActionConfig, CodeActionNode
+from .compaction import ContextCompaction
 from .execution import GraphExecutionError, PromptGraphEngine
-from .graph import Edge, PromptGraph
+from .graph import Edge, EdgeCondition, PromptGraph
 from .hooks import BudgetHook, CycleDetectionHook, Hook, LoggingHook, MetricsHook, TimingHook
 from .nodes import (
     AutonomousNode,
@@ -58,7 +59,9 @@ __all__ = [
     # Core
     "PromptGraph",
     "PromptGraphEngine",
+    "ContextCompaction",
     "Edge",
+    "EdgeCondition",
     # Standard Nodes
     "BaseNode",
     "NodeProtocol",
@@ -72,6 +75,7 @@ __all__ = [
     "HumanNode",
     "TransformNode",
     "SubgraphNode",
+    "CodeActionConfig",
     "CodeActionNode",
     "node",
     # Reasoning Nodes

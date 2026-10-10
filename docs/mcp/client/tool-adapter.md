@@ -55,6 +55,8 @@ authentication, and provides recursive schema conversion.
    `_jsonschema_to_pydantic`.
 3. **Tool wrapping** -- Each tool is wrapped in a `_PromptiseMCPTool` (a
    `BaseTool` subclass) that calls `MCPMultiClient.call_tool()` on invocation.
+   With `forward_caller_token`, the call carries the invoking
+   `CallerContext.bearer_token` (see below).
 4. **Result extraction** -- The MCP `CallToolResult` is converted to a plain
    string by concatenating all text content parts.
 
@@ -72,6 +74,16 @@ async with multi:
     adapter = MCPToolAdapter(multi)
     tools = await adapter.as_langchain_tools()
 ```
+
+### Calling tools as the invoking user
+
+`MCPToolAdapter(multi, forward_caller_token=...)` makes each tool call with
+the bearer token of the `CallerContext` active when the tool runs (inside
+`agent.ainvoke(..., caller=...)`), over a session opened for that token:
+`True` for every server, a collection of server names for only those, or
+`False` (the default) for none. `build_agent()` turns it on for every
+server whose spec does not set `forward_caller_token=False`. See
+[Calling a tool as a specific user](index.md#calling-a-tool-as-a-specific-user).
 
 ### Getting LangChain tools
 

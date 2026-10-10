@@ -66,3 +66,25 @@ class TriggerError(RuntimeBaseError):
 
 class JournalError(RuntimeBaseError):
     """Raised when journal read, write, or replay fails."""
+
+
+class BudgetExceededError(RuntimeBaseError):
+    """Raised before a tool call that would exceed an autonomy budget limit.
+
+    The runtime raises it from the tool-start callback, so the tool never
+    executes; the agent sees the message as the tool's error result and
+    can wind the run down.
+
+    Attributes:
+        violation: The :class:`~promptise.runtime.budget.BudgetViolation`
+            that blocked the call.
+    """
+
+    def __init__(self, violation: Any) -> None:
+        self.violation = violation
+        tool = f" '{violation.tool_name}'" if violation.tool_name else ""
+        super().__init__(
+            f"Budget limit {violation.limit_name} reached "
+            f"(limit {violation.limit_value:g}); tool call{tool} was not executed. "
+            "Stop calling tools and give your final answer."
+        )

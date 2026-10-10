@@ -17,30 +17,29 @@ servers:
   database:
     type: http
     url: "http://localhost:9000/mcp"
-    headers:
-      Authorization: "Bearer ${DB_TOKEN}"
+    bearer_token: "${DB_TOKEN}"
 ```
 
-Load and run it in Python:
+Run it from the terminal with `promptise agent analyst.superagent`, or load and run it in Python:
 
 ```python
 import asyncio
-from promptise import build_agent
-from promptise.superagent import load_superagent_file
+from promptise import build_superagent
 
 async def main():
-    loader, cross_agents = load_superagent_file("analyst.superagent")
-    config = loader.to_agent_config()
-    agent = await build_agent(**config.to_build_kwargs())
-
-    result = await agent.ainvoke({
-        "messages": [{"role": "user", "content": "Show me top 10 customers by revenue"}]
-    })
-    print(result["messages"][-1].content)
-    await agent.shutdown()
+    agent = await build_superagent("analyst.superagent")
+    try:
+        result = await agent.ainvoke({
+            "messages": [{"role": "user", "content": "Show me top 10 customers by revenue"}]
+        })
+        print(result["messages"][-1].content)
+    finally:
+        await agent.shutdown()
 
 asyncio.run(main())
 ```
+
+`build_superagent()` loads the file, reads `.env`, resolves `${VAR}` references and builds the agent -- together with every agent listed under `cross_agents:`, at any depth (see [Teams of agents](#teams-of-agents-cross_agents)).
 
 ## Concepts
 
@@ -48,9 +47,11 @@ A `.superagent` file is a YAML document validated against `SuperAgentSchema`. It
 
 The loader pipeline works in three steps:
 
-1. **Parse and validate** -- `SuperAgentLoader.from_file()` reads YAML and validates it against the Pydantic schema. Invalid fields are rejected immediately.
-2. **Resolve environment variables** -- `resolve_env_vars()` replaces `${VAR}` and `${VAR:-default}` placeholders with actual values from the environment.
+1. **Parse and validate** -- `SuperAgentLoader.from_file()` reads YAML and validates it against the Pydantic schema. Invalid fields -- and settings that could never be built, such as `approval.handler: callback` -- are rejected immediately.
+2. **Resolve environment variables** -- `resolve_env_vars()` loads the nearest `.env` file, then replaces `${VAR}` and `${VAR:-default}` placeholders with actual values from the environment.
 3. **Convert to native types** -- `to_agent_config()` produces a `SuperAgentConfig` object whose `to_build_kwargs()` method returns a dict ready for `build_agent(**kwargs)`.
+
+`build_superagent()` runs all three steps for the file and each of its cross-agents, and builds them.
 
 ## Full YAML Schema
 
@@ -77,21 +78,33 @@ servers:
     type: http
     url: "https://search.example.com/mcp"
     transport: streamable-http
-    headers:
-      Authorization: "Bearer ${SEARCH_TOKEN}"
+    bearer_token: "${SEARCH_TOKEN}"   # or api_key: "${SEARCH_KEY}"
   local_tools:
     type: stdio
     command: python
     args: ["-m", "my_tools.server"]
     env:
       API_KEY: "${MY_API_KEY}"
-    cwd: "/opt/tools"
+    cwd: "/opt/tools"                 # default: this file's folder
     keep_alive: true
 
 cross_agents:
   math_expert:
     file: "./agents/math.superagent"
     description: "Specialized math and calculation agent"
+    timeout: 120                      # seconds to wait for its answer
+
+max_delegation_depth: 3               # nested delegations per request
+delegation_timeout: 300               # default wait for any cross-agent
+include_broadcast: false              # add broadcast_to_agents
+
+approval:
+  tools: ["send_email", "delete_*"]
+  handler: webhook                    # or queue
+  webhook_url: "https://approvals.example.com/requests"
+  webhook_secret: "${APPROVAL_WEBHOOK_SECRET}"
+
+max_invocation_time: 600
 
 memory:
   provider: chroma                     # "in_memory", "chroma", or "mem0"
@@ -103,10 +116,10 @@ sandbox:
   image: "python:3.11-slim"
   cpu_limit: 2
   memory_limit: "4G"
-  disk_limit: "10G"
-  network: restricted
+  disk_limit: "1G"
+  pids_limit: 256
+  network: none
   timeout: 300
-  tools: ["python"]
   workdir: "/workspace"
   allow_sudo: false
 ```
@@ -115,7 +128,7 @@ sandbox:
 
 #### `version`
 
-Always `"1.0"`. Required for forward compatibility.
+Optional. `"1.0"` is the only schema version and the default, so a file without `version:` is read as `"1.0"`. Any other value is a validation error. Writing `version: "1.0"` keeps the file explicit if a later version is added.
 
 #### `agent`
 
@@ -282,7 +295,11 @@ A dict of named server configurations. Each entry requires a `type` discriminato
     | `url` | `str` | **required** | Full MCP endpoint URL. |
     | `transport` | `"http" \| "streamable-http" \| "sse"` | `"http"` | Transport protocol. |
     | `headers` | `dict[str, str]` | `{}` | HTTP headers (values support `${ENV_VAR}`). |
-    | `auth` | `str \| None` | `None` | Legacy auth token. |
+    | `bearer_token` | `str \| None` | `None` | Sent as `Authorization: Bearer <token>`. Use `${ENV_VAR}`. |
+    | `api_key` | `str \| None` | `None` | Sent as `x-api-key: <key>`. Use `${ENV_VAR}`. |
+    | `audience` | `str \| None` | `None` | Audience of the credential minted from the agent's `identity:` when no `bearer_token` is set. |
+
+    `auth:` is rejected with a validation error. Earlier versions accepted it but never sent it to the server, so the server answered `401`. Use `bearer_token:` or `api_key:` instead.
 
 === "Stdio server"
 
@@ -292,8 +309,10 @@ A dict of named server configurations. Each entry requires a `type` discriminato
     | `command` | `str` | **required** | Executable command. |
     | `args` | `list[str]` | `[]` | Command arguments. |
     | `env` | `dict[str, str]` | `{}` | Environment variables (values support `${ENV_VAR}`). |
-    | `cwd` | `str \| None` | `None` | Working directory. |
+    | `cwd` | `str \| None` | this file's folder | Working directory of the server process. A relative `cwd` is relative to this file's folder. |
     | `keep_alive` | `bool` | `true` | Maintain persistent connection. |
+
+    Paths are relative to the `.superagent` file, not to the directory you run from: the server starts in the file's folder, so `args: ["incidents_server.py"]` finds the script next to the file. A relative `command` with a path separator (`./bin/server`) is resolved against the file's folder too; a bare name such as `python` or `npx` is looked up on `PATH`.
 
 #### `cross_agents`
 
@@ -303,6 +322,30 @@ Optional. Maps a peer name to a file reference.
 |---|---|---|---|
 | `file` | `str` | **required** | Path to the peer's `.superagent` file (relative to this file). |
 | `description` | `str` | `""` | Description shown in the auto-generated `ask_agent_<name>` tool. |
+| `timeout` | `float \| None` | `None` | Seconds to wait for this agent's answer; overrides `delegation_timeout`. After it, the tool returns `"Timed out waiting for peer agent reply."`. |
+
+These top-level fields control delegation:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `max_delegation_depth` | `int` | `3` | Most nested delegations one request may make (this agent → peer → peer …). A deeper call, or a call back into an agent already working on the request, is refused with an error the model sees. |
+| `delegation_timeout` | `float \| None` | `None` | Default seconds to wait for any cross-agent. `None` = no limit beyond the peer's own `max_invocation_time`. |
+| `include_broadcast` | `bool` | `false` | Also add the `broadcast_to_agents` tool. |
+
+#### `approval`
+
+Optional. Human approval for matching tool calls -- see [Human-in-the-loop approval](../approval.md#yaml-configuration-superagent).
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `tools` | `list[str]` | **required** | Glob patterns of tool names that need approval. |
+| `handler` | `"webhook" \| "queue"` | `"webhook"` | `callback` is rejected: it needs a Python function. |
+| `webhook_url` | `str \| None` | `None` | Required for `webhook`. |
+| `webhook_secret` | `str \| None` | `None` | HMAC secret for the `X-Promptise-Signature` header (`webhook` only). Use `${ENV_VAR}`. |
+| `timeout` | `float` | `300` | Seconds to wait for a decision. |
+| `on_timeout` | `"deny" \| "allow"` | `"deny"` | What happens when nobody answers. |
+
+A `queue` handler is answered by code in the same process. `promptise agent` asks each request as a y/N question when you run it at a terminal; with piped input nobody can answer, so requests time out.
 
 #### `memory`
 
@@ -319,6 +362,9 @@ Optional. Configures persistent agent memory.
 #### `sandbox`
 
 Optional. Can be `true` for defaults or a detailed configuration object.
+Unknown keys are rejected. If the sandbox cannot be started (Docker not
+running, the `promptise[sandbox]` extra missing, gVisor not installed), loading
+the agent fails instead of running it without a sandbox.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -326,11 +372,11 @@ Optional. Can be `true` for defaults or a detailed configuration object.
 | `image` | `str` | `"python:3.11-slim"` | Base container image. |
 | `cpu_limit` | `int` | `2` | Maximum CPU cores (1--32). |
 | `memory_limit` | `str` | `"4G"` | Maximum memory. |
-| `disk_limit` | `str` | `"10G"` | Maximum disk space. |
-| `network` | `"none" \| "restricted" \| "full"` | `"restricted"` | Network isolation mode. |
-| `persistent` | `bool` | `false` | Keep workspace between runs. |
+| `disk_limit` | `str` | `"1G"` | Size of the writable workspace. |
+| `pids_limit` | `int` | `256` | Maximum processes and threads. |
+| `network` | `"none" \| "restricted" \| "full"` | `"none"` | Network isolation mode. `"restricted"` needs `iptables` in the image and refuses to start without it. |
+| `persistent` | `bool` | `false` | Keep the container after the session ends. |
 | `timeout` | `int` | `300` | Max execution time in seconds (1--3600). |
-| `tools` | `list[str]` | `["python"]` | Pre-installed tools. |
 | `workdir` | `str` | `"/workspace"` | Working directory inside container. |
 | `env` | `dict[str, str]` | `{}` | Additional environment variables. |
 | `allow_sudo` | `bool` | `false` | Allow sudo access in container. |
@@ -349,9 +395,10 @@ servers:
   api:
     type: http
     url: "${API_URL:-http://localhost:8000/mcp}"
-    headers:
-      Authorization: "Bearer ${API_TOKEN}"
+    bearer_token: "${API_TOKEN}"
 ```
+
+Before resolving, the loader loads the nearest `.env` file -- the same file, by the same rule, as the `promptise` CLI and model setup: the working directory or a parent up to the project root (the folder with `pyproject.toml` or `.git`), never overriding a variable that is already set. `PROMPTISE_NO_DOTENV=1` turns it off. So `python run_agent.py` and `promptise agent` see the same variables.
 
 Call `loader.validate_env_vars()` to check which variables are missing before resolving:
 
@@ -364,9 +411,11 @@ else:
     loader.resolve_env_vars()
 ```
 
-## Cross-Agent References and Cycle Detection
+## Teams of agents (`cross_agents`)
 
-The loader recursively resolves cross-agent references. If agent A references agent B and agent B references agent A, the loader raises a `SuperAgentError` with the full reference chain.
+A file can list other `.superagent` files under `cross_agents:`. Each becomes an `ask_agent_<name>` tool of this agent. The referenced files can have cross-agents of their own.
+
+The loader resolves references at every depth. If agent A references agent B and agent B references agent A, the loader raises a `SuperAgentError` with the full reference chain.
 
 ```yaml
 # main.superagent
@@ -384,7 +433,26 @@ loader, cross_loaders = load_superagent_file("main.superagent")
 
 for name, cross_loader in cross_loaders.items():
     print(f"Loaded peer: {name} from {cross_loader.file_path}")
+    # its own references are in cross_loader.cross_loaders
 ```
+
+Build a team with `build_superagent()` (or run it with `promptise agent main.superagent`):
+
+```python
+from promptise import build_superagent
+
+agent = await build_superagent("main.superagent")
+try:
+    result = await agent.ainvoke({"messages": [{"role": "user", "content": "..."}]})
+finally:
+    await agent.shutdown()   # shuts down every agent in the team
+```
+
+Every cross-agent is built from its whole file -- servers, approval, memory, guardrails, its own cross-agents -- and the whole team is built in the running event loop. Build, use and shut down the team in the same task (one `asyncio.run`): MCP sessions, stdio ones above all, belong to the task that opened them.
+
+`config.to_build_kwargs()` cannot build cross-agents, because each is an agent of its own. For a file with `cross_agents:` it warns and leaves them out; use `build_superagent()`, or build the peers yourself and pass `to_build_kwargs(cross_agents={...})`.
+
+At run time, delegation is bounded by `max_delegation_depth` (default 3) and by loop detection, and each call can be limited with `timeout:` / `delegation_timeout:`. See [Cross-Agent Delegation](cross-agent.md#delegation-limits).
 
 ## The `SuperAgentLoader` Class
 
@@ -403,8 +471,11 @@ config  = loader.to_agent_config()      # SuperAgentConfig
 # Or use the convenience function
 loader, cross_loaders = load_superagent_file("agent.superagent")
 config = loader.to_agent_config()
-kwargs = config.to_build_kwargs()
+kwargs = config.to_build_kwargs()      # warns if the file has cross_agents
 agent = await build_agent(**kwargs)
+
+# Or build the agent and its whole team
+agent = await build_superagent("agent.superagent")
 ```
 
 ## API Summary
@@ -412,9 +483,10 @@ agent = await build_agent(**kwargs)
 | Symbol | Import | Description |
 |---|---|---|
 | `SuperAgentLoader` | `from promptise.superagent import SuperAgentLoader` | Loads, validates, and resolves `.superagent` files. Key methods: `from_file()`, `resolve_env_vars()`, `resolve_cross_agents()`, `to_agent_config()`. |
-| `load_superagent_file()` | `from promptise.superagent import load_superagent_file` | Convenience function that loads, resolves env vars, and resolves cross-agent refs in one call. Returns `(loader, cross_loaders)`. |
+| `load_superagent_file()` | `from promptise.superagent import load_superagent_file` | Convenience function that loads (reading `.env`), resolves env vars, and resolves cross-agent refs at every depth in one call. Returns `(loader, cross_loaders)`. |
+| `build_superagent()` | `from promptise import build_superagent` | `await build_superagent(path_or_loader, *, model=None, instructions=None, trace=None, extra_servers=None)` -- builds the agent and every cross-agent in its file, at any depth, in the running event loop. `shutdown()` on the result shuts down the team. Overrides apply to the top agent. |
 | `SuperAgentSchema` | `from promptise.superagent_schema import SuperAgentSchema` | Pydantic model for the full `.superagent` YAML schema. |
-| `SuperAgentConfig` | `from promptise.superagent import SuperAgentConfig` | Processed config with `to_build_kwargs()` for `build_agent()`. |
+| `SuperAgentConfig` | `from promptise.superagent import SuperAgentConfig` | Processed config with `to_build_kwargs(*, cross_agents=None)` for `build_agent()`. |
 
 !!! tip "File extensions"
     The loader accepts `.superagent`, `.superagent.yaml`, and `.superagent.yml` extensions.

@@ -1165,6 +1165,53 @@ def _fresh_http_clients(extra: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+OLLAMA_DEFAULT_HOST = "http://localhost:11434"
+"""Where a local Ollama listens when ``OLLAMA_HOST`` / ``endpoint=`` say nothing."""
+
+
+def ollama_host(value: str | None) -> str:
+    """The Ollama server's origin from an ``OLLAMA_HOST``-style value.
+
+    Accepts ``host:port`` without a scheme and a URL ending in ``/v1``;
+    ``None`` or empty means :data:`OLLAMA_DEFAULT_HOST`.
+    """
+    host = (value or OLLAMA_DEFAULT_HOST).strip().rstrip("/")
+    if not host.startswith("http"):
+        host = f"http://{host}"
+    return host[: -len("/v1")] if host.endswith("/v1") else host
+
+
+class _Placeholders(dict[str, str]):
+    """``str.format_map`` mapping that leaves an unknown word as ``{word}``."""
+
+    def __missing__(self, key: str) -> str:
+        return "{" + key + "}"
+
+
+def route_url(provider: Provider, words: dict[str, Any] | None = None) -> str | None:
+    """The base URL the OpenAI-compatible route calls, or ``None`` for a native route.
+
+    *words* given in code win; the provider's environment variables fill the
+    rest.  Ollama's host defaults to :data:`OLLAMA_DEFAULT_HOST` and Vertex
+    AI's region to ``us-central1``, as :func:`resolve_model` does.  A word
+    still unknown (a required variable that is not set) stays a ``{word}``
+    placeholder, so the result is always printable.
+    """
+    if provider.base_url is None:
+        return None
+    filled: dict[str, Any] = {w: v for w, v in (words or {}).items() if _given(v)}
+    for var in provider.env:
+        if var.word not in filled and var.value() is not None:
+            filled[var.word] = var.value()
+    if provider.key == "ollama":
+        filled["endpoint"] = ollama_host(filled.get("endpoint"))
+    if provider.key == "google_vertexai":
+        filled.setdefault("region", "us-central1")
+    if "endpoint" in filled and "{endpoint}" not in provider.base_url:
+        return str(filled["endpoint"])  # a self-hosted server or proxy for this provider
+    return provider.base_url.format_map(_Placeholders({k: str(v) for k, v in filled.items()}))
+
+
 def resolve_model(spec: str, **kwargs: Any) -> Any:
     """Turn a ``"provider:model"`` string (plus optional words) into a chat model.
 
@@ -1263,24 +1310,10 @@ def resolve_model(spec: str, **kwargs: Any) -> Any:
         if not provider.key_optional:
             raise ModelSetupError(_explain(provider, model, ["no API key"]))
         api_key = "not-needed"
-    if provider.key == "ollama" and "endpoint" not in words:
-        words["endpoint"] = "http://localhost:11434"
-    if provider.key == "ollama":
-        host = str(words["endpoint"]).rstrip("/")
-        if not host.startswith("http"):
-            host = f"http://{host}"
-        words["endpoint"] = host[: -len("/v1")] if host.endswith("/v1") else host
-    if provider.key == "google_vertexai":
-        words.setdefault("region", "us-central1")
-        if "/" not in model:
-            model = f"google/{model}"
-    if "endpoint" in words and "{endpoint}" not in provider.base_url:
-        base_url = str(words["endpoint"])  # a self-hosted server or proxy for this provider
-    else:
-        try:
-            base_url = provider.base_url.format(**{w: words.get(w, "") for w in WORDS})
-        except KeyError:  # pragma: no cover - templates only use known words
-            base_url = provider.base_url
+    if provider.key == "google_vertexai" and "/" not in model:
+        model = f"google/{model}"
+    base_url = route_url(provider, words)
+    assert base_url is not None
     query = dict(provider.query)
     if "api_version" in words and provider.query:
         query["api-version"] = str(words["api_version"])

@@ -185,7 +185,9 @@ class TestErrorHandling:
         result = await client.call_tool("crash", {"x": 1})
         parsed = json.loads(result[0].text)
         assert parsed["error"]["code"] == "INTERNAL_ERROR"
-        assert "Unexpected failure" in parsed["error"]["message"]
+        # Parity with the live server: never leak the exception text
+        assert "Unexpected failure" not in parsed["error"]["message"]
+        assert parsed["error"]["message"] == "An internal error occurred."
 
 
 # =====================================================================
@@ -440,10 +442,9 @@ class TestResources:
 
         client = TestClient(server)
         resources = await client.list_resources()
-        assert len(resources) == 2
+        # The auto-registered manifest is listed, as on the live server
         uris = {str(r.uri) for r in resources}
-        assert "config://a" in uris
-        assert "config://b" in uris
+        assert uris == {"config://a", "config://b", "docs://manifest"}
 
     async def test_list_resource_templates(self):
         server = MCPServer(name="test")

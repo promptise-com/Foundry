@@ -9,8 +9,11 @@ from .approval import (
     CallbackApprovalHandler,
     QueueApprovalHandler,
     WebhookApprovalHandler,
+    approval_elicitation_callback,
+    verify_webhook_signature,
 )
 from .approval_classifier import (
+    DEFAULT_DESTRUCTIVE_VERBS,
     DEFAULT_READ_ONLY_PREFIXES,
     ApprovalRule,
     AutoApprovalClassifier,
@@ -47,6 +50,7 @@ from .conversations import (
 from .conversations import (
     Message as ConversationMessage,
 )
+from .cross_agent import CrossAgent, DelegationError
 
 # PromptGraph Engine
 from .engine import (
@@ -77,6 +81,7 @@ from .fallback import FallbackChain
 
 # Guardrails
 from .guardrails import (
+    Action,
     ContentSafetyDetector,
     CredentialCategory,
     CredentialDetector,
@@ -89,6 +94,7 @@ from .guardrails import (
     PromptiseSecurityScanner,
     ScanReport,
     SecurityFinding,
+    Severity,
 )
 from .identity import AgentIdentity, IdentityError
 from .mcp.client import (
@@ -153,6 +159,7 @@ from .runtime import (
     SecretScopeConfig,
 )
 from .strategy import (
+    AdaptiveLesson,
     AdaptiveStrategyConfig,
     AdaptiveStrategyManager,
     FailureCategory,
@@ -167,7 +174,12 @@ from .streaming import (
     ToolEndEvent,
     ToolStartEvent,
 )
-from .superagent import SuperAgentConfig, SuperAgentLoader, load_superagent_file
+from .superagent import (
+    SuperAgentConfig,
+    SuperAgentLoader,
+    build_superagent,
+    load_superagent_file,
+)
 from .superagent_schema import (
     AgentSection,
     CrossAgentConfig,
@@ -229,6 +241,7 @@ __all__ = [
     # Adaptive Strategy
     "AdaptiveStrategyConfig",
     "AdaptiveStrategyManager",
+    "AdaptiveLesson",
     "FailureCategory",
     "FailureLog",
     "classify_failure",
@@ -249,11 +262,14 @@ __all__ = [
     "CallbackApprovalHandler",
     "WebhookApprovalHandler",
     "QueueApprovalHandler",
+    "approval_elicitation_callback",
+    "verify_webhook_signature",
     "AutoApprovalClassifier",
     "ApprovalRule",
     "ClassifierStats",
     "ClassifierDecisionTrace",
     "DEFAULT_READ_ONLY_PREFIXES",
+    "DEFAULT_DESTRUCTIVE_VERBS",
     # Semantic Cache
     "SemanticCache",
     "EmbeddingProvider",
@@ -265,6 +281,8 @@ __all__ = [
     "SecurityFinding",
     "ScanReport",
     "GuardrailViolation",
+    "Action",
+    "Severity",
     "PIICategory",
     "CredentialCategory",
     "InjectionDetector",
@@ -283,6 +301,10 @@ __all__ = [
     "SuperAgentLoader",
     "SuperAgentConfig",
     "load_superagent_file",
+    "build_superagent",
+    # Cross-agent delegation
+    "CrossAgent",
+    "DelegationError",
     "SuperAgentSchema",
     "AgentSection",
     "DetailedModelConfig",

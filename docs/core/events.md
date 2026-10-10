@@ -26,7 +26,7 @@ agent = await build_agent(
 
 ## Event Taxonomy
 
-23 event types across 9 categories. Events marked *runtime* come from an [`AgentProcess`](../runtime/index.md); the rest come from any agent built with `events=`.
+25 event types across 9 categories. Events marked *runtime* come from an [`AgentProcess`](../runtime/index.md); the rest come from any agent built with `events=`.
 
 | Category | Event Type | Severity | When it fires |
 |----------|-----------|----------|---------------|
@@ -36,6 +36,7 @@ agent = await build_agent(
 | | `invocation.timeout` | error | Invocation exceeded `max_invocation_time` |
 | **Tools** | `tool.error` | error | A tool call raised, or an MCP tool returned an error result |
 | | `tool.slow` | warning | A tool call took longer than `slow_tool_threshold` (default 5s) |
+| | `tool.progress` | info | An MCP tool reports progress (`data`: `tool_name`, `progress`, `total`, `message`) |
 | **Guardrails** | `guardrail.blocked` | warning | Input (or streamed output) blocked by guardrails |
 | | `guardrail.redacted` | info | Output had PII/credentials redacted |
 | **Approval** | `approval.requested` | info | Human approval requested |
@@ -51,7 +52,8 @@ agent = await build_agent(
 | | `health.recovered` | info | The process is healthy again after an anomaly |
 | **Process** *(runtime)* | `process.started` | info | Agent process started |
 | | `process.stopped` | info | Agent process stopped |
-| | `process.failed` | critical | Agent process entered FAILED state (including at startup) |
+| | `process.failed` | critical | Agent process entered FAILED state (failed start, or `max_consecutive_failures` reached) |
+| | `process.restarted` | warning | Restart policy is restarting the process (`attempt`, `max_restarts`, `reason`) |
 | **Cache** | `cache.purged` | info | User cache purged (GDPR) |
 
 `tool.error` and `tool.slow` are emitted whenever `events=` is set — they don't need `observe=True`.
@@ -77,11 +79,12 @@ The `data` of each event:
 | `invocation.timeout` | `timeout_seconds` |
 | `tool.error` | `tool_name`, `error` (message), `error_type`, `duration_ms`; `code` and `retryable` when the tool reported them |
 | `tool.slow` | `tool_name`, `latency_ms`, `threshold_ms` |
+| `tool.progress` | `tool_name`, `progress`, `total`, `message` |
 | `guardrail.blocked` | `direction` (`input`/`output`), `error` (exception type), `reason`, `findings` (`detector`, `category`, `severity`, `description` per finding — never the matched text); `streaming` |
 | `guardrail.redacted` | `direction`; `streaming` |
 | `approval.requested` | `tool_name`, `request_id`, `timeout`, `arguments` (as the policy redacts them; `{}` with `include_arguments=False`) |
-| `approval.granted` | `tool_name`, `request_id`, `reviewer` |
-| `approval.denied` | `tool_name`, `request_id`, `reason` |
+| `approval.granted` | `tool_name`, `request_id`, `reviewer`, `modified_arguments` (names of the arguments the reviewer changed), `decided_by`; `classifier_layer` when a classifier decided |
+| `approval.denied` | `tool_name`, `request_id`, `reason`, `decided_by`; `classifier_layer` when a classifier decided |
 | `budget.warning` | `process_name`, `limit_type`, `current`, `limit`, `percentage` |
 | `budget.exceeded` | `process_name`, `limit_type`, `current`, `limit` |
 | `budget.daily_reset` | `process_name` |
@@ -91,8 +94,11 @@ The `data` of each event:
 | `health.anomaly` | `process_name`, `anomaly_type`, `details` |
 | `health.recovered` | `process_name` |
 | `process.started` / `process.stopped` | `process_name`, `process_id` |
-| `process.failed` | `process_name`, `error` |
+| `process.failed` | `process_name`, `process_id`, `reason`, `error` |
+| `process.restarted` | `process_name`, `process_id`, `reason`, `attempt`, `max_restarts` |
 | `cache.purged` | `user_id`, `entries_removed` |
+
+Approvals that an MCP server requests through elicitation (server-side gates) emit the same `approval.*` events with `source: "mcp_elicitation"` and `server`.
 
 ---
 
