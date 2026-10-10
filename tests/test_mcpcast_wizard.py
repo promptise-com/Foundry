@@ -1262,6 +1262,9 @@ class TestAuditedBehaviour:
                 spec_input.value = f"http://127.0.0.1:{port}/slow.json"
                 await pilot.press("enter")
                 await _until(pilot, lambda: "/slow.json" in requested)
+                # The wizard may move focus while a load runs; a user clicks back
+                # into the field before typing the next address, and so does the test.
+                spec_input.focus()
                 await _until(pilot, lambda: app.focused is spec_input)
                 spec_input.value = f"http://127.0.0.1:{port}/fast.json"
                 await pilot.press("enter")
