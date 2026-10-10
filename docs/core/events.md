@@ -49,7 +49,8 @@ agent = await build_agent(
 | **Health** | `health.anomaly` | warning | Behavioral anomaly detected |
 | **Process** | `process.started` | info | Agent process started |
 | | `process.stopped` | info | Agent process stopped |
-| | `process.failed` | critical | Agent process entered FAILED state |
+| | `process.failed` | critical | Agent process entered FAILED state (failed start, or `max_consecutive_failures` reached) |
+| | `process.restarted` | warning | Restart policy is restarting the process (`attempt`, `max_restarts`, `reason`) |
 | **Cache** | `cache.purged` | info | User cache purged (GDPR) |
 
 ---

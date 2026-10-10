@@ -120,7 +120,7 @@ graph TB
     end
 
     subgraph "Distributed — multi-node"
-        COORD["RuntimeCoordinator<br>cluster health · failover"]
+        COORD["RuntimeCoordinator<br>cluster health · remote ops"]
         TRANS["RuntimeTransport<br>HTTP REST API per node"]
         DISC["Discovery<br>static · registry"]
     end
@@ -141,7 +141,7 @@ That's not a roadmap -- it's what ships today. Every box in that diagram is a wo
 | **State** | AgentContext, MemoryProvider, ConversationBuffer | Agents that remember across invocations -- accumulated metrics, customer history, conversation continuity |
 | **Durability** | Journal (InMemory/File), ReplayEngine, restart policies | Agents that survive crashes -- replay missed events, reconstruct state, restart automatically |
 | **Runtime** | AgentRuntime, EventBus, MessageBroker, Dashboard | Multiple agents running together -- sharing events, routing messages, monitored from one terminal |
-| **Distributed** | RuntimeCoordinator, RuntimeTransport, Discovery | Agents across machines -- HTTP API per node, health checks, cluster membership, process redistribution |
+| **Distributed** | RuntimeCoordinator, RuntimeTransport, Discovery | Agents across machines -- authenticated HTTP API per node, health checks, cluster membership, remote start/stop for failover you script |
 | **Self-modification** | Open mode, 14 meta-tools | Agents that evolve -- modify their own instructions, create tools, connect servers, spawn new processes |
 
 ---
