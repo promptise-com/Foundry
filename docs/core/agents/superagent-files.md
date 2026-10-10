@@ -312,7 +312,14 @@ A dict of named server configurations. Each entry requires a `type` discriminato
     | `cwd` | `str \| None` | this file's folder | Working directory of the server process. A relative `cwd` is relative to this file's folder. |
     | `keep_alive` | `bool` | `true` | Maintain persistent connection. |
 
-    Paths are relative to the `.superagent` file, not to the directory you run from: the server starts in the file's folder, so `args: ["incidents_server.py"]` finds the script next to the file. A relative `command` with a path separator (`./bin/server`) is resolved against the file's folder too; a bare name such as `python` or `npx` is looked up on `PATH`.
+    Paths are relative to the `.superagent` file, not to the directory you run from: the server starts in the file's folder, so `args: ["incidents_server.py"]` finds the script next to the file. A relative `command` with a path separator (`./bin/server`) is resolved against the file's folder too; a bare name such as `python` or `npx` is looked up on `PATH`. A path with a root (`/opt/tools`, `C:\tools`, `\\server\share`) is used as written.
+
+    On Windows, write paths in single quotes or with forward slashes. Inside double quotes YAML reads a backslash as an escape sequence: `"C:\Python312\python.exe"` is a parse error and `"C:\tools\new"` silently contains a tab and a newline.
+
+    ```yaml
+    command: 'C:\Python312\python.exe'   # single quotes: backslashes are literal
+    cwd: C:/tools                         # forward slashes work everywhere
+    ```
 
 #### `cross_agents`
 

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import textwrap
 import warnings
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 import pytest
@@ -16,9 +17,23 @@ from typer.testing import CliRunner
 import promptise.agent as agent_module
 from promptise.approval import QueueApprovalHandler, WebhookApprovalHandler
 from promptise.exceptions import SuperAgentError, SuperAgentValidationError
-from promptise.superagent import SuperAgentLoader, build_superagent, load_superagent_file
+from promptise.superagent import (
+    SuperAgentLoader,
+    _is_rooted,
+    build_superagent,
+    load_superagent_file,
+)
 
 BILLING_SERVER = str(Path(__file__).with_name("_superagent_billing_server.py"))
+
+
+def _q(value: str) -> str:
+    """*value* as a double-quoted YAML scalar (JSON escaping is valid YAML).
+
+    A Windows path pasted into ``"..."`` breaks: YAML reads its backslashes
+    as escape sequences.
+    """
+    return json.dumps(value)
 
 
 def _write(path: Path, body: str) -> Path:
@@ -274,8 +289,54 @@ def test_stdio_paths_resolve_relative_to_the_file(
     assert specs["default"].cwd == str(path.parent.resolve())
     assert specs["relative"].command == str(path.parent.resolve() / "bin" / "server")
     assert specs["relative"].cwd == str(path.parent.resolve() / "tools")
-    assert specs["absolute"].command == "/usr/bin/env"
-    assert specs["absolute"].cwd == "/tmp"
+    # Rooted paths are kept, not moved under the file's folder or onto its
+    # drive (Windows used to turn /usr/bin/env into C:\\usr\\bin\\env).
+    assert Path(specs["absolute"].command) == Path("/usr/bin/env")
+    assert Path(specs["absolute"].cwd) == Path("/tmp")
+
+
+@pytest.mark.parametrize(
+    ("path", "rooted"),
+    [
+        (PureWindowsPath("/usr/bin/env"), True),  # rooted, no drive: not is_absolute()
+        (PureWindowsPath("\\tools\\server.exe"), True),
+        (PureWindowsPath("C:\\tools\\server.exe"), True),
+        (PureWindowsPath("C:/tools/server.exe"), True),
+        (PureWindowsPath("\\\\host\\share\\server.exe"), True),
+        (PureWindowsPath("bin\\server.exe"), False),
+        (PureWindowsPath("./bin/server"), False),
+        (PureWindowsPath("C:bin\\server.exe"), False),  # drive-relative
+        (PurePosixPath("/usr/bin/env"), True),
+        (PurePosixPath("./bin/server"), False),
+        (PurePosixPath("C:\\tools\\server.exe"), False),  # a file name on POSIX
+    ],
+)
+def test_rooted_paths_are_not_joined_to_the_file_folder(path: Any, rooted: bool) -> None:
+    """Simulates Windows: ``is_absolute()`` is False there for ``/usr/bin/env``."""
+    assert _is_rooted(path) is rooted
+
+
+def test_backslash_escape_in_double_quotes_gets_a_hint(tmp_path: Path) -> None:
+    path = tmp_path / "a.superagent"
+    path.write_text(
+        'agent: {model: "openai:gpt-5-mini"}\n'
+        'servers:\n  s: {type: stdio, command: "C:\\hostedtoolcache\\python.exe"}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(SuperAgentError, match="unknown escape") as info:
+        SuperAgentLoader.from_file(path)
+    assert "single quotes" in str(info.value)
+
+
+def test_single_quoted_windows_path_keeps_its_backslashes(tmp_path: Path) -> None:
+    path = tmp_path / "a.superagent"
+    path.write_text(
+        'agent: {model: "openai:gpt-5-mini"}\n'
+        "servers:\n  s: {type: stdio, command: 'C:\\tools\\new\\server.exe'}\n",
+        encoding="utf-8",
+    )
+    loader = SuperAgentLoader.from_file(path)
+    assert loader.schema.servers["s"].command == "C:\\tools\\new\\server.exe"
 
 
 async def test_stdio_server_starts_from_another_working_directory(
@@ -283,13 +344,13 @@ async def test_stdio_server_starts_from_another_working_directory(
 ) -> None:
     folder = tmp_path / "team"
     (folder).mkdir()
-    (folder / "server.py").write_text(Path(BILLING_SERVER).read_text())
+    (folder / "server.py").write_bytes(Path(BILLING_SERVER).read_bytes())
     _write(
         folder / "a.superagent",
         f"""
         agent: {{model: "openai:gpt-5-mini"}}
         servers:
-          billing: {{type: stdio, command: "{sys.executable}", args: ["server.py"]}}
+          billing: {{type: stdio, command: {_q(sys.executable)}, args: ["server.py"]}}
         """,
     )
     monkeypatch.chdir(tmp_path)
@@ -346,7 +407,7 @@ def _team(tmp_path: Path) -> Path:
           model: "fake:tool:get_account"
           trace: false
         servers:
-          billing: {{type: stdio, command: "{sys.executable}", args: ["{BILLING_SERVER}"]}}
+          billing: {{type: stdio, command: {_q(sys.executable)}, args: [{_q(BILLING_SERVER)}]}}
         max_invocation_time: 30
         """,
     )
@@ -431,7 +492,7 @@ async def test_failed_build_shuts_down_the_agents_already_built(
     path = _team(tmp_path)
     # The coordinator gets a server that exits at once; its peers build first.
     text = path.read_text() + (
-        f'servers:\n  broken: {{type: stdio, command: "{sys.executable}", '
+        f"servers:\n  broken: {{type: stdio, command: {_q(sys.executable)}, "
         'args: ["-c", "import sys; sys.exit(3)"]}\n'
     )
     path.write_text(text)
@@ -454,7 +515,7 @@ async def test_failed_specialist_names_its_file(tmp_path: Path, fake_models: Non
         f"""
         agent: {{model: "fake:answer"}}
         servers:
-          broken: {{type: stdio, command: "{sys.executable}", args: ["-c", "raise SystemExit(3)"]}}
+          broken: {{type: stdio, command: {_q(sys.executable)}, args: ["-c", "raise SystemExit(3)"]}}
         """,
     )
     path = _write(
@@ -548,7 +609,7 @@ def test_agent_reports_a_failing_stdio_server_in_one_line(tmp_path: Path) -> Non
         f"""
         agent: {{model: "fake:answer"}}
         servers:
-          incidents: {{type: stdio, command: "{sys.executable}", args: ["missing_server.py"]}}
+          incidents: {{type: stdio, command: {_q(sys.executable)}, args: ["missing_server.py"]}}
         """,
     )
     result = _cli(["agent", str(path)], input="exit\n")

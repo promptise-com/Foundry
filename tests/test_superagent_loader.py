@@ -276,7 +276,7 @@ servers:
     assert spec.command == "python"
     assert spec.args == ["-m", "myserver"]
     assert spec.env == {"DEBUG": "true"}
-    assert spec.cwd == "/tmp"
+    assert Path(spec.cwd) == Path("/tmp")  # kept as written, not joined to the file folder
     assert spec.keep_alive is False
 
 

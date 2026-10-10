@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any, cast
 
 import yaml
@@ -51,6 +51,24 @@ def _load_dotenv() -> None:
         load_dotenv_if_present()
     except ModelSetupError as exc:
         raise SuperAgentError(str(exc)) from exc
+
+
+def _is_rooted(path: PurePath) -> bool:
+    """Whether *path* names its own root, so it is not relative to the file's folder.
+
+    ``is_absolute()`` is not enough on Windows: ``/opt/tools`` and
+    ``\\tools`` have a root but no drive, so they are not absolute there, and
+    joining them to the file's folder moved them onto the file's drive
+    (``C:\\opt\\tools``).  On POSIX this is the same as ``is_absolute()``.
+    """
+    return bool(path.root)
+
+
+_YAML_BACKSLASH_HINT = (
+    "Inside double quotes YAML reads a backslash as an escape sequence. "
+    "Write Windows paths in single quotes ('C:\\tools\\server.exe') or with "
+    'forward slashes ("C:/tools/server.exe").'
+)
 
 
 class SuperAgentLoader:
@@ -146,7 +164,8 @@ class SuperAgentLoader:
             with path.open("r", encoding="utf-8") as f:
                 raw_data = yaml.safe_load(f)
         except yaml.YAMLError as exc:
-            raise SuperAgentError(f"YAML parse error in {path}: {exc}") from exc
+            hint = f"\n{_YAML_BACKSLASH_HINT}" if "unknown escape character" in str(exc) else ""
+            raise SuperAgentError(f"YAML parse error in {path}: {exc}{hint}") from exc
         except Exception as exc:
             raise SuperAgentError(f"Failed to read {path}: {exc}") from exc
 
@@ -376,7 +395,7 @@ class SuperAgentLoader:
         if cwd is None:
             return str(base)
         path = Path(cwd).expanduser()
-        return str(path if path.is_absolute() else (base / path).resolve())
+        return str(path if _is_rooted(path) else (base / path).resolve())
 
     def _resolve_command(self, command: str) -> str:
         """Resolve a relative command path (``./bin/server``) against the file's folder.
@@ -386,7 +405,7 @@ class SuperAgentLoader:
         if "/" not in command and "\\" not in command:
             return command
         path = Path(command).expanduser()
-        return str(path if path.is_absolute() else (self.file_path.parent / path).resolve())
+        return str(path if _is_rooted(path) else (self.file_path.parent / path).resolve())
 
     def to_model_string(self) -> str:
         """Convert model configuration to LangChain init string.
