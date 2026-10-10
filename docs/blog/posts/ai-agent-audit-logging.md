@@ -88,7 +88,7 @@ async def main():
 asyncio.run(main())
 ```
 
-The `hmac_secret` resolves in a defined order: the constructor argument first, then the `PROMPTISE_AUDIT_SECRET` environment variable, and only if neither is set does it fall back to a random per-process secret (with a warning, because a random secret can't verify the chain across restarts). In production, set `PROMPTISE_AUDIT_SECRET` from your secrets manager so the same key verifies logs from every instance.
+The `hmac_secret` resolves in a defined order: the constructor argument first, then the `PROMPTISE_AUDIT_SECRET` environment variable, and if neither is set, a signed log file refuses to start (`ValueError`), because a random per-process secret would leave a file nobody can verify. Only the in-memory chain, without `log_path`, falls back to a random secret, with a warning. In production, set `PROMPTISE_AUDIT_SECRET` from your secrets manager so the same key verifies logs from every instance.
 
 You'll usually add `AuditMiddleware` near the top of the chain so it captures *everything*, including calls that later get rejected by auth or a guard. The [Production Features](../../mcp/server/production-features.md) page shows the recommended middleware ordering — audit logging sits just under the dashboard layer, above auth and rate limiting.
 
@@ -143,7 +143,7 @@ Yes. Every entry records the tool name, `client_id`, `request_id`, status, and d
 
 ### Where do I set the HMAC secret in production?
 
-Set `PROMPTISE_AUDIT_SECRET` from your secrets manager, or pass `hmac_secret=` explicitly. Use the same key across all instances so any node's log can be verified anywhere. If you set neither, the middleware generates a random per-process secret and warns you — fine for a quick test, useless for cross-restart verification.
+Set `PROMPTISE_AUDIT_SECRET` from your secrets manager, or pass `hmac_secret=` explicitly. Use the same key across all instances so any node's log can be verified anywhere. If you set neither, a signed log file refuses to start; only an in-memory chain (no `log_path`) falls back to a random per-process secret, with a warning. Check a log file with `promptise audit verify audit.jsonl` or `verify_audit_log()`.
 
 ## Next steps
 

@@ -237,7 +237,7 @@ from promptise.mcp.server import (
 
 server = MCPServer(name="payments", auth=JWTAuth(secret="${JWT_SECRET}"))
 server.add_middleware(AuthMiddleware())
-server.add_middleware(AuditMiddleware(secret="${AUDIT_SECRET}"))  # HMAC-chained entries
+server.add_middleware(AuditMiddleware(log_path="audit.jsonl", hmac_secret="${AUDIT_SECRET}"))  # HMAC-chained entries
 server.add_middleware(RateLimitMiddleware(requests_per_minute=10))
 server.add_middleware(TimeoutMiddleware(default_timeout=30.0))
 
@@ -313,7 +313,7 @@ provider.register(server)
 | Role-based access per tool | `@server.tool(guards=[HasRole("admin")])` |
 | Rate limit | `server.add_middleware(RateLimitMiddleware(...))` |
 | Circuit breaker | `server.add_middleware(CircuitBreakerMiddleware(...))` |
-| Audit logging | `server.add_middleware(AuditMiddleware(secret="..."))` |
+| Audit logging | `server.add_middleware(AuditMiddleware(log_path="audit.jsonl", hmac_secret="..."))`; check the file with `promptise audit verify audit.jsonl` |
 | Group tools by namespace | `MCPRouter(prefix="billing")` |
 | Test without network | `TestClient(server)` |
 | Import from OpenAPI spec | `OpenAPIProvider("https://...").register(server)` |

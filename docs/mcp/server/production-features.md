@@ -22,7 +22,7 @@ server.add_middleware(AuthMiddleware(jwt))
 # Observability
 metrics = MetricsCollector()
 server.add_middleware(MetricsMiddleware(metrics))
-server.add_middleware(AuditMiddleware(log_path="audit.jsonl", signed=True))
+server.add_middleware(AuditMiddleware(log_path="audit.jsonl", signed=True))  # key: PROMPTISE_AUDIT_SECRET
 
 # Protection
 server.add_middleware(LoggingMiddleware())
@@ -76,7 +76,7 @@ For production servers, apply middleware in this order (outermost to innermost):
 ```python
 # 1. Dashboard (auto-inserted when dashboard=True)
 # 2. Audit logging — capture everything
-server.add_middleware(AuditMiddleware(log_path="audit.jsonl"))
+server.add_middleware(AuditMiddleware(log_path="audit.jsonl"))  # key: PROMPTISE_AUDIT_SECRET
 # 3. Webhooks — alert on errors
 server.add_middleware(WebhookMiddleware(url="https://hooks.slack.com/..."))
 # 4. Circuit breaker — fail fast for broken dependencies

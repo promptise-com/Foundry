@@ -36,11 +36,13 @@ app = typer.Typer(no_args_is_help=True, add_completion=False)
 console = Console()
 
 # Mount runtime sub-app
+from .audit_cli import audit_app
 from .models_cli import models_app
 from .runtime.cli import runtime_app
 
 app.add_typer(runtime_app, name="runtime")
 app.add_typer(models_app, name="models")
+app.add_typer(audit_app, name="audit")
 
 
 @app.callback(invoke_without_command=True)

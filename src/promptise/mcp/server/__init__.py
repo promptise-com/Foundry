@@ -23,6 +23,7 @@ from ._approval_gate import (
     PendingApprover,
 )
 from ._audit import AuditMiddleware
+from ._audit_verify import AuditIssue, AuditVerification, verify_audit_log
 from ._auth import (
     APIKeyAuth,
     AsymmetricJWTAuth,
@@ -262,6 +263,9 @@ __all__ = [
     "CircuitState",
     # Audit logging
     "AuditMiddleware",
+    "verify_audit_log",
+    "AuditVerification",
+    "AuditIssue",
     # Webhooks
     "WebhookMiddleware",
     # Batch tool calls

@@ -1,6 +1,6 @@
 # CLI Reference
 
-The `promptise` CLI provides commands for listing tools, running interactive agent sessions, serving an MCP server from a module (`serve`), turning an existing API into an MCP server (`mcpcast`), checking model providers (`models`), and managing runtime processes.
+The `promptise` CLI provides commands for listing tools, running interactive agent sessions, serving an MCP server from a module (`serve`), turning an existing API into an MCP server (`mcpcast`), checking model providers (`models`), verifying audit logs (`audit verify`), and managing runtime processes.
 
 ```bash
 promptise --version
@@ -356,6 +356,40 @@ export OPENAI_API_VERSION=2024-10-21
 ```
 
 The same checks run inside `build_agent()`: a string that `models check` reports as not usable raises a `ModelSetupError` with the same text instead of a provider stack trace. See [Model Setup](../getting-started/model-setup.md) for every provider and the [Models API reference](../api/models.md) for `resolve_model()` / `check_model()`.
+
+---
+
+## `promptise audit verify` -- Audit Log Integrity
+
+Checks the HMAC chain of a log file written by [`AuditMiddleware`](../mcp/server/observability.md#verifying-a-log-file) and names the line of the first break and the kind of change: an entry modified, deleted, inserted, duplicated or reordered, or a line that is not JSON.
+
+```bash
+# Key from PROMPTISE_AUDIT_SECRET
+promptise audit verify audit.jsonl
+
+# Key from another variable; repeat --key-env after a key rotation that kept the file
+promptise audit verify audit.jsonl --key-env AUDIT_KEY --key-env AUDIT_KEY_OLD
+
+# Files a log rotator moved while the server ran: one chain, oldest first
+promptise audit verify audit.1.jsonl audit.jsonl
+
+# Fail if a hash you recorded earlier is gone (entries cut from the end); JSON report
+promptise audit verify audit.jsonl --anchor <last_hash> --json
+```
+
+### Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `FILES...` | -- | One or more log files, verified as one chain in order |
+| `--key-env VAR` | `PROMPTISE_AUDIT_SECRET` | Environment variable holding the key. Repeatable: each entry must verify with one of the keys |
+| `--anchor HASH` | -- | An entry `hmac` recorded earlier (the `last_hash` a previous run printed). Fails if it is no longer in the log |
+| `--strict` | off | Also fail on warnings: a truncated last line, a crash fragment, a chain reset |
+| `--json` | off | Print the report (`AuditVerification.to_dict()`) as JSON |
+
+The key is read only from the environment, never from the command line, and is never printed. A last line cut off by a crash (no trailing newline) is a warning, not tampering. On success, the command prints the entry count, the restarts the chain continued across, and `last_hash`.
+
+**Exit codes.** `0` when the log is intact, `1` when it was tampered with or the key is wrong (also on warnings with `--strict`), and `2` when a file can't be read or the key variable isn't set.
 
 ---
 
