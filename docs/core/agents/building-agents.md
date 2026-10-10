@@ -77,11 +77,12 @@ agent = await build_agent(
 | `servers` | `Mapping[str, ServerSpec]` | **required** | Named MCP server connections. See [Server Configuration](server-specs.md). |
 | `model` | `str \| BaseChatModel \| Runnable` | **required** | LangChain model string (e.g. `"openai:gpt-5-mini"`), a chat model instance, or any Runnable. |
 | `instructions` | `str \| Prompt \| PromptSuite \| None` | Built-in prompt | System prompt. Accepts a plain string, a `Prompt`, or a `PromptSuite`. |
-| `trace_tools` | `bool` | `False` | Print each tool invocation and result to stdout. |
+| `trace_tools` | `bool` | `False` | Print each tool invocation and result to stdout. Covers MCP, cross-agent, sandbox and `extra_tools` tools. |
 | `observe` | `bool \| ObservabilityConfig \| None` | `None` | Enable observability. Pass `True` for defaults or an `ObservabilityConfig` for full control. |
 | `memory` | `MemoryProvider \| dict \| None` | `None` | Memory backend. Automatically searches and injects relevant context before each invocation. |
 | `memory_auto_store` | `bool` | `False` | When `True`, automatically stores each user/assistant exchange in memory. |
-| `sandbox` | `bool \| dict \| None` | `None` | Enable sandboxed code execution. `True` uses defaults; a dict provides custom config. |
+| `sandbox` | `bool \| dict \| SandboxConfig \| None` | `None` | Enable sandboxed code execution. `True` uses defaults; a dict provides custom config (unknown keys raise; the network is `"none"` unless set). Raises if the sandbox cannot be started. See [Sandbox](../sandbox.md). |
+| `code_action` | `dict \| CodeActionConfig \| None` | `None` | Only with `agent_pattern="code-action"`: `exec_timeout` (default 120), `max_repairs` (default 1), `max_tool_calls` (default 50). |
 | `observer` | `Any \| None` | `None` | Pass an existing `ObservabilityCollector` to reuse across multiple agents. Mutually exclusive with `observe`. |
 | `observer_agent_id` | `str \| None` | `None` | Agent identifier for the shared observer's timeline entries. |
 | `cross_agents` | `Mapping[str, CrossAgent] \| None` | `None` | Peer agents exposed as `ask_agent_<name>` tools. See [Cross-Agent Delegation](cross-agent.md). |

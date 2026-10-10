@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import logging
 import time
@@ -14,6 +15,7 @@ from typing import Any, cast
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
+from pydantic import PrivateAttr
 
 from promptise.engine import PromptGraph, PromptGraphEngine
 
@@ -1767,6 +1769,65 @@ def _extract_response_text(output: Any) -> str:
     return str(output)
 
 
+class _TracedTool(BaseTool):
+    """Fires the agent's tool callbacks around a tool that is not from MCP.
+
+    MCP-discovered tools report to ``trace_tools`` / ``observer`` from inside
+    the MCP adapter. Cross-agent, sandbox and ``extra_tools`` are wrapped in
+    this class so they report the same way. Transparent to the LLM: same
+    name, description and schema as the inner tool.
+    """
+
+    _inner: BaseTool = PrivateAttr()
+    _on_before: Any = PrivateAttr()
+    _on_after: Any = PrivateAttr()
+    _on_error: Any = PrivateAttr()
+
+    def __init__(
+        self,
+        inner: BaseTool,
+        on_before: Any,
+        on_after: Any,
+        on_error: Any,
+    ) -> None:
+        super().__init__(
+            name=inner.name,
+            description=inner.description,
+            args_schema=getattr(inner, "args_schema", None),
+            return_direct=inner.return_direct,
+        )
+        self._inner = inner
+        self._on_before = on_before
+        self._on_after = on_after
+        self._on_error = on_error
+
+    async def _arun(self, **kwargs: Any) -> Any:
+        with contextlib.suppress(Exception):
+            self._on_before(self.name, kwargs)
+        try:
+            result = await self._inner.ainvoke(kwargs)
+        except Exception as exc:
+            with contextlib.suppress(Exception):
+                self._on_error(self.name, exc)
+            raise
+        with contextlib.suppress(Exception):
+            self._on_after(self.name, result)
+        return result
+
+    def _run(self, **kwargs: Any) -> Any:
+        with contextlib.suppress(Exception):
+            self._on_before(self.name, kwargs)
+        try:
+            result = self._inner.invoke(kwargs)
+        except Exception as exc:
+            with contextlib.suppress(Exception):
+                self._on_error(self.name, exc)
+            raise
+        with contextlib.suppress(Exception):
+            self._on_after(self.name, result)
+        return result
+
+
 def _normalize_model(model: ModelLike) -> Runnable[Any, Any]:
     """Normalize the supplied model into a Runnable.
 
@@ -1816,6 +1877,7 @@ async def build_agent(
     graph_blocks: list[Any] | None = None,
     node_pool: list[Any] | None = None,
     max_agent_iterations: int = 25,
+    code_action: Any | None = None,
 ) -> PromptiseAgent:
     """Build an MCP-first agent and return a :class:`PromptiseAgent`.
 
@@ -1843,7 +1905,8 @@ async def build_agent(
             so the server can authenticate and attribute the calling
             agent. The identity is exposed as
             :attr:`PromptiseAgent.identity`.
-        trace_tools: Print each tool invocation and result to stdout.
+        trace_tools: Print each tool invocation and result to stdout. Covers
+            MCP tools, cross-agent tools, sandbox tools and ``extra_tools``.
         cross_agents: Optional mapping of peer name → CrossAgent.  Each
             peer is exposed as an ``ask_agent_<name>`` tool.
         memory: Optional :class:`~promptise.memory.MemoryProvider`.
@@ -1853,8 +1916,14 @@ async def build_agent(
         memory_auto_store: When ``True`` and *memory* is provided,
             automatically store each exchange in long-term memory after
             invocation.  Defaults to ``False``.
-        sandbox: Optional sandbox configuration (``True``, dict, or
-            ``None``).
+        sandbox: Optional sandbox configuration (``True``, a dict of
+            :class:`~promptise.sandbox.SandboxConfig` fields, a
+            ``SandboxConfig``, or ``None``). Unknown keys raise. The network
+            defaults to ``"none"``. When the sandbox cannot be started (no
+            ``docker`` package, Docker not running, ``network="restricted"``
+            not enforceable) ``build_agent`` raises instead of building an
+            agent without it. ``agent_pattern="code-action"`` enables a
+            sandbox automatically.
         observer: Optional :class:`ObservabilityCollector` to reuse.
         observer_agent_id: Agent identifier for tool-event recording.
         observe: Plug-and-play observability.  Can be:
@@ -1874,6 +1943,12 @@ async def build_agent(
         conversation_max_messages: Maximum messages to keep per session
             when using the conversation store.  ``0`` = unlimited.
             Oldest messages are dropped when the limit is reached.
+
+        code_action: Options for ``agent_pattern="code-action"``: a
+            :class:`~promptise.engine.CodeActionConfig` or a dict with
+            ``exec_timeout`` (seconds the program may run, default 120),
+            ``max_repairs`` (default 1) and ``max_tool_calls`` (default 50).
+            Raises ``ValueError`` with any other pattern.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -2072,6 +2147,10 @@ async def build_agent(
                 f"Failed to initialize agent because tool discovery failed. Details: {exc}"
             ) from exc
 
+    # Tools added from here on are not MCP tools; they are wrapped for
+    # trace_tools / observer further down.
+    _mcp_tool_count = len(tools)
+
     # Attach cross-agent tools if provided
     if cross_agents:
         tools.extend(make_cross_agent_tools(cross_agents, caller_identity=identity))
@@ -2085,18 +2164,44 @@ async def build_agent(
         else (pattern if isinstance(pattern, str) else None)
     )
     _is_code_action = _ca_name == "code-action"
+
+    async def _close_mcp() -> None:
+        if _promptise_multi is not None:
+            try:
+                await _promptise_multi.__aexit__(None, None, None)
+            except Exception:
+                logger.debug("MCP multi-client cleanup error", exc_info=True)
+
+    _code_action_cfg = None
+    if code_action is not None:
+        from .engine.code_action import CodeActionConfig
+
+        try:
+            if not _is_code_action:
+                raise ValueError("code_action= is only valid with agent_pattern='code-action'")
+            _code_action_cfg = (
+                code_action
+                if isinstance(code_action, CodeActionConfig)
+                else CodeActionConfig.model_validate(dict(code_action))
+            )
+        except ValueError:
+            await _close_mcp()
+            raise
     if _is_code_action and not sandbox:
         sandbox = {"network": "none"}
 
-    # Attach sandbox tools if enabled
+    # Attach sandbox tools if enabled. There is no fallback: an agent that
+    # asked for a sandbox and cannot get one is not built.
     sandbox_manager = None
     sandbox_session = None
     if sandbox:
-        try:
-            from .sandbox import SandboxManager
-            from .sandbox.tools import create_sandbox_tools
+        from .sandbox import SandboxManager
+        from .sandbox.tools import create_sandbox_tools
 
-            print("[promptise] Initializing sandbox environment...")
+        print("[promptise] Initializing sandbox environment...")
+        try:
+            # Raises on an invalid config (unknown keys, bad values) or a
+            # missing ``docker`` package.
             sandbox_manager = SandboxManager(sandbox)
             if _is_code_action:
                 # code-action creates a fresh session per run and does NOT expose
@@ -2110,32 +2215,28 @@ async def build_agent(
                 )
             else:
                 sandbox_session = await sandbox_manager.create_session()
-                # Nested try to ensure cleanup if tool creation fails
                 try:
                     sandbox_tools = create_sandbox_tools(sandbox_session)
-                    tools.extend(sandbox_tools)
-                    print(
-                        f"[promptise] Sandbox ready: {len(sandbox_tools)} sandbox tools added "
-                        f"(backend: {sandbox_manager.config.backend})"
-                    )
-                except Exception as tool_error:
-                    # Clean up session before re-raising
-                    if sandbox_session:
-                        await sandbox_session.cleanup()
-                    raise tool_error
-
+                except Exception:
+                    await sandbox_session.cleanup()
+                    raise
+                tools.extend(sandbox_tools)
+                print(
+                    f"[promptise] Sandbox ready: {len(sandbox_tools)} sandbox tools added "
+                    f"(backend: {sandbox_manager.config.backend})"
+                )
+        except ValueError:
+            await _close_mcp()
+            raise
         except Exception as e:
-            if _is_code_action:
-                # No silent fallback — code-action cannot run without a sandbox.
-                raise RuntimeError(
-                    "agent_pattern='code-action' requires a working Docker sandbox, "
-                    f"but it could not be initialized: {e}"
-                ) from e
-            print(f"[promptise] Warning: Failed to initialize sandbox: {e}")
-            print("[promptise] Agent will continue without sandbox capabilities.")
-            # Ensure session is cleared on failure
-            sandbox_manager = None
-            sandbox_session = None
+            await _close_mcp()
+            requested_by = (
+                "agent_pattern='code-action'" if _is_code_action else "sandbox=" + repr(sandbox)
+            )
+            raise RuntimeError(
+                f"{requested_by} requires a working Docker sandbox, "
+                f"but it could not be initialized: {e}"
+            ) from e
 
     # code-action: a factory that yields a fresh sandbox session per run.
     _code_action_factory: Any | None = None
@@ -2167,6 +2268,13 @@ async def build_agent(
     # Append extra tools (meta-tools, custom tools from runtime open mode)
     if extra_tools:
         tools.extend(extra_tools)
+
+    # MCP tools report to trace_tools / observer from the MCP adapter; give
+    # every other tool the same callbacks.
+    if (trace_tools or _obs is not None) and len(tools) > _mcp_tool_count:
+        tools[_mcp_tool_count:] = [
+            _TracedTool(t, _before, _after, _error) for t in tools[_mcp_tool_count:]
+        ]
 
     if not tools:
         print("[promptise] No tools discovered from MCP servers; agent will run without tools.")
@@ -2231,6 +2339,7 @@ async def build_agent(
                     system_prompt=sys_prompt,
                     blocks=graph_blocks,
                     sandbox_factory=_code_action_factory,
+                    **(_code_action_cfg.model_dump() if _code_action_cfg else {}),
                 ),
                 "verify": lambda: PromptGraph.verify(
                     tools=graph_tools, system_prompt=sys_prompt, blocks=graph_blocks

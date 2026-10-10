@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- **Sandbox: a custom sandbox config no longer re-opens the network, and `network="restricted"` fails closed** -- the `SandboxConfig` default was `network="restricted"`, and `agent_pattern="code-action"` only set `network="none"` when no `sandbox=` was given, so `sandbox={"memory_limit": "512M"}` put generated code on the bridge network. Restricted mode relied on `iptables`, which the default `python:3.11-slim` image does not ship; the sandbox printed a warning and ran with an open network, so generated code could reach the internet. The default is now `network="none"` for every sandbox (`sandbox=True`, a dict, a `SandboxConfig`, a `.superagent` `sandbox:` section and code-action) unless `network` is set explicitly. `"restricted"` installs its egress filter (loopback, DNS, TCP 80/443; IPv4 and IPv6 through `iptables` and `ip6tables`) in a privileged exec before any sandboxed code runs, and if that fails for any reason the container is removed and the session refuses to start with a message that says how to fix it.
+- **Sandbox: a timed-out command is now killed** -- `execute(timeout=...)` returned after the timeout but left the process running, so a `while True:` kept burning the container's CPU and memory until the session ended. Every exec now carries a marker; on timeout its processes and all their descendants are frozen and killed inside the container, and if that is impossible (for example a fork bomb has used up the process limit) the container is restarted, re-applying the restricted-network filter or stopping the container if the filter cannot be applied. The result says which happened.
+- **Sandbox: file paths could escape the allowed directories** -- a relative path such as `../etc/passwd` was joined onto `/workspace` after normalisation and accepted, and a prefix check let `/workspace2` or `/tmpfoo` through. Paths are now joined first, normalised, and must equal or sit below `/workspace`, `/tmp` or `/home`.
+
+### Changed
+
+- **Sandbox: fails closed instead of degrading** -- `build_agent(sandbox=...)` without code-action used to print a warning and build the agent *without* sandbox tools when the sandbox could not start (no `docker` package, Docker not running, gVisor missing); it now raises `RuntimeError` naming the cause, like code-action already did. Leave `sandbox` unset (or `None`/`False`) to run without one. Unknown sandbox keys raise a `ValidationError` with a hint instead of being ignored (`network_mode` → use `network`, `tools` → pick an `image`, typos get a "did you mean"), in `build_agent`, `SandboxManager`, `SandboxConfig` and `.superagent` files. `backend="gvisor"` without `runsc` now reports that the runtime is not registered (listing the available ones) instead of "ensure Docker is installed and running".
+- **Sandbox: the configuration matches what is enforced** -- new `pids_limit` (default 256) is applied to the container. `disk_limit` is now applied as the size of the writable workspace tmpfs (default `"1G"`, was an unused `"10G"`), and `/tmp` and `/var/tmp` never exceed it. The `tools` option, and the internal `security_opt` and `cap_drop` fields, were never applied and are removed (passing them now raises). The unused `DEFAULT_APPARMOR_PROFILE` and the check for it are gone, and the docs no longer describe a seccomp whitelist or a custom AppArmor profile: the sandbox uses Docker's default seccomp profile and, on AppArmor hosts, Docker's default AppArmor profile, plus dropped capabilities, `no-new-privileges` and a read-only root filesystem. `HOME` defaults to the workspace for the container and every exec.
+- **Packaging: `promptise[sandbox]` extra** -- the Docker client (`docker>=7.0.0`) is now installable on its own with `pip install "promptise[sandbox]"` (still included in `promptise[all]`); the error for a missing client says so.
+
+### Added
+
+- **`build_agent(code_action=...)`** -- `exec_timeout`, `max_repairs` and `max_tool_calls` of the code-action pattern are now settable from `build_agent` as a dict or a `promptise.engine.CodeActionConfig` (unknown keys raise; using it with another pattern raises).
+- **`trace_tools` covers every tool** -- cross-agent tools, sandbox tools and `extra_tools` now report to `trace_tools` and the observability collector like MCP tools do.
+
+### Fixed
+
+- **Sandbox: `write_file` and the `sandbox_write_file` tool always failed** -- they used Docker's archive API, which cannot write to a container with a read-only root filesystem ("rootfs is marked read-only"). Files are now written from inside the container in base64 slices (safe for any content, any size), to a temporary name that is renamed into place, creating missing parent directories.
+- **Sandbox: `install_package` failed on the read-only root filesystem** -- `pip` fell back to a user install under the read-only `/root/.local`. `HOME` now points at the workspace, so `pip` installs to `/workspace/.local`; `npm` installs into `/workspace/node_modules` (no more `-g`), `cargo` and `go` into the workspace too. When an install fails with `network="none"`, the result explains that the sandbox has no network.
+- **Sandbox: `allow_sudo=True` had no effect** -- it removed `SETUID`/`SETGID` from a drop list that names `CAP_SETUID`/`CAP_SETGID`. It now keeps exactly those two capabilities.
+- **Code-action: earlier turns and system context were ignored** -- the program-writing prompt only saw the latest question, dropping conversation history, memory context and conversation-flow system prompts. They are now included.
+
 ## 1.2.1 — 2026-10-10
 
 ### Fixed
