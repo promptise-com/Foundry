@@ -4,6 +4,24 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## v1.3.0 — unreleased
+
+### Added
+- **MCP client: `bearer_token_provider` for short-lived credentials** -- `MCPClient(bearer_token_provider=...)` takes a callable (sync or async) that returns the current token and is asked on every HTTP request, instead of a fixed `bearer_token`. When the server answers `401`, the provider is called with `force_refresh=True` and the request is re-sent once with the new token (concurrent rejections share one refresh). A session opened with a token the provider has since renewed is reopened before the next call; calls still running on the old session finish there and are never re-sent. HTTP and SSE only. New `MCPCredentialError` (a `MCPClientError`) when the provider cannot supply a token.
+- **Identity: `get_credential(audience, force_refresh=True)`** -- on `AgentIdentity` and every provider, skips the cached credential, for when a resource rejected it before its `exp` (rotated or revoked key, clock skew). Active providers (`from_entra`, `from_aws` STS, `from_gcp`, `from_spiffe`) now know their default audience (`provider.default_audience`), so `get_credential()` and `get_credential(<default audience>)` share one cached credential. `JwksAuth.from_discovery()` accepts `leeway` like the constructor.
+
+### Fixed
+- **Agents with an identity stopped working once the credential expired** -- `build_agent(identity=...)` fetched the identity's credential once and sent it on every request for the agent's lifetime. After it expired the server answered `401`, the MCP SDK tore the transport down, and the tool call waiting for its response never returned. The credential is now requested for each server's `audience` on every request, renewed before it expires (the session is reopened with it), refreshed once on `401`, and a call the server still rejects fails at once with `MCPConnectionRejectedError` (`mid_session=True`) instead of hanging.
+- **MCP client: a call hung when the server rejected an expired static `bearer_token`** -- the call now fails at once with `MCPConnectionRejectedError(mid_session=True)`, whose message suggests `bearer_token_provider`; a session that ends while a call is in flight fails that call instead of leaving it waiting. `MCPMultiClient` names the server in the error and keeps routing the server's tools.
+- **Identity: a credential living less than twice the refresh buffer (two minutes) was re-acquired on every request** -- the buffer is now capped at half the credential's lifetime. Projected-token files and OIDC tokens, whose audience is fixed, are cached once instead of once per requested audience.
+- **Identity: `AgentIdentity.auto()` ignored `$PROMPTISE_IDENTITY_TOKEN_FILE` on AWS** -- the file that selects the projected-token mode of `from_aws` was not an AWS marker, so a pod with only that variable failed detection. It is now detected (projected mode); IRSA's `$AWS_WEB_IDENTITY_TOKEN_FILE` still selects STS mode, and its `sts.amazonaws.com` token is never presented.
+- **`JwksAuth`: an IdP outage failed every request once the cached keys aged out** -- the cached keys now keep verifying while the JWKS endpoint is unreachable (retried every 30 seconds), and a token signed with a newly rotated key is accepted on first use.
+
+### Security
+- **Identity credentials fail closed** -- if an agent's identity cannot acquire a credential (the IdP is unreachable), the MCP request is not sent and the call fails with `MCPCredentialError`; it used to go out without a credential. That includes the connection `build_agent()` opens, which used to be made unauthenticated when the IdP was down. The operator is warned once per outage.
+- **`JwksAuth`: made-up key ids could turn every request into a JWKS fetch** -- a token with an unknown `kid` triggers at most one re-fetch per `kid` per minute and one per second overall.
+- **Identity: no credential in error messages** -- the Entra IMDS error for a non-JSON answer no longer echoes the body (it could be a bare token); provider failures surface as `MCPCredentialError` naming only the exception type.
+
 ## v1.2.1 — 2026-10-10
 
 ### Fixed

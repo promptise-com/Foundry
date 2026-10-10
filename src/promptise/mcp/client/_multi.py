@@ -148,6 +148,11 @@ class MCPMultiClient:
         client = self._clients[server_name]
         try:
             return await client.call_tool(name, arguments)
+        except MCPConnectionRejectedError as exc:
+            # The server is up and still has the tool; it refused the
+            # credential. Keep the mapping so a later call (with a renewed
+            # credential) still routes, and name the server in the error.
+            raise exc.for_server(server_name) from exc.__cause__
         except MCPClientError:
             # Invalidate stale tool mapping on connection failure —
             # the server may have restarted with different tools

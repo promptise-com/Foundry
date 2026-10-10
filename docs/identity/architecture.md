@@ -54,7 +54,15 @@ it nears expiry:
 
 - The expiry is read from the JWT's standard `exp` claim
   (`decode_jwt_expiry`); a credential is re-acquired once it is within
-  `CREDENTIAL_REFRESH_BUFFER_SECONDS` (60s) of expiry.
+  `CREDENTIAL_REFRESH_BUFFER_SECONDS` (60s) of expiry — or within half
+  its lifetime, for a credential that lives less than two minutes.
+- Asking for no audience and asking for the provider's default audience
+  share one cached credential. Passive sources (projected-token files,
+  OIDC), whose audience is fixed, keep a single entry for every audience.
+- `get_credential(audience, force_refresh=True)` skips the cache, for a
+  credential a resource rejected before its `exp` (a revoked or rotated
+  key, clock skew). `build_agent` does this once when an MCP server
+  answers `401`.
 - A credential with no decodable `exp` — an opaque token, or a
   file-projected token rotated in place by the platform — is treated as
   always-stale and re-acquired on every use, so rotation is always
@@ -115,8 +123,11 @@ The first match wins; if none match, `auto()` raises
 A verifiable identity is presented to MCP servers as a bearer credential
 **automatically**: when you pass `identity=` to `build_agent`, every MCP
 server that has no bearer of its own receives the agent's credential as
-its `bearer_token` (an explicit per-server bearer always wins; the
-credential is resolved at build time).
+its `bearer_token` (an explicit per-server bearer always wins). The
+credential is requested per request, not once at build time: it is renewed
+before it expires (the session is reopened with it), refreshed once when a
+server answers `401`, and a request for which no credential can be acquired
+fails with `MCPCredentialError` rather than being sent unauthenticated.
 
 Each server's credential is scoped to that server's
 [`HTTPServerSpec.audience`](../core/config.md#httpserverspec) — so a

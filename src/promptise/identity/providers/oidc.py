@@ -82,6 +82,8 @@ class OidcCallableProvider(CallableTokenProvider):
             request is ignored (this is a passive provider).
     """
 
+    _audience_scoped = False
+
     def __init__(
         self,
         *,
