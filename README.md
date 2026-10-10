@@ -24,9 +24,11 @@
 
 ## What Promptise is
 
-Most AI agents never make it past the demo: they are unpredictable, unsafe and impossible to audit. Getting one into production usually means stitching together a model SDK, a tool layer, a vector store, auth, guardrails, a job runner and logging, then keeping all of it alive yourself.
+**The framework for agentic intelligence.**
 
-**Promptise Foundry is one open-source Python framework for the whole agentic stack.** `build_agent()` and a decorator give you the agent and its tools. Memory, guardrails, multi-tenancy, human approval, a runtime and observability are already inside, each switched on with one argument. You build what your agent *does*; the same install that runs one agent on your laptop runs a fleet serving real customers.
+Promptise gives you everything an agentic system needs, in one place and working together from the first line: agents that think, safe ways for them to act in your systems, and a harness that keeps them running and accountable. You decide what your agent should do; Promptise takes care of everything around it.
+
+Start with one agent on your laptop and grow it into a fleet running real work, with the same framework and the same way of building all the way through. No rewrite in between, and nothing to stitch together yourself.
 
 <br/>
 
@@ -39,9 +41,9 @@ Most AI agents never make it past the demo: they are unpredictable, unsafe and i
 
 | Layer | What it does for you |
 |---|---|
-| **Agent** · *it thinks* | Agents that work through a task instead of guessing: they plan, use tools, check their own output and answer, with prompts managed like code. |
-| **Interface** · *it acts* | Safe access to your systems: MCP servers with authentication and audit built in, a client for anyone else's, and MCPcast for the API you already have. |
-| **Harness** · *it operates* | What keeps agents running and accountable: schedules and crash recovery, budgets and health checks, identity and a tamper-evident audit trail. |
+| **Agent** · *it thinks* | Agents that work through a task step by step, check their own work and get it right. |
+| **Interface** · *it acts* | Safe access to your tools, your data and the systems you already run. |
+| **Harness** · *it operates* | Keeps your agents running around the clock, within budget, and accountable for everything they do. |
 
 <br/>
 
@@ -123,17 +125,19 @@ What comes out is a project, not a script: an installable package, a launcher, a
 
 <br/>
 
-## Built for putting agents in front of customers
+## Built for governance and structure
 
-- **Multi-tenant, by construction.** Tag a request with a tenant, and every place data lives — [memory](https://docs.promptise.com/core/memory/), [cache](https://docs.promptise.com/core/cache/), [conversations](https://docs.promptise.com/core/conversations/), rate limits, [audit](https://docs.promptise.com/mcp/server/observability/) — stays separated per customer. Two customers who both have a user named `alice` can never see each other's data. It's a structural rule, not a filter you have to remember on every query. → [Multi-Tenant Platform guide](https://docs.promptise.com/guides/secure-multi-tenant-platform/)
+For people and teams who need their agentic systems to be accountable: who did what, on whose behalf, within which limits. These are part of the framework, not something you add later.
+
+- **Multi-tenant, by construction.** Tag a request with a tenant, and every place data lives — [memory](https://docs.promptise.com/core/memory/), [cache](https://docs.promptise.com/core/cache/), [conversations](https://docs.promptise.com/core/conversations/), rate limits, [audit](https://docs.promptise.com/mcp/server/observability/) — stays separated per tenant. Two tenants who both have a user named `alice` can never see each other's data. It's a structural rule, not a filter you have to remember on every query. → [Multi-Tenant Platform guide](https://docs.promptise.com/guides/secure-multi-tenant-platform/)
 
 - **Human approval, enforced on the server.** Mark a tool as needing sign-off and the approval is required no matter which app calls it — including one you didn't write. Denies on timeout, rejects self-approval, records who approved what. → [Approval Gates](https://docs.promptise.com/mcp/server/approval-gates/)
 
 - **A real identity for each agent.** Agents authenticate as themselves to the APIs they call, backed by Microsoft Entra ID, AWS, Google Cloud, SPIFFE, or plain OIDC — so you can retire the shared API key, and every action traces to the person it acted for, even across agents calling agents. → [Agent Identity](https://docs.promptise.com/identity/overview/)
 
-- **Audit you can hand to a reviewer.** Every action is written to a tamper-evident chain, tied to the tenant and the user. Delete one customer's data with a single call when they ask. → [Auth & Security](https://docs.promptise.com/mcp/server/auth-security/)
+- **Audit you can hand to a reviewer.** Every action is written to a tamper-evident chain, tied to the tenant and the user. Delete one tenant's data with a single call when they ask. → [Auth & Security](https://docs.promptise.com/mcp/server/auth-security/)
 
-- **Runs offline.** The security models, embeddings, and vector store can all run locally — so the whole stack works air-gapped, for on-prem or regulated customers who can't send data out. → [Guardrails](https://docs.promptise.com/core/guardrails/) · [Model Setup](https://docs.promptise.com/getting-started/model-setup/)
+- **Runs offline.** The security models, embeddings, and vector store can all run locally — so the whole stack works air-gapped, for on-premises and regulated environments where data can't leave. → [Guardrails](https://docs.promptise.com/core/guardrails/) · [Model Setup](https://docs.promptise.com/getting-started/model-setup/)
 
 <br/>
 
