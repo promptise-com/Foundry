@@ -72,14 +72,16 @@ class TestCircuitState:
         assert cs.failures == 0
 
     def test_recovery_after_timeout(self):
-        cs = _CircuitState(model_id="test", failure_threshold=1, recovery_timeout=0.01)
+        # Windows' monotonic clock ticks in ~15 ms steps, so a 10 ms timeout can
+        # read as elapsed on the very next line; keep both well above a tick.
+        cs = _CircuitState(model_id="test", failure_threshold=1, recovery_timeout=0.2)
         cs.record_failure()
         assert cs.state == "open"
         assert cs.should_skip() is True
         # Wait for recovery
         import time
 
-        time.sleep(0.02)
+        time.sleep(0.3)
         assert cs.should_skip() is False
         assert cs.state == "half_open"
 
