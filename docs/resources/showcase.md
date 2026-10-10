@@ -536,10 +536,8 @@ Your agent handles conversations that grow to 200+ messages. Without management,
 from promptise import build_agent, ContextEngine
 
 engine = ContextEngine(model_context_window=128_000, response_reserve=4_000)
-engine.register_layer("identity", priority=10, required=True)
-engine.register_layer("rules", priority=9, required=True)
-engine.register_layer("conversation", priority=1, trim_strategy="conversation")
-engine.register_layer("user_message", priority=10, required=True)
+# identity, user_message and conversation (oldest pairs trimmed first) are built in.
+engine.add_layer("rules", priority=9, required=True, content="Never share account data.")
 
 agent = await build_agent(
     model="openai:gpt-5-mini",

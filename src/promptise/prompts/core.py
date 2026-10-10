@@ -44,7 +44,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, get_type_hints
+from typing import Any, cast, get_type_hints
 
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -145,7 +145,7 @@ def _parse_output(raw: str, return_type: type | None) -> Any:
 
         if isinstance(return_type, type) and issubclass(return_type, BaseModel):
             parsed = json.loads(_extract_json(raw))
-            return return_type.model_validate(parsed)
+            return cast(type[BaseModel], return_type).model_validate(parsed)
     except ImportError:
         pass
 
@@ -173,7 +173,7 @@ def _build_schema_instructions(return_type: type | None) -> str:
         from pydantic import BaseModel
 
         if isinstance(return_type, type) and issubclass(return_type, BaseModel):
-            schema = return_type.model_json_schema()
+            schema = cast(type[BaseModel], return_type).model_json_schema()
             schema_lines.append(f"```json\n{json.dumps(schema, indent=2)}\n```")
             return "\n".join(schema_lines)
     except ImportError:

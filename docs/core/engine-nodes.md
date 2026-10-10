@@ -281,7 +281,8 @@ PromptNode("analyze",
 | `output_key` | `str` | `None` | Write `result.output` to `state.context[output_key]` after execution |
 | `inherit_context_from` | `str` | `None` | Inject the output of another node (reads `state.context["{name}_output"]`) |
 | `context_scope` | `str` | `"full"` | Context lifecycle mode: `"auto"` (full→ledger automatically; the ReAct default), `"full"` (whole transcript), `"scoped"` (bounded working set), or `"ledger"` (deduplicated facts ledger) — see [Context scope](#context-scope) |
-| `auto_ledger_after` | `int` | `6` | For `context_scope="auto"`: number of accumulated tool results after which the node switches from full transcript to the bounded ledger |
+| `auto_ledger_after` | `int` | `None` | For `context_scope="auto"`: number of accumulated tool results after which the node switches from the full transcript to the compacted view (default 6, or the agent's `context_compaction` setting) |
+| `compaction` | `ContextCompaction \| bool \| int` | `None` | This node's [compaction settings](../guides/context-lifecycle.md#tune-it-or-turn-it-off); wins over `build_agent(context_compaction=...)`. `False` keeps an `"auto"` node on the full transcript |
 | `preprocessor` | `Callable` | `None` | Runs before the LLM call: `fn(state, config) -> None` |
 | `postprocessor` | `Callable` | `None` | Runs after: `fn(output, state, config) -> Any` |
 | `include_observations` | `bool` | `True` | Auto-inject recent tool results from `state.observations` |
@@ -329,8 +330,8 @@ no pattern to choose. The four modes:
 |------|--------------------|------------|
 | `"auto"` *(ReAct default)* | `"full"` while the tool loop is short, then `"ledger"` once it grows past `auto_ledger_after` (default 6) tool results | The smart default — simple tasks unchanged, deep tool loops bounded automatically |
 | `"full"` | The whole accumulated transcript | When every prior message must always be visible |
-| `"scoped"` | The node's system prompt (carrying any inherited/injected distilled state) + the original task + **only this node's own in-progress tool loop** | Multi-stage reasoning graphs — drops the verbose intermediate messages produced by *other* stages so tokens don't grow across stages |
-| `"ledger"` | System prompt + original task + the **most recent** assistant turn and its tool results + a compact **deduplicated "facts gathered" ledger** | Long single-node tool loops over an interconnected dataset, where the model otherwise re-queries the same facts dozens of times |
+| `"scoped"` | The node's system prompt (carrying any inherited/injected distilled state) + the input's system messages + the **current** user question + **only this node's own in-progress tool loop** | Multi-stage reasoning graphs — drops the verbose intermediate messages produced by *other* stages so tokens don't grow across stages |
+| `"ledger"` | System prompt + the input's system messages + a short note on earlier conversation + the **current** user question + the **most recent** assistant turn and its tool results + a compact **deduplicated "facts gathered" ledger** of older results | Long single-node tool loops over an interconnected dataset, where the model otherwise re-queries the same facts dozens of times |
 
 ```python
 # Default agents already get this — no configuration needed:
@@ -352,9 +353,10 @@ PromptNode("reason", inject_tools=True, context_scope="ledger")
 
 **How `"ledger"` works:**
 
-- The ledger is built from `state.observations` — one line per `tool(args) = result`, **last value wins** per `(tool, args)` so duplicates collapse.
+- The input's system messages (yours and runtime-injected ones such as `[Context State]`) and the **current** user question are always sent. Dict messages (`{"role": "user", ...}`) are converted to LangChain messages first, so every input form works; with chat history, the question is the *last* user message and earlier turns become a short note.
+- The ledger is built from the tool calls in the transcript older than the latest exchange — one line per `tool(args) = result`, **last value wins** per `(tool, args)` so duplicates collapse. Results longer than `keep_result_chars` (2,000) are cut to an excerpt that names the call; results shown in the latest exchange are not repeated.
 - It is placed **last**, immediately before the model's turn, where it is most salient — so the model consults it instead of re-calling a tool.
-- The most recent assistant turn and its tool results are kept *in-flow* so the model doesn't lose continuity and loop.
+- The most recent assistant turn and its tool results (a whole parallel batch) are kept *in-flow* so the model doesn't lose continuity and loop.
 - Tool execution is **cache-served**: if the node requests a `(tool, args)` pair already present in `state.observations`, the cached result is returned instead of re-executing — deep tasks otherwise re-fetch identical facts repeatedly.
 
 This is the mechanism behind the [`managed` prebuilt pattern](engine-prebuilts.md#managed-context-managed-tool-loop). It is an **efficiency primitive** — it bounds token growth and removes redundant tool calls without changing the answer the model produces.
