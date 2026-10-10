@@ -156,8 +156,14 @@ def build_transport_security(
 
 
 def _log_transport_security(security: TransportSecuritySettings | None, host: str) -> None:
+    """Log the Host/Origin policy at startup.
+
+    An unvalidated non-loopback bind is logged at ``WARNING`` so it shows
+    under the default logging configuration; the policy that is on is
+    logged at ``INFO``.
+    """
     if security is None:
-        logger.info(
+        logger.warning(
             "Host/Origin validation off for non-loopback bind %s: front the server with a "
             "gateway that validates Host and Origin, or pass allowed_hosts/allowed_origins",
             host,
@@ -175,36 +181,84 @@ def _log_transport_security(security: TransportSecuritySettings | None, host: st
 # =====================================================================
 
 
+MCP_CORS_ALLOW_HEADERS: tuple[str, ...] = (
+    "Content-Type",
+    "Authorization",
+    "x-api-key",
+    "mcp-session-id",
+    "mcp-protocol-version",
+    "last-event-id",
+)
+"""Request headers a browser MCP client sends: auth, plus the Streamable
+HTTP session, protocol-version and stream-resumption headers."""
+
+MCP_CORS_EXPOSE_HEADERS: tuple[str, ...] = ("mcp-session-id",)
+"""Response headers a browser MCP client must read: the session id the
+server assigns on ``initialize``."""
+
+
 @dataclass(frozen=True)
 class CORSConfig:
     """CORS configuration for HTTP and SSE transports.
 
+    The defaults cover a browser MCP client: the preflight admits the MCP
+    request headers (:data:`MCP_CORS_ALLOW_HEADERS`) and the session id is
+    readable from the ``initialize`` response
+    (:data:`MCP_CORS_EXPOSE_HEADERS`).  No origin is allowed until you name
+    one.
+
+    CORS only decides what a browser lets the page read.  The server's
+    ``Origin`` validation is separate: pass the same origins to
+    ``allowed_origins`` on ``run()``, or the server answers the browser's
+    requests ``403``.
+
     Args:
         allow_origins: Allowed origin URLs. Use ``["*"]`` to allow all.
+            Default: none.
         allow_methods: Allowed HTTP methods.
-        allow_headers: Allowed request headers.
+        allow_headers: Allowed request headers.  When you replace the
+            default, keep ``mcp-session-id`` and ``mcp-protocol-version``
+            or the browser refuses every request after ``initialize``.
+        expose_headers: Response headers the page may read.  Keep
+            ``mcp-session-id``: without it a browser client cannot continue
+            the session it opened.
         allow_credentials: Whether to allow credentials (cookies, auth).
+            Cannot be combined with ``allow_origins=["*"]``: Starlette's
+            CORS layer would then echo *every* origin back with
+            ``Access-Control-Allow-Credentials: true``, letting any site
+            make credentialed requests and read the answers.  Name the
+            origins instead.
         max_age: Max seconds browsers may cache preflight responses.
+
+    Raises:
+        ValueError: ``"*"`` in ``allow_origins`` with
+            ``allow_credentials=True``.
 
     Example::
 
         server.run(
             transport="http",
             port=8080,
-            cors=CORSConfig(
-                allow_origins=["https://app.example.com"],
-                allow_headers=["Authorization", "x-api-key"],
-            ),
+            allowed_origins=["https://app.example.com"],
+            cors=CORSConfig(allow_origins=["https://app.example.com"]),
         )
     """
 
     allow_origins: list[str] = field(default_factory=list)
     allow_methods: list[str] = field(default_factory=lambda: ["GET", "POST", "DELETE", "OPTIONS"])
-    allow_headers: list[str] = field(
-        default_factory=lambda: ["Content-Type", "Authorization", "x-api-key"]
-    )
+    allow_headers: list[str] = field(default_factory=lambda: list(MCP_CORS_ALLOW_HEADERS))
+    expose_headers: list[str] = field(default_factory=lambda: list(MCP_CORS_EXPOSE_HEADERS))
     allow_credentials: bool = False
     max_age: int = 600
+
+    def __post_init__(self) -> None:
+        if self.allow_credentials and "*" in self.allow_origins:
+            raise ValueError(
+                'CORSConfig: allow_origins=["*"] cannot be combined with '
+                "allow_credentials=True: every origin would be echoed back with "
+                "Access-Control-Allow-Credentials, so any website could make "
+                "credentialed requests to the server. List the allowed origins explicitly."
+            )
 
 
 # =====================================================================
@@ -398,33 +452,138 @@ async def run_stdio(
 
 
 # =====================================================================
+# Shared HTTP app assembly (Streamable HTTP and SSE)
+# =====================================================================
+
+HEALTH_PATH = "/health"
+"""Liveness route: ``200`` while the process serves HTTP."""
+
+READINESS_PATH = "/health/ready"
+"""Readiness route: ``200`` when every required ``HealthCheck`` passes, else ``503``."""
+
+
+def _health_routes(health: Any) -> list[Any]:
+    """Plain HTTP probe routes for containers and Kubernetes.
+
+    A probe cannot speak MCP (a bare ``GET /mcp`` is answered ``406``), so
+    liveness and readiness are served as ordinary JSON routes.  They skip
+    the transport auth gate (probes carry no credentials) and never include
+    a failing check's exception text.
+
+    Args:
+        health: The server's :class:`~promptise.mcp.server.HealthCheck`,
+            or ``None`` (always alive and ready).
+    """
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+
+    no_store = {"cache-control": "no-store"}
+
+    async def liveness(_request: Request) -> JSONResponse:
+        body = health.liveness_report() if health is not None else {"status": "alive"}
+        return JSONResponse(body, headers=no_store)
+
+    async def readiness(_request: Request) -> JSONResponse:
+        if health is None:
+            body: dict[str, Any] = {"status": "ready", "checks": {}}
+        else:
+            body = await health.readiness_report(include_errors=False)
+        status = 200 if body["status"] == "ready" else 503
+        return JSONResponse(body, status_code=status, headers=no_store)
+
+    return [
+        Route(HEALTH_PATH, liveness, methods=["GET"]),
+        Route(READINESS_PATH, readiness, methods=["GET"]),
+    ]
+
+
+def _token_route(token_endpoint: Any) -> Any:
+    """Route for the built-in token endpoint (dev/testing auth)."""
+    from starlette.routing import Route
+
+    from ._token_endpoint import handle_token_request
+
+    class _TokenEndpointASGI:
+        """ASGI wrapper for the token endpoint."""
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            await handle_token_request(scope, receive, send, token_endpoint)
+
+    logger.info("Token endpoint enabled at %s", token_endpoint.path)
+    return Route(token_endpoint.path, endpoint=_TokenEndpointASGI(), methods=["POST"])
+
+
+def _wrap_app(
+    app: Any,
+    *,
+    cors: CORSConfig | None,
+    auth_gate: Callable[[str], bool] | None,
+    token_endpoint: Any,
+) -> Any:
+    """Apply the transport auth gate and CORS around the Starlette app.
+
+    CORS is the outermost layer: a browser's preflight never carries
+    credentials, so it must be answered before the auth gate, and a ``401``
+    from the gate needs CORS headers for the page to read it.  The gate
+    skips the token endpoint (it *issues* credentials) and the health
+    routes (probes carry none).
+    """
+    if auth_gate is not None:
+        skip_paths = {HEALTH_PATH, READINESS_PATH}
+        if token_endpoint is not None:
+            skip_paths.add(token_endpoint.path)
+        app = _AuthGateASGI(app, auth_gate, skip_paths=skip_paths)
+    if cors is not None:
+        from starlette.middleware.cors import CORSMiddleware
+
+        app = CORSMiddleware(
+            app,
+            allow_origins=cors.allow_origins,
+            allow_methods=cors.allow_methods,
+            allow_headers=cors.allow_headers,
+            expose_headers=cors.expose_headers,
+            allow_credentials=cors.allow_credentials,
+            max_age=cors.max_age,
+        )
+    return app
+
+
+async def _serve_uvicorn(app: Any, host: str, port: int, *, dashboard: bool, label: str) -> None:
+    import uvicorn
+
+    log_level = "critical" if dashboard else "info"
+    config = uvicorn.Config(app, host=host, port=port, log_level=log_level)
+    uv_server = uvicorn.Server(config)
+    logger.info("MCP server running on http://%s:%d%s", host, port, label)
+    await uv_server.serve()
+
+
+# =====================================================================
 # Streamable HTTP transport
 # =====================================================================
 
 
-async def run_http(
+def build_http_app(
     server: LowLevelServer,
-    init_options: Any,
     lifecycle: LifecycleManager,
     *,
-    host: str = "0.0.0.0",  # nosec B104 - public bind is explicit opt-in for server transports
-    port: int = 8080,
     shutdown_timeout: float | None = None,
-    dashboard: bool = False,
     auth_gate: Callable[[str], bool] | None = None,
     token_endpoint: Any = None,
     cors: CORSConfig | None = None,
     security_settings: TransportSecuritySettings | None = None,
-) -> None:
-    """Run the server over Streamable HTTP.
+    health: Any = None,
+    stateless: bool = False,
+) -> Any:
+    """Build the Streamable HTTP ASGI application (``/mcp`` plus health routes).
 
-    Uses the MCP SDK's ``StreamableHTTPSessionManager`` which handles
-    session tracking, transport creation, and ``connect()`` lifecycle
-    automatically.  Served via Starlette + uvicorn.
+    Uses the MCP SDK's ``StreamableHTTPSessionManager``, which handles
+    session tracking, transport creation and ``connect()`` lifecycle.  The
+    app's lifespan runs the server's startup/shutdown hooks and the session
+    manager, so the ASGI server must run lifespan events.
 
     Args:
-        dashboard: When True, suppress uvicorn access logs (the live
-            dashboard captures request data via middleware instead).
         auth_gate: Optional callable ``(token_or_key) → bool`` for
             transport-level authentication.  Rejects HTTP requests that
             lack a valid ``Authorization: Bearer <token>`` header or
@@ -432,17 +591,19 @@ async def run_http(
             absent, the ``x-api-key`` header is tried.
         security_settings: Host/Origin validation policy from
             :func:`build_transport_security`; ``None`` leaves it off.
+        health: ``HealthCheck`` behind ``GET /health/ready``.
+        stateless: Serve every request without a session (no
+            ``mcp-session-id``), so any worker or replica can answer it.
     """
     from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
     from starlette.applications import Starlette
     from starlette.routing import Route
 
-    _log_transport_security(security_settings, host)
     session_manager = StreamableHTTPSessionManager(
         app=server,
         event_store=None,
         json_response=False,
-        stateless=False,
+        stateless=stateless,
         security_settings=security_settings,
     )
 
@@ -479,77 +640,21 @@ async def run_http(
 
     routes = [
         Route("/mcp", endpoint=_AsgiEndpoint(), methods=["GET", "POST", "DELETE"]),
+        *_health_routes(health),
     ]
-
-    # Token endpoint (built-in auth for dev/testing)
     if token_endpoint is not None:
-        from ._token_endpoint import handle_token_request
+        routes.append(_token_route(token_endpoint))
 
-        _te_config = token_endpoint
-
-        class _TokenEndpointASGI:
-            """ASGI wrapper for the token endpoint."""
-
-            async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-                await handle_token_request(scope, receive, send, _te_config)
-
-        routes.append(
-            Route(
-                token_endpoint.path,
-                endpoint=_TokenEndpointASGI(),
-                methods=["POST"],
-            )
-        )
-        logger.info("Token endpoint enabled at %s", token_endpoint.path)
-
-    asgi_app: Any = Starlette(
-        routes=routes,
-        lifespan=lifespan,
-    )
-
-    # CORS middleware (applied before auth gate so preflight works)
-    if cors is not None:
-        from starlette.middleware.cors import CORSMiddleware
-
-        asgi_app.add_middleware(
-            CORSMiddleware,
-            allow_origins=cors.allow_origins,
-            allow_methods=cors.allow_methods,
-            allow_headers=cors.allow_headers,
-            allow_credentials=cors.allow_credentials,
-            max_age=cors.max_age,
-        )
-
-    # Transport-level auth gate (does NOT apply to token endpoint —
-    # the gate wraps the whole app but the token endpoint is
-    # unauthenticated by design since it *issues* tokens)
-    if auth_gate is not None:
-        # Build an auth gate that skips the token endpoint path
-        _skip_paths = set()
-        if token_endpoint is not None:
-            _skip_paths.add(token_endpoint.path)
-        asgi_app = _AuthGateASGI(asgi_app, auth_gate, skip_paths=_skip_paths)
-
-    import uvicorn
-
-    log_level = "critical" if dashboard else "info"
-    config = uvicorn.Config(asgi_app, host=host, port=port, log_level=log_level)
-    uv_server = uvicorn.Server(config)
-    logger.info("MCP server running on http://%s:%d/mcp", host, port)
-    await uv_server.serve()
+    app = Starlette(routes=routes, lifespan=lifespan)
+    return _wrap_app(app, cors=cors, auth_gate=auth_gate, token_endpoint=token_endpoint)
 
 
-# =====================================================================
-# SSE transport (legacy)
-# =====================================================================
-
-
-async def run_sse(
+async def run_http(
     server: LowLevelServer,
     init_options: Any,
     lifecycle: LifecycleManager,
     *,
-    host: str = "0.0.0.0",  # nosec B104 - public bind is explicit opt-in for server transports
+    host: str = "127.0.0.1",
     port: int = 8080,
     shutdown_timeout: float | None = None,
     dashboard: bool = False,
@@ -557,8 +662,48 @@ async def run_sse(
     token_endpoint: Any = None,
     cors: CORSConfig | None = None,
     security_settings: TransportSecuritySettings | None = None,
+    health: Any = None,
 ) -> None:
-    """Run the server over Server-Sent Events (legacy transport).
+    """Run the server over Streamable HTTP, served by uvicorn.
+
+    See :func:`build_http_app` for the application and its arguments.
+
+    Args:
+        dashboard: When True, suppress uvicorn access logs (the live
+            dashboard captures request data via middleware instead).
+    """
+    _log_transport_security(security_settings, host)
+    app = build_http_app(
+        server,
+        lifecycle,
+        shutdown_timeout=shutdown_timeout,
+        auth_gate=auth_gate,
+        token_endpoint=token_endpoint,
+        cors=cors,
+        security_settings=security_settings,
+        health=health,
+    )
+    await _serve_uvicorn(app, host, port, dashboard=dashboard, label="/mcp")
+
+
+# =====================================================================
+# SSE transport (legacy)
+# =====================================================================
+
+
+def build_sse_app(
+    server: LowLevelServer,
+    init_options: Any,
+    lifecycle: LifecycleManager,
+    *,
+    shutdown_timeout: float | None = None,
+    auth_gate: Callable[[str], bool] | None = None,
+    token_endpoint: Any = None,
+    cors: CORSConfig | None = None,
+    security_settings: TransportSecuritySettings | None = None,
+    health: Any = None,
+) -> Any:
+    """Build the legacy SSE ASGI application (``/sse``, ``/messages/``, health routes).
 
     Uses the MCP SDK's ``SseServerTransport``.
 
@@ -567,6 +712,7 @@ async def run_sse(
             :func:`build_transport_security`; ``None`` leaves it off.  It
             is enforced on the ``/sse`` stream and on every ``/messages/``
             POST.
+        health: ``HealthCheck`` behind ``GET /health/ready``.
     """
     from mcp.server.sse import SseServerTransport
     from mcp.server.transport_security import TransportSecurityMiddleware
@@ -574,7 +720,6 @@ async def run_sse(
     from starlette.requests import Request
     from starlette.routing import Mount, Route
 
-    _log_transport_security(security_settings, host)
     sse = SseServerTransport("/messages/", security_settings=security_settings)
     stream_security = TransportSecurityMiddleware(security_settings)
 
@@ -628,58 +773,47 @@ async def run_sse(
     routes = [
         Route("/sse", endpoint=_SseEndpoint(), methods=["GET"]),
         Mount("/messages/", app=handle_messages),
+        *_health_routes(health),
     ]
-
-    # Token endpoint (built-in auth for dev/testing)
     if token_endpoint is not None:
-        from ._token_endpoint import handle_token_request
+        routes.append(_token_route(token_endpoint))
 
-        _te_config = token_endpoint
+    app = Starlette(routes=routes, lifespan=lifespan)
+    return _wrap_app(app, cors=cors, auth_gate=auth_gate, token_endpoint=token_endpoint)
 
-        class _TokenEndpointASGI:
-            async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-                await handle_token_request(scope, receive, send, _te_config)
 
-        routes.append(
-            Route(
-                token_endpoint.path,
-                endpoint=_TokenEndpointASGI(),
-                methods=["POST"],
-            )
-        )
+async def run_sse(
+    server: LowLevelServer,
+    init_options: Any,
+    lifecycle: LifecycleManager,
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8080,
+    shutdown_timeout: float | None = None,
+    dashboard: bool = False,
+    auth_gate: Callable[[str], bool] | None = None,
+    token_endpoint: Any = None,
+    cors: CORSConfig | None = None,
+    security_settings: TransportSecuritySettings | None = None,
+    health: Any = None,
+) -> None:
+    """Run the server over Server-Sent Events (legacy transport), served by uvicorn.
 
-    asgi_app: Any = Starlette(
-        routes=routes,
-        lifespan=lifespan,
+    See :func:`build_sse_app` for the application and its arguments.
+    """
+    _log_transport_security(security_settings, host)
+    app = build_sse_app(
+        server,
+        init_options,
+        lifecycle,
+        shutdown_timeout=shutdown_timeout,
+        auth_gate=auth_gate,
+        token_endpoint=token_endpoint,
+        cors=cors,
+        security_settings=security_settings,
+        health=health,
     )
-
-    # CORS middleware
-    if cors is not None:
-        from starlette.middleware.cors import CORSMiddleware
-
-        asgi_app.add_middleware(
-            CORSMiddleware,
-            allow_origins=cors.allow_origins,
-            allow_methods=cors.allow_methods,
-            allow_headers=cors.allow_headers,
-            allow_credentials=cors.allow_credentials,
-            max_age=cors.max_age,
-        )
-
-    # Transport-level auth gate
-    if auth_gate is not None:
-        _skip_paths = set()
-        if token_endpoint is not None:
-            _skip_paths.add(token_endpoint.path)
-        asgi_app = _AuthGateASGI(asgi_app, auth_gate, skip_paths=_skip_paths)
-
-    import uvicorn
-
-    log_level = "critical" if dashboard else "info"
-    config = uvicorn.Config(asgi_app, host=host, port=port, log_level=log_level)
-    uv_server = uvicorn.Server(config)
-    logger.info("MCP server running on http://%s:%d/sse (SSE)", host, port)
-    await uv_server.serve()
+    await _serve_uvicorn(app, host, port, dashboard=dashboard, label="/sse (SSE)")
 
 
 # =====================================================================

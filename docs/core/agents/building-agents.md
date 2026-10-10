@@ -77,16 +77,19 @@ agent = await build_agent(
 | `servers` | `Mapping[str, ServerSpec]` | **required** | Named MCP server connections. See [Server Configuration](server-specs.md). |
 | `model` | `str \| BaseChatModel \| Runnable` | **required** | LangChain model string (e.g. `"openai:gpt-5-mini"`), a chat model instance, or any Runnable. |
 | `instructions` | `str \| Prompt \| PromptSuite \| None` | Built-in prompt | System prompt. Accepts a plain string, a `Prompt`, or a `PromptSuite`. |
-| `trace_tools` | `bool` | `False` | Print each tool invocation and result to stdout. |
+| `trace_tools` | `bool` | `False` | Print each tool invocation and result to stdout. Covers MCP, cross-agent, sandbox and `extra_tools` tools. |
 | `observe` | `bool \| ObservabilityConfig \| None` | `None` | Enable observability. Pass `True` for defaults or an `ObservabilityConfig` for full control. |
 | `memory` | `MemoryProvider \| dict \| None` | `None` | Memory backend. Automatically searches and injects relevant context before each invocation. |
 | `memory_auto_store` | `bool` | `False` | When `True`, automatically stores each user/assistant exchange in memory. |
-| `sandbox` | `bool \| dict \| None` | `None` | Enable sandboxed code execution. `True` uses defaults; a dict provides custom config. |
+| `sandbox` | `bool \| dict \| SandboxConfig \| None` | `None` | Enable sandboxed code execution. `True` uses defaults; a dict provides custom config (unknown keys raise; the network is `"none"` unless set). Raises if the sandbox cannot be started. See [Sandbox](../sandbox.md). |
+| `code_action` | `dict \| CodeActionConfig \| None` | `None` | Only with `agent_pattern="code-action"`: `exec_timeout` (default 120), `max_repairs` (default 1), `max_tool_calls` (default 50). |
 | `observer` | `Any \| None` | `None` | Pass an existing `ObservabilityCollector` to reuse across multiple agents. Mutually exclusive with `observe`. |
 | `observer_agent_id` | `str \| None` | `None` | Agent identifier for the shared observer's timeline entries. |
 | `cross_agents` | `Mapping[str, CrossAgent] \| None` | `None` | Peer agents exposed as `ask_agent_<name>` tools. See [Cross-Agent Delegation](cross-agent.md). |
+| `expose_resources` | `bool` | `False` | Give the agent the MCP servers' resources: adds `read_resource` (its description lists the resources and URI templates) and `list_resources`. |
+| `expose_prompts` | `bool` | `False` | Give the agent the MCP servers' prompts: adds `get_prompt` (its description lists the prompts and their arguments), which returns the rendered prompt for the agent to follow. Like MCP tool calls, both send the invoking caller's bearer token to servers with `forward_caller_token` (the default), so the server's roles and guards judge the user, not the agent. |
 | `extra_tools` | `list[BaseTool] \| None` | `None` | Additional LangChain tools appended alongside MCP-discovered tools. |
-| `flow` | `ConversationFlow \| None` | `None` | A conversation flow that evolves the system prompt across turns. |
+| `flow` | `ConversationFlow \| type \| Callable \| None` | `None` | A conversation flow that evolves the system prompt across turns: an instance (used as a template), a subclass, or a factory. Each session or caller gets its own copy. See [ConversationFlow](../../prompting/flows.md#integration-with-build_agent). |
 | `guardrails` | `PromptiseSecurityScanner \| None` | `None` | Security scanner for input/output. Blocks injection attacks, redacts PII and credentials. See [Guardrails](../guardrails.md). |
 | `optimize_tools` | `str \| ToolOptimizationConfig \| None` | `None` | Semantic tool selection to reduce token costs. Pass `"semantic"` for defaults. See [Tool Optimization](../tool-optimization.md). |
 | `conversation_store` | `ConversationStore \| None` | `None` | Persistent conversation history. See [Conversations](../conversations.md). |
@@ -94,6 +97,7 @@ agent = await build_agent(
 | `cache` | `SemanticCache \| None` | `None` | Semantic response cache. Serves similar queries from cache, reducing LLM costs by 30-50%. See [Cache](../cache.md). |
 | `approval` | `ApprovalPolicy \| None` | `None` | Human-in-the-loop approval for sensitive tools. See [Approval](../approval.md). |
 | `events` | `EventNotifier \| None` | `None` | Webhook/event notifications. Emits structured events on invocation, tool, guardrail, budget, and process events. See [Events](../events.md). |
+| `on_tool_progress` | `Callable \| None` | `None` | Called as `(tool_name, progress, total, message)` for each progress notification an MCP tool sends during a call; sync or async. Progress is also emitted as `tool.progress` events when `events` is set. See [Progress Reporting](../../mcp/server/resilience-patterns.md#receiving-progress-in-a-promptise-client-or-agent). |
 | `max_invocation_time` | `float` | `0` | Maximum seconds per invocation. Raises `TimeoutError` and emits `invocation.timeout` event when exceeded. `0` = unlimited. |
 
 ### The `PromptiseAgent` Class
@@ -108,17 +112,22 @@ result = await agent.ainvoke({
     "messages": [{"role": "user", "content": "Summarize sales.csv"}]
 })
 
-# Async streaming
+# Async streaming: the conversation after each step of the agent's graph
 async for chunk in agent.astream({
     "messages": [{"role": "user", "content": "Explain quantum computing"}]
 }):
-    print(chunk)
+    print(chunk["messages"][-1])  # the last chunk is what ainvoke() returns
 
 # Synchronous invocation (convenience wrapper)
 result = agent.invoke({
     "messages": [{"role": "user", "content": "Hello"}]
 })
 ```
+
+`astream()` yields `{"messages": [...]}` once per step (a model call and the
+tools it asked for), applying input and output guardrails, memory and
+observability as `ainvoke()` does. For token-by-token text and tool activity —
+what a chat UI needs — use [`astream_with_tools()`](../streaming.md).
 
 !!! warning "Sync invocation and memory"
     `invoke()` delegates to `ainvoke()` internally when memory is enabled because memory search requires async I/O. If a running event loop is already active (e.g. inside Jupyter), memory injection is skipped for the sync path. Use `ainvoke()` in async contexts to ensure memory always works.
@@ -287,7 +296,7 @@ from promptise.agent import CallerContext
 caller = CallerContext(
     user_id="user-alice-001",           # Scopes memory, cache, conversations
     tenant_id="acme",                   # Tenant-qualifies ALL isolation keys (multi-tenant SaaS)
-    bearer_token="eyJhbGciOi...",       # Forwarded to MCP servers as Authorization header
+    bearer_token="eyJhbGciOi...",       # Sent to HTTP MCP servers on this invocation's tool calls
     roles={"analyst", "viewer"},         # Agent-side role info
     scopes={"read", "write"},            # Agent-side scope info
     metadata={"team": "finance"},        # Custom metadata
@@ -301,7 +310,7 @@ result = await agent.ainvoke(input, caller=caller)
 | Field | Agent side | MCP server side |
 |-------|-----------|-----------------|
 | `user_id` | Scopes memory search, conversation history, semantic cache to this user | Not sent (stays on agent) |
-| `bearer_token` | Forwarded as `Authorization: Bearer <token>` to every MCP server | Validated by `AuthMiddleware`, extracted into `ClientContext` with roles/scopes/claims |
+| `bearer_token` | Sent as `Authorization: Bearer <token>` on this invocation's tool calls to every HTTP/SSE MCP server (unless its spec sets `forward_caller_token=False`), over a session opened for this token | Validated by `AuthMiddleware`, extracted into `ClientContext` with roles/scopes/claims |
 | `roles` | Available for agent-side logic via `get_current_caller()` | Not sent — server extracts roles from the JWT |
 | `scopes` | Available for agent-side logic | Not sent — server extracts scopes from the JWT |
 | `metadata` | Custom data available to guardrails, hooks, events | Not sent |
@@ -310,8 +319,9 @@ result = await agent.ainvoke(input, caller=caller)
 
 ```
 CallerContext(bearer_token="eyJ...")
-    → MCPClient sets Authorization header
-        → HTTP request to MCP server
+    → the tool call goes over an MCP session opened with this token
+      (one per caller; never shared with another caller)
+        → HTTP request to MCP server with Authorization: Bearer eyJ...
             → AuthMiddleware validates JWT
                 → Extracts roles, scopes, claims
                 → Builds ClientContext

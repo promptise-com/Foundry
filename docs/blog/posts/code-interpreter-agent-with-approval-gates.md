@@ -118,7 +118,7 @@ The distinction is honest and worth internalizing: the code-action node's built-
 
 ### 3. gVisor for untrusted input
 
-By default, code-action provisions a hardened Docker sandbox: read-only rootfs, ~40 dropped Linux capabilities, a seccomp syscall whitelist, resource limits, and `network="none"` (auto-set for this pattern, so the program's only reach to the outside world is your bridged tools). For untrusted or multi-tenant input, add kernel-level isolation by switching the backend to gVisor — a one-line change:
+By default, code-action provisions a hardened Docker sandbox: read-only rootfs, ~40 dropped Linux capabilities, Docker's default seccomp profile, resource limits, and `network="none"` (the sandbox default, and auto-set for this pattern, so the program's only reach to the outside world is your bridged tools). For untrusted or multi-tenant input, add kernel-level isolation by switching the backend to gVisor — a one-line change:
 
 ```python
 agent = await build_agent(
@@ -131,7 +131,7 @@ agent = await build_agent(
 )
 ```
 
-gVisor (`runsc`) interposes a user-space kernel between the container and the host kernel, shrinking the syscall attack surface for genuinely adversarial code. It needs `runsc` installed on the host; if you don't have it, drop the `sandbox=` line and code-action falls back to its auto-enabled hardened Docker sandbox. The full container security model — seccomp, AppArmor, capability dropping, network modes — is documented under [Sandbox](../../core/sandbox.md).
+gVisor (`runsc`) interposes a user-space kernel between the container and the host kernel, shrinking the syscall attack surface for genuinely adversarial code. It needs `runsc` installed on the host; if you don't have it, drop the `sandbox=` line and code-action falls back to its auto-enabled hardened Docker sandbox. The full container security model — seccomp, capability dropping, `no-new-privileges`, network modes — is documented under [Sandbox](../../core/sandbox.md).
 
 ## What other frameworks do today
 

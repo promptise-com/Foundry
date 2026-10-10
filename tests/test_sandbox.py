@@ -14,11 +14,11 @@ def test_sandbox_config_defaults():
     assert config.image == "python:3.11-slim"
     assert config.cpu_limit == 2
     assert config.memory_limit == "4G"
-    assert config.disk_limit == "10G"
-    assert config.network == NetworkMode.RESTRICTED
+    assert config.disk_limit == "1G"
+    assert config.pids_limit == 256
+    assert config.network == NetworkMode.NONE
     assert config.persistent is False
     assert config.timeout == 300
-    assert config.tools == ["python"]
     assert config.workdir == "/workspace"
     assert config.allow_sudo is False
 

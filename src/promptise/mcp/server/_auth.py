@@ -34,7 +34,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, Protocol, runtime_checkable
 
 from ._context import ClientContext, RequestContext, get_request_client_info
@@ -137,6 +137,35 @@ class _TokenCache:
         return len(self._store)
 
 
+def _normalise_audiences(audience: str | Sequence[str] | None, owner: str) -> tuple[str, ...]:
+    """Validate the ``audience`` argument and return it as a tuple."""
+    if audience is None:
+        return ()
+    audiences = (audience,) if isinstance(audience, str) else tuple(audience)
+    if not audiences or not all(isinstance(a, str) and a for a in audiences):
+        raise ValueError(f"{owner} audience must be a non-empty string or list of strings.")
+    return audiences
+
+
+def _check_audience_and_issuer(
+    payload: dict[str, Any], audiences: tuple[str, ...], issuer: str | None
+) -> None:
+    """Enforce the expected ``aud`` (any match) and ``iss`` (exact) claims."""
+    if audiences:
+        aud = payload.get("aud")
+        token_audiences = [aud] if isinstance(aud, str) else aud if isinstance(aud, list) else []
+        if not any(isinstance(a, str) and a in audiences for a in token_audiences):
+            raise AuthenticationError(
+                "Token was not issued for this server (audience mismatch)",
+                suggestion=f"Request a token whose 'aud' claim includes {audiences[0]!r}.",
+            )
+    if issuer is not None and payload.get("iss") != issuer:
+        raise AuthenticationError(
+            "Token was not issued by the expected issuer",
+            suggestion=f"Request a token from {issuer!r}.",
+        )
+
+
 class JWTAuth:
     """JWT-based authentication provider.
 
@@ -146,18 +175,39 @@ class JWTAuth:
 
     Args:
         secret: Shared secret for HS256 signature verification.
+        audience: Expected ``aud`` claim — a string, or a list of accepted
+            values.  When set, a token is accepted only if its ``aud`` (a
+            string or a list) contains one of them; a token without ``aud``
+            is rejected.  Set it whenever the secret is shared by more than
+            one service, so a token minted for one is refused by the others.
+        issuer: Expected ``iss`` claim.  When set, a token from any other
+            issuer, or without ``iss``, is rejected.
         meta_key: Key in ``ctx.meta`` where the token is expected.
         cache_size: Max number of verified tokens to cache (0 to disable).
+
+    Example::
+
+        auth = JWTAuth(
+            secret=os.environ["JWT_SECRET"],
+            audience="crm-mcp",
+            issuer="https://auth.example.com",
+        )
     """
 
     def __init__(
         self,
         secret: str,
         *,
+        audience: str | Sequence[str] | None = None,
+        issuer: str | None = None,
         meta_key: str = "authorization",
         cache_size: int = 256,
     ) -> None:
         self._secret = secret.encode()
+        self._audiences = _normalise_audiences(audience, "JWTAuth")
+        if issuer is not None and not issuer:
+            raise ValueError("JWTAuth issuer must be a non-empty string.")
+        self._issuer = issuer
         self._meta_key = meta_key
         self._cache = _TokenCache(max_size=cache_size) if cache_size > 0 else None
 
@@ -242,6 +292,7 @@ class JWTAuth:
         if "nbf" in payload and payload["nbf"] > now:
             raise AuthenticationError("Token not yet valid")
 
+        _check_audience_and_issuer(payload, self._audiences, self._issuer)
         return payload
 
     def verify_token(self, token: str) -> bool:
@@ -258,6 +309,10 @@ class JWTAuth:
     def create_token(self, payload: dict[str, Any], *, expires_in: int = 3600) -> str:
         """Create a signed JWT token (utility for testing).
 
+        When this provider has an ``audience`` or ``issuer`` and *payload*
+        does not set ``aud`` / ``iss``, the token gets the (first) expected
+        audience and the issuer, so it verifies against this provider.
+
         Args:
             payload: Claims to include in the token.
             expires_in: Token lifetime in seconds.
@@ -268,7 +323,12 @@ class JWTAuth:
             .decode()
         )
 
-        full_payload = {**payload, "exp": int(time.time()) + expires_in}
+        defaults: dict[str, Any] = {}
+        if self._audiences:
+            defaults["aud"] = self._audiences[0]
+        if self._issuer is not None:
+            defaults["iss"] = self._issuer
+        full_payload = {**defaults, **payload, "exp": int(time.time()) + expires_in}
         payload_b64 = (
             base64.urlsafe_b64encode(json.dumps(full_payload).encode()).rstrip(b"=").decode()
         )
@@ -290,6 +350,11 @@ class AsymmetricJWTAuth:
         public_key: PEM-encoded public key string, or path to a PEM
             file.  Used for signature verification.
         algorithm: JWT algorithm (``"RS256"`` or ``"ES256"``).
+        audience: Expected ``aud`` claim (a string or list of accepted
+            values).  When unset, tokens that carry an ``aud`` claim are
+            rejected (PyJWT's default), so set it for IdP-issued tokens.
+        issuer: Expected ``iss`` claim.  When set, tokens from any other
+            issuer are rejected.
         meta_key: Key in ``ctx.meta`` where the token is expected.
         cache_size: Max cached tokens (0 to disable).
 
@@ -307,13 +372,19 @@ class AsymmetricJWTAuth:
         public_key: str,
         *,
         algorithm: str = "RS256",
+        audience: str | Sequence[str] | None = None,
+        issuer: str | None = None,
         meta_key: str = "authorization",
         cache_size: int = 256,
     ) -> None:
         if algorithm not in ("RS256", "ES256"):
             raise ValueError(f"Unsupported algorithm: {algorithm}. Use RS256 or ES256.")
+        if issuer is not None and not issuer:
+            raise ValueError("AsymmetricJWTAuth issuer must be a non-empty string.")
 
         self._algorithm = algorithm
+        self._audiences = _normalise_audiences(audience, "AsymmetricJWTAuth")
+        self._issuer = issuer
         self._meta_key = meta_key
         self._cache = _TokenCache(max_size=cache_size) if cache_size > 0 else None
 
@@ -360,12 +431,13 @@ class AsymmetricJWTAuth:
                 "Install with: pip install PyJWT cryptography"
             )
 
+        kwargs: dict[str, Any] = {"algorithms": [self._algorithm]}
+        if self._audiences:
+            kwargs["audience"] = list(self._audiences)
+        if self._issuer is not None:
+            kwargs["issuer"] = self._issuer
         try:
-            payload = pyjwt.decode(
-                token,
-                self._public_key_pem,
-                algorithms=[self._algorithm],
-            )
+            payload: dict[str, Any] = pyjwt.decode(token, self._public_key_pem, **kwargs)
             return payload
         except pyjwt.ExpiredSignatureError:
             raise AuthenticationError(
@@ -966,51 +1038,62 @@ class AuthMiddleware:
     async def __call__(self, ctx: RequestContext, call_next: Callable[..., Any]) -> Any:
         tool_def = ctx.state.get("tool_def")
         if tool_def and tool_def.auth:
-            client_id = await self._provider.authenticate(ctx)
-            ctx.client_id = client_id
+            await self.authenticate(ctx)
+        return await call_next(ctx)
 
-            # Build structured ClientContext
-            jwt_payload = ctx.state.get("_jwt_payload", {})
-            existing_roles = ctx.state.get("roles", set())
+    async def authenticate(self, ctx: RequestContext) -> None:
+        """Verify the request's credentials and populate ``ctx.client``.
 
-            if jwt_payload:
-                # JWT-based auth — extract standard claims + scopes
-                client_ctx = _build_client_context_from_jwt(
-                    jwt_payload,
-                    client_id,
-                    existing_roles=existing_roles,
-                    meta=ctx.meta,
-                    tenant_claim=self._tenant_claim,
-                )
-            else:
-                # API key auth — no JWT claims; tenant comes from key config
-                client_ctx = _build_client_context_from_api_key(
-                    client_id,
-                    existing_roles,
-                    meta=ctx.meta,
-                    tenant_id=ctx.state.get("_api_key_tenant"),
-                )
+        Runs the provider and the ``on_authenticate`` hook.  Used for every
+        tool call to an ``auth=True`` tool, and for ``tools/list`` when the
+        server hides tools the caller may not call.
 
-            # Merge roles back to ctx.state for backward compatibility
-            # with guards that read from ctx.state["roles"]
-            jwt_roles = set(jwt_payload.get("roles", []))
-            ctx.state["roles"] = existing_roles | jwt_roles
+        Raises:
+            AuthenticationError: Missing or invalid credentials.
+        """
+        client_id = await self._provider.authenticate(ctx)
+        ctx.client_id = client_id
 
-            # Run enrichment hook if configured
-            if self._on_authenticate is not None:
-                result = self._on_authenticate(client_ctx, ctx)
-                if asyncio.iscoroutine(result):
-                    await result
+        # Build structured ClientContext
+        jwt_payload = ctx.state.get("_jwt_payload", {})
+        existing_roles = ctx.state.get("roles", set())
 
-            # Attach to request context
-            ctx.client = client_ctx
-
-            logger.debug(
-                "Authenticated client=%s roles=%s scopes=%s ip=%s",
-                client_ctx.client_id,
-                client_ctx.roles,
-                client_ctx.scopes,
-                client_ctx.ip_address,
+        if jwt_payload:
+            # JWT-based auth — extract standard claims + scopes
+            client_ctx = _build_client_context_from_jwt(
+                jwt_payload,
+                client_id,
+                existing_roles=existing_roles,
+                meta=ctx.meta,
+                tenant_claim=self._tenant_claim,
+            )
+        else:
+            # API key auth — no JWT claims; tenant comes from key config
+            client_ctx = _build_client_context_from_api_key(
+                client_id,
+                existing_roles,
+                meta=ctx.meta,
+                tenant_id=ctx.state.get("_api_key_tenant"),
             )
 
-        return await call_next(ctx)
+        # Merge roles back to ctx.state for backward compatibility
+        # with guards that read from ctx.state["roles"]
+        jwt_roles = set(jwt_payload.get("roles", []))
+        ctx.state["roles"] = existing_roles | jwt_roles
+
+        # Run enrichment hook if configured
+        if self._on_authenticate is not None:
+            result = self._on_authenticate(client_ctx, ctx)
+            if asyncio.iscoroutine(result):
+                await result
+
+        # Attach to request context
+        ctx.client = client_ctx
+
+        logger.debug(
+            "Authenticated client=%s roles=%s scopes=%s ip=%s",
+            client_ctx.client_id,
+            client_ctx.roles,
+            client_ctx.scopes,
+            client_ctx.ip_address,
+        )

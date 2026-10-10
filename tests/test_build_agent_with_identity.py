@@ -311,6 +311,34 @@ async def test_unreachable_idp_fails_closed(
 
 
 @pytest.mark.asyncio
+async def test_authorization_header_counts_as_the_servers_own_bearer() -> None:
+    """A server configured with its own Authorization header keeps it; the
+    identity is not presented on top of (or instead of) it."""
+    from contextlib import ExitStack
+
+    from promptise.config import HTTPServerSpec
+
+    identity = AgentIdentity.from_oidc(
+        "bot", issuer="https://idp", token_fn=lambda: _jwt({"sub": "agent-x"})
+    )
+    captured: dict[str, Any] = {}
+    with ExitStack() as stack:
+        for cm in _patch_mcp(captured):
+            stack.enter_context(cm)
+        await build_agent(
+            servers={
+                "tools": HTTPServerSpec(
+                    url="https://mcp.internal", headers={"Authorization": "Bearer own"}
+                )
+            },
+            model="openai:gpt-5-mini",
+            identity=identity,
+        )
+    assert captured["bearer_token_provider"] is None
+    assert captured["headers"] == {"Authorization": "Bearer own"}
+
+
+@pytest.mark.asyncio
 async def test_identity_credential_is_refreshed_per_request() -> None:
     """A renewed credential is what the next request presents, and a 401
     (force_refresh=True) bypasses the identity's cache."""

@@ -632,12 +632,15 @@ class SuperAgentConfig:
             handler_type = approval_data.pop("handler", "webhook")
             tools = approval_data.pop("tools")
             webhook_url = approval_data.pop("webhook_url", None)
+            allow_private = bool(approval_data.pop("webhook_allow_private_networks", False))
 
             handler: WebhookApprovalHandler | QueueApprovalHandler
             if handler_type == "webhook":
                 if not webhook_url:
                     raise ValueError("approval.webhook_url required when handler is 'webhook'")
-                handler = WebhookApprovalHandler(url=webhook_url)
+                handler = WebhookApprovalHandler(
+                    url=webhook_url, allow_private_networks=allow_private
+                )
             elif handler_type == "queue":
                 handler = QueueApprovalHandler()
             else:

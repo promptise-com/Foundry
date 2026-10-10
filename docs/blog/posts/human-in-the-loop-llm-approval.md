@@ -1,6 +1,6 @@
 ---
 title: "Human-in-the-Loop Approval for AI Agent Tool Calls"
-description: "Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The 5-layer AutoApprovalClassifier (allow rules, deny rules…"
+description: "Solves the real HITL problem: approving everything is unusable and approving nothing is unsafe. The layered AutoApprovalClassifier (deny rules, ask rules, allow rules…"
 keywords: "human in the loop llm approval, ai agent approval workflow, auto-approve tool calls, llm tool call gating, hitl ai agents python"
 date: 2026-07-16
 slug: human-in-the-loop-llm-approval
@@ -10,7 +10,7 @@ categories:
 
 # Human-in-the-Loop Approval for AI Agent Tool Calls
 
-Human-in-the-loop LLM approval is the difference between an agent that can safely touch production and one that stays stuck in a demo. The hard part is not intercepting tool calls — it is deciding *which* ones actually need a human. Approve everything and your reviewers drown in `get_status` prompts until they rubber-stamp a `delete_database` by reflex. Approve nothing and one hallucinated argument wipes a table. By the end of this post you will have a five-layer classifier that auto-clears the safe calls, escalates only the risky ones, and fails closed when no one answers.
+Human-in-the-loop LLM approval is the difference between an agent that can safely touch production and one that stays stuck in a demo. The hard part is not intercepting tool calls — it is deciding *which* ones actually need a human. Approve everything and your reviewers drown in `get_status` prompts until they rubber-stamp a `delete_database` by reflex. Approve nothing and one hallucinated argument wipes a table. By the end of this post you will have a six-layer classifier that auto-clears the safe calls, escalates only the risky ones, and fails closed when no one answers.
 
 <!-- more -->
 
@@ -24,15 +24,16 @@ Most first attempts at an [AI agent approval workflow](../../core/approval.md) p
 
 Alert fatigue is not a UX nitpick; it is the failure mode that makes HITL worse than useless. The fix is not a bigger queue. It is a *policy* that understands the vast majority of tool calls are boring and safe, and that human attention is a scarce resource you spend only on the calls that can hurt you.
 
-## The five-layer AutoApprovalClassifier
+## The six-layer AutoApprovalClassifier
 
-Promptise Foundry ships that policy as the [`AutoApprovalClassifier`](../../core/approval-classifier.md). It wraps any approval handler you already have — a webhook, a queue, a callback — and runs each request through five ordered layers. The first layer to reach a verdict wins:
+Promptise Foundry ships that policy as the [`AutoApprovalClassifier`](../../core/approval-classifier.md). It wraps any approval handler you already have — a webhook, a queue, a callback — and runs each request through six ordered layers. The first layer to reach a verdict wins:
 
-1. **Explicit allow rules.** Glob patterns, argument substrings, per-user filters, or async predicates that always allow. First match wins.
-2. **Explicit deny rules.** The same matching machinery, but they always deny. Put `delete_*` and `exec_shell` here.
-3. **Read-only auto-allow.** Tool names starting with `get_`, `list_`, `read_`, `search_`, `fetch_`, and a dozen more prefixes are cleared without prompting. This is where most of your volume disappears.
-4. **Optional LLM classifier.** An async function that returns `("allow" | "deny" | "escalate", reason)`. Use it for the fuzzy middle — "does this argument look destructive?" — and only when the cheap rule layers didn't already decide.
-5. **Human fallback.** Your existing handler. Reached only when nothing above it fired. This is the real human, and now they only see calls that genuinely earned their attention.
+1. **Explicit deny rules.** Glob patterns, argument substrings, per-user filters, or async predicates that always deny. Put `delete_*` and `exec_shell` here. They run first, so no allow rule can override them.
+2. **Ask rules.** The same matching machinery, but they always send the call to a human, whatever the layers below would say.
+3. **Explicit allow rules.** The same again, but they always allow. First match wins.
+4. **Read-only auto-allow.** Tools annotated `readOnlyHint=True`, or named `get_`, `list_`, `read_`, `search_`, `fetch_` and a dozen more prefixes, are cleared without prompting — unless the name also contains a destructive verb (`fetch_and_purge_cache`) or the server marks the tool destructive. This is where most of your volume disappears.
+5. **Optional LLM classifier.** An async function that returns `("allow" | "deny" | "escalate", reason)`. Use it for the fuzzy middle — "does this argument look destructive?" — and only when the cheap rule layers didn't already decide.
+6. **Human fallback.** Your existing handler. Reached only when nothing above it fired. This is the real human, and now they only see calls that genuinely earned their attention.
 
 Because the classifier implements the same `ApprovalHandler` protocol as everything else, dropping it in front of your current approver is a one-line change. It also records every decision in `classifier.stats`, so you can see exactly which layer is doing the work and tune from evidence instead of guesswork.
 
@@ -62,12 +63,12 @@ async def human_reviewer(request):
 
 
 classifier = AutoApprovalClassifier(
-    allow_rules=[
-        ApprovalRule(tool="get_*", reason="read-only report"),
-    ],
     deny_rules=[
         ApprovalRule(tool="delete_*", reason="destructive"),
         ApprovalRule(tool="*", argument_contains="rm -rf", reason="dangerous shell"),
+    ],
+    allow_rules=[
+        ApprovalRule(tool="get_*", reason="read-only report"),
     ],
     read_only_auto_allow=True,   # list_*, search_*, fetch_*, ... cleared automatically
     fallback=CallbackApprovalHandler(human_reviewer),
@@ -115,8 +116,8 @@ async def is_destructive(request) -> tuple[str, str]:
 
 
 classifier = AutoApprovalClassifier(
-    allow_rules=[ApprovalRule(tool="get_*")],
     deny_rules=[ApprovalRule(tool="delete_*")],
+    allow_rules=[ApprovalRule(tool="get_*")],
     llm_classifier=is_destructive,
     fallback=CallbackApprovalHandler(human_reviewer),
 )
@@ -130,7 +131,7 @@ Two properties make this safe to run unattended.
 
 **It fails closed.** `on_timeout="deny"` means a request that no human answers within the timeout is rejected, not silently allowed. The default is deny for exactly this reason — an unanswered approval should never become an approval. Set it to `"allow"` only for genuinely low-stakes tools where availability matters more than caution.
 
-**Every decision is auditable.** The `stats` object counts hits per layer (`allow_rule_hits`, `read_only_allows`, `llm_denies`, `fallback_denies`, and so on), and `classifier.last_trace` tells you exactly why the most recent call was cleared or blocked. If you see `fallback_allows` climbing, your rules are too tight and humans are picking up slack they shouldn't. If `read_only_allows` dominates, the read-only layer is earning its keep. You tune the policy from real traffic, not intuition. For the security background on why layered, deny-by-default gating beats a single checkpoint, the [LLM Guardrails in Python: The Complete Guide](llm-guardrails-python.md) walks through the broader defense-in-depth model this fits into.
+**Every decision is auditable.** The `stats` object counts hits per layer (`allow_rule_hits`, `read_only_allows`, `llm_denies`, `fallback_denies`, and so on), and each decision carries `decision.trace`, which tells you exactly why that call was cleared or blocked; pass `ApprovalPolicy(on_decision=...)` to write every one to your audit log. If you see `fallback_allows` climbing, your rules are too tight and humans are picking up slack they shouldn't. If `read_only_allows` dominates, the read-only layer is earning its keep. You tune the policy from real traffic, not intuition. For the security background on why layered, deny-by-default gating beats a single checkpoint, the [LLM Guardrails in Python: The Complete Guide](llm-guardrails-python.md) walks through the broader defense-in-depth model this fits into.
 
 ## When a plain approval gate is the better fit
 
@@ -158,4 +159,4 @@ The request is denied. `ApprovalPolicy` defaults to `on_timeout="deny"`, so an a
 
 ## Next steps
 
-Wrap your approver in an `AutoApprovalClassifier` to auto-clear read-only calls and gate only the destructive ones — it is a one-line change on top of the webhook, queue, or callback handler you already have. Start with the [Quick Start](../../getting-started/quickstart.md) to stand up an agent, then follow the [approval classifier guide](../../core/approval-classifier.md) to tune the five layers against your own tool set.
+Wrap your approver in an `AutoApprovalClassifier` to auto-clear read-only calls and gate only the destructive ones — it is a one-line change on top of the webhook, queue, or callback handler you already have. Start with the [Quick Start](../../getting-started/quickstart.md) to stand up an agent, then follow the [approval classifier guide](../../core/approval-classifier.md) to tune the six layers against your own tool set.

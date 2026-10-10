@@ -46,9 +46,12 @@ class MCPRouter:
     Args:
         prefix: Prepended to all tool names (e.g. ``"db"`` → ``"db_search"``).
         tags: Default tags merged with per-tool tags.
-        auth: If set, overrides per-tool auth flag.
-        middleware: Router-level middleware (runs after server middleware).
-        guards: Router-level guards applied to all tools.
+        auth: If set, overrides the per-tool / per-resource / per-prompt
+            auth flag.
+        middleware: Router-level middleware (runs after server middleware)
+            for the router's tools, resources and prompts.
+        guards: Router-level guards applied to all tools, resources and
+            prompts.
     """
 
     def __init__(
@@ -94,6 +97,8 @@ class MCPRouter:
         max_concurrent: int | None = None,
         # Server-side human-in-the-loop approval
         requires_approval: bool = False,
+        # Opt out of CacheMiddleware
+        cache: bool = True,
     ) -> Callable[..., Any]:
         """Register a tool (same signature as ``MCPServer.tool()``)."""
         all_guards = list(guards or [])
@@ -139,6 +144,7 @@ class MCPRouter:
                 annotations=annotations,
                 max_concurrent=max_concurrent,
                 requires_approval=requires_approval,
+                cache=cache,
             )
             self._tool_registry.register(tool_def)
             excluded = _excluded_params(func)
@@ -154,9 +160,15 @@ class MCPRouter:
         *,
         name: str | None = None,
         description: str | None = None,
-        mime_type: str = "text/plain",
+        mime_type: str | None = None,
+        tags: list[str] | None = None,
+        auth: bool = False,
+        roles: list[str] | None = None,
+        guards: list[Any] | None = None,
+        rate_limit: str | None = None,
+        timeout: float | None = None,
     ) -> Callable[..., Any]:
-        """Register a resource."""
+        """Register a resource (same signature as ``MCPServer.resource()``)."""
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             res_def = build_resource_def(
@@ -166,6 +178,12 @@ class MCPRouter:
                 description=description,
                 mime_type=mime_type,
                 is_template=False,
+                tags=tags,
+                auth=auth,
+                roles=roles,
+                guards=guards,
+                rate_limit=rate_limit,
+                timeout=timeout,
             )
             self._resource_registry.register(res_def)
             return func
@@ -178,9 +196,15 @@ class MCPRouter:
         *,
         name: str | None = None,
         description: str | None = None,
-        mime_type: str = "text/plain",
+        mime_type: str | None = None,
+        tags: list[str] | None = None,
+        auth: bool = False,
+        roles: list[str] | None = None,
+        guards: list[Any] | None = None,
+        rate_limit: str | None = None,
+        timeout: float | None = None,
     ) -> Callable[..., Any]:
-        """Register a resource template."""
+        """Register a resource template (same signature as ``MCPServer.resource_template()``)."""
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             res_def = build_resource_def(
@@ -190,6 +214,12 @@ class MCPRouter:
                 description=description,
                 mime_type=mime_type,
                 is_template=True,
+                tags=tags,
+                auth=auth,
+                roles=roles,
+                guards=guards,
+                rate_limit=rate_limit,
+                timeout=timeout,
             )
             self._resource_registry.register(res_def)
             return func
@@ -201,11 +231,27 @@ class MCPRouter:
         name: str | None = None,
         *,
         description: str | None = None,
+        tags: list[str] | None = None,
+        auth: bool = False,
+        roles: list[str] | None = None,
+        guards: list[Any] | None = None,
+        rate_limit: str | None = None,
+        timeout: float | None = None,
     ) -> Callable[..., Any]:
-        """Register a prompt."""
+        """Register a prompt (same signature as ``MCPServer.prompt()``)."""
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-            prompt_def = build_prompt_def(func, name=name, description=description)
+            prompt_def = build_prompt_def(
+                func,
+                name=name,
+                description=description,
+                tags=tags,
+                auth=auth,
+                roles=roles,
+                guards=guards,
+                rate_limit=rate_limit,
+                timeout=timeout,
+            )
             self._prompt_registry.register(prompt_def)
             return func
 
@@ -317,15 +363,28 @@ def _merge_router(
         if tdef.name in router._input_models:
             server._input_models[prefixed_name] = router._input_models[tdef.name]
 
-    # Merge resources (URIs are already unique — no prefix)
-    for rdef in router._resource_registry.list_all():
-        server._resource_registry.register(rdef)
-    for rdef in router._resource_registry.list_templates():
-        server._resource_registry.register(rdef)
+    # Resources and prompts get the router's auth, guards, middleware and
+    # tags exactly like tools.  URIs and prompt names are not prefixed.
+    def _scoped(definition: Any) -> Any:
+        merged_auth = router.config.auth if router.config.auth is not None else definition.auth
+        if getattr(server, "_require_auth", False):
+            merged_auth = True
+        return replace(
+            definition,
+            tags=combined_tags + list(definition.tags),
+            auth=merged_auth,
+            guards=combined_guards + list(definition.guards),
+            router_middleware=combined_middleware + list(definition.router_middleware),
+            roles=list(definition.roles),
+        )
 
-    # Merge prompts
+    for rdef in router._resource_registry.list_all():
+        server._resource_registry.register(_scoped(rdef))
+    for rdef in router._resource_registry.list_templates():
+        server._resource_registry.register(_scoped(rdef))
+
     for pdef in router._prompt_registry.list_all():
-        server._prompt_registry.register(pdef)
+        server._prompt_registry.register(_scoped(pdef))
 
     # Recurse into sub-routers
     for sub_router, sub_config in router._sub_routers:

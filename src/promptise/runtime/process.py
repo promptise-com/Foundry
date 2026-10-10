@@ -11,6 +11,9 @@ Wraps a :class:`~promptise.agent.PromptiseAgent` with:
 * Short-term memory via :class:`ConversationBuffer`
 * Long-term memory via :class:`~promptise.memory.MemoryProvider`
 * Open mode: dynamic self-modification via meta-tools and hot-reload
+* Journal: durable record of transitions, invocations and checkpoints
+  (when ``ProcessConfig.journal`` is set)
+* Restart policy: automatic restart with backoff after ``FAILED``
 
 Example::
 
@@ -95,6 +98,46 @@ def _create_memory_provider(ctx_config: Any) -> Any:
     return None
 
 
+def _create_journal(journal_config: Any) -> Any | None:
+    """Create the journal backend described by a :class:`JournalConfig`.
+
+    Returns ``None`` when journaling is off (``level="none"``).
+    """
+    if journal_config.level == "none":
+        return None
+    if journal_config.backend == "memory":
+        from .journal import InMemoryJournal
+
+        return InMemoryJournal()
+    from .journal import FileJournal
+
+    return FileJournal(journal_config.path)
+
+
+class _KeyedJournal:
+    """Journal view that files every entry under one process key.
+
+    Handed to subsystems (secret scope, mission tracker) that write their
+    own entries, so those land in the process's journal file next to the
+    lifecycle entries instead of a file named after an internal ID.
+    """
+
+    def __init__(self, journal: Any, key: str) -> None:
+        self._journal = journal
+        self._key = key
+
+    async def append(self, entry: Any) -> None:
+        entry.process_id = self._key
+        await self._journal.append(entry)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._journal, name)
+
+
+#: Longest delay between automatic restart attempts (seconds).
+_MAX_RESTART_BACKOFF = 60.0
+
+
 def _resolve_server_specs(
     servers: dict[str, Any],
 ) -> dict[str, HTTPServerSpec | StdioServerSpec]:
@@ -128,7 +171,14 @@ def _resolve_server_specs(
                     kw["transport"] = spec["transport"]
                 elif "type" in spec:
                     kw["transport"] = spec["type"]
-                for opt in ("headers", "auth", "bearer_token", "api_key", "audience"):
+                for opt in (
+                    "headers",
+                    "auth",
+                    "bearer_token",
+                    "api_key",
+                    "audience",
+                    "forward_caller_token",
+                ):
                     if opt in spec:
                         kw[opt] = spec[opt]
                 resolved[name] = HTTPServerSpec(**kw)
@@ -141,6 +191,37 @@ def _resolve_server_specs(
                     keep_alive=spec.get("keep_alive", True),
                 )
     return resolved
+
+
+def _final_reply_text(result: Any) -> str | None:
+    """Return the agent's final reply from an ``ainvoke`` result.
+
+    The result's ``messages`` start with the input (system context and
+    conversation history), so the reply is the *last* assistant message
+    that is not just a tool-call request.  Returns ``None`` when the
+    result holds no assistant message.
+    """
+    if not isinstance(result, dict):
+        return None
+    fallback: str | None = None
+    for msg in reversed(result.get("messages") or []):
+        if isinstance(msg, dict):
+            role, content, tool_calls = msg.get("role"), msg.get("content"), msg.get("tool_calls")
+        else:
+            role = getattr(msg, "type", None)
+            content = getattr(msg, "content", "")
+            tool_calls = getattr(msg, "tool_calls", None)
+        if role not in ("assistant", "ai"):
+            continue
+        if isinstance(content, list):  # provider content blocks
+            text = "".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+        else:
+            text = content if isinstance(content, str) else str(content or "")
+        if text and not tool_calls:
+            return text
+        if fallback is None:
+            fallback = text
+    return fallback
 
 
 class AgentProcess:
@@ -187,6 +268,21 @@ class AgentProcess:
 
         # Lifecycle
         self._lifecycle = ProcessLifecycle()
+        self._lifecycle.add_listener(self._on_transition)
+
+        # Journal (durable audit log) — None unless ProcessConfig.journal
+        # sets a level.  Entries are filed under the process *name* so
+        # ``promptise runtime logs <name>`` and recovery after a restart
+        # (which gets a new process_id) find them.
+        self._journal: Any | None = _create_journal(config.journal)
+        self._journal_full = config.journal.level == "full"
+
+        # Restart policy state
+        self._restart_count = 0
+        self._restart_task: asyncio.Task[None] | None = None
+        self._stop_requested = False
+        self._restarting = False
+        self._recycled = False
 
         # Memory (long-term)
         self._long_term_memory: Any | None = _create_memory_provider(config.context)
@@ -234,6 +330,7 @@ class AgentProcess:
         self._worker_tasks: list[asyncio.Task[None]] = []
         self._trigger_listener_tasks: list[asyncio.Task[None]] = []
         self._heartbeat_task: asyncio.Task[None] | None = None
+        self._background_tasks: set[asyncio.Task[Any]] = set()
 
         # Concurrency
         self._semaphore = asyncio.Semaphore(config.concurrency)
@@ -272,6 +369,7 @@ class AgentProcess:
             self._secrets = SecretScope(
                 config=cfg.secrets,
                 process_id=self.process_id,
+                journal=self._journal_view(),
             )
 
         if cfg.budget.enabled:
@@ -291,16 +389,196 @@ class AgentProcess:
             self._mission = MissionTracker(
                 config=cfg.mission,
                 process_id=self.process_id,
+                journal=self._journal_view(),
             )
 
-        # Create callback handler when budget or health is active
-        if self._budget is not None or self._health is not None:
+        # Create callback handler when budget, health or a full journal is active
+        if self._budget is not None or self._health is not None or self._journal_full:
             from .callbacks import RuntimeCallbackHandler
 
             self._runtime_callback = RuntimeCallbackHandler(
                 budget=self._budget,
                 health=self._health,
+                journal=self._journal_record if self._journal_full else None,
             )
+
+    # ------------------------------------------------------------------
+    # Journal
+    # ------------------------------------------------------------------
+
+    def _journal_view(self) -> Any | None:
+        """The journal as seen by subsystems (entries keyed by process name)."""
+        if self._journal is None:
+            return None
+        return _KeyedJournal(self._journal, self.name)
+
+    async def _journal_record(self, entry_type: str, data: dict[str, Any]) -> None:
+        """Append a journal entry; journal failures never break the process."""
+        if self._journal is None:
+            return
+        from .journal import JournalEntry
+
+        try:
+            await self._journal.append(
+                JournalEntry(process_id=self.name, entry_type=entry_type, data=data)
+            )
+        except Exception:
+            logger.warning(
+                "AgentProcess %s: failed to write %s journal entry",
+                self.name,
+                entry_type,
+                exc_info=True,
+            )
+
+    async def _journal_checkpoint(self) -> None:
+        """Snapshot recoverable state (read back by :class:`ReplayEngine`)."""
+        if self._journal is None:
+            return
+        state: dict[str, Any] = {
+            "context_state": self._context.state_snapshot(),
+            "lifecycle_state": self.state.value,
+            "invocation_count": self._invocation_count,
+            "conversation": await self._conversation_buffer.async_snapshot(),
+        }
+        if self._budget is not None:
+            state["budget"] = self._budget.to_dict()
+        if self._mission is not None:
+            with contextlib.suppress(Exception):
+                state["mission"] = self._mission.to_dict()
+        try:
+            await self._journal.checkpoint(self.name, state)
+        except Exception:
+            logger.warning(
+                "AgentProcess %s: failed to write journal checkpoint",
+                self.name,
+                exc_info=True,
+            )
+
+    async def _on_transition(self, transition: Any) -> None:
+        """Lifecycle listener: journal the transition, react to FAILED."""
+        await self._journal_record(
+            "state_transition",
+            {
+                "from_state": transition.from_state.value,
+                "to_state": transition.to_state.value,
+                "reason": transition.reason,
+                "process_id": self.process_id,
+            },
+        )
+        if transition.to_state != ProcessState.FAILED:
+            return
+        if self._event_notifier is not None:
+            from promptise.events import emit_event
+
+            emit_event(
+                self._event_notifier,
+                "process.failed",
+                "critical",
+                {
+                    "process_name": self.name,
+                    "process_id": self.process_id,
+                    "reason": transition.reason,
+                    "error": str(transition.metadata.get("error", ""))[:200],
+                },
+                agent_id=self.name,
+            )
+        if self.config.restart_policy == "never":
+            return
+        # A failure of the caller's own start() is reported to the caller,
+        # not retried; failures while running (or of a restart) are.
+        if transition.from_state == ProcessState.STARTING and not self._restarting:
+            return
+        self._schedule_restart(transition.reason)
+
+    # ------------------------------------------------------------------
+    # Restart policy
+    # ------------------------------------------------------------------
+
+    def _schedule_restart(self, reason: str) -> None:
+        """Schedule an automatic restart after a failure (with backoff)."""
+        if self._stop_requested:
+            return
+        if self._restart_task is not None and not self._restart_task.done():
+            return
+        if self._restart_count >= self.config.max_restarts:
+            logger.error(
+                "AgentProcess %s: not restarting — max_restarts (%d) reached",
+                self.name,
+                self.config.max_restarts,
+            )
+            self._spawn_background(
+                self._journal_record(
+                    "restart_exhausted",
+                    {"reason": reason, "restarts": self._restart_count},
+                )
+            )
+            return
+        delay = min(
+            self.config.restart_backoff * (2**self._restart_count),
+            _MAX_RESTART_BACKOFF,
+        )
+        self._restart_task = asyncio.create_task(
+            self._restart(reason=reason, delay=delay, counts=True),
+            name=f"{self.name}-restart",
+        )
+
+    def _spawn_background(self, coro: Any) -> None:
+        """Run a coroutine in the background, keeping a reference to it."""
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+    async def _restart(self, *, reason: str, delay: float = 0.0, counts: bool) -> None:
+        """Tear the process down and start it again.
+
+        Args:
+            reason: Why the restart happens (journaled and logged).
+            delay: Seconds to wait first (restart backoff).
+            counts: Whether this attempt counts toward ``max_restarts``
+                (failure restarts do; ``max_lifetime`` recycling doesn't).
+        """
+        if delay > 0:
+            await asyncio.sleep(delay)
+        if self._stop_requested:
+            return
+        if counts:
+            self._restart_count += 1
+        attempt = f"{self._restart_count}/{self.config.max_restarts}" if counts else "recycle"
+        logger.warning("AgentProcess %s: restarting (%s) — %s", self.name, attempt, reason)
+        await self._journal_record(
+            "restart",
+            {"reason": reason, "attempt": self._restart_count if counts else None},
+        )
+        if self._event_notifier is not None:
+            from promptise.events import emit_event
+
+            emit_event(
+                self._event_notifier,
+                "process.restarted",
+                "warning",
+                {
+                    "process_name": self.name,
+                    "process_id": self.process_id,
+                    "reason": reason,
+                    "attempt": self._restart_count if counts else None,
+                    "max_restarts": self.config.max_restarts,
+                },
+                agent_id=self.name,
+            )
+        # A failed start() below transitions to FAILED again; clearing the
+        # handle first lets that schedule the next attempt.
+        self._restart_task = None
+        self._restarting = True
+        try:
+            async with self._lock:
+                await self._shutdown(final=False)
+            if self._stop_requested:
+                return
+            await self.start()
+        except Exception:
+            logger.exception("AgentProcess %s: restart attempt failed", self.name)
+        finally:
+            self._restarting = False
 
     # ------------------------------------------------------------------
     # Public API
@@ -332,6 +610,11 @@ class AgentProcess:
         """
         async with self._lock:
             await self._lifecycle.transition(ProcessState.STARTING, reason="start() called")
+            self._stop_requested = False
+            self._recycled = False
+            # A (re)started process gets a fresh failure streak; otherwise
+            # the first error after a restart would fail it again at once.
+            self._consecutive_failures = 0
 
             try:
                 # 0. Resolve secrets before agent build
@@ -385,21 +668,13 @@ class AgentProcess:
                     )
 
             except Exception as exc:
+                # The lifecycle listener emits ``process.failed`` (and
+                # schedules a retry when this start() is itself a restart).
                 await self._lifecycle.transition(
                     ProcessState.FAILED,
                     reason=f"startup failed: {exc}",
                     metadata={"error": str(exc)},
                 )
-                if self._event_notifier is not None:
-                    from promptise.events import emit_event
-
-                    emit_event(
-                        self._event_notifier,
-                        "process.failed",
-                        "critical",
-                        {"process_name": self.name, "error": str(exc)[:200]},
-                        agent_id=self.name,
-                    )
                 raise
 
     async def stop(self) -> None:
@@ -410,85 +685,161 @@ class AgentProcess:
         If the process is in FAILED state, cleanup is performed and the
         state transitions to ``FAILED → STARTING`` is **not** attempted;
         instead we go straight to ``STOPPED`` via internal reset.
+
+        An explicit stop also cancels any pending automatic restart.
         """
+        self._stop_requested = True
+        current = asyncio.current_task()
+        if (
+            self._restart_task is not None
+            and self._restart_task is not current
+            and not self._restart_task.done()
+        ):
+            self._restart_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self._restart_task
+        self._restart_task = None
         async with self._lock:
+            if self.state == ProcessState.STOPPED and self._recycled:
+                # Stopped mid-recycle (max_lifetime): finish the stop.
+                await self._release(emit_stopped=True)
+                return
             if self.state in (ProcessState.STOPPED, ProcessState.STOPPING):
                 return
+            await self._shutdown(final=True)
 
-            # FAILED state can't transition to STOPPING, so handle cleanup
-            # without state machine for already-failed processes
-            is_failed = self.state == ProcessState.FAILED
-            if not is_failed:
-                await self._lifecycle.transition(ProcessState.STOPPING, reason="stop() called")
+    async def _shutdown(self, *, final: bool) -> None:
+        """Tear down workers, triggers and the agent (caller holds ``_lock``).
 
-            # 1. Cancel worker tasks
-            for task in self._worker_tasks:
+        Args:
+            final: ``True`` for a real stop (then :meth:`_release`: emit
+                ``process.stopped``, revoke secrets, close long-term
+                memory, clear the conversation buffer).  ``False`` for the cleanup before an
+                automatic restart: after ``FAILED`` (no transition) or a
+                ``max_lifetime`` recycle (``STOPPING → STOPPED``, so the
+                following :meth:`start` is a valid transition).
+        """
+        # FAILED state can't transition to STOPPING, so handle cleanup
+        # without state machine for already-failed processes
+        is_failed = self.state == ProcessState.FAILED
+        if not is_failed:
+            await self._lifecycle.transition(
+                ProcessState.STOPPING,
+                reason="stop() called" if final else "stopping for restart",
+            )
+
+        current = asyncio.current_task()
+
+        # 1. Cancel worker tasks
+        for task in self._worker_tasks:
+            if task is not current:
                 task.cancel()
-            for task in self._worker_tasks:
+        for task in self._worker_tasks:
+            if task is not current:
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
-            # 2. Cancel trigger listeners
-            for task in self._trigger_listener_tasks:
-                task.cancel()
-            for task in self._trigger_listener_tasks:
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
+        # 2. Cancel trigger listeners
+        for task in self._trigger_listener_tasks:
+            task.cancel()
+        for task in self._trigger_listener_tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
-            # 3. Cancel heartbeat
-            if self._heartbeat_task:
-                self._heartbeat_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await self._heartbeat_task
+        # 3. Cancel heartbeat
+        if self._heartbeat_task and self._heartbeat_task is not current:
+            self._heartbeat_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._heartbeat_task
 
-            # 4. Stop triggers (static + dynamic)
-            for trigger in self._triggers:
+        # 4. Stop triggers (static + dynamic)
+        for trigger in self._triggers:
+            with contextlib.suppress(Exception):
+                await trigger.stop()
+        for trigger in self._dynamic_triggers:
+            with contextlib.suppress(Exception):
+                await trigger.stop()
+
+        # 5. Shutdown agent.  The event notifier belongs to whoever passed
+        # it in (often shared by every process of a runtime): detach it so
+        # the agent's shutdown doesn't stop it before ``process.stopped``
+        # (and other processes' events) are delivered.
+        if self._agent is not None:
+            if (
+                self._event_notifier is not None
+                and getattr(self._agent, "_event_notifier", None) is self._event_notifier
+            ):
+                self._agent._event_notifier = None
+            with contextlib.suppress(Exception):
+                await self._agent.shutdown()
+
+        # Clear.  When a worker stops its own process (budget "stop",
+        # mission auto-complete) it was skipped above; cancel it last, once
+        # nothing below awaits, so it ends instead of lingering orphaned.
+        cancel_self = current is not None and current in self._worker_tasks
+        self._worker_tasks.clear()
+        self._trigger_listener_tasks.clear()
+        self._heartbeat_task = None
+        self._triggers.clear()
+        self._dynamic_triggers.clear()
+
+        if not is_failed:
+            await self._lifecycle.transition(
+                ProcessState.STOPPED,
+                reason="shutdown complete" if final else "stopped for restart",
+            )
+        # For failed processes, we leave them in FAILED state
+        # (they can be restarted via start())
+        if final:
+            await self._release(emit_stopped=not is_failed)
+        elif not is_failed:
+            # Recycled: if stop() lands before the restart, it finishes this.
+            self._recycled = True
+        if cancel_self and current is not None:
+            current.cancel()
+
+    async def _release(self, *, emit_stopped: bool) -> None:
+        """Final part of a stop: release resources, emit ``process.stopped``."""
+        self._recycled = False
+
+        # Close long-term memory provider
+        if self._long_term_memory is not None:
+            with contextlib.suppress(Exception):
+                result = self._long_term_memory.close()
+                if hasattr(result, "__await__"):
+                    await result
+
+        # Revoke secrets
+        if self._secrets is not None:
+            with contextlib.suppress(Exception):
+                await self._secrets.revoke_all()
+
+        self._conversation_buffer.clear()
+
+        if emit_stopped and self._event_notifier is not None:
+            from promptise.events import emit_event
+
+            emit_event(
+                self._event_notifier,
+                "process.stopped",
+                "info",
+                {"process_name": self.name, "process_id": self.process_id},
+                agent_id=self.name,
+            )
+            # A standalone process drains the notifier so the event is
+            # delivered before the caller's event loop ends; inside an
+            # AgentRuntime the runtime drains it once all processes stop.
+            if self._runtime is None and hasattr(self._event_notifier, "stop"):
                 with contextlib.suppress(Exception):
-                    await trigger.stop()
-            for trigger in self._dynamic_triggers:
-                with contextlib.suppress(Exception):
-                    await trigger.stop()
+                    await self._event_notifier.stop()
 
-            # 5. Shutdown agent
-            if self._agent is not None:
-                with contextlib.suppress(Exception):
-                    await self._agent.shutdown()
-
-            # 6. Close long-term memory provider
-            if self._long_term_memory is not None:
-                with contextlib.suppress(Exception):
-                    result = self._long_term_memory.close()
-                    if hasattr(result, "__await__"):
-                        await result
-
-            # 7. Revoke secrets
-            if self._secrets is not None:
-                with contextlib.suppress(Exception):
-                    await self._secrets.revoke_all()
-
-            # Clear
-            self._worker_tasks.clear()
-            self._trigger_listener_tasks.clear()
-            self._heartbeat_task = None
-            self._triggers.clear()
-            self._dynamic_triggers.clear()
-            self._conversation_buffer.clear()
-
-            if not is_failed:
-                await self._lifecycle.transition(ProcessState.STOPPED, reason="shutdown complete")
-                if self._event_notifier is not None:
-                    from promptise.events import emit_event
-
-                    emit_event(
-                        self._event_notifier,
-                        "process.stopped",
-                        "info",
-                        {"process_name": self.name, "process_id": self.process_id},
-                        agent_id=self.name,
-                    )
-            # For failed processes, we leave them in FAILED state
-            # (they can be restarted via start())
-            logger.info("AgentProcess %s stopped", self.name)
+        current = asyncio.current_task()
+        for task in list(self._background_tasks):
+            if task is current:
+                continue
+            with contextlib.suppress(Exception):
+                await task
+        logger.info("AgentProcess %s stopped", self.name)
 
     async def suspend(self) -> None:
         """Pause processing without tearing down the agent.
@@ -636,6 +987,8 @@ class AgentProcess:
             "execution_mode": self.config.execution_mode.value,
             "invocation_count": self._invocation_count,
             "consecutive_failures": self._consecutive_failures,
+            "restart_count": self._restart_count,
+            "journal_enabled": self._journal is not None,
             "trigger_count": len(self._triggers),
             "dynamic_trigger_count": len(self._dynamic_triggers),
             "custom_tool_count": len(self._custom_tools),
@@ -710,28 +1063,7 @@ class AgentProcess:
             # :func:`_resolve_server_specs`).
             resolved = _resolve_server_specs(servers)
 
-            # When the process carries a verifiable identity, present its
-            # credential to MCP servers that have no bearer of their own —
-            # scoped to each server's audience (best-effort; an unreachable
-            # IdP must not fail the build).
-            def _identity_bearer(spec: HTTPServerSpec) -> str | None:
-                identity = self.config.identity
-                if identity is None or not getattr(identity, "is_verifiable", False):
-                    return None
-                from promptise.identity import IdentityError
-
-                try:
-                    return str(identity.get_credential(spec.audience))
-                except IdentityError as exc:
-                    logger.warning(
-                        "AgentProcess %s: identity could not acquire a "
-                        "credential for MCP server audience %r (%s); "
-                        "connecting without it.",
-                        self.name,
-                        spec.audience,
-                        exc,
-                    )
-                    return None
+            from promptise.agent import identity_token_provider
 
             # Build native MCP clients from resolved specs
             clients: dict[str, MCPClient] = {}
@@ -743,7 +1075,12 @@ class AgentProcess:
                         headers=spec.headers,
                         bearer_token=spec.bearer_token.get_secret_value()
                         if spec.bearer_token
-                        else _identity_bearer(spec),
+                        else None,
+                        # The process identity, renewed per request and
+                        # failing closed (see identity_token_provider).
+                        bearer_token_provider=identity_token_provider(
+                            self.config.identity, spec, owner=f"AgentProcess {self.name!r}"
+                        ),
                         api_key=spec.api_key.get_secret_value() if spec.api_key else None,
                     )
                 else:
@@ -757,7 +1094,16 @@ class AgentProcess:
 
             self._mcp_multi = MCPMultiClient(clients)
             await self._mcp_multi.__aenter__()
-            self._mcp_adapter = MCPToolAdapter(self._mcp_multi)
+            # Same per-caller token forwarding as build_agent(): servers
+            # that opt out keep the spec's credential for every call.
+            self._mcp_adapter = MCPToolAdapter(
+                self._mcp_multi,
+                forward_caller_token=[
+                    sname
+                    for sname, spec in resolved.items()
+                    if not isinstance(spec, HTTPServerSpec) or spec.forward_caller_token
+                ],
+            )
             mcp_tools = await self._mcp_adapter.as_langchain_tools()
             extra_tools.extend(mcp_tools)
 
@@ -774,6 +1120,10 @@ class AgentProcess:
         # Wire optional capabilities from ProcessConfig
         if self.config.identity is not None:
             build_kwargs["identity"] = self.config.identity
+        else:
+            # Attribute tool events and approval requests to this process
+            # (an identity supplies its own agent id).
+            build_kwargs["observer_agent_id"] = self.name
         if self.config.approval is not None:
             build_kwargs["approval"] = self.config.approval
         if self._event_notifier is not None:
@@ -911,6 +1261,8 @@ class AgentProcess:
         # -- Pre-invoke: reset callback handler for this invocation --
         if self._runtime_callback is not None:
             self._runtime_callback.reset()
+        if self._health is not None:
+            self._health.begin_invocation()
 
         # -- Pre-invoke: check daily budget reset + record run + reset per-run --
         if self._budget is not None:
@@ -960,6 +1312,22 @@ class AgentProcess:
         message = f"[Trigger: {event.trigger_type}] Payload: {event.payload}"
         user_msg: dict[str, Any] = {"role": "user", "content": message}
 
+        if self._journal_full:
+            await self._journal_record(
+                "trigger_event",
+                {
+                    "trigger_id": event.trigger_id,
+                    "trigger_type": event.trigger_type,
+                    "event_id": event.event_id,
+                    "payload": event.payload,
+                },
+            )
+            await self._journal_record(
+                "invocation_start",
+                {"invocation": self._invocation_count + 1, "event_id": event.event_id},
+            )
+        invoke_started = time.monotonic()
+
         # Build messages list with full context
         messages: list[dict[str, Any]] = []
 
@@ -1005,26 +1373,34 @@ class AgentProcess:
         # 6. Invoke (long-term memory auto-injected by PromptiseAgent)
         invoke_config: dict[str, Any] = {}
         if self._runtime_callback is not None:
-            invoke_config["callbacks"] = [self._runtime_callback]
+            invoke_config["callbacks"] = self._runtime_callback.callbacks()
 
-        result = await self._agent.ainvoke(
-            {"messages": messages},
-            config=invoke_config if invoke_config else None,
-        )
+        try:
+            result = await self._agent.ainvoke(
+                {"messages": messages},
+                config=invoke_config if invoke_config else None,
+            )
+        except Exception as exc:
+            await self._journal_record(
+                "error",
+                {
+                    "event_id": event.event_id,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:1000],
+                },
+            )
+            raise
+
+        # The agent's final reply (the result also echoes the input history,
+        # so take the last assistant message that isn't a tool-call request).
+        final_reply = _final_reply_text(result)
 
         # 7. Update conversation buffer with this exchange
         await self._conversation_buffer.async_append(user_msg)
-        if isinstance(result, dict) and "messages" in result:
-            for msg in result["messages"]:
-                role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "type", None)
-                if role in ("assistant", "ai"):
-                    content = (
-                        msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
-                    )
-                    await self._conversation_buffer.async_append(
-                        {"role": "assistant", "content": str(content or "")}
-                    )
-                    break
+        if final_reply is not None:
+            await self._conversation_buffer.async_append(
+                {"role": "assistant", "content": final_reply}
+            )
 
         # 7.5. Extract answers to inbox questions from agent response
         if _inbox_questions and self._inbox is not None:
@@ -1073,6 +1449,8 @@ class AgentProcess:
         # 8. Update counters
         self._invocation_count += 1
         self._last_activity = time.monotonic()
+        # A successful run ends a failure streak: restarts start counting anew.
+        self._restart_count = 0
 
         # 9. Increment mission invocation counter
         if self._mission is not None:
@@ -1091,6 +1469,23 @@ class AgentProcess:
                     {"process_name": self.name},
                     agent_id=self.name,
                 )
+            # Empty-response detection looks at the agent's final reply only
+            # (recorded after record_success so it can't "recover" itself).
+            await self._health.record_response(final_reply or "")
+
+        # 10.5. Journal the result and checkpoint recoverable state
+        if self._journal is not None:
+            await self._journal_record(
+                "invocation_result",
+                {
+                    "invocation": self._invocation_count,
+                    "event_id": event.event_id,
+                    "trigger_type": event.trigger_type,
+                    "duration_ms": round((time.monotonic() - invoke_started) * 1000, 1),
+                    "response": (final_reply or "")[:2000],
+                },
+            )
+            await self._journal_checkpoint()
 
         # -- Post-invoke: handle budget violations --
         if (
@@ -1302,8 +1697,15 @@ class AgentProcess:
                             self.name,
                             lifetime,
                         )
-                        # Schedule stop outside the heartbeat loop
-                        asyncio.create_task(self.stop())
+                        # Schedule outside the heartbeat loop: restart_policy
+                        # "always" recycles the process, otherwise it stops.
+                        if self.config.restart_policy == "always":
+                            self._restart_task = asyncio.create_task(
+                                self._restart(reason="max lifetime reached", counts=False),
+                                name=f"{self.name}-recycle",
+                            )
+                        else:
+                            self._spawn_background(self.stop())
                         return
 
                 logger.debug(

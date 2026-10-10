@@ -54,7 +54,8 @@ class ReplayEngine:
         lifecycle_state: str = "created"
 
         if checkpoint:
-            context_state = checkpoint.get("context_state", {})
+            # Copy: replay mutates it, and the backend may hand out its own dict.
+            context_state = dict(checkpoint.get("context_state") or {})
             lifecycle_state = checkpoint.get("lifecycle_state", "running")
             logger.info(
                 "Replay: loaded checkpoint for %s (state=%s)",
@@ -65,16 +66,18 @@ class ReplayEngine:
         # 2. Read entries after checkpoint
         all_entries = await self._journal.read(process_id)
 
-        # Find entries after the last checkpoint
-        entries_to_replay: list[JournalEntry] = []
-        found_checkpoint = checkpoint is None  # If no checkpoint, replay all
-        for entry in all_entries:
-            if entry.entry_type == "checkpoint" and not found_checkpoint:
-                found_checkpoint = True
-                entries_to_replay.clear()
-                continue
-            if found_checkpoint:
-                entries_to_replay.append(entry)
+        # Replay only what follows the LAST checkpoint entry: earlier entries
+        # (including older checkpoints) are already folded into the snapshot,
+        # and replaying them would overwrite newer state with stale values.
+        entries_to_replay: list[JournalEntry]
+        if checkpoint is None:
+            entries_to_replay = list(all_entries)
+        else:
+            last_cp = max(
+                (i for i, e in enumerate(all_entries) if e.entry_type == "checkpoint"),
+                default=None,
+            )
+            entries_to_replay = [] if last_cp is None else all_entries[last_cp + 1 :]
 
         # 3. Replay
         last_entry_type = ""

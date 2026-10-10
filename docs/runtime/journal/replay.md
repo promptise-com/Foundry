@@ -48,7 +48,10 @@ If no checkpoint exists, recovery starts from an empty state (`context_state={}`
 
 ### Step 2: Find entries after the checkpoint
 
-The engine reads all journal entries for the process and locates the last `checkpoint` entry. All entries after that point are collected for replay.
+The engine reads all journal entries for the process and locates the **last** `checkpoint` entry. Only the entries after that point are collected for replay; entries before it (older checkpoints included) are already part of the snapshot. The checkpoint returned by the backend is copied, so replay never modifies the stored snapshot.
+
+!!! note "Fixed in 1.3.0"
+    Earlier versions replayed everything after the *first* checkpoint, so with several checkpoints stale `context_update` values overwrote the newer snapshot.
 
 ### Step 3: Replay entries
 
@@ -172,7 +175,7 @@ recovered = await engine.recover("new-process")
     The replay engine only needs to process entries after the last checkpoint. More frequent checkpoints mean fewer entries to replay, but more disk writes. The default `"checkpoint"` journal level creates a checkpoint after each trigger-invoke-result cycle.
 
 !!! tip "Use full journal level for detailed recovery"
-    With `level="full"`, the journal captures every `context_update`, giving the replay engine fine-grained state reconstruction. With `level="checkpoint"`, only the checkpoint snapshots are available.
+    An `AgentProcess` checkpoints its context state after every invocation (both levels), and `level="full"` adds trigger events and tool calls for auditing. The process does not write `context_update` entries itself; append them from your own code when you need state reconstruction between checkpoints.
 
 !!! warning "Replay does not restore memory providers"
     The replay engine reconstructs `context_state` (key-value store) but does not restore the `MemoryProvider`. Long-term memory is managed by its own persistence layer (ChromaDB, Mem0, etc.) and does not need journal-based recovery.

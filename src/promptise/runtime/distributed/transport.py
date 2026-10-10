@@ -6,23 +6,40 @@ health checks.
 
 Uses ``aiohttp`` (ships with the base ``pip install promptise``).
 
+Security model:
+
+* Every endpoint except ``GET /health`` requires
+  ``Authorization: Bearer <auth_token>`` when ``auth_token`` is set.
+* Binding to a non-loopback address (e.g. ``0.0.0.0``) without an
+  ``auth_token`` is refused, unless ``allow_unauthenticated=True`` says
+  that something in front of the node (a proxy, a private network)
+  authenticates callers.
+* On a loopback bind, requests whose ``Host`` header is not a loopback
+  name are refused (``421``, DNS rebinding) and so are requests from a
+  browser page on another origin (``403``), so a web page cannot drive
+  a local runtime.
+
 Example::
 
     from promptise.runtime.distributed.transport import RuntimeTransport
     from promptise.runtime.runtime import AgentRuntime
 
     runtime = AgentRuntime()
-    transport = RuntimeTransport(runtime, port=9100)
+    transport = RuntimeTransport(runtime, port=9100, auth_token="secret")
 
     await transport.start()
-    # HTTP API now available at http://host:9100/
+    # HTTP API now available at http://127.0.0.1:9100/
     await transport.stop()
 """
 
 from __future__ import annotations
 
+import hmac
+import ipaddress
 import json
 import logging
+import re
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from aiohttp import web
@@ -30,6 +47,30 @@ from aiohttp import web
 from ..runtime import AgentRuntime
 
 logger = logging.getLogger(__name__)
+
+#: Endpoints that answer without a bearer token (liveness probes).
+_PUBLIC_PATHS = frozenset({"/health"})
+
+_LOOPBACK_ORIGIN = re.compile(r"^https?://(localhost|127(\.\d{1,3}){3}|\[::1\])(:\d+)?$", re.I)
+
+
+def _is_loopback(host: str) -> bool:
+    """True for a loopback bind address or host name."""
+    name = host.strip().strip("[]").lower()
+    if name == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(name).is_loopback
+    except ValueError:
+        return False
+
+
+def _host_name(host_header: str) -> str:
+    """The host part of a ``Host`` header (port removed, IPv6 brackets kept off)."""
+    value = host_header.strip()
+    if value.startswith("["):
+        return value[1:].split("]", 1)[0]
+    return value.rsplit(":", 1)[0] if value.count(":") == 1 else value
 
 
 class RuntimeTransport:
@@ -51,10 +92,20 @@ class RuntimeTransport:
         host: Host to bind to (default ``127.0.0.1`` — localhost only).
         port: Port to bind to.
         node_id: Unique identifier for this node.
-        auth_token: Bearer token required on all management requests.
-            When set, every request must include
-            ``Authorization: Bearer <token>``. **Strongly recommended
-            for any non-localhost deployment.**
+        auth_token: Bearer token required on every endpoint except
+            ``GET /health``: requests must include
+            ``Authorization: Bearer <token>``.  **Required** for a
+            non-loopback ``host``.
+        allow_unauthenticated: Allow a non-loopback ``host`` without
+            ``auth_token``.  Only for nodes behind something that
+            authenticates callers itself (an authenticating proxy, a
+            private network you control); anyone who can reach the port
+            can start, stop and drive your agents.
+
+    Raises:
+        ValueError: ``auth_token`` is empty, or ``host`` is not a
+            loopback address and there is no ``auth_token`` (and
+            ``allow_unauthenticated`` is not set).
     """
 
     def __init__(
@@ -65,7 +116,19 @@ class RuntimeTransport:
         port: int = 9100,
         node_id: str = "node-1",
         auth_token: str | None = None,
+        allow_unauthenticated: bool = False,
     ) -> None:
+        if auth_token is not None and not auth_token.strip():
+            raise ValueError("auth_token must be a non-empty string (or None)")
+        self._loopback = _is_loopback(host)
+        if not self._loopback and auth_token is None and not allow_unauthenticated:
+            raise ValueError(
+                f"RuntimeTransport {node_id}: refusing to bind {host!r} without "
+                "auth_token — anyone who can reach the port could start, stop and "
+                "drive this runtime's agents. Pass auth_token=..., bind 127.0.0.1, "
+                "or set allow_unauthenticated=True if an authenticating proxy or "
+                "private network protects the port."
+            )
         self._runtime = runtime
         self._host = host
         self._port = port
@@ -83,7 +146,15 @@ class RuntimeTransport:
 
     @property
     def port(self) -> int:
-        """The port this transport is listening on."""
+        """The port this transport is listening on.
+
+        With ``port=0`` the OS picks a free port; after :meth:`start` this
+        returns the port actually bound.
+        """
+        if self._port == 0 and self._runner is not None:
+            for address in self._runner.addresses:
+                if isinstance(address, tuple) and len(address) >= 2:
+                    return int(address[1])
         return self._port
 
     def _check_auth(self, request: web.Request) -> bool:
@@ -93,21 +164,36 @@ class RuntimeTransport:
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return False
-        import hmac as _hmac
+        return hmac.compare_digest(auth_header[7:].encode(), self._auth_token.encode())
 
-        return _hmac.compare_digest(auth_header[7:], self._auth_token)
+    @web.middleware
+    async def _guard(
+        self,
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
+    ) -> web.StreamResponse:
+        """Host/Origin checks (loopback binds) and bearer auth for every route."""
+        if self._loopback:
+            if not _is_loopback(_host_name(request.headers.get("Host", ""))):
+                return web.json_response({"error": "Misdirected request"}, status=421)
+            origin = request.headers.get("Origin")
+            if origin is not None and not _LOOPBACK_ORIGIN.match(origin):
+                return web.json_response({"error": "Cross-origin request refused"}, status=403)
+        if request.path not in _PUBLIC_PATHS and not self._check_auth(request):
+            return web.json_response({"error": "Unauthorized"}, status=401)
+        return await handler(request)
 
     async def start(self) -> None:
         """Start the HTTP transport server."""
-        if self._host != "127.0.0.1" and self._auth_token is None:
+        if not self._loopback and self._auth_token is None:
             logger.warning(
-                "RuntimeTransport %s: binding to %s WITHOUT auth_token. "
-                "Any network client can manage this runtime. Set auth_token "
-                "for production deployments.",
+                "RuntimeTransport %s: binding to %s WITHOUT auth_token "
+                "(allow_unauthenticated=True). Anyone who can reach the port can "
+                "manage this runtime.",
                 self._node_id,
                 self._host,
             )
-        self._app = web.Application()
+        self._app = web.Application(middlewares=[self._guard])
         self._setup_routes()
 
         self._runner = web.AppRunner(self._app)
@@ -118,7 +204,7 @@ class RuntimeTransport:
             "RuntimeTransport %s started on %s:%d",
             self._node_id,
             self._host,
-            self._port,
+            self.port,
         )
 
     async def stop(self) -> None:
@@ -159,23 +245,17 @@ class RuntimeTransport:
 
     async def _handle_status(self, request: web.Request) -> web.Response:
         """Full runtime status (requires auth)."""
-        if not self._check_auth(request):
-            return web.json_response({"error": "Unauthorized"}, status=401)
         status = self._runtime.status()
         status["node_id"] = self._node_id
         return web.json_response(status, dumps=_json_dumps)
 
     async def _handle_list_processes(self, request: web.Request) -> web.Response:
         """List all processes (requires auth)."""
-        if not self._check_auth(request):
-            return web.json_response({"error": "Unauthorized"}, status=401)
         processes = self._runtime.list_processes()
         return web.json_response({"node_id": self._node_id, "processes": processes})
 
     async def _handle_process_status(self, request: web.Request) -> web.Response:
         """Single process status (requires auth)."""
-        if not self._check_auth(request):
-            return web.json_response({"error": "Unauthorized"}, status=401)
         name = request.match_info["name"]
         try:
             status = self._runtime.process_status(name)
@@ -185,8 +265,6 @@ class RuntimeTransport:
 
     async def _handle_start(self, request: web.Request) -> web.Response:
         """Start a process (requires auth)."""
-        if not self._check_auth(request):
-            return web.json_response({"error": "Unauthorized"}, status=401)
         name = request.match_info["name"]
         try:
             await self._runtime.start_process(name)
@@ -198,8 +276,6 @@ class RuntimeTransport:
 
     async def _handle_stop(self, request: web.Request) -> web.Response:
         """Stop a process (requires auth)."""
-        if not self._check_auth(request):
-            return web.json_response({"error": "Unauthorized"}, status=401)
         name = request.match_info["name"]
         try:
             await self._runtime.stop_process(name)
@@ -211,8 +287,6 @@ class RuntimeTransport:
 
     async def _handle_restart(self, request: web.Request) -> web.Response:
         """Restart a process (requires auth)."""
-        if not self._check_auth(request):
-            return web.json_response({"error": "Unauthorized"}, status=401)
         name = request.match_info["name"]
         try:
             await self._runtime.restart_process(name)
@@ -224,8 +298,6 @@ class RuntimeTransport:
 
     async def _handle_inject_event(self, request: web.Request) -> web.Response:
         """Inject a trigger event into a process (requires auth)."""
-        if not self._check_auth(request):
-            return web.json_response({"error": "Unauthorized"}, status=401)
         from ..triggers.base import TriggerEvent
 
         name = request.match_info["name"]
@@ -238,12 +310,20 @@ class RuntimeTransport:
             body = await request.json()
         except Exception:
             return web.json_response({"error": "Invalid JSON body"}, status=400)
+        if not isinstance(body, dict):
+            return web.json_response({"error": "Body must be a JSON object"}, status=400)
+        payload = body.get("payload")
+        metadata = body.get("metadata")
+        if payload is not None and not isinstance(payload, dict):
+            return web.json_response({"error": "payload must be a JSON object"}, status=400)
+        if metadata is not None and not isinstance(metadata, dict):
+            return web.json_response({"error": "metadata must be a JSON object"}, status=400)
 
         event = TriggerEvent(
-            trigger_id=body.get("trigger_id", "remote"),
-            trigger_type=body.get("trigger_type", "remote"),
-            payload=body.get("payload"),
-            metadata=body.get("metadata", {}),
+            trigger_id=str(body.get("trigger_id") or "remote"),
+            trigger_type=str(body.get("trigger_type") or "remote"),
+            payload=payload or {},
+            metadata=metadata or {},
         )
         await process.inject(event)
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import sys
 import threading
 import time
 import uuid
@@ -116,14 +117,14 @@ class LocalIdP:
         """Replace the signing key; the old one is no longer published."""
         self._new_key()
 
-    def mint(self, audience: str | None = None) -> str:
+    def mint(self, audience: str | None = None, *, sub: str = "support-bot") -> str:
         if self.down:
             raise CredentialAcquisitionError("[local-idp] the IdP is unreachable")
         self.minted += 1
         now = int(time.time())
         claims = {
             "iss": self.issuer,
-            "sub": "support-bot",
+            "sub": sub,
             "aud": audience or AUDIENCE,
             "iat": now,
             "exp": now + self.ttl,
@@ -230,7 +231,9 @@ class _RecordingTransport:
 
 
 @asynccontextmanager
-async def _serve(server: MCPServer, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[str]:
+async def _serve(
+    server: MCPServer, monkeypatch: pytest.MonkeyPatch, *, port: int = 0
+) -> AsyncIterator[str]:
     """Run *server* over Streamable HTTP and yield its ``/mcp`` URL."""
     instances: list[uvicorn.Server] = []
 
@@ -240,7 +243,7 @@ async def _serve(server: MCPServer, monkeypatch: pytest.MonkeyPatch) -> AsyncIte
             instances.append(self)
 
     monkeypatch.setattr(uvicorn, "Server", _Recording)
-    task = asyncio.ensure_future(server.run_async(transport="http", host="127.0.0.1", port=0))
+    task = asyncio.ensure_future(server.run_async(transport="http", host="127.0.0.1", port=port))
     try:
         for _ in range(400):
             if task.done():
@@ -321,10 +324,11 @@ class TestAgentIdentityRefresh:
                 _call_whoami("c2"),
                 AIMessage(content="second done"),
             )
-            with (
-                patch("promptise.agent._normalize_model", return_value=model),
-                patch.dict("sys.modules", {"deepagents": None}),
-            ):
+            # Not patch.dict(sys.modules): restoring the whole dict would drop
+            # the modules first imported during the build (httpcore's network
+            # backend among them), and their re-import breaks later tests.
+            monkeypatch.setitem(sys.modules, "deepagents", None)
+            with patch("promptise.agent._normalize_model", return_value=model):
                 agent = await asyncio.wait_for(
                     build_agent(
                         model="openai:gpt-5-mini",
@@ -527,6 +531,82 @@ class TestRenewalWithCallInFlight:
                 result = json.loads((await asyncio.wait_for(held, FAIL_FAST)).content[0].text)
                 assert result["jti"] == first["jti"]  # ran on the original session
                 assert HOLD.invocations == 1
+
+
+# =====================================================================
+# New sessions after a server restart; caller tokens take precedence
+# =====================================================================
+
+
+def _port(url: str) -> int:
+    return int(url.rsplit(":", 1)[1].split("/", 1)[0])
+
+
+class TestSessionsAndCallerTokens:
+    async def test_session_reopened_after_a_restart_presents_the_renewed_credential(
+        self, idp, monkeypatch
+    ):
+        """The server restarts (a deploy) while the credential expires: the
+        new session is opened with a freshly acquired credential."""
+        identity = _identity(idp)
+        server, _ = _support_server(idp)
+        async with _serve(server, monkeypatch) as url:
+            client = MCPClient(
+                url=url,
+                bearer_token_provider=lambda force: identity.get_credential(
+                    AUDIENCE, force_refresh=force
+                ),
+            )
+            await asyncio.wait_for(client.__aenter__(), FAIL_FAST)
+            first = _whoami(await asyncio.wait_for(client.call_tool("whoami", {}), FAIL_FAST))
+        try:
+            await asyncio.sleep(TTL + 1.2)
+            restarted, _ = _support_server(idp)
+            async with _serve(restarted, monkeypatch, port=_port(url)):
+                second = _whoami(await asyncio.wait_for(client.call_tool("whoami", {}), FAIL_FAST))
+            assert second["client_id"] == "support-bot"
+            assert second["jti"] != first["jti"]
+            assert client.session_generation >= 2
+        finally:
+            await client.__aexit__(None, None, None)
+
+    async def test_forwarded_caller_token_takes_precedence_over_the_identity(
+        self, idp, monkeypatch
+    ):
+        """A per-caller session presents the caller's token, never the
+        agent identity's; the identity keeps serving the agent's own calls."""
+        idp.ttl = 3600
+        identity = _identity(idp)
+        server, _ = _support_server(idp)
+        async with _serve(server, monkeypatch) as url:
+            base = MCPClient(
+                url=url,
+                bearer_token_provider=lambda force: identity.get_credential(
+                    AUDIENCE, force_refresh=force
+                ),
+            )
+            async with MCPMultiClient({"support": base}) as multi:
+                await multi.list_tools()
+                own = _whoami(await asyncio.wait_for(multi.call_tool("whoami", {}), FAIL_FAST))
+                assert own["client_id"] == "support-bot"
+                minted = idp.minted
+
+                alice = idp.mint(sub="alice")
+                result = await asyncio.wait_for(
+                    multi.call_tool("whoami", {}, bearer_token=alice), FAIL_FAST
+                )
+                assert _whoami(result)["client_id"] == "alice"
+                # The identity was not asked for a credential for that call.
+                assert idp.minted == minted + 1  # only alice's token
+
+                again = _whoami(await asyncio.wait_for(multi.call_tool("whoami", {}), FAIL_FAST))
+                assert again["jti"] == own["jti"]
+
+    def test_per_caller_clone_does_not_inherit_the_provider(self) -> None:
+        base = MCPClient(url="http://127.0.0.1:1/mcp", bearer_token_provider=lambda force: "agent")
+        clone = base.with_bearer_token("caller")
+        assert clone._token_source is None
+        assert clone.headers["authorization"] == "Bearer caller"
 
 
 # =====================================================================

@@ -38,8 +38,31 @@ class TestBasicTypes:
         assert fields["s"].description == "a string"
 
     def test_empty_schema(self) -> None:
+        # A tool without parameters gets an empty object schema, not a
+        # made-up ``payload`` parameter.
         model = _jsonschema_to_pydantic({}, model_name="Empty")
-        assert "payload" in model.model_fields
+        assert model.model_fields == {}
+        assert model.model_json_schema()["properties"] == {}
+
+    def test_free_form_object_passes_keys_through(self) -> None:
+        model = _jsonschema_to_pydantic(
+            {"type": "object", "additionalProperties": True}, model_name="FreeForm"
+        )
+        assert model.model_fields == {}
+        assert model(a=1, b="x").model_dump() == {"a": 1, "b": "x"}
+
+    def test_nested_object_without_properties_is_dict(self) -> None:
+        schema = {
+            "type": "object",
+            "properties": {
+                "cfg": {"type": "object", "properties": {}},
+                "rows": {"type": "array", "items": {"type": "object"}},
+            },
+        }
+        model = _jsonschema_to_pydantic(schema, model_name="Loose")
+        instance = model(cfg={"k": 1}, rows=[{"a": 1}])
+        assert instance.cfg == {"k": 1}
+        assert instance.rows == [{"a": 1}]
 
     def test_defaults_preserved(self) -> None:
         schema = {

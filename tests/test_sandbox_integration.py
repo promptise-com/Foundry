@@ -199,13 +199,12 @@ async def test_network_mode_full(docker_available):
     manager = SandboxManager(config)
 
     async with await manager.create_session() as session:
-        # Install curl first
-        await session.execute("apt-get update -qq && apt-get install -y -qq curl", timeout=60)
-
-        # Network access should work
-        await session.execute("curl -I https://google.com", timeout=10)
-        # May fail due to DNS or network, but should not be "network unreachable"
-        # This test is best-effort since container networking can be complex
+        result = await session.execute(
+            "python3 -c \"import socket; socket.create_connection(('1.1.1.1', 443), 5); print('ok')\"",
+            timeout=15,
+        )
+        assert result.success, result.stderr
+        assert "ok" in result.stdout
 
 
 @pytest.mark.integration
@@ -372,3 +371,216 @@ async def test_gvisor_backend_if_available(docker_available):
         result = await session.execute("echo 'gVisor test'")
         assert result.success
         assert "gVisor test" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Hardening: network default, fail-closed restricted mode, timeout kill,
+# write_file on a read-only rootfs, unknown keys, limits, packages, gVisor.
+# ---------------------------------------------------------------------------
+
+_FETCH = (
+    'python3 -c "import urllib.request; '
+    "print(urllib.request.urlopen('http://example.com', timeout=5).status)\""
+)
+
+
+def _sandbox_container_ids() -> set[str]:
+    import docker
+
+    client = docker.from_env()
+    return {c.id for c in client.containers.list(all=True, filters={"label": "promptise.sandbox"})}
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_custom_config_keeps_network_none(docker_available):
+    """A custom config that omits `network` gets no network (was: open bridge)."""
+    import docker
+
+    from promptise.sandbox import SandboxManager
+
+    async with SandboxManager({"memory_limit": "512M"}) as manager:
+        session = await manager.create_session()
+        attrs = docker.from_env().containers.get(session.container_id).attrs
+        assert attrs["HostConfig"]["NetworkMode"] == "none"
+
+        result = await session.execute(_FETCH, timeout=20)
+        assert not result.success
+        assert "200" not in result.stdout
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_code_action_custom_sandbox_has_no_network(docker_available):
+    """build_agent(code-action, sandbox={...}) without `network` keeps network none."""
+    from langchain_core.language_models import FakeListChatModel
+
+    from promptise import build_agent
+
+    agent = await build_agent(
+        servers={},
+        model=FakeListChatModel(responses=["x"]),
+        agent_pattern="code-action",
+        sandbox={"memory_limit": "512M"},
+    )
+    try:
+        manager = agent._sandbox_manager
+        assert manager.config.network.value == "none"
+        session = await manager.create_session()
+        result = await session.execute(_FETCH, timeout=20)
+        assert not result.success
+    finally:
+        await agent.shutdown()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_restricted_network_fails_closed_without_iptables(docker_available):
+    """python:3.11-slim has no iptables: restricted mode must refuse to start."""
+    from promptise.sandbox import SandboxManager
+
+    before = _sandbox_container_ids()
+    manager = SandboxManager({"network": "restricted"})
+    with pytest.raises(RuntimeError, match="network='restricted' could not be enforced"):
+        await manager.create_session()
+    # The half-configured container was removed, not left running.
+    assert _sandbox_container_ids() - before == set()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_timeout_kills_the_process(docker_available):
+    """After a timeout the command's processes are gone, children included."""
+    from promptise.sandbox import SandboxManager
+
+    find = (
+        "for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done "
+        "| grep -e 'while True' -e 'sleep 1234' | grep -v grep"
+    )
+    async with SandboxManager({"timeout": 5}) as manager:
+        session = await manager.create_session()
+        result = await session.execute("sleep 1234 & python3 -c 'while True: pass'", timeout=3)
+        assert result.timeout is True
+        assert "its processes were killed" in result.stderr
+        assert result.duration < 15
+
+        leftover = await session.execute(find, timeout=10)
+        assert leftover.stdout.strip() == ""
+
+        # The session is still usable afterwards.
+        ok = await session.execute("echo alive", timeout=10)
+        assert ok.success and ok.stdout.strip() == "alive"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_write_file_on_read_only_rootfs(docker_available):
+    """write_file works with the default read-only rootfs, for any content."""
+    from promptise.sandbox import SandboxManager
+
+    hostile = "import os\nprint('quote \\' \" $HOME `id` $(whoami)')\n"
+    big = "".join(f"line {i}\n" for i in range(40_000))  # ~350 KB, several chunks
+
+    async with SandboxManager(True) as manager:
+        session = await manager.create_session()
+        await session.write_file("/workspace/nested/dir/hostile.py", hostile)
+        await session.write_file("/workspace/big.txt", big)
+
+        assert await session.read_file("/workspace/nested/dir/hostile.py") == hostile
+        assert await session.read_file("/workspace/big.txt") == big
+        run = await session.execute("python3 /workspace/nested/dir/hostile.py")
+        assert run.success, run.stderr
+        assert "$HOME `id`" in run.stdout
+        # No temp files left behind
+        assert await session.list_files("/workspace") == ["big.txt", "nested"]
+
+        # The agent tool reports success too.
+        from promptise.sandbox.tools import SandboxWriteFileTool
+
+        out = await SandboxWriteFileTool(session=session)._arun(
+            file_path="/workspace/t.txt", content="hi"
+        )
+        assert out.startswith("Successfully wrote")
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_unknown_key_is_rejected_before_any_container(docker_available):
+    """`network_mode` (the old docs' key) raises and starts nothing."""
+    from langchain_core.language_models import FakeListChatModel
+    from pydantic import ValidationError
+
+    from promptise import build_agent
+
+    before = _sandbox_container_ids()
+    with pytest.raises(ValidationError, match="'network_mode': use 'network'"):
+        await build_agent(
+            servers={},
+            model=FakeListChatModel(responses=["x"]),
+            agent_pattern="code-action",
+            sandbox={"network_mode": "none"},
+        )
+    assert _sandbox_container_ids() - before == set()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_pids_and_disk_limits_applied(docker_available):
+    import docker
+
+    from promptise.sandbox import SandboxManager
+
+    async with SandboxManager({"pids_limit": 64, "disk_limit": "64M"}) as manager:
+        session = await manager.create_session()
+        attrs = docker.from_env().containers.get(session.container_id).attrs
+        assert attrs["HostConfig"]["PidsLimit"] == 64
+
+        size = await session.execute("df -k /workspace | tail -1 | awk '{print $2}'")
+        assert int(size.stdout.strip()) == 64 * 1024
+
+        full = await session.execute(
+            "head -c 100000000 /dev/zero > /workspace/fill.bin", timeout=30
+        )
+        assert not full.success
+        assert "No space left on device" in full.stderr
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_install_package_on_read_only_rootfs(docker_available):
+    """pip installs into the workspace instead of failing on /root/.local."""
+    from promptise.sandbox import SandboxManager
+
+    async with SandboxManager({"network": "full"}) as manager:
+        session = await manager.create_session()
+        result = await session.install_package("six")
+        assert result.success, result.stderr
+        imported = await session.execute("python3 -c 'import six; print(six.__file__)'")
+        assert imported.success, imported.stderr
+        assert imported.stdout.startswith("/workspace/")
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_install_package_without_network_explains(docker_available):
+    from promptise.sandbox import SandboxManager
+
+    async with SandboxManager(True) as manager:
+        session = await manager.create_session()
+        result = await session.install_package("six")
+        assert not result.success
+        assert "network='none'" in result.stderr
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_gvisor_error_names_the_missing_runtime(docker_available):
+    import docker
+
+    if "runsc" in (docker.from_env().info().get("Runtimes") or {}):
+        pytest.skip("gVisor is installed")
+
+    from promptise.sandbox import SandboxManager
+
+    with pytest.raises(RuntimeError, match="gVisor runtime 'runsc' is not registered"):
+        await SandboxManager({"backend": "gvisor"}).create_session()

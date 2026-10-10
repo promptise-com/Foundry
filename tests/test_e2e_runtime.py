@@ -716,7 +716,12 @@ class TestProcessIdentity:
         from promptise.config import HTTPServerSpec  # noqa: F401
 
         def _fake_client(**kwargs: object) -> MagicMock:
-            captured_bearers.append(kwargs.get("bearer_token"))
+            # The identity is presented through a provider asked on every
+            # request (so the credential is renewed); record what it yields.
+            provider = kwargs.get("bearer_token_provider")
+            captured_bearers.append(
+                provider(False) if callable(provider) else kwargs.get("bearer_token")
+            )
             return MagicMock()
 
         multi = MagicMock()
@@ -795,3 +800,44 @@ class TestProcessIdentity:
 
         assert bearers == [None]  # local identity → no credential presented
         assert build_kwargs["identity"].agent_id == "local-bot"  # still attributed
+
+    @pytest.mark.asyncio
+    async def test_unreachable_idp_fails_closed(self) -> None:
+        """The process never presents its MCP servers an unauthenticated
+        request when its identity cannot acquire a credential."""
+        from contextlib import ExitStack
+
+        from promptise.config import HTTPServerSpec
+        from promptise.identity import (
+            AgentIdentity,
+            CallableTokenProvider,
+            CredentialAcquisitionError,
+        )
+
+        def mint(audience: str | None = None) -> str:
+            raise CredentialAcquisitionError("metadata server unreachable")
+
+        cfg = ProcessConfig(
+            model="openai:gpt-5-mini",
+            identity=AgentIdentity("watcher-bot", credential=CallableTokenProvider(token_fn=mint)),
+            servers={
+                "data": HTTPServerSpec(url="https://data.internal/mcp", audience="api://data")
+            },
+        )
+        process = AgentProcess("watcher", cfg)
+        providers: list = []
+
+        def _fake_client(**kwargs: object) -> MagicMock:
+            providers.append(kwargs.get("bearer_token_provider"))
+            return MagicMock()
+
+        patches = self._patch_build([], {})
+        patches[0] = patch("promptise.mcp.client.MCPClient", side_effect=_fake_client)
+        with ExitStack() as stack:
+            for cm in patches:
+                stack.enter_context(cm)
+            await process._build_agent()
+
+        (provider,) = providers
+        with pytest.raises(CredentialAcquisitionError):
+            provider(False)

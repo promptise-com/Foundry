@@ -40,7 +40,7 @@ await process.stop()
 | `open_mode` | `OpenModeConfig` | defaults | Guardrails for open mode (ignored in strict) |
 | `servers` | `dict[str, Any]` | `{}` | MCP server specifications |
 | `triggers` | `list[TriggerConfig]` | `[]` | Trigger configurations |
-| `journal` | `JournalConfig` | defaults | Journal (audit log) configuration |
+| `journal` | `JournalConfig` | off (`level="none"`) | Journal (audit log). Pass `JournalConfig(...)` to record transitions, invocations and checkpoints. See [Journal](journal/index.md). |
 | `context` | `ContextConfig` | defaults | AgentContext configuration |
 | `concurrency` | `int` | `1` | Max concurrent trigger invocations |
 | `heartbeat_interval` | `float` | `10.0` | Heartbeat period in seconds |
@@ -48,7 +48,8 @@ await process.stop()
 | `max_lifetime` | `float` | `0.0` | Max process lifetime in seconds (0 = unlimited) |
 | `max_consecutive_failures` | `int` | `3` | Consecutive failures before FAILED state |
 | `restart_policy` | `str` | `"never"` | `"always"`, `"on_failure"`, or `"never"` |
-| `max_restarts` | `int` | `3` | Max restart attempts |
+| `max_restarts` | `int` | `3` | Max consecutive restart attempts after failures |
+| `restart_backoff` | `float` | `1.0` | Seconds before the first restart attempt; doubles per attempt, capped at 60 s |
 
 ### Governance fields
 
@@ -314,22 +315,35 @@ ProcessConfig(
 
 ## Restart Policies
 
-When a process enters the `FAILED` state, the restart policy determines what happens next.
+When a process enters the `FAILED` state while running (for example after `max_consecutive_failures` failed invocations), the restart policy determines what happens next.
 
 | Policy | Behavior |
 |---|---|
 | `"never"` | Process stays in FAILED state (default) |
-| `"on_failure"` | Automatically restart up to `max_restarts` times |
-| `"always"` | Restart on any stop, up to `max_restarts` times |
+| `"on_failure"` | Tear the process down and start it again, up to `max_restarts` consecutive attempts |
+| `"always"` | Same as `"on_failure"`, and a process that reaches `max_lifetime` is recycled (stopped and started again) instead of staying stopped |
 
 ```python
 ProcessConfig(
     model="openai:gpt-5-mini",
     restart_policy="on_failure",
     max_restarts=5,
+    restart_backoff=2.0,   # 2s, 4s, 8s, ... (max 60s)
     max_consecutive_failures=3,
 )
 ```
+
+How restarts behave:
+
+- The first attempt waits `restart_backoff` seconds; each further consecutive attempt doubles the wait (capped at 60 s). A restart that fails to start counts as an attempt.
+- The attempt count resets after a successful invocation, so `max_restarts` limits a *streak* of failures, not the process's lifetime. A restarted process also starts a fresh `max_consecutive_failures` streak. `max_lifetime` recycling does not count as an attempt.
+- When `max_restarts` is reached the process stays `FAILED` (a `restart_exhausted` journal entry is written).
+- An explicit `stop()` never triggers a restart and cancels a pending one. Stops the runtime performs on purpose (budget or health `"stop"`, mission completion) are not restarted either.
+- A failure of your own `start()` call raises to you and is not retried.
+- Each attempt emits a `process.restarted` event and the `FAILED` transition emits `process.failed`. `status()` reports `restart_count`.
+
+!!! note "Changed in 1.3.0"
+    `restart_policy` and `max_restarts` were accepted but had no effect in earlier versions: a failed process always stayed `FAILED`.
 
 ---
 
