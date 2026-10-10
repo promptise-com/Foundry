@@ -317,7 +317,7 @@ class PromptGraphEngine:
         """
         config = self._prepare_config(config)
 
-        run_start = time.monotonic()
+        run_start = time.perf_counter()
         mutations_count = 0
 
         # Work on a COPY — original graph is never mutated
@@ -383,7 +383,7 @@ class PromptGraphEngine:
                         logger.warning("pre_node hook %r failed: %s", type(hook).__name__, exc)
 
             # ── Pre-execute flag processing ──
-            node_start = time.monotonic()
+            node_start = time.perf_counter()
             skip_result = await self._pre_execute_flags(node, state, config)
 
             if skip_result is not None:
@@ -404,7 +404,7 @@ class PromptGraphEngine:
                 # ── Post-execute flag processing ──
                 await self._post_execute_flags(node, result, state, config)
 
-            result.duration_ms = (time.monotonic() - node_start) * 1000
+            result.duration_ms = (time.perf_counter() - node_start) * 1000
 
             # Did the node's own execution fail? Decided BEFORE post-node
             # hooks: a hook may annotate a successful result (TimingHook /
@@ -516,7 +516,7 @@ class PromptGraphEngine:
         self._last_report = ExecutionReport(
             total_iterations=state.iteration,
             total_tokens=state.total_tokens,
-            total_duration_ms=(time.monotonic() - run_start) * 1000,
+            total_duration_ms=(time.perf_counter() - run_start) * 1000,
             nodes_visited=state.visited,
             tool_calls=state.tool_calls_made,
             graph_mutations=mutations_count,

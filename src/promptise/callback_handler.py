@@ -158,7 +158,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
-        self._llm_starts[run_id] = time.time()
+        self._llm_starts[run_id] = time.perf_counter()
         self._run_parents[run_id] = parent_run_id
         self.llm_call_count += 1
         run = self._current_run()
@@ -210,7 +210,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         start = self._llm_starts.pop(run_id, None)
-        duration = time.time() - start if start else None
+        duration = time.perf_counter() - start if start else None
 
         metadata: dict[str, Any] = {"run_id": str(run_id)}
         if duration is not None:
@@ -310,7 +310,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         start = self._llm_starts.pop(run_id, None)
-        duration = time.time() - start if start else None
+        duration = time.perf_counter() - start if start else None
         self.error_count += 1
         self._streaming_tokens.pop(run_id, None)
         run = self._current_run()
@@ -344,7 +344,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
-        self._tool_starts[run_id] = time.time()
+        self._tool_starts[run_id] = time.perf_counter()
         self._run_parents[run_id] = parent_run_id
         self.tool_call_count += 1
         run = self._current_run()
@@ -369,7 +369,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         start = self._tool_starts.pop(run_id, None)
-        duration = time.time() - start if start else None
+        duration = time.perf_counter() - start if start else None
         tool_name = self._tool_names.pop(run_id, None) or kwargs.get("name") or "unknown"
 
         # A tool invoked as a tool call returns a ToolMessage; record its
@@ -418,7 +418,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         start = self._tool_starts.pop(run_id, None)
-        duration = time.time() - start if start else None
+        duration = time.perf_counter() - start if start else None
         self.error_count += 1
         run = self._current_run()
         if run is not None:
@@ -460,7 +460,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
-        self._chain_starts[run_id] = time.time()
+        self._chain_starts[run_id] = time.perf_counter()
         self._run_parents[run_id] = parent_run_id
 
         # Only record AGENT_INPUT for the top-level chain (not sub-chains),
@@ -498,7 +498,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         start = self._chain_starts.pop(run_id, None)
-        duration = time.time() - start if start else None
+        duration = time.perf_counter() - start if start else None
 
         # Only record AGENT_OUTPUT for the top-level chain
         if parent_run_id is not None or self._current_run() is not None:
@@ -538,7 +538,7 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         start = self._chain_starts.pop(run_id, None)
-        duration = time.time() - start if start else None
+        duration = time.perf_counter() - start if start else None
 
         if parent_run_id is not None or self._current_run() is not None:
             return  # Only record top-level chain errors of standalone use

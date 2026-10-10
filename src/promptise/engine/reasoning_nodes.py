@@ -584,7 +584,7 @@ class RetryNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Execute wrapped node with retries."""
-        start = time.monotonic()
+        start = time.perf_counter()
         last_error = None
 
         for attempt in range(self.max_retries + 1):
@@ -592,7 +592,7 @@ class RetryNode(BaseNode):
                 result = await self.wrapped_node.execute(state, config)
                 if not result.error:
                     result.node_name = self.name
-                    result.duration_ms = (time.monotonic() - start) * 1000
+                    result.duration_ms = (time.perf_counter() - start) * 1000
                     return result
                 last_error = result.error
             except Exception as exc:
@@ -610,7 +610,7 @@ class RetryNode(BaseNode):
         return NodeResult(
             node_name=self.name,
             error=f"All {self.max_retries + 1} attempts failed. Last error: {last_error}",
-            duration_ms=(time.monotonic() - start) * 1000,
+            duration_ms=(time.perf_counter() - start) * 1000,
         )
 
 
@@ -641,7 +641,7 @@ class FanOutNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Execute each branch with its state override concurrently."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="fan_out", iteration=state.iteration)
 
         async def run_branch(node: BaseNode, overrides: dict[str, Any]) -> NodeResult:
@@ -670,5 +670,5 @@ class FanOutNode(BaseNode):
                 result.total_tokens += child_result.total_tokens
 
         result.output = outputs
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result

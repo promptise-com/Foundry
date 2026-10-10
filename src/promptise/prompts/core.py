@@ -628,7 +628,7 @@ class Prompt:
         14. Run on_after hook
         15. Return typed result
         """
-        start = time.monotonic()
+        start = time.perf_counter()
 
         # 1. Bind arguments
         bound = self._sig.bind(*args, **kwargs)
@@ -744,7 +744,7 @@ class Prompt:
                     self._inspector.record_guard(trace, _guard_name(g), passed=True)
 
             # 14. Stats
-            elapsed = (time.monotonic() - start) * 1000
+            elapsed = (time.perf_counter() - start) * 1000
             if trace is not None and self._inspector is not None:
                 self._inspector.record_execution(trace, raw_output, elapsed)
             self.last_stats = PromptStats(

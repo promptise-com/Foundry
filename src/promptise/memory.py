@@ -1316,7 +1316,7 @@ async def _store_exchange(
 
     Never raises: memory storage must not fail the invocation.
     """
-    started = time.monotonic()
+    started = time.perf_counter()
     state = {"late": False}
     task: asyncio.Task[Any] = asyncio.ensure_future(
         provider.add(content, metadata={"source": "auto_store"}, user_id=user_id)
@@ -1334,7 +1334,7 @@ async def _store_exchange(
         elif state["late"]:
             logger.info(
                 "Memory auto-store completed after %.1fs (finished in the background)",
-                time.monotonic() - started,
+                time.perf_counter() - started,
             )
 
     task.add_done_callback(_on_done)

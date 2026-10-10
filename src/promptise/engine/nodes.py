@@ -496,7 +496,7 @@ class PromptNode(BaseNode):
         chunks when *stream* is true (the model is then called with
         ``astream()`` instead of ``ainvoke()``).
         """
-        start = time.monotonic()
+        start = time.perf_counter()
 
         # Resolve model — per-node override takes priority
         if self.model_override is not None:
@@ -743,7 +743,7 @@ class PromptNode(BaseNode):
                 messages.insert(0, node_sys_msg)
 
         # ── 3. Call LLM ──
-        llm_start = time.monotonic()
+        llm_start = time.perf_counter()
         try:
             if stream and self.output_schema is None:
                 # Stream the one model call of this step; the aggregated
@@ -764,13 +764,13 @@ class PromptNode(BaseNode):
                     response = aggregate if aggregate is not None else AIMessage(content="")
             else:
                 response = await model_to_use.ainvoke(messages, config=config)
-            result.llm_duration_ms = (time.monotonic() - llm_start) * 1000
+            result.llm_duration_ms = (time.perf_counter() - llm_start) * 1000
         except Exception as exc:
             # Recorded on the result for hooks/history; the engine raises
             # GraphExecutionError (chained to this exception) if the run
             # ends here, so a provider failure never becomes a silent "answer".
             record_failure(result, exc)
-            result.duration_ms = (time.monotonic() - start) * 1000
+            result.duration_ms = (time.perf_counter() - start) * 1000
             return
 
         # ── 4. Process response ──
@@ -792,7 +792,7 @@ class PromptNode(BaseNode):
                     else ValueError(str(parsing_error))
                 )
                 record_failure(result, parse_exc)
-                result.duration_ms = (time.monotonic() - start) * 1000
+                result.duration_ms = (time.perf_counter() - start) * 1000
                 return
             response = response["parsed"]
 
@@ -813,7 +813,7 @@ class PromptNode(BaseNode):
                 # Execute against every candidate, not just the offered ones:
                 # a tool the selector left out this step is still callable.
                 tool_map = {t.name: t for t in (candidate_tools or active_tools)}
-                tool_start = time.monotonic()
+                tool_start = time.perf_counter()
                 hooks = config.get("_engine_hooks", [])
 
                 async def _exec_one_tool(tc: dict) -> tuple[dict, str]:
@@ -904,7 +904,7 @@ class PromptNode(BaseNode):
 
                 async def _timed_tool(tc: dict) -> tuple[dict[str, Any], str, float]:
                     """Run one tool call; never raises. Returns (record, content, ms)."""
-                    started = time.monotonic()
+                    started = time.perf_counter()
                     try:
                         tc_record, content = await _exec_one_tool(tc)
                     except Exception as exc:  # a hook failed
@@ -916,7 +916,7 @@ class PromptNode(BaseNode):
                             "success": False,
                             "raised": True,
                         }
-                    return tc_record, content, (time.monotonic() - started) * 1000
+                    return tc_record, content, (time.perf_counter() - started) * 1000
 
                 def _tool_end_event(
                     index: int, tc_record: dict[str, Any], content: str, ms: float
@@ -997,7 +997,7 @@ class PromptNode(BaseNode):
                         success=tc_record.get("success", False),
                     )
 
-                result.tool_duration_ms = (time.monotonic() - tool_start) * 1000
+                result.tool_duration_ms = (time.perf_counter() - tool_start) * 1000
 
                 # Signal that tools were called — engine will re-enter this node
                 result.transition_reason = "tool_calls_present"
@@ -1072,7 +1072,7 @@ class PromptNode(BaseNode):
         elif result.output is not None:
             state.context[f"{self.name}_output"] = result.output
 
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> PromptNode:
@@ -1155,7 +1155,7 @@ class ToolNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Execute tools from state or selector."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="tool", iteration=state.iteration)
         tool_map = {t.name: t for t in self.tools}
 
@@ -1218,7 +1218,7 @@ class ToolNode(BaseNode):
                 success=tc_record.get("success", False),
             )
 
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
 
@@ -1256,7 +1256,7 @@ class RouterNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Ask the LLM to choose a route."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="router", iteration=state.iteration)
 
         model = self.model_override or config.get("_engine_model")
@@ -1285,7 +1285,7 @@ class RouterNode(BaseNode):
 
         try:
             response = await model.ainvoke(messages, config=cast("RunnableConfig | None", config))
-            result.llm_duration_ms = (time.monotonic() - start) * 1000
+            result.llm_duration_ms = (time.perf_counter() - start) * 1000
 
             _resp_content = getattr(response, "content", None)
             _resp_str = _resp_content if isinstance(_resp_content, str) else str(response)
@@ -1316,7 +1316,7 @@ class RouterNode(BaseNode):
         except Exception as exc:
             record_failure(result, exc)
 
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
 
@@ -1357,7 +1357,7 @@ class GuardNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Run guards and route accordingly."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="guard", iteration=state.iteration)
 
         # Get the value to validate
@@ -1396,7 +1396,7 @@ class GuardNode(BaseNode):
             result.next_node = self.on_fail or self.default_next
             result.transition_reason = f"{len(result.guards_failed)} guards failed"
 
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
 
@@ -1434,7 +1434,7 @@ class ParallelNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Execute all child nodes concurrently."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="parallel", iteration=state.iteration)
 
         async def run_child(child_node: BaseNode) -> NodeResult:
@@ -1484,7 +1484,7 @@ class ParallelNode(BaseNode):
         else:
             result.output = outputs
 
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
 
@@ -1519,12 +1519,12 @@ class LoopNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Execute body node in a loop until condition met."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="loop", iteration=state.iteration)
 
         if self.body_node is None:
             result.error = "No body_node configured"
-            result.duration_ms = (time.monotonic() - start) * 1000
+            result.duration_ms = (time.perf_counter() - start) * 1000
             return result
 
         for i in range(self.max_loop_iterations):
@@ -1547,7 +1547,7 @@ class LoopNode(BaseNode):
             result.transition_reason = f"Max loop iterations ({self.max_loop_iterations}) reached"
 
         result.output = state.context.get("loop_result")
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
 
@@ -1589,7 +1589,7 @@ class HumanNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Pause for human input."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="human", iteration=state.iteration)
 
         # Check if there's a human handler in config
@@ -1598,7 +1598,7 @@ class HumanNode(BaseNode):
             # No handler — auto-approve
             result.next_node = self.on_approve
             result.transition_reason = "No human handler configured, auto-approved"
-            result.duration_ms = (time.monotonic() - start) * 1000
+            result.duration_ms = (time.perf_counter() - start) * 1000
             return result
 
         try:
@@ -1619,7 +1619,7 @@ class HumanNode(BaseNode):
         except Exception as exc:
             record_failure(result, exc)
 
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
 
@@ -1654,12 +1654,12 @@ class TransformNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Execute the transform function."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="transform", iteration=state.iteration)
 
         if self.transform is None:
             result.error = "No transform function configured"
-            result.duration_ms = (time.monotonic() - start) * 1000
+            result.duration_ms = (time.perf_counter() - start) * 1000
             return result
 
         try:
@@ -1671,7 +1671,7 @@ class TransformNode(BaseNode):
         except Exception as exc:
             record_failure(result, exc)
 
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
 
@@ -1708,12 +1708,12 @@ class SubgraphNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Run the subgraph to completion."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="subgraph", iteration=state.iteration)
 
         if self.subgraph is None:
             result.error = "No subgraph configured"
-            result.duration_ms = (time.monotonic() - start) * 1000
+            result.duration_ms = (time.perf_counter() - start) * 1000
             return result
 
         # Import here to avoid circular imports
@@ -1722,7 +1722,7 @@ class SubgraphNode(BaseNode):
         model = config.get("_engine_model")
         if model is None:
             result.error = "No _engine_model in config"
-            result.duration_ms = (time.monotonic() - start) * 1000
+            result.duration_ms = (time.perf_counter() - start) * 1000
             return result
         engine = PromptGraphEngine(
             graph=self.subgraph,
@@ -1751,7 +1751,7 @@ class SubgraphNode(BaseNode):
         except Exception as exc:
             record_failure(result, exc, f"Subgraph error: {type(exc).__name__}: {exc}")
 
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
 
@@ -1827,7 +1827,7 @@ class AutonomousNode(BaseNode):
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Autonomously select and execute nodes from the pool."""
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="autonomous", iteration=state.iteration)
 
         model: BaseChatModel | None = config.get("_engine_model")
@@ -1870,7 +1870,7 @@ class AutonomousNode(BaseNode):
                 # If entry is terminal and completed, we're done
                 if self.entry_node in self.terminal_nodes and not child_result.error:
                     result.output = {"steps": used_nodes, "total": len(used_nodes)}
-                    result.duration_ms = (time.monotonic() - start) * 1000
+                    result.duration_ms = (time.perf_counter() - start) * 1000
                     return result
             except Exception as exc:
                 state.messages.append(SystemMessage(content=f"Entry node failed: {exc}"))
@@ -1956,7 +1956,7 @@ class AutonomousNode(BaseNode):
                 state.messages.append(SystemMessage(content=f"Step '{chosen_name}' failed: {exc}"))
 
         result.output = {"steps": used_nodes, "total": len(used_nodes)}
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
     @staticmethod

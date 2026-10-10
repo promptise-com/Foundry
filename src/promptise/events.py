@@ -1059,7 +1059,7 @@ class _ToolEventCallback(AsyncCallbackHandler):
 
     def _finish(self, run_id: UUID, kwargs: dict[str, Any]) -> tuple[str, float | None]:
         name, started = self._runs.pop(run_id, (kwargs.get("name") or "unknown", None))
-        duration_ms = round((time.monotonic() - started) * 1000, 1) if started else None
+        duration_ms = round((time.perf_counter() - started) * 1000, 1) if started else None
         return name, duration_ms
 
     def _check_slow(self, name: str, duration_ms: float | None) -> None:
@@ -1082,7 +1082,7 @@ class _ToolEventCallback(AsyncCallbackHandler):
         **kwargs: Any,
     ) -> None:
         name = (serialized or {}).get("name") or kwargs.get("name") or "unknown"
-        self._runs[run_id] = (str(name), time.monotonic())
+        self._runs[run_id] = (str(name), time.perf_counter())
 
     async def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any) -> None:
         name, duration_ms = self._finish(run_id, kwargs)

@@ -642,9 +642,9 @@ class PromptAssembler:
         # 2. Render all blocks and collect traces
         rendered: list[tuple[int, Block, str, BlockTrace]] = []
         for idx, block in enumerate(prepared):
-            t0 = time.monotonic()
+            t0 = time.perf_counter()
             text = block.render(ctx)
-            elapsed = (time.monotonic() - t0) * 1000
+            elapsed = (time.perf_counter() - t0) * 1000
             tokens = _estimate_tokens(text)
             trace = BlockTrace(
                 name=block.name,

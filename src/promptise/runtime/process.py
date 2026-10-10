@@ -1696,7 +1696,7 @@ class AgentProcess:
                 "invocation_start",
                 {"invocation": self._invocation_count + 1, "event_id": event.event_id},
             )
-        invoke_started = time.monotonic()
+        invoke_started = time.perf_counter()
 
         # Build messages list with full context
         messages: list[dict[str, Any]] = []
@@ -1858,7 +1858,7 @@ class AgentProcess:
                     "invocation": self._invocation_count,
                     "event_id": event.event_id,
                     "trigger_type": event.trigger_type,
-                    "duration_ms": round((time.monotonic() - invoke_started) * 1000, 1),
+                    "duration_ms": round((time.perf_counter() - invoke_started) * 1000, 1),
                     "response": (final_reply or "")[:2000],
                 },
             )

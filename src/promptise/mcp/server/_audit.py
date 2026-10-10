@@ -175,7 +175,7 @@ class AuditMiddleware:
         self._chain_lock = asyncio.Lock()
 
     async def __call__(self, ctx: RequestContext, call_next: Callable[..., Any]) -> Any:
-        start = time.time()
+        start = time.perf_counter()
         error: str | None = None
         result: Any = None
 
@@ -314,7 +314,7 @@ class AuditMiddleware:
         error: str | None,
         result: Any,
     ) -> dict[str, Any]:
-        duration = time.time() - start
+        duration = time.perf_counter() - start
         entry: dict[str, Any] = {
             "timestamp": time.time(),
             "tool": ctx.tool_name,

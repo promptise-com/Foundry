@@ -491,7 +491,7 @@ class DockerBackend(SandboxBackend):
                 environment=environment,
             )
 
-        start_time = time.time()
+        start_time = time.perf_counter()
         executor = ThreadPoolExecutor(max_workers=1)
         future = asyncio.get_running_loop().run_in_executor(executor, _exec)
         timed_out = False
@@ -528,7 +528,7 @@ class DockerBackend(SandboxBackend):
                     stdout=stdout,
                     stderr=(stderr + "\n" if stderr else "") + note,
                     timeout=True,
-                    duration=time.time() - start_time,
+                    duration=time.perf_counter() - start_time,
                 )
         except Exception as e:
             return CommandResult(
@@ -536,7 +536,7 @@ class DockerBackend(SandboxBackend):
                 stdout="",
                 stderr=f"Execution failed: {e}",
                 timeout=timed_out,
-                duration=time.time() - start_time,
+                duration=time.perf_counter() - start_time,
             )
         finally:
             executor.shutdown(wait=False)
@@ -547,7 +547,7 @@ class DockerBackend(SandboxBackend):
             stdout=stdout,
             stderr=stderr,
             timeout=False,
-            duration=time.time() - start_time,
+            duration=time.perf_counter() - start_time,
         )
 
     @staticmethod

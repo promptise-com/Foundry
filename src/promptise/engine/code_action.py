@@ -427,20 +427,20 @@ class CodeActionNode(BaseNode):
 
     # ── main pipeline ────────────────────────────────────────────────────────
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
-        start = time.monotonic()
+        start = time.perf_counter()
         result = NodeResult(node_name=self.name, node_type="CodeActionNode")
 
         model = self.model_override or config.get("_engine_model")
         if model is None:
             result.error = "No model available (_engine_model missing)"
-            result.duration_ms = (time.monotonic() - start) * 1000
+            result.duration_ms = (time.perf_counter() - start) * 1000
             return result
         if self.sandbox_factory is None:
             result.error = (
                 "code-action requires a sandbox. Build the agent with sandbox=True "
                 "(Docker must be installed and running)."
             )
-            result.duration_ms = (time.monotonic() - start) * 1000
+            result.duration_ms = (time.perf_counter() - start) * 1000
             return result
 
         tools = self.tools or config.get("_engine_tools", []) or []
@@ -460,14 +460,14 @@ class CodeActionNode(BaseNode):
         # 1. Generate the program (1 LLM turn; +1 per repair).
         code = ""
         for attempt in range(self.max_repairs + 1):
-            llm_start = time.monotonic()
+            llm_start = time.perf_counter()
             try:
                 response = await model.ainvoke(messages, config=config)
             except Exception as exc:  # noqa: BLE001
                 result.error = f"LLM call failed: {type(exc).__name__}: {exc}"
-                result.duration_ms = (time.monotonic() - start) * 1000
+                result.duration_ms = (time.perf_counter() - start) * 1000
                 return result
-            result.llm_duration_ms += (time.monotonic() - llm_start) * 1000
+            result.llm_duration_ms += (time.perf_counter() - llm_start) * 1000
             prompt_tokens, completion_tokens = token_usage(response)
             result.prompt_tokens += prompt_tokens
             result.completion_tokens += completion_tokens
@@ -485,7 +485,7 @@ class CodeActionNode(BaseNode):
                 state.messages.append(ai)
                 result.messages_added.append(ai)
                 result.transition_reason = f"code-action solved in {attempt + 1} attempt(s)"
-                result.duration_ms = (time.monotonic() - start) * 1000
+                result.duration_ms = (time.perf_counter() - start) * 1000
                 return result
 
             # 3. Repair: feed the failure back and try again.
@@ -505,7 +505,7 @@ class CodeActionNode(BaseNode):
         result.error = f"program failed after {self.max_repairs + 1} attempt(s)"
         result.raw_output = code
         result.output = ""
-        result.duration_ms = (time.monotonic() - start) * 1000
+        result.duration_ms = (time.perf_counter() - start) * 1000
         return result
 
     async def _run_program(
@@ -535,11 +535,11 @@ class CodeActionNode(BaseNode):
             bridge_task = asyncio.create_task(
                 self._bridge_loop(session, tool_map, state, config, result, stop)
             )
-            tool_start = time.monotonic()
+            tool_start = time.perf_counter()
             cmd = await prog_task
             stop.set()
             await bridge_task
-            result.tool_duration_ms += (time.monotonic() - tool_start) * 1000
+            result.tool_duration_ms += (time.perf_counter() - tool_start) * 1000
             logger.debug("code-action program:\n%s", program)
             logger.debug(
                 "code-action exit=%s stdout=%r stderr=%r",

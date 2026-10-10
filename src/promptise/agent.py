@@ -706,7 +706,7 @@ class PromptiseAgent:
         _inst_hash: str = ""
         _cache_model: str = ""
         _cache_input = list(input.get("messages", [])) if isinstance(input, dict) else []
-        _start_time = time.monotonic()
+        _start_time = time.perf_counter()
 
         # Emit invocation.start event
         if self._event_notifier is not None:
@@ -982,7 +982,7 @@ class PromptiseAgent:
                 self._event_notifier,
                 "invocation.complete",
                 "info",
-                {"duration_ms": round((time.monotonic() - _start_time) * 1000, 1)},
+                {"duration_ms": round((time.perf_counter() - _start_time) * 1000, 1)},
                 agent_id=self._actor(),
             )
 
@@ -1250,7 +1250,7 @@ class PromptiseAgent:
         _ctx_token = _caller_ctx_var.set(caller)
         _inv_token = _begin_invocation(input)
         _scope_token = self._push_event_scope()
-        _start = time.monotonic()
+        _start = time.perf_counter()
         _cumulative = ""
         # The final answer: the text of the last model call (its run_id).
         _answer = ""
@@ -1365,7 +1365,7 @@ class PromptiseAgent:
                         # The engine keeps a tool call's run_id on its start and
                         # end events, so the end finds its start time and index
                         # even when parallel calls finish out of order.
-                        _tool_starts[run_id] = (time.monotonic(), _tool_counter)
+                        _tool_starts[run_id] = (time.perf_counter(), _tool_counter)
                         # Text before a tool call is not the answer.
                         _answer, _answer_run = "", None
                         yield ToolStartEvent(
@@ -1380,13 +1380,13 @@ class PromptiseAgent:
                         tool_name = event.get("name", "unknown")
                         run_id = event.get("run_id", "")
                         data = event.get("data", {})
-                        start_t, idx = _tool_starts.pop(run_id, (time.monotonic(), -1))
+                        start_t, idx = _tool_starts.pop(run_id, (time.perf_counter(), -1))
                         if idx < 0:  # an end without a start: give it its own index
                             idx = _tool_counter
                             _tool_counter += 1
                         duration_ms = data.get("duration_ms")
                         if not isinstance(duration_ms, (int, float)):
-                            duration_ms = (time.monotonic() - start_t) * 1000
+                            duration_ms = (time.perf_counter() - start_t) * 1000
                         output = data.get("output", "")
                         result_str = output if isinstance(output, str) else _content_text(output)
                         if etype == "on_tool_error":
@@ -1508,7 +1508,7 @@ class PromptiseAgent:
 
             # Step 6: Yield done event
             _run_output = final_response
-            duration = round((time.monotonic() - _start) * 1000, 1)
+            duration = round((time.perf_counter() - _start) * 1000, 1)
             yield DoneEvent(
                 full_response=final_response,
                 tool_calls=_all_tool_calls,

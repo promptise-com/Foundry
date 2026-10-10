@@ -837,7 +837,7 @@ class RAGPipeline:
         """
         import time
 
-        start = time.monotonic()
+        start = time.perf_counter()
         report = IndexReport()
 
         if documents is None:
@@ -876,7 +876,7 @@ class RAGPipeline:
         if pending:
             await self._index_group(pending, report)
 
-        report.duration_seconds = time.monotonic() - start
+        report.duration_seconds = time.perf_counter() - start
         logger.info(
             "RAGPipeline.index: %d docs → %d chunks → %d stored (%.1fs)",
             report.documents_loaded,

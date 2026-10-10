@@ -2759,7 +2759,7 @@ class PromptiseSecurityScanner:
             that could not run is listed in ``scanners_skipped`` and,
             unless ``fail_open`` is set, adds a ``BLOCK`` finding.
         """
-        start_time = time.monotonic()
+        start_time = time.perf_counter()
         findings: list[SecurityFinding] = []
         scanners_run: list[str] = []
         scanners_skipped: dict[str, str] = {}
@@ -2807,7 +2807,7 @@ class PromptiseSecurityScanner:
             redacted_text = self._apply_redactions(text, redact_findings)
 
         passed = not any(f.action == Action.BLOCK for f in findings)
-        duration = (time.monotonic() - start_time) * 1000
+        duration = (time.perf_counter() - start_time) * 1000
 
         # Attach caller identity so audit logs can attribute findings to a
         # specific tenant even after the contextvar is reset.  Done here —

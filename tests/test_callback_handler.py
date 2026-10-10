@@ -103,9 +103,9 @@ class TestOnLlmStart:
     def test_stores_start_time(self):
         handler, _ = _make_handler()
         run_id = uuid4()
-        before = time.time()
+        before = time.perf_counter()
         handler.on_llm_start({"id": ["x"]}, ["p"], run_id=run_id)
-        after = time.time()
+        after = time.perf_counter()
         assert run_id in handler._llm_starts
         assert before <= handler._llm_starts[run_id] <= after
 

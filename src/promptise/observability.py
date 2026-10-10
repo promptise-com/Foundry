@@ -658,11 +658,11 @@ class ObservabilityCollector:
             print(e.duration)  # seconds
         """
         entry = self.record(event_type, **kwargs)
-        start = time.time()
+        start = time.perf_counter()
         try:
             yield entry
         finally:
-            entry.duration = time.time() - start
+            entry.duration = time.perf_counter() - start
 
     # ------------------------------------------------------------------
     # Transporters
