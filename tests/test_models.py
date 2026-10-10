@@ -1031,7 +1031,7 @@ class TestModelsCli:
         result = runner.invoke(app, ["models", "check", "groq:llama-3.3-70b-versatile"])
         assert result.exit_code == 0, _out(result)
         assert "https://api.groq.com/openai/v1" in _out(result).replace("\n", "")
-        assert "Usable." in _out(result)
+        assert "Configuration OK" in _out(result)
 
     def test_check_unknown_prefix_explains_inference(self, clean_env):
         result = runner.invoke(app, ["models", "check", "gpt-5-mini"])
@@ -1054,6 +1054,314 @@ class TestModelsCli:
         assert result.exit_code == 0
         assert "export AZURE_OPENAI_ENDPOINT=" in result.output
         assert runner.invoke(app, ["models", "env", "nope"]).exit_code == 2
+
+
+def _flat(result) -> str:
+    """CLI output with Rich's line wrapping undone, so phrases can be asserted whole."""
+    return " ".join(_out(result).split())
+
+
+def _free_port() -> int:
+    """A local port nothing listens on (bound, then released)."""
+    import socket
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+@pytest.fixture()
+def listener():
+    """A local TCP socket that accepts connections; yields its port."""
+    import socket
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        sock.listen()
+        yield sock.getsockname()[1]
+
+
+def _status_error(cls_name: str, status: int):
+    """A real ``openai`` status error, as the OpenAI-compatible route raises it."""
+    import httpx
+    import openai
+
+    request = httpx.Request("POST", "http://localhost/v1/chat/completions")
+    response = httpx.Response(status, request=request)
+    return getattr(openai, cls_name)("error from the server", response=response, body=None)
+
+
+def _wrapped(exc: Exception) -> Exception:
+    """*exc* re-raised from another, as LangChain's wrappers and retries do."""
+    try:
+        try:
+            raise exc
+        except Exception as inner:
+            raise RuntimeError("outer") from inner
+    except RuntimeError as outer:
+        return outer
+
+
+class TestModelsCheckRoute:
+    """The route line shows the URL requests actually go to, never a template."""
+
+    def test_ollama_default_endpoint_is_filled_in(self, clean_env, monkeypatch):
+        monkeypatch.setattr("promptise.models_cli._reachable", lambda url: True)
+        text = _flat(runner.invoke(app, ["models", "check", "ollama:llama3.1"]))
+        assert "route: OpenAI-compatible endpoint http://localhost:11434/v1 " in text
+        assert "{endpoint}" not in text
+
+    @pytest.mark.parametrize(
+        "host",
+        [
+            "http://gpu-box:11434",
+            "gpu-box:11434",
+            "http://gpu-box:11434/v1",
+            "http://gpu-box:11434/",
+        ],
+    )
+    def test_ollama_host_is_normalised_like_resolve_model(self, clean_env, monkeypatch, host):
+        monkeypatch.setenv("OLLAMA_HOST", host)
+        monkeypatch.setattr("promptise.models_cli._reachable", lambda url: True)
+        text = _flat(runner.invoke(app, ["models", "check", "ollama:llama3.1"]))
+        assert "route: OpenAI-compatible endpoint http://gpu-box:11434/v1 " in text
+        assert _base(resolve_model("ollama:llama3.1")) == "http://gpu-box:11434/v1"
+
+    def test_region_and_project_are_filled_from_the_environment(self, clean_env, monkeypatch):
+        monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-west-1")
+        monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "ABSKx")
+        text = _flat(runner.invoke(app, ["models", "check", "bedrock:anthropic.claude-x"]))
+        assert "https://bedrock-runtime.eu-west-1.amazonaws.com/openai/v1" in text
+        monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "proj-1")
+        text = _flat(runner.invoke(app, ["models", "check", "vertex:gemini-2.5-pro"]))
+        assert (
+            "https://us-central1-aiplatform.googleapis.com/v1/projects/proj-1/locations/"
+            "us-central1/endpoints/openapi"
+        ) in text
+
+    def test_a_missing_value_stays_a_visible_placeholder(self, clean_env):
+        """Bedrock without a region: the route keeps {region}, and the region is MISSING."""
+        result = runner.invoke(app, ["models", "check", "bedrock:anthropic.claude-x"])
+        assert result.exit_code == 1
+        text = _flat(result)
+        assert "https://bedrock-runtime.{region}.amazonaws.com/openai/v1" in text
+        assert "AWS_DEFAULT_REGION: MISSING" in text
+
+    def test_route_url_matches_what_resolve_model_builds(self, clean_env, monkeypatch):
+        monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-2")
+        monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "ABSKx")
+        monkeypatch.setenv("GROQ_API_KEY", "k")
+        for spec in ("bedrock:m", "groq:m", "ollama:m"):
+            provider, _, _ = parse_model(spec)
+            assert m.route_url(provider) == _base(resolve_model(spec)), spec
+        assert m.route_url(find_provider("openai")) is None
+
+
+class TestModelsCheckSaysWhatItChecked:
+    """`models check` without --ping checks configuration; it must not claim more."""
+
+    def test_remote_provider_says_nothing_was_called(self, clean_env, monkeypatch):
+        monkeypatch.setenv("GROQ_API_KEY", "k")
+
+        def no_probe(url):  # a hosted API is not probed
+            raise AssertionError(f"probed {url}")
+
+        monkeypatch.setattr("promptise.models_cli._reachable", no_probe)
+        result = runner.invoke(app, ["models", "check", "groq:llama-3.3-70b-versatile"])
+        assert result.exit_code == 0, _out(result)
+        text = _flat(result)
+        assert "Configuration OK" in text and "nothing was called" in text
+        assert "Add --ping" in text and "Usable." not in text
+
+    def test_ollama_not_running_is_not_usable(self, clean_env, monkeypatch):
+        """The reported bug: no Ollama on the machine, yet "Usable." and exit 0."""
+        monkeypatch.setenv("OLLAMA_HOST", f"http://127.0.0.1:{_free_port()}")
+        result = runner.invoke(app, ["models", "check", "ollama:llama3.1"])
+        assert result.exit_code == 1, _out(result)
+        text = _flat(result)
+        assert "Not reachable." in text
+        assert "nothing is listening at http://127.0.0.1:" in text
+        assert "is Ollama running? (ollama serve)" in text
+        assert "The address comes from OLLAMA_HOST." in text
+        assert "Configuration OK" not in text
+
+    def test_ollama_default_host_hint_mentions_ollama_host(self, clean_env, monkeypatch):
+        monkeypatch.setattr("promptise.models_cli._reachable", lambda url: False)
+        result = runner.invoke(app, ["models", "check", "ollama:llama3.1"])
+        assert result.exit_code == 1
+        text = _flat(result)
+        assert "nothing is listening at http://localhost:11434 — is Ollama running?" in text
+        assert "If it runs on another host or port, set OLLAMA_HOST." in text
+
+    def test_ollama_listening_is_configuration_ok_and_suggests_ping(
+        self, clean_env, monkeypatch, listener
+    ):
+        monkeypatch.setenv("OLLAMA_HOST", f"127.0.0.1:{listener}")
+        result = runner.invoke(app, ["models", "check", "ollama:llama3.1"])
+        assert result.exit_code == 0, _out(result)
+        text = _flat(result)
+        assert f"Configuration OK — http://127.0.0.1:{listener} accepts connections." in text
+        assert "Add --ping" in text
+
+    def test_a_local_endpoint_override_is_probed_too(self, clean_env, monkeypatch):
+        """OpenAI pointed at a local vLLM / LM Studio server: same check as Ollama."""
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-x")
+        monkeypatch.setenv("OPENAI_BASE_URL", f"http://localhost:{_free_port()}/v1")
+        result = runner.invoke(app, ["models", "check", "openai:my-model"])
+        assert result.exit_code == 1, _out(result)
+        text = _flat(result)
+        assert "nothing is listening at http://localhost:" in text
+        assert "The address comes from OPENAI_BASE_URL." in text
+
+    def test_with_ping_the_probe_is_left_to_the_ping(self, clean_env, monkeypatch):
+        from unittest.mock import AsyncMock
+
+        from promptise import models_cli
+
+        monkeypatch.setattr(models_cli, "_reachable", lambda url: False)
+        monkeypatch.setattr(models_cli, "_ping", AsyncMock(return_value="'ok'"))
+        result = runner.invoke(app, ["models", "check", "ollama:llama3.1", "--ping"])
+        assert result.exit_code == 0, _out(result)
+        text = _flat(result)
+        assert "Configuration OK." in text and "replied 'ok'" in text
+
+    @pytest.mark.parametrize(
+        ("url", "local"),
+        [
+            ("http://localhost:11434", True),
+            ("http://127.0.0.1:8000/v1", True),
+            ("http://[::1]:8000/v1", True),
+            ("http://0.0.0.0:11434", True),
+            ("http://ollama.localhost", True),
+            ("gpu-box:11434", False),
+            ("https://api.groq.com/openai/v1", False),
+            ("http://10.0.0.5:11434", False),
+        ],
+    )
+    def test_is_local(self, url, local):
+        from promptise.models_cli import _is_local
+
+        assert _is_local(url) is local
+
+    def test_reachable_handles_bad_urls(self):
+        from promptise.models_cli import _reachable
+
+        assert _reachable("http://:80") is False
+        assert _reachable("http://127.0.0.1:notaport") is False
+
+
+class TestModelsCheckPingHints:
+    """A failed --ping prints the provider's error and one line saying what to do."""
+
+    def _ping_fails(self, monkeypatch, exc, spec, env=None):
+        from unittest.mock import AsyncMock
+
+        from promptise import models_cli
+
+        for name, value in (env or {}).items():
+            monkeypatch.setenv(name, value)
+        monkeypatch.setattr(models_cli, "_reachable", lambda url: True)
+        monkeypatch.setattr(models_cli, "_ping", AsyncMock(side_effect=exc))
+        result = runner.invoke(app, ["models", "check", spec, "--ping"])
+        assert result.exit_code == 1, _out(result)
+        return _flat(result)
+
+    def test_ollama_connection_refused_end_to_end(self, clean_env, monkeypatch):
+        """No mocks: the real OpenAI-compatible client against a closed port."""
+        monkeypatch.setenv("OLLAMA_HOST", f"http://127.0.0.1:{_free_port()}")
+        result = runner.invoke(app, ["models", "check", "ollama:llama3.1", "--ping"])
+        assert result.exit_code == 1, _out(result)
+        text = _flat(result)
+        assert "Pinging… failed" in text
+        assert "ConnectionError" in text
+        assert "→ nothing is listening at http://127.0.0.1:" in text
+        assert "is Ollama running? (ollama serve)" in text
+
+    def test_connection_error_on_a_hosted_api(self, clean_env, monkeypatch):
+        import httpx
+        import openai
+
+        exc = openai.APIConnectionError(request=httpx.Request("POST", "https://x"))
+        text = self._ping_fails(monkeypatch, exc, "groq:m", {"GROQ_API_KEY": "k"})
+        assert "→ could not connect to https://api.groq.com — check the network" in text
+
+    def test_connection_error_on_a_native_provider(self, clean_env, monkeypatch):
+        exc = _wrapped(ConnectionRefusedError("refused"))
+        text = self._ping_fails(
+            monkeypatch, exc, "anthropic:claude-sonnet-4-6", {"ANTHROPIC_API_KEY": "sk-ant-x"}
+        )
+        assert "→ could not connect to the provider" in text
+
+    def test_timeout(self, clean_env, monkeypatch):
+        import httpx
+        import openai
+
+        exc = openai.APITimeoutError(request=httpx.Request("POST", "https://x"))
+        text = self._ping_fails(monkeypatch, exc, "ollama:llama3.1")
+        assert "did not answer in time — a model loading for the first time" in text
+        text = self._ping_fails(monkeypatch, exc, "groq:m", {"GROQ_API_KEY": "k"})
+        assert "→ no answer at https://api.groq.com in time" in text
+
+    def test_rejected_key_names_the_variable(self, clean_env, monkeypatch):
+        exc = _wrapped(_status_error("AuthenticationError", 401))
+        text = self._ping_fails(monkeypatch, exc, "groq:m", {"GROQ_API_KEY": "k"})
+        assert "→ the provider rejected the credential — check GROQ_API_KEY" in text
+        assert "console.groq.com" in text
+
+    def test_model_not_pulled_on_ollama(self, clean_env, monkeypatch):
+        exc = _status_error("NotFoundError", 404)
+        text = self._ping_fails(monkeypatch, exc, "ollama:llama3.1")
+        assert "→ this Ollama has no model 'llama3.1' — run: ollama pull llama3.1" in text
+
+    def test_unknown_azure_deployment(self, clean_env, monkeypatch):
+        exc = _status_error("NotFoundError", 404)
+        text = self._ping_fails(monkeypatch, exc, "azure:chat-prod", _AZURE)
+        assert "→ no deployment named 'chat-prod' at https://demo.openai.azure.com" in text
+
+    def test_unknown_model_elsewhere_links_the_model_list(self, clean_env, monkeypatch):
+        exc = _status_error("NotFoundError", 404)
+        text = self._ping_fails(monkeypatch, exc, "groq:nope", {"GROQ_API_KEY": "k"})
+        assert "does not know model 'nope'" in text
+        assert "https://console.groq.com/docs/models" in text
+
+    @pytest.mark.parametrize(
+        ("cls_name", "status", "phrase"),
+        [
+            ("PermissionDeniedError", 403, "not allowed to use m"),
+            ("RateLimitError", 429, "rate limited — wait and retry"),
+            ("InternalServerError", 503, "server error — usually temporary"),
+        ],
+    )
+    def test_other_statuses(self, clean_env, monkeypatch, cls_name, status, phrase):
+        exc = _status_error(cls_name, status)
+        text = self._ping_fails(monkeypatch, exc, "groq:m", {"GROQ_API_KEY": "k"})
+        assert "→ " in text and phrase in text.split("→ ", 1)[1]
+
+    def test_out_of_credits_is_not_called_a_rate_limit(self, clean_env, monkeypatch):
+        """OpenAI answers an exhausted balance with 429 insufficient_quota."""
+        import httpx
+        import openai
+
+        request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+        exc = openai.RateLimitError(
+            "Error code: 429 - {'error': {'type': 'insufficient_quota', "
+            "'message': 'You have no credits remaining.'}}",
+            response=httpx.Response(429, request=request),
+            body=None,
+        )
+        text = self._ping_fails(monkeypatch, exc, "openai:gpt-5-mini", {"OPENAI_API_KEY": "sk"})
+        assert "→ the account is out of credits or quota" in text
+
+    def test_bedrock_403_points_at_model_access(self, clean_env, monkeypatch):
+        exc = _status_error("PermissionDeniedError", 403)
+        env = {"AWS_DEFAULT_REGION": "us-east-1", "AWS_BEARER_TOKEN_BEDROCK": "ABSKx"}
+        text = self._ping_fails(monkeypatch, exc, "bedrock:m", env)
+        assert "enable model access" in text
+
+    def test_an_unrecognised_error_gets_no_guess(self, clean_env, monkeypatch):
+        text = self._ping_fails(monkeypatch, ValueError("odd"), "groq:m", {"GROQ_API_KEY": "k"})
+        assert "ValueError: odd" in text
+        assert text.endswith("ValueError: odd")  # no hint line after the error
 
 
 def test_docs_provider_table_matches_the_registry():

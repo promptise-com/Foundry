@@ -4,6 +4,17 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **`promptise models check` said "Usable." for a local model that was not running** -- the check only looks at configuration, and Ollama needs none, so `promptise models check ollama:llama3.1` printed `Usable.` and exited `0` on a machine without Ollama. The verdict is now `Configuration OK`, with a note that nothing was called and that `--ping` makes a real call. For a keyless provider (Ollama) or an endpoint on this machine (`OPENAI_BASE_URL=http://localhost:8000/v1`), the check also tries a TCP connection (1 s timeout, nothing sent) and, when nothing answers, prints `Not reachable. ... nothing is listening at http://localhost:11434 — is Ollama running? (ollama serve) ...` and exits `1`.
+- **`promptise models check` printed the route as a template** -- `route: OpenAI-compatible endpoint {endpoint}/v1` for Ollama. The route now shows the URL requests go to: `http://localhost:11434/v1` by default or the normalised `OLLAMA_HOST`, and Bedrock's and Vertex AI's region and project filled in from the environment (a value that is still missing stays a `{placeholder}` next to its `MISSING` line). The CLI and `resolve_model()` build the URL with the same code.
+- **A failed `--ping` showed only the provider's error** -- `OpenAIConnectionError: Connection error.` with no hint. The error is now followed by a `→` line saying what it most likely means and what to do: nothing listening (with `ollama serve` / `OLLAMA_HOST` for Ollama, or the variable the address came from), a timeout, a rejected key (naming the variable and where to get a new one), a model the server does not have (`ollama pull <model>`; the Azure deployment *Name* column; the provider's model list), missing model access (Bedrock), an account out of credits, a rate limit, or a provider outage.
+- **Docs: Claude model IDs written with dots** -- the quick-recommendation table on [Best LLMs for agents](https://docs.promptise.com/getting-started/best-llms-for-agents/), the FAQ and the core overview used `anthropic:claude-sonnet-4.6`, `anthropic:claude-opus-4.6` and `anthropic:claude-sonnet-4.5`, which Anthropic's API rejects. They now use the real IDs (`claude-sonnet-4-6`, `claude-opus-4-6`, `claude-sonnet-4-5`), as the model tables on the same page already did.
+
+---
+
 ## v1.2.1 — 2026-10-10
 
 ### Fixed
