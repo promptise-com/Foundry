@@ -478,7 +478,7 @@ def _resolve_partition(
 
 def _flat_metadata(result: MemoryResult) -> dict[str, Any]:
     """Entry metadata, with Mem0's nested ``metadata`` dict merged in."""
-    meta = dict(result.metadata or {})
+    meta = dict(getattr(result, "metadata", None) or {})
     nested = meta.pop("metadata", None)
     if isinstance(nested, dict):
         meta = {**meta, **nested}

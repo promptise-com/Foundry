@@ -1132,7 +1132,7 @@ def _format_memory_context(results: list[MemoryResult]) -> str:
     """
     lines = []
     for r in results:
-        if is_adaptive_entry(r.metadata):
+        if is_adaptive_entry(getattr(r, "metadata", None)):
             continue  # injected (scoped) by promptise.strategy, never as memory
         safe = sanitize_memory_content(r.content)
         if safe:

@@ -1577,7 +1577,9 @@ class PromptiseAgent:
                 self.provider.search(query, limit=fetch, user_id=user_id),
                 timeout=self._memory_timeout,
             )
-            results = [r for r in results if not is_adaptive_entry(r.metadata)][: self._memory_max]
+            results = [r for r in results if not is_adaptive_entry(getattr(r, "metadata", None))][
+                : self._memory_max
+            ]
             if self._memory_min_score > 0.0:
                 results = [r for r in results if r.score >= self._memory_min_score]
             return results
