@@ -140,14 +140,15 @@ That's it. Every tool call matching your patterns now requires human approval.
 | `timeout` | `float` | `300` | Seconds to wait for a decision before `on_timeout` triggers. Min: > 0. Max: 86,400 (24 hours). |
 | `on_timeout` | `"deny" \| "allow"` | `"deny"` | Action when timeout expires. `"deny"` is the safe default. Use `"allow"` only for non-critical, low-risk tools. |
 | `include_arguments` | `bool` | `True` | Include tool arguments in the approval request. Set to `False` to hide arguments from reviewers (e.g., when arguments contain data the reviewer shouldn't see). |
-| `redact_sensitive` | `bool` | `True` | Run the arguments and `context_summary` through PII/credential detection before sending them to the reviewer. Each string value is redacted on its own, so the arguments keep their structure. See [Argument Redaction](#argument-redaction). If the scan fails, a warning is logged and the reviewer gets the raw arguments. |
-| `max_pending` | `int` | `10` | Maximum concurrent pending approvals per agent. When reached, additional tool calls are auto-denied with "Too many pending approval requests." |
-| `max_retries_after_deny` | `int \| None` | `3` | After this many denials of the same tool, within `deny_window` and for the same `deny_scope`, the tool is denied without asking the reviewer. Stops the LLM from retrying a denied tool in a loop. `None` disables the limit. See [Repeated denials](#repeated-denials). |
+| `redact_sensitive` | `bool` | `True` | Run the arguments and `context_summary` through PII/credential detection before sending them to the reviewer. Each string value is redacted on its own, so the arguments keep their structure. Only the reviewer's copy is redacted: [`AutoApprovalClassifier`](approval-classifier.md#rules-see-the-real-arguments) rules match the real arguments. See [Argument Redaction](#argument-redaction). If the scan fails, a warning is logged and the reviewer gets the raw arguments. |
+| `max_pending` | `int` | `10` | Maximum concurrent pending approvals per agent. When reached, additional tool calls are denied without asking the handler ("Too many pending approval requests", `decided_by="gate"`). |
+| `max_retries_after_deny` | `int \| None` | `3` | After this many reviewer denials of the same tool, within `deny_window` and for the same `deny_scope`, the tool is denied without asking the handler (`decided_by="gate"`). Stops the LLM from retrying a denied tool in a loop. Denials by classifier rules don't count. `None` disables the limit. See [Repeated denials](#repeated-denials). |
 | `deny_window` | `float \| None` | `600` | Seconds a denial counts towards `max_retries_after_deny`. `None` keeps denials until the agent is rebuilt. |
 | `deny_scope` | `"session" \| "user" \| "agent"` | `"session"` | Whose denials count together: the same user in the same `chat()` session, the same user across sessions, or every caller of the agent. |
 | `sequential` | `bool` | `False` | Ask about one call at a time. When the model requests several gated calls in one turn, they run concurrently and their requests reach the handler together. With `True`, each request waits until the previous one in the same invocation is decided. |
 | `context_messages` | `int` | `3` | How many of the conversation's last user/assistant messages go into `context_summary`. `0` leaves it empty. |
 | `metadata` | `dict \| Callable \| None` | `None` | Extra `ApprovalRequest.metadata`: a dict, or a callable `(tool_name, arguments) -> dict` (sync or async). The callable receives the **unredacted** arguments. |
+| `on_decision` | `Callable \| None` | `None` | Called with `(request, decision)` for **every** decision before the tool runs: the handler's, a classifier rule's, and the gate's own (`max_pending`, the retry limit, a timeout, a handler error). Sync or async; errors are logged and ignored. Use it for the audit log — see [Recording every decision](#recording-every-decision). |
 
 ---
 
@@ -166,6 +167,8 @@ Every handler receives an `ApprovalRequest` with these fields:
 | `timestamp` | `float` | When the request was created (`time.time()`). |
 | `timeout` | `float` | How long the handler has to respond before the default action triggers. |
 | `metadata` | `dict` | `source` (`"agent"`; server-side gates use `"mcp_elicitation"`), `session_id` (from `chat()` or `CallerContext.metadata["session_id"]`) and `tenant_id` when known, plus whatever `ApprovalPolicy(metadata=...)` adds. |
+| `tool_annotations` | `dict` | The tool's MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`, `title`) when the server sets them; empty otherwise. Hints, not guarantees. |
+| `raw_arguments` | `dict \| None` | The unredacted arguments, for in-process rule evaluation ([`AutoApprovalClassifier`](approval-classifier.md#rules-see-the-real-arguments) matches against them, and hands its fallback a copy without them). Not in `to_dict()`, the signature or `repr()`. Use `arguments` for anything you show or log. |
 
 For a `chat("Refund order A-1001, the mug arrived broken", session_id="s-9", caller=CallerContext(user_id="alice"))` on an agent built with `observer_agent_id="support-bot"`, the handler receives:
 
@@ -209,6 +212,32 @@ payload = request.to_dict()
 | `reviewer_id` | `str \| None` | `None` | Who made the decision (for audit trail). |
 | `reason` | `str \| None` | `None` | Optional explanation shown to the agent on denial. |
 | `timestamp` | `float` | `time.time()` | When the decision was made. |
+| `decided_by` | `"reviewer" \| "classifier" \| "gate"` | `"reviewer"` | What decided: your handler (a person, or your own handler code), an `AutoApprovalClassifier` rule / read-only check / LLM classifier, or the gate itself (`max_pending`, the retry limit, a timeout, a handler error). Handlers leave the default. |
+| `trace` | `ClassifierDecisionTrace \| None` | `None` | Set by `AutoApprovalClassifier`: the layer that decided (`trace.layer`) and the matched rule's reason. See [Audit](approval-classifier.md#audit-which-layer-decided). |
+
+### Recording every decision
+
+Some decisions never reach your handler: the gate denies a call itself when `max_pending` requests are waiting or the [repeated-denial limit](#repeated-denials) is reached, and it decides on timeouts and handler errors. A handler that writes the audit log misses those. `on_decision` sees them all:
+
+```python
+def audit(request, decision):
+    log.info(
+        "approval",
+        extra={
+            "request_id": request.request_id,
+            "tool": request.tool_name,
+            "arguments": request.arguments,        # redacted copy
+            "approved": decision.approved,
+            "decided_by": decision.decided_by,     # reviewer | classifier | gate
+            "layer": decision.trace.layer if decision.trace else None,
+            "reason": decision.reason,
+        },
+    )
+
+policy = ApprovalPolicy(tools=["*"], handler=my_handler, on_decision=audit)
+```
+
+The `approval.granted` / `approval.denied` events carry `decided_by` (and `classifier_layer` when a classifier decided) as well.
 
 ---
 
@@ -508,8 +537,9 @@ This stops the agent from wasting reviewer time by retrying the same denied acti
 
 - **Scope** (`deny_scope`): by default, denials count per user (`CallerContext`, tenant-qualified) **and** `chat()` session. Another user or session is asked as usual. `"user"` counts across a user's sessions, and `"agent"` counts across every caller. Without a `CallerContext`, all callers share one count, so pass one in multi-user deployments.
 - **Window** (`deny_window`): denials older than 10 minutes (by default) stop counting. `None` keeps them until the agent is rebuilt.
-- **Reset**: an approval of the tool clears its count for that scope.
-- **What counts**: a reviewer's denial, and a timeout with `on_timeout="deny"`. Handler errors don't count, because no reviewer said no.
+- **Reset**: a reviewer's approval of the tool clears its count for that scope. An automatic approval by an `AutoApprovalClassifier` rule doesn't.
+- **What counts**: a reviewer's denial (`decided_by="reviewer"`), and a timeout with `on_timeout="deny"`. Handler errors don't count, because no reviewer said no, and neither do denials by `AutoApprovalClassifier` rules, its read-only check or its LLM classifier, because no person was asked.
+- **Recorded**: the gate's denial is a decision like any other (`decided_by="gate"`): it reaches `on_decision` and emits `approval.denied`. The handler, including an `AutoApprovalClassifier`, isn't consulted.
 
 ---
 
@@ -628,7 +658,7 @@ Each string value is redacted on its own, including strings nested in dicts and 
 # → unchanged
 ```
 
-The reviewer sees enough to make a decision without seeing raw sensitive data. Detection is pattern-based, so a value is only redacted when it looks like one of the known formats. Set `include_arguments=False` when the arguments must not reach the reviewer at all.
+The reviewer sees enough to make a decision without seeing raw sensitive data. Redaction applies to what reviewers, webhook payloads and `on_decision` see; an [`AutoApprovalClassifier`](approval-classifier.md#rules-see-the-real-arguments) evaluates its rules on the real arguments, so `argument_contains="@competitor.example"` still matches when the reviewer sees `[EMAIL]`. Detection is pattern-based, so a value is only redacted when it looks like one of the known formats. Set `include_arguments=False` when the arguments must not reach the reviewer at all.
 
 ### SSRF Protection
 

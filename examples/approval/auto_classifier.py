@@ -1,9 +1,10 @@
-"""AutoApprovalClassifier — 5-layer decision hierarchy demo.
+"""AutoApprovalClassifier — 6-layer decision hierarchy demo.
 
 Demonstrates:
+  - Deny rules (argument inspection) — checked first, so deny always wins
+  - Ask rules (always send to a human)
   - Allow rules (glob patterns)
-  - Deny rules (argument inspection)
-  - Read-only auto-allow
+  - Read-only auto-allow (and a destructive verb that blocks it)
   - LLM classifier (simulated)
   - Fallback to a human handler
   - Stats inspection
@@ -60,21 +61,22 @@ async def main() -> None:
         return "escalate", "LLM unsure — sending to human"
 
     classifier = AutoApprovalClassifier(
-        allow_rules=[
-            ApprovalRule(tool="get_*", reason="read-only getter"),
-            ApprovalRule(tool="list_*", reason="read-only listing"),
-            ApprovalRule(
-                tool="update_profile",
-                user="admin@acme.com",
-                reason="admin can always update profiles",
-            ),
-        ],
         deny_rules=[
             ApprovalRule(tool="exec_shell", reason="shell access is never allowed"),
             ApprovalRule(
                 tool="*",
                 argument_contains="rm -rf",
                 reason="destructive filesystem command",
+            ),
+        ],
+        ask_rules=[
+            ApprovalRule(tool="get_payroll", reason="salary data needs a person"),
+        ],
+        allow_rules=[
+            ApprovalRule(
+                tool="update_profile",
+                user="admin@acme.com",
+                reason="admin can always update profiles",
             ),
         ],
         read_only_auto_allow=True,
@@ -89,6 +91,8 @@ async def main() -> None:
     scenarios = [
         ("get_user_profile", {}, None),
         ("search_documents", {"query": "quarterly report"}, None),
+        ("get_payroll", {"month": "2026-09"}, None),
+        ("fetch_and_purge_cache", {}, None),
         ("exec_shell", {"cmd": "ls -la"}, None),
         ("deploy_service", {"cmd": "rm -rf /tmp/old"}, None),
         ("run_query", {"sql": "DROP TABLE users"}, None),
@@ -106,7 +110,7 @@ async def main() -> None:
         )
 
         decision = await classifier.request_approval(request)
-        trace = classifier.last_trace
+        trace = decision.trace  # per decision: safe with concurrent requests
 
         status = "APPROVED" if decision.approved else "DENIED"
         print(f"\n  {tool}({args})")
@@ -120,6 +124,7 @@ async def main() -> None:
     print("\n--- Stats ---")
     print(f"  Allow rule hits:   {s.allow_rule_hits}")
     print(f"  Deny rule hits:    {s.deny_rule_hits}")
+    print(f"  Ask rule hits:     {s.ask_rule_hits}")
     print(f"  Read-only allows:  {s.read_only_allows}")
     print(f"  LLM allows:        {s.llm_allows}")
     print(f"  LLM denies:        {s.llm_denies}")

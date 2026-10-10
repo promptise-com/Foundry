@@ -38,8 +38,9 @@ import typing
 from collections import OrderedDict
 from collections.abc import AsyncIterator, Awaitable, Callable, Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
+from dataclasses import replace as _dc_replace
 from fnmatch import fnmatch
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
 # Imported at runtime, not under TYPE_CHECKING: LangChain reads the
 # ``_arun`` annotations to decide which of these to inject.
@@ -50,6 +51,9 @@ from langchain_core.callbacks import (
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from pydantic import PrivateAttr
+
+if TYPE_CHECKING:
+    from .approval_classifier import ClassifierDecisionTrace
 
 logger = logging.getLogger("promptise.approval")
 
@@ -111,6 +115,16 @@ class ApprovalRequest:
         metadata: ``source`` (``"agent"`` for the agent's own gate),
             ``session_id`` and ``tenant_id`` when known, plus whatever
             ``ApprovalPolicy(metadata=...)`` adds.
+        tool_annotations: The tool's MCP annotations (``readOnlyHint``,
+            ``destructiveHint``, ``idempotentHint``, ``openWorldHint``,
+            ``title``) when it has them; empty otherwise.  Hints from the
+            server, not guarantees.
+        raw_arguments: The unredacted arguments, set by the agent's gate
+            for in-process rule evaluation
+            (:class:`~promptise.approval_classifier.AutoApprovalClassifier`
+            matches its rules against them).  Never serialized, signed or
+            shown in ``repr()``; handlers that display or log requests use
+            ``arguments``.  ``None`` outside the agent's gate.
     """
 
     request_id: str
@@ -122,6 +136,8 @@ class ApprovalRequest:
     timestamp: float = field(default_factory=time.time)
     timeout: float = 300.0
     metadata: dict[str, Any] = field(default_factory=dict)
+    tool_annotations: dict[str, Any] = field(default_factory=dict)
+    raw_arguments: dict[str, Any] | None = field(default=None, repr=False, compare=False)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a JSON-safe dict (for webhook payloads)."""
@@ -135,6 +151,7 @@ class ApprovalRequest:
             "timestamp": self.timestamp,
             "timeout": self.timeout,
             "metadata": self.metadata,
+            "tool_annotations": self.tool_annotations,
         }
 
     def compute_hmac(self, secret: str) -> str:
@@ -153,7 +170,7 @@ class ApprovalRequest:
 
 @dataclass
 class ApprovalDecision:
-    """A human's decision on an approval request.
+    """The decision on an approval request.
 
     Attributes:
         approved: Whether the tool call is approved.
@@ -161,6 +178,18 @@ class ApprovalDecision:
         reviewer_id: Who made the decision.
         reason: Optional explanation.
         timestamp: When the decision was made.
+        decided_by: What made the decision: ``"reviewer"`` (the handler —
+            a person, or your own handler code; the default),
+            ``"classifier"`` (an
+            :class:`~promptise.approval_classifier.AutoApprovalClassifier`
+            rule, its read-only check or its LLM classifier) or ``"gate"``
+            (the agent's approval gate itself: ``max_pending``, the
+            ``max_retries_after_deny`` limit, a timeout or a handler
+            error).  Only ``"reviewer"`` denials (and timeouts) count
+            towards ``max_retries_after_deny``.
+        trace: The classifier layer that produced the decision, when an
+            :class:`~promptise.approval_classifier.AutoApprovalClassifier`
+            was involved; ``None`` otherwise.
     """
 
     approved: bool
@@ -168,6 +197,8 @@ class ApprovalDecision:
     reviewer_id: str | None = None
     reason: str | None = None
     timestamp: float = field(default_factory=time.time)
+    decided_by: Literal["reviewer", "classifier", "gate"] = "reviewer"
+    trace: ClassifierDecisionTrace | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -505,16 +536,22 @@ class ApprovalPolicy:
             ``"allow"`` permits it.
         include_arguments: Include tool arguments in the approval
             request.  Set to ``False`` to hide arguments from reviewers.
+            Classifier rules still see them (``raw_arguments``).
         redact_sensitive: Run the arguments and ``context_summary``
             through PII/credential detection before sending them to the
             reviewer.  Each string value is redacted on its own, so the
-            arguments keep their structure.
+            arguments keep their structure.  Only the reviewer's copy is
+            redacted: an
+            :class:`~promptise.approval_classifier.AutoApprovalClassifier`
+            matches its rules against the real arguments.
         max_pending: Maximum concurrent pending approvals per agent.
-            Additional tool calls are auto-denied.
-        max_retries_after_deny: After this many denials of the same tool
-            within ``deny_window`` (and the same ``deny_scope``), later
-            calls are denied without asking the reviewer.  ``None``
-            disables the limit.
+            Additional tool calls are denied without asking the handler
+            (``decided_by="gate"``).
+        max_retries_after_deny: After this many reviewer denials of the
+            same tool within ``deny_window`` (and the same
+            ``deny_scope``), later calls are denied without asking the
+            handler (``decided_by="gate"``).  Denials by classifier rules
+            don't count.  ``None`` disables the limit.
         deny_window: Seconds a denial counts towards
             ``max_retries_after_deny``.  Default: 600 (10 minutes).
             ``None`` keeps denials until the agent is rebuilt.
@@ -533,6 +570,15 @@ class ApprovalPolicy:
         metadata: Extra :attr:`ApprovalRequest.metadata` for every request:
             a dict, or a callable ``(tool_name, arguments) -> dict`` (sync
             or async) that receives the call's unredacted arguments.
+        on_decision: Called with ``(request, decision)`` for every decision
+            the agent's gate reaches — the handler's, a classifier rule's,
+            and the gate's own (``max_pending``, the retry limit, a
+            timeout, a handler error) — before the tool runs, and for
+            server-side approval gates answered through MCP elicitation
+            (``request.metadata["source"] == "mcp_elicitation"``).  Sync or
+            async.  Use it for the audit log: ``decision.decided_by`` and
+            ``decision.trace`` say what decided.  ``request.arguments`` is
+            the redacted copy.  Errors it raises are logged and ignored.
     """
 
     def __init__(
@@ -551,6 +597,7 @@ class ApprovalPolicy:
         sequential: bool = False,
         context_messages: int = 3,
         metadata: dict[str, Any] | Callable[[str, dict[str, Any]], Any] | None = None,
+        on_decision: Callable[[ApprovalRequest, ApprovalDecision], Any] | None = None,
     ) -> None:
         if not tools:
             raise ValueError("ApprovalPolicy requires at least one tool pattern")
@@ -570,6 +617,8 @@ class ApprovalPolicy:
             raise ValueError("context_messages must be 0 or more")
         if metadata is not None and not (isinstance(metadata, dict) or callable(metadata)):
             raise TypeError(f"metadata must be a dict or a callable, got {type(metadata).__name__}")
+        if on_decision is not None and not callable(on_decision):
+            raise TypeError(f"on_decision must be callable, got {type(on_decision).__name__}")
 
         self.tools = tools
         self.timeout = timeout
@@ -583,6 +632,7 @@ class ApprovalPolicy:
         self.sequential = sequential
         self.context_messages = context_messages
         self.metadata = metadata
+        self.on_decision = on_decision
         self._scanner: Any = None
 
         # Normalize handler — wrap callable in CallbackApprovalHandler
@@ -698,6 +748,21 @@ class ApprovalPolicy:
                 f"ApprovalPolicy metadata callable must return a dict, got {type(result).__name__}"
             )
         return result
+
+    async def record_decision(self, request: ApprovalRequest, decision: ApprovalDecision) -> None:
+        """Pass a decision to ``on_decision``, logging (not raising) its errors."""
+        if self.on_decision is None:
+            return
+        try:
+            result = self.on_decision(request, decision)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.exception(
+                "Approval: on_decision raised for %s (request_id=%s); ignored",
+                request.tool_name,
+                request.request_id,
+            )
 
 
 def _shorten(text: str, limit: int) -> str:
@@ -903,6 +968,30 @@ def _runnable_config_param(func: Callable[..., Any]) -> str | None:
     return None
 
 
+#: MCP tool annotation keys copied into :attr:`ApprovalRequest.tool_annotations`.
+_ANNOTATION_KEYS = ("title", "readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")
+
+
+def _tool_annotations(tool: Any) -> dict[str, Any]:
+    """The MCP annotations a LangChain tool carries in its ``metadata``.
+
+    Promptise's MCP tools and ``langchain-mcp-adapters`` both put them there
+    as flat keys (``{"readOnlyHint": True, ...}``).
+    """
+    meta = getattr(tool, "metadata", None)
+    if not isinstance(meta, Mapping):
+        return {}
+    return {key: meta[key] for key in _ANNOTATION_KEYS if meta.get(key) is not None}
+
+
+def _decision_event_fields(decision: ApprovalDecision) -> dict[str, Any]:
+    """``decided_by`` (and the classifier layer, if any) for ``approval.*`` events."""
+    fields: dict[str, Any] = {"decided_by": decision.decided_by}
+    if decision.trace is not None:
+        fields["classifier_layer"] = decision.trace.layer
+    return fields
+
+
 class _ApprovalToolWrapper(BaseTool):
     """Wraps a tool with an approval gate.
 
@@ -934,6 +1023,7 @@ class _ApprovalToolWrapper(BaseTool):
             return_direct=getattr(inner, "return_direct", False),
             handle_tool_error=getattr(inner, "handle_tool_error", False),
             handle_validation_error=getattr(inner, "handle_validation_error", False),
+            metadata=getattr(inner, "metadata", None),
         )
         self._inner = inner
         self._policy = policy
@@ -959,47 +1049,14 @@ class _ApprovalToolWrapper(BaseTool):
         tool_name = self._inner.name
         policy = self._policy
 
-        # Check max pending
-        if self._state.pending >= policy.max_pending:
-            logger.warning(
-                "Approval: max_pending=%d reached, auto-denying %s",
-                policy.max_pending,
-                tool_name,
-            )
-            return (
-                f"DENIED: Too many pending approval requests "
-                f"(max {policy.max_pending}). Try again later."
-            )
-
-        # Check repeated denials (per caller/session, within the window)
-        deny_key = (*_current_scope(policy.deny_scope), tool_name)
-        limit = policy.max_retries_after_deny
-        if limit is not None:
-            denied = self._state.denials.count(deny_key)
-            if denied >= limit:
-                within = (
-                    f" in the last {_format_window(policy.deny_window)}"
-                    if policy.deny_window is not None
-                    else ""
-                )
-                logger.info(
-                    "Approval: %s denied %d times%s for this caller; not asking again",
-                    tool_name,
-                    denied,
-                    within,
-                )
-                return (
-                    f"DENIED: This action was already denied {denied} times{within}, "
-                    "so the reviewer was not asked again. Do not retry this tool."
-                )
-
         from .agent import _invocation_ctx_var, get_current_caller
 
         caller = get_current_caller()
         invocation = _invocation_ctx_var.get()
         session_id = _current_session_id()
 
-        # Build approval request
+        # Build approval request.  ``arguments`` is the reviewer's (redacted)
+        # copy; ``raw_arguments`` is what classifier rules match against.
         request_id = secrets.token_hex(16)
         arguments = await policy.redact_arguments(kwargs) if policy.include_arguments else {}
         metadata: dict[str, Any] = {"source": "agent"}
@@ -1019,9 +1076,122 @@ class _ApprovalToolWrapper(BaseTool):
             ),
             timeout=policy.timeout,
             metadata=metadata,
+            tool_annotations=_tool_annotations(self._inner),
+            raw_arguments=dict(kwargs),
         )
 
-        # Send approval request
+        deny_key = (*_current_scope(policy.deny_scope), tool_name)
+        decision = self._check_limits(request, deny_key)
+        if decision is None:
+            decision = await self._ask(request, deny_key, invocation)
+        await policy.record_decision(request, decision)
+
+        if not decision.approved:
+            reason = decision.reason or "Action denied by reviewer."
+            logger.info(
+                "Approval: DENIED %s (request_id=%s, decided_by=%s): %s",
+                tool_name,
+                request_id,
+                decision.decided_by,
+                reason,
+            )
+            self._emit(
+                "approval.denied",
+                "warning",
+                {
+                    "tool_name": tool_name,
+                    "request_id": request_id,
+                    "reason": reason,
+                    **_decision_event_fields(decision),
+                },
+            )
+            return f"DENIED: {reason}"
+
+        # Approved — execute with the original arguments, or the reviewer's edits
+        final_args: dict[str, Any] = kwargs
+        changes: list[tuple[str, Any, Any]] = []
+        if decision.modified_arguments is not None:
+            final_args, changes = _apply_modified_arguments(
+                kwargs, request.arguments, decision.modified_arguments
+            )
+        logger.info(
+            "Approval: APPROVED %s (request_id=%s, reviewer=%s%s)",
+            tool_name,
+            request_id,
+            decision.reviewer_id or "unknown",
+            f", modified: {[name for name, _, _ in changes]}" if changes else "",
+        )
+        self._emit(
+            "approval.granted",
+            "info",
+            {
+                "tool_name": tool_name,
+                "request_id": request_id,
+                "reviewer": decision.reviewer_id,
+                "modified_arguments": [name for name, _, _ in changes],
+                **_decision_event_fields(decision),
+            },
+        )
+        result = await self._run_inner(final_args, bool(changes), config, run_manager)
+        if changes:
+            return _with_note(result, _modification_note(changes), self.response_format)
+        return result
+
+    def _check_limits(
+        self, request: ApprovalRequest, deny_key: Hashable
+    ) -> ApprovalDecision | None:
+        """The gate's own denial when ``max_pending`` or the retry limit applies."""
+        policy = self._policy
+        tool_name = request.tool_name
+        if self._state.pending >= policy.max_pending:
+            logger.warning(
+                "Approval: max_pending=%d reached, auto-denying %s",
+                policy.max_pending,
+                tool_name,
+            )
+            return ApprovalDecision(
+                approved=False,
+                reason=(
+                    f"Too many pending approval requests (max {policy.max_pending}). "
+                    "Try again later."
+                ),
+                decided_by="gate",
+            )
+
+        # Repeated reviewer denials (per caller/session, within the window)
+        limit = policy.max_retries_after_deny
+        if limit is None:
+            return None
+        denied = self._state.denials.count(deny_key)
+        if denied < limit:
+            return None
+        within = (
+            f" in the last {_format_window(policy.deny_window)}"
+            if policy.deny_window is not None
+            else ""
+        )
+        logger.info(
+            "Approval: %s denied %d times%s for this caller; not asking again",
+            tool_name,
+            denied,
+            within,
+        )
+        return ApprovalDecision(
+            approved=False,
+            reason=(
+                f"This action was already denied {denied} times{within}, "
+                "so the reviewer was not asked again. Do not retry this tool."
+            ),
+            decided_by="gate",
+        )
+
+    async def _ask(
+        self, request: ApprovalRequest, deny_key: Hashable, invocation: Any
+    ) -> ApprovalDecision:
+        """Send *request* to the handler and track the reviewer's denials."""
+        policy = self._policy
+        tool_name = request.tool_name
+        request_id = request.request_id
         self._state.pending += 1
         try:
             async with contextlib.AsyncExitStack() as stack:
@@ -1051,6 +1221,7 @@ class _ApprovalToolWrapper(BaseTool):
             decision = ApprovalDecision(
                 approved=(policy.on_timeout == "allow"),
                 reason=f"Approval timed out after {policy.timeout}s",
+                decided_by="gate",
             )
             logger.warning(
                 "Approval: timeout for %s (request_id=%s), on_timeout=%s",
@@ -1059,6 +1230,7 @@ class _ApprovalToolWrapper(BaseTool):
                 policy.on_timeout,
             )
             if not decision.approved:
+                # A reviewer was asked and didn't answer: counts like a denial.
                 self._state.denials.record(deny_key)
         except Exception as exc:
             logger.error(
@@ -1070,61 +1242,23 @@ class _ApprovalToolWrapper(BaseTool):
             decision = ApprovalDecision(
                 approved=False,
                 reason=f"Approval handler error: {type(exc).__name__}",
+                decided_by="gate",
             )
         else:
-            if decision.approved:
-                self._state.denials.clear(deny_key)
-            else:
-                self._state.denials.record(deny_key)
+            # Only a reviewer's decisions move the retry count: a classifier
+            # rule's denial doesn't use up the reviewer's patience, and its
+            # approval doesn't reset what the reviewer denied.
+            if decision.decided_by == "reviewer":
+                if decision.approved:
+                    self._state.denials.clear(deny_key)
+                else:
+                    self._state.denials.record(deny_key)
         finally:
             self._state.pending = max(0, self._state.pending - 1)
 
         # Replay protection — mark request_id as used
         self._state.used_request_ids.add(request_id)
-
-        if not decision.approved:
-            reason = decision.reason or "Action denied by reviewer."
-            logger.info(
-                "Approval: DENIED %s (request_id=%s): %s",
-                tool_name,
-                request_id,
-                reason,
-            )
-            self._emit(
-                "approval.denied",
-                "warning",
-                {"tool_name": tool_name, "request_id": request_id, "reason": reason},
-            )
-            return f"DENIED: {reason}"
-
-        # Approved — execute with the original arguments, or the reviewer's edits
-        final_args: dict[str, Any] = kwargs
-        changes: list[tuple[str, Any, Any]] = []
-        if decision.modified_arguments is not None:
-            final_args, changes = _apply_modified_arguments(
-                kwargs, request.arguments, decision.modified_arguments
-            )
-        logger.info(
-            "Approval: APPROVED %s (request_id=%s, reviewer=%s%s)",
-            tool_name,
-            request_id,
-            decision.reviewer_id or "unknown",
-            f", modified: {[name for name, _, _ in changes]}" if changes else "",
-        )
-        self._emit(
-            "approval.granted",
-            "info",
-            {
-                "tool_name": tool_name,
-                "request_id": request_id,
-                "reviewer": decision.reviewer_id,
-                "modified_arguments": [name for name, _, _ in changes],
-            },
-        )
-        result = await self._run_inner(final_args, bool(changes), config, run_manager)
-        if changes:
-            return _with_note(result, _modification_note(changes), self.response_format)
-        return result
+        return decision
 
     async def _run_inner(
         self,
@@ -1480,6 +1614,13 @@ def approval_elicitation_callback(
         )
         _emit("approval.requested", "info", {"timeout": effective_timeout})
 
+        async def _record(decision: ApprovalDecision) -> None:
+            # ``ApprovalPolicy(on_decision=...)`` sees these decisions too.
+            if policy is not None:
+                await run_in_caller(
+                    asyncio.ensure_future, policy.record_decision(request, decision)
+                )
+
         try:
             task = run_in_caller(asyncio.ensure_future, target.request_approval(request))
             decision = await asyncio.wait_for(task, timeout=effective_timeout)
@@ -1491,6 +1632,13 @@ def approval_elicitation_callback(
                 request.request_id,
             )
             _emit("approval.denied", "warning", {"reason": "timeout"})
+            await _record(
+                ApprovalDecision(
+                    approved=False,
+                    reason=f"Approval timed out after {effective_timeout}s",
+                    decided_by="gate",
+                )
+            )
             return decline
         except Exception as exc:
             logger.error(
@@ -1500,10 +1648,22 @@ def approval_elicitation_callback(
                 exc,
             )
             _emit("approval.denied", "warning", {"reason": f"handler error: {type(exc).__name__}"})
+            await _record(
+                ApprovalDecision(
+                    approved=False,
+                    reason=f"Approval handler error: {type(exc).__name__}",
+                    decided_by="gate",
+                )
+            )
             return decline
 
         if not isinstance(decision, ApprovalDecision) or not decision.approved:
             reason = getattr(decision, "reason", None) or "denied by reviewer"
+            await _record(
+                decision
+                if isinstance(decision, ApprovalDecision)
+                else ApprovalDecision(approved=False, reason=reason, decided_by="gate")
+            )
             logger.info(
                 "Approval: DENIED %s's request (request_id=%s): %s",
                 where,
@@ -1520,6 +1680,15 @@ def approval_elicitation_callback(
                 request.request_id,
             )
             _emit("approval.denied", "warning", {"reason": "modified arguments"})
+            await _record(
+                _dc_replace(
+                    decision,
+                    approved=False,
+                    reason="The reviewer modified the arguments; a server-side gate "
+                    "cannot apply that, so the request was declined",
+                    decided_by="gate",
+                )
+            )
             return decline
 
         logger.info(
@@ -1529,6 +1698,7 @@ def approval_elicitation_callback(
             decision.reviewer_id or "unknown",
         )
         _emit("approval.granted", "info", {"reviewer": decision.reviewer_id})
+        await _record(decision)
         return types.ElicitResult(
             action="accept", content=_confirmation_content(schema, decision.reason)
         )

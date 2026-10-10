@@ -17,7 +17,7 @@ from collections.abc import Callable, Collection
 from typing import Any
 
 from langchain_core.tools import BaseTool, ToolException
-from mcp.types import CallToolResult
+from mcp.types import CallToolResult, ToolAnnotations
 from pydantic import BaseModel, PrivateAttr
 
 from ...tools import ToolInfo, _jsonschema_to_pydantic
@@ -130,6 +130,19 @@ def _tool_error(tool_name: str, result: CallToolResult) -> MCPToolError | None:
     return None
 
 
+def _annotation_metadata(tool: Any) -> dict[str, Any] | None:
+    """The tool's MCP annotations as flat ``metadata`` keys.
+
+    Same shape as ``langchain-mcp-adapters`` (``{"readOnlyHint": True,
+    ...}``), so the approval classifier reads them from either.
+    """
+    annotations = getattr(tool, "annotations", None)
+    if not isinstance(annotations, ToolAnnotations):
+        return None
+    data = annotations.model_dump(exclude_none=True)
+    return data or None
+
+
 class _PromptiseMCPTool(BaseTool):
     """LangChain ``BaseTool`` that invokes an MCP tool via the Promptise client.
 
@@ -164,8 +177,11 @@ class _PromptiseMCPTool(BaseTool):
         on_error: OnError | None = None,
         forward_caller_token: bool = False,
         on_progress: OnProgress | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(name=name, description=description, args_schema=args_schema)
+        super().__init__(
+            name=name, description=description, args_schema=args_schema, metadata=metadata
+        )
         self._tool_name = tool_name
         self._multi = multi
         self._on_before = on_before
@@ -355,6 +371,7 @@ class MCPToolAdapter:
                     on_error=self._on_error,
                     forward_caller_token=forward,
                     on_progress=self._on_progress,
+                    metadata=_annotation_metadata(t),
                 )
             )
 

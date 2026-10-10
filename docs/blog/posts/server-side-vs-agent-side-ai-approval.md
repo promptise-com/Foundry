@@ -30,7 +30,7 @@ A single in-process hook forces you to answer both questions in one place, so yo
 
 Promptise gives each question its own layer, and — this is the part that keeps the two from becoming two integrations — both speak the same `ApprovalHandler` protocol. A handler you write once (a Slack bot, a webhook, a review queue) plugs into either layer unchanged.
 
-- **Agent-side** — [`ApprovalPolicy`](../../core/approval.md) on `build_agent()` wraps the agent's matching tool calls. Put the [`AutoApprovalClassifier`](../../core/approval-classifier.md) in front of your handler and it resolves the easy cases itself through an ordered hierarchy — allow rules, deny rules, read-only auto-allow, an optional LLM classifier — and only escalates genuine judgement calls to the human. It supports reviewer edits (`modified_arguments`) because it re-binds arguments before dispatch.
+- **Agent-side** — [`ApprovalPolicy`](../../core/approval.md) on `build_agent()` wraps the agent's matching tool calls. Put the [`AutoApprovalClassifier`](../../core/approval-classifier.md) in front of your handler and it resolves the easy cases itself through an ordered hierarchy — deny rules, ask rules, allow rules, read-only auto-allow, an optional LLM classifier — and only escalates genuine judgement calls to the human. It supports reviewer edits (`modified_arguments`) because it re-binds arguments before dispatch.
 - **Server-side** — [`ApprovalGateMiddleware`](../../mcp/server/approval-gates.md) sits in the MCP server pipeline in front of the handler, so the requirement is a property of the *tool*. Every client that ever calls it inherits the gate. It is approve-or-deny only (it won't run arguments a reviewer rewrote, because it can't guarantee the substitution is what executes).
 
 The snippet below runs on nothing but `pip install promptise` — no API key, no network — and wires the *same* handler object into both layers at once:
@@ -90,12 +90,12 @@ def build_billing_server() -> MCPServer:
 
 
 # ---- Layer 2: AGENT-SIDE triage in front of the SAME handler --------------
-# The classifier answers the easy cases itself (allow/deny rules, read-only
+# The classifier answers the easy cases itself (deny/allow rules, read-only
 # auto-allow) so a human only ever sees real judgement calls. Its fallback IS
 # the shared_handler from above — one channel, reused.
 classifier = AutoApprovalClassifier(
-    allow_rules=[ApprovalRule(tool="get_*", reason="read-only lookup")],
     deny_rules=[ApprovalRule(tool="drop_*", reason="never allowed")],
+    allow_rules=[ApprovalRule(tool="get_*", reason="read-only lookup")],
     read_only_auto_allow=True,
     fallback=shared_handler,
 )
@@ -117,19 +117,19 @@ async def main() -> None:
     read = await classifier.request_approval(
         ApprovalRequest(request_id=secrets.token_hex(8), tool_name="get_balance", arguments={})
     )
-    print("agent get_balance:  ", read.approved, "via", classifier.last_trace.layer)
+    print("agent get_balance:  ", read.approved, "via", read.trace.layer)
 
     listed = await classifier.request_approval(
         ApprovalRequest(request_id=secrets.token_hex(8), tool_name="list_orders", arguments={})
     )
-    print("agent list_orders:  ", listed.approved, "via", classifier.last_trace.layer)
+    print("agent list_orders:  ", listed.approved, "via", listed.trace.layer)
 
     escalated = await classifier.request_approval(
         ApprovalRequest(
             request_id=secrets.token_hex(8), tool_name="refund", arguments={"amount": 5000.0}
         )
     )
-    print("agent refund:       ", escalated.approved, "via", classifier.last_trace.layer)
+    print("agent refund:       ", escalated.approved, "via", escalated.trace.layer)
 
     print(
         "triage stats:       ",
