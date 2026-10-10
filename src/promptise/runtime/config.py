@@ -612,9 +612,9 @@ class ProcessConfig(BaseModel):
             attempt; doubles on each consecutive attempt (capped at 60s).
         trigger_delivery: Retries, dead-letter list and payload scanning
             for trigger events.
-        guardrails, observe, cache, optimize_tools, adaptive,
-        max_invocation_time: Passed through to
-            :func:`~promptise.agent.build_agent` when the agent is built.
+        guardrails: Passed through to :func:`~promptise.agent.build_agent`
+            when the agent is built, as are ``observe``, ``cache``,
+            ``optimize_tools``, ``adaptive`` and ``max_invocation_time``.
 
     Unknown keys are rejected, so a misspelt option fails loudly instead
     of being ignored.
