@@ -51,7 +51,7 @@ With API key auth::
 
 from ._client import MCPClient, MCPClientError, MCPConnectionRejectedError
 from ._multi import MCPMultiClient
-from ._tool_adapter import MCPToolAdapter
+from ._tool_adapter import MCPToolAdapter, MCPToolError
 
 __all__ = [
     "MCPClient",
@@ -59,4 +59,5 @@ __all__ = [
     "MCPConnectionRejectedError",
     "MCPMultiClient",
     "MCPToolAdapter",
+    "MCPToolError",
 ]

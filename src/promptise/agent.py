@@ -128,6 +128,18 @@ def get_current_caller() -> CallerContext | None:
     return _caller_ctx_var.get()
 
 
+# Conversation session of the current ``chat()`` call (``None`` in a bare
+# ``ainvoke``).  Read by session-scoped features such as adaptive strategy.
+_session_ctx_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "promptise_session", default=None
+)
+
+
+def get_current_session_id() -> str | None:
+    """Return the session id of the current ``chat()`` call, or ``None``."""
+    return _session_ctx_var.get()
+
+
 from .tools import MCPClientError
 
 # Model can be a provider string (handled by LangChain), a chat model instance, or a Runnable.
@@ -623,10 +635,24 @@ class PromptiseAgent:
             callbacks.append(self._handler)
             config["callbacks"] = callbacks
 
+        # Step 2.5: Adaptive strategy — collect this invocation's failed tool
+        # calls (independent of observability, never shared across calls)
+        _failure_recorder = None
+        if self._strategy_manager is not None:
+            from .strategy import _ToolFailureRecorder
+
+            _failure_recorder = _ToolFailureRecorder()
+            config = dict(config) if config else {}
+            config["callbacks"] = [*config.get("callbacks", []), _failure_recorder]
+
         # Step 3: Delegate to inner graph
-        output = await _active_graph.ainvoke(
-            input, config=cast("RunnableConfig | None", config), **kwargs
-        )
+        try:
+            output = await _active_graph.ainvoke(
+                input, config=cast("RunnableConfig | None", config), **kwargs
+            )
+        except Exception:
+            await self._record_tool_failures(_failure_recorder)
+            raise
 
         # Step 3.5: Guardrails — scan output BEFORE returning
         if self._guardrails is not None:
@@ -691,27 +717,7 @@ class PromptiseAgent:
             await self._maybe_store(user_text, output)
 
         # Step 4.5: Adaptive strategy — record failures from this invocation
-        if self._strategy_manager is not None and self._handler is not None:
-            failures = getattr(self._handler, "_current_failures", [])
-            if failures:
-                from .strategy import FailureLog, classify_failure
-
-                for f in failures:
-                    category = classify_failure(f.get("error_type", ""), f.get("error_message", ""))
-                    try:
-                        await self._strategy_manager.record_failure(
-                            FailureLog(
-                                tool_name=f.get("tool_name", "unknown"),
-                                error_type=f.get("error_type", ""),
-                                error_message=f.get("error_message", ""),
-                                category=category,
-                                args_preview=f.get("args_preview", ""),
-                                timestamp=f.get("timestamp", time.time()),
-                            )
-                        )
-                    except Exception:
-                        pass
-                failures.clear()
+        await self._record_tool_failures(_failure_recorder)
 
         # Emit invocation.complete event
         if self._event_notifier is not None:
@@ -1118,6 +1124,13 @@ class PromptiseAgent:
                 logger.debug("MCP cleanup error during shutdown", exc_info=True)
             self._mcp_multi = None
 
+        # Let background adaptive-strategy work (approval-denial learning) land
+        if self._strategy_manager is not None:
+            try:
+                await self._strategy_manager.drain()
+            except Exception:
+                logger.debug("Adaptive strategy drain error during shutdown", exc_info=True)
+
         # Flush observability transporters
         for t in self._transporters:
             try:
@@ -1215,6 +1228,17 @@ class PromptiseAgent:
         transporter.flush()
         return path
 
+    async def _record_tool_failures(self, recorder: Any | None) -> None:
+        """Hand an invocation's failed tool calls to adaptive strategy."""
+        if recorder is None or self._strategy_manager is None:
+            return
+        failures, recorder.failures = recorder.failures, []
+        for failure in failures:
+            try:
+                await self._strategy_manager.record_failure(failure)
+            except Exception:
+                logger.debug("Adaptive strategy failed to record a failure", exc_info=True)
+
     # -----------------------------------------------------------------
     # Memory helpers (internal)
     # -----------------------------------------------------------------
@@ -1231,11 +1255,17 @@ class PromptiseAgent:
         # Memory scoping keys on the isolation key (tenant::user) so tenants
         # with identical user ids never share memories.
         user_id = caller.isolation_key if caller is not None else None
+        from .memory import is_adaptive_entry
+
+        # Adaptive strategy keeps failure logs and lessons in the same
+        # provider; they are not memories, so fetch extra and drop them.
+        fetch = self._memory_max * 2 if self._strategy_manager is not None else self._memory_max
         try:
             results = await asyncio.wait_for(
-                self.provider.search(query, limit=self._memory_max, user_id=user_id),
+                self.provider.search(query, limit=fetch, user_id=user_id),
                 timeout=self._memory_timeout,
             )
+            results = [r for r in results if not is_adaptive_entry(r.metadata)][: self._memory_max]
             if self._memory_min_score > 0.0:
                 results = [r for r in results if r.score >= self._memory_min_score]
             return results
@@ -1394,7 +1424,11 @@ class PromptiseAgent:
         lc_messages.append(HumanMessage(content=message))
 
         # Step 4: Invoke the agent
-        output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+        _session_token = _session_ctx_var.set(session_id)
+        try:
+            output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+        finally:
+            _session_ctx_var.reset(_session_token)
 
         # Step 5: Extract assistant response text
         response_text = _extract_response_text(output)
@@ -1722,6 +1756,16 @@ class PromptiseAgent:
         """The names of :attr:`tools`, in binding order."""
         return [t.name for t in self._tools]
 
+    @property
+    def adaptive_strategy(self) -> Any | None:
+        """The :class:`~promptise.strategy.AdaptiveStrategyManager`, or ``None``.
+
+        Use it to record human corrections, review pending lessons
+        (``review_lessons=True``), or list, forget and reset lessons.
+        Outside an invocation pass ``caller=`` explicitly.
+        """
+        return self._strategy_manager
+
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
 
@@ -1859,6 +1903,9 @@ async def build_agent(
         observer_agent_id: Agent identifier for tool-event recording.
         observe: Plug-and-play observability.  Can be:
             - ``True``: Enable with defaults (STANDARD level, HTML report).
+              Writes an HTML report file to ``./reports`` when the agent
+              shuts down; pass an :class:`ObservabilityConfig` with other
+              ``transporters`` or ``output_dir`` to change that.
             - :class:`ObservabilityConfig`: Full configuration.
             - ``None``/``False``: Disabled (default).
         extra_tools: Optional additional :class:`BaseTool` instances to
@@ -1874,6 +1921,12 @@ async def build_agent(
         conversation_max_messages: Maximum messages to keep per session
             when using the conversation store.  ``0`` = unlimited.
             Oldest messages are dropped when the limit is reached.
+        adaptive: Adaptive strategy (learning from failed tool calls):
+            ``True``, an :class:`~promptise.strategy.AdaptiveStrategyConfig`
+            or a dict of its fields.  Requires ``memory``.  Independent of
+            ``observe``.  Failures and lessons are partitioned per caller
+            by default (``scope="per_user"``); the manager is available as
+            :attr:`PromptiseAgent.adaptive_strategy`.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -2280,9 +2333,23 @@ async def build_agent(
     # ------------------------------------------------------------------
     # Wrap tools with approval gates if configured
     # ------------------------------------------------------------------
+    adaptive_config = _resolve_adaptive(adaptive)
+    _adaptive_holder: list[Any] = []  # filled once the manager exists (below)
     if approval is not None:
         from .approval import wrap_tools_with_approval
 
+        if (
+            adaptive_config is not None
+            and _memory_provider is not None
+            and adaptive_config.learn_from_approval_denials
+        ):
+            import copy
+
+            from .strategy import _DenialLearningHandler
+
+            # A copy, so a policy shared with other agents isn't rewired.
+            approval = copy.copy(approval)
+            approval.handler = _DenialLearningHandler(approval.handler, _adaptive_holder)
         tools = wrap_tools_with_approval(tools, approval, event_notifier=events)
 
     graph = _build_graph(tools)
@@ -2402,23 +2469,21 @@ async def build_agent(
         agent._max_invocation_time = max_invocation_time
 
     # Set up adaptive strategy manager
-    if adaptive is not None and _memory_provider is not None:
-        from .strategy import AdaptiveStrategyConfig, AdaptiveStrategyManager
-
-        if isinstance(adaptive, bool) and adaptive:
-            adaptive_config = AdaptiveStrategyConfig(enabled=True)
-        elif isinstance(adaptive, AdaptiveStrategyConfig):
-            adaptive_config = adaptive
+    if adaptive_config is not None:
+        if _memory_provider is None:
+            logger.warning("adaptive is set but memory is not: adaptive strategy is disabled")
         else:
-            adaptive_config = None
+            from .strategy import AdaptiveStrategyManager
 
-        if adaptive_config is not None and adaptive_config.enabled:
             agent._strategy_manager = AdaptiveStrategyManager(
                 config=adaptive_config,
                 memory=_memory_provider,
-                agent_model=_model_name,
+                # The model itself: an instance's bare model_name may not resolve.
+                agent_model=model.spec if isinstance(model, Model) else model,
                 guardrails=guardrails,
+                tool_names=[t.name for t in tools],
             )
+            _adaptive_holder.append(agent._strategy_manager)
 
     # Wire context engine
     if context_engine is not None:
@@ -2447,6 +2512,25 @@ async def build_agent(
         agent._sandbox_manager = sandbox_manager
 
     return agent
+
+
+def _resolve_adaptive(adaptive: Any) -> Any | None:
+    """The enabled :class:`AdaptiveStrategyConfig` for ``build_agent(adaptive=...)``, or ``None``."""
+    if adaptive is None or adaptive is False:
+        return None
+    from .strategy import AdaptiveStrategyConfig
+
+    if adaptive is True:
+        config = AdaptiveStrategyConfig(enabled=True)
+    elif isinstance(adaptive, AdaptiveStrategyConfig):
+        config = adaptive
+    elif isinstance(adaptive, Mapping):
+        config = AdaptiveStrategyConfig(**{"enabled": True, **adaptive})
+    else:
+        raise TypeError(
+            f"adaptive must be a bool, AdaptiveStrategyConfig or dict (got {type(adaptive).__name__})"
+        )
+    return config if config.enabled else None
 
 
 def _build_provider_from_config(config: dict[str, Any]) -> Any:

@@ -501,6 +501,26 @@ class AdaptiveSection(BaseModel):
     strategy_ttl: int = Field(0, ge=0, description="Strategy expiry in seconds (0 = never)")
     failure_retention: int = Field(50, gt=0, description="Max raw failure logs to keep")
     verify_human_feedback: bool = Field(True, description="LLM-as-judge on corrections")
+    feedback_rate_limit: int = Field(10, ge=0, description="Max corrections per hour per sender")
+    scope: Literal["per_user", "per_tenant", "per_session", "shared"] = Field(
+        "per_user",
+        description="Who shares failures and lessons (derived from the CallerContext)",
+    )
+    confidence_half_life: float = Field(
+        0.0, ge=0, description="Seconds for a synthesized lesson's confidence to halve (0 = off)"
+    )
+    min_confidence: float = Field(
+        0.3, ge=0.0, le=1.0, description="Lessons below this confidence are dropped"
+    )
+    allowed_tools: list[str] | None = Field(
+        None, description="Only learn from failures of these tools (None = all)"
+    )
+    review_lessons: bool = Field(
+        False, description="Hold synthesized lessons as pending until approved"
+    )
+    learn_from_approval_denials: bool = Field(
+        True, description="Store approval denial reasons as human corrections"
+    )
 
 
 class GuardrailsSection(BaseModel):

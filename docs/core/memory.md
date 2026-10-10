@@ -64,6 +64,14 @@ class MemoryProvider(Protocol):
 | `purge_user(user_id)` | `int` | Delete every entry owned by `user_id`. Returns the count removed. GDPR "right to erasure". |
 | `close()` | `None` | Release resources (connections, file handles) |
 
+The built-in providers also implement an optional method that is not part of the protocol:
+
+| Method | Returns | Description |
+|---|---|---|
+| `list_entries(user_id=None, metadata=None, limit=1000)` | `list[MemoryResult]` | Enumerate entries whose metadata matches every key in `metadata` exactly (no relevance ranking). Scoped like `search`. [Adaptive strategy](adaptive-strategy.md) uses it to count failures across restarts and cap stored lessons; a custom provider without it still works, with the limits described there. |
+
+Failure logs and lessons written by [adaptive strategy](adaptive-strategy.md) live in the same provider, tagged with a `_promptise_adaptive_scope` metadata key. They are never injected as recalled memory.
+
 ---
 
 ## Memory Scopes — Shared vs Per-User
@@ -148,20 +156,21 @@ provider = InMemoryProvider(scope=MemoryScope.PER_USER)
 await provider.add("Pipeline had 5% error rate at 07:30")
 await provider.add("User prefers dark mode")
 
-results = await provider.search("error rate")
-# Matches entries containing the substring "error rate"
+results = await provider.search("what was the error rate?")
+# Matches the first entry: it contains the words "error" and "rate".
+# Entries containing the whole query rank above partial word matches.
 ```
 
 | Feature | Value |
 |---|---|
-| Search method | Case-insensitive substring matching |
+| Search method | Case-insensitive keyword matching: whole-query matches first, then by share of the query's words found (stop words ignored) |
 | Persistence | None (in-memory only) |
 | Isolation | `SHARED` or `PER_USER` via `scope=` |
 | Dependencies | None |
 | Best for | Testing, development, ephemeral agents |
 
 !!! warning "Not for production"
-    `InMemoryProvider` has no semantic understanding. The query `"deployment issues"` will **not** match content containing `"deploy"`. Use `ChromaProvider` or `Mem0Provider` for production workloads.
+    `InMemoryProvider` has no semantic understanding. The query `"deployment issues"` will **not** match content containing only `"deploy"`: words must match exactly. Use `ChromaProvider` or `Mem0Provider` for production workloads.
 
 ### ChromaProvider
 
