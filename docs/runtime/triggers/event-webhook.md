@@ -175,7 +175,7 @@ TriggerConfig(
 | `hmac_secret` | `None` | Shared secret; when set, requests without a valid signature get `401` |
 | `signature_scheme` | `"generic"` | How the signature is computed (table below) |
 | `signature_header` | scheme default | Override the header the signature is read from |
-| `signature_tolerance` | `300` | Max age in seconds of a `stripe` signature timestamp (replay protection) |
+| `signature_tolerance` | `300` | Max age in seconds of a `stripe` signature timestamp; inside that window each signed request is accepted once (replay protection) |
 | `allowed_sources` | `[]` (any) | Client IPs or CIDR ranges allowed to call the webhook; others get `403` |
 | `filter_expression` | `None` | Skip events before the agent runs (see [Filtering](index.md#filtering-events-before-the-agent-runs)) |
 
@@ -189,7 +189,9 @@ With `hmac_secret` set, every request must carry an HMAC-SHA256 signature of the
 |---|---|---|
 | `generic` | `X-Webhook-Signature` | `sha256=<hex HMAC of body>` |
 | `github` | `X-Hub-Signature-256` | `sha256=<hex HMAC of body>`, as GitHub sends it |
-| `stripe` | `Stripe-Signature` | `t=<unix ts>,v1=<hex HMAC of "<ts>.<body>">`, as Stripe sends it; rejected when the timestamp is older than `signature_tolerance` |
+| `stripe` | `Stripe-Signature` | `t=<unix ts>,v1=<hex HMAC of "<ts>.<body>">`, as Stripe sends it; rejected when the timestamp is older than `signature_tolerance`, or when the same signed request was already accepted |
+
+`generic` and `github` signatures cover only the body, with no timestamp, so anyone who captures a signed request can send it again. Serve the webhook over TLS (a reverse proxy in front of it) so requests can't be captured, and make the agent's actions safe to repeat where you can.
 
 Signing a request for the `generic` scheme:
 
