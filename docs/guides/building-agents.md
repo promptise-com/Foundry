@@ -182,8 +182,8 @@ result = await agent.ainvoke({
 # Get aggregate statistics
 stats = agent.get_stats()
 print(f"Total tokens: {stats['total_tokens']}")
-print(f"Tool calls: {stats['tool_calls']}")
-print(f"Duration: {stats['total_duration_ms']}ms")
+print(f"LLM calls: {stats['llm_call_count']}, tool calls: {stats['tool_call_count']}")
+print(f"Errors: {stats['error_count']}")
 
 # Generate an interactive HTML report
 agent.generate_report("report.html", title="Sales Analysis")
@@ -206,7 +206,7 @@ agent = await build_agent(
             TransporterType.STRUCTURED_LOG, # JSONL file
             TransporterType.CONSOLE,        # Live terminal output
             TransporterType.PROMETHEUS,     # Prometheus /metrics
-            TransporterType.OTEL,           # OpenTelemetry spans
+            TransporterType.OTLP,           # OpenTelemetry traces
             TransporterType.WEBHOOK,        # HTTP POST on events
         ],
         output_dir="./reports",
@@ -625,8 +625,7 @@ except Exception as exc:
 
 ```python
 # Check which tools were discovered
-stats = agent.get_stats()
-print(f"Tools available: {stats.get('tools_count', 0)}")
+print(f"Tools available: {[t.name for t in agent.tools]}")
 
 # If 0 tools — server connection failed. Check:
 # 1. Is the server running? (stdio: is the command correct? http: is the URL reachable?)
@@ -641,20 +640,25 @@ agent = await build_agent(
     model="openai:gpt-5-mini",
     servers=my_servers,
     max_agent_iterations=25,   # Limit total reasoning steps
-    timeout=120.0,             # Hard timeout in seconds
+    max_invocation_time=120.0, # Hard timeout per invocation, in seconds
 )
 ```
 
 ### Guardrail Rejections
 
 ```python
-result = await agent.ainvoke(input)
-last_msg = result["messages"][-1].content
+from promptise.guardrails import GuardrailViolation
 
-# If guardrails blocked the input, the response will contain the rejection reason
-# Check observability for details:
-report = agent.generate_report()
-print(report)
+try:
+    result = await agent.ainvoke(input)
+except GuardrailViolation as exc:
+    # The input was blocked before the model was called.
+    print(f"Blocked: {exc}")
+
+# With observe=True the blocked run is recorded as an agent.error event:
+for event in agent.collector.query(event_types=["agent.error"]):
+    print(event.metadata["error_type"], event.metadata["error"])
+agent.generate_report("guardrails-report.html")
 ```
 
 ---

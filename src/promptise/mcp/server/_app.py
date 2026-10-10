@@ -855,19 +855,16 @@ class MCPServer:
         async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[Any]:
             tdef = tool_reg.get(name)
             if tdef is None:
-                return [
-                    TextContent(
-                        type="text",
-                        text=json.dumps(
-                            {
-                                "error": {
-                                    "code": "TOOL_NOT_FOUND",
-                                    "message": f"Unknown tool: {name}",
-                                }
+                raise _ToolCallFailed(
+                    json.dumps(
+                        {
+                            "error": {
+                                "code": "TOOL_NOT_FOUND",
+                                "message": f"Unknown tool: {name}",
                             }
-                        ),
+                        }
                     )
-                ]
+                )
 
             arguments = arguments or {}
 
@@ -1028,13 +1025,15 @@ class MCPServer:
 
                 return serialised
 
+            # Errors are raised as _ToolCallFailed so the MCP SDK answers
+            # with ``isError=True`` (see that class).
             except MCPError as exc:
-                return [TextContent(type="text", text=exc.to_text())]
+                raise _ToolCallFailed(exc.to_text()) from None
             except Exception as exc:
                 # Try custom exception handlers first
                 mapped = await exception_handlers.handle(ctx, exc)
                 if mapped is not None:
-                    return [TextContent(type="text", text=mapped.to_text())]
+                    raise _ToolCallFailed(mapped.to_text()) from None
 
                 logger.exception("Unhandled error in tool '%s'", name)
                 # Return a generic message to clients — full details
@@ -1049,7 +1048,7 @@ class MCPServer:
                         }
                     }
                 )
-                return [TextContent(type="text", text=err_text)]
+                raise _ToolCallFailed(err_text) from None
             finally:
                 await di_resolver.cleanup()
                 clear_context()
@@ -1176,6 +1175,19 @@ class MCPServer:
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
+
+class _ToolCallFailed(Exception):
+    """A tool call failed; ``str(self)`` is the structured error JSON.
+
+    Raised from the ``call_tool`` handler instead of returning the error as
+    ordinary content: the MCP SDK's low-level server turns any exception
+    from that handler into ``CallToolResult(content=[TextContent(text=
+    str(exc))], isError=True)`` (in every ``mcp`` release Promptise
+    supports), which is how the MCP spec says a tool execution error must
+    be reported.  Clients then see a failed call — with the same
+    structured ``{"error": {...}}`` text the model can recover from.
+    """
 
 
 def _serialise_result(result: Any) -> list[TextContent | MCPImageContent | MCPEmbeddedResource]:

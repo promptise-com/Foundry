@@ -13,7 +13,7 @@ import contextlib
 from collections.abc import Callable
 from typing import Any
 
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, ToolException
 from mcp.types import CallToolResult
 from pydantic import BaseModel, PrivateAttr
 
@@ -35,8 +35,8 @@ def _extract_text(result: CallToolResult) -> str:
     LangChain's ``BaseTool`` expects a plain string return value.
 
     Concatenates all text parts with newlines, returning a single string.
-    If the result contains an error (``isError=True``), the text is still
-    returned so the LLM can see the error message.
+    For an error result (``isError=True``) this is the error message, which
+    :class:`_PromptiseMCPTool` raises as a ``ToolException``.
     """
     if not hasattr(result, "content") or not result.content:
         return ""
@@ -96,6 +96,19 @@ class _PromptiseMCPTool(BaseTool):
                 with contextlib.suppress(Exception):
                     self._on_error(self.name, exc)
             raise MCPClientError(f"Failed to call MCP tool '{self._tool_name}': {exc}") from exc
+
+        # The server ran the tool and reported a failure (``isError=True``,
+        # e.g. a ToolError raised by the handler).  Raise it as a
+        # ToolException so it is a failed call everywhere downstream:
+        # callbacks get on_tool_error (observability records tool.error), the
+        # agent loop marks the call failed and still shows the model the
+        # server's message so it can correct itself.
+        if getattr(result, "isError", False):
+            error = ToolException(_extract_text(result) or f"Tool '{self._tool_name}' failed")
+            if self._on_error:
+                with contextlib.suppress(Exception):
+                    self._on_error(self.name, error)
+            raise error
 
         if self._on_after:
             with contextlib.suppress(Exception):

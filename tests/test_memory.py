@@ -699,6 +699,7 @@ class TestChromaProviderMocked:
         provider = object.__new__(ChromaProvider)
         provider._client = mock_client
         provider._collection = mock_collection
+        provider._space = "cosine"
         provider._closed = False
         provider.scope = MemoryScope.SHARED
         return provider
@@ -785,6 +786,7 @@ class TestMem0ProviderMocked:
         provider._user_id = "test-user"
         provider._agent_id = None
         provider._closed = False
+        provider._filters_api = False
         provider.scope = MemoryScope.SHARED
         return provider
 
@@ -806,17 +808,18 @@ class TestMem0ProviderMocked:
         assert results[0].content == "fact"
 
     @pytest.mark.asyncio
-    async def test_search_handles_unexpected_type(self, mem0_provider, caplog) -> None:
+    async def test_search_rejects_unexpected_type(self, mem0_provider) -> None:
         mem0_provider._client.search.return_value = "unexpected string"
-        results = await mem0_provider.search("query")
-        assert results == []
-        assert "unexpected type" in caplog.text
+        with pytest.raises(TypeError, match="unexpected type"):
+            await mem0_provider.search("query")
 
     @pytest.mark.asyncio
-    async def test_search_logs_on_error(self, mem0_provider, caplog) -> None:
+    async def test_search_logs_and_raises_on_error(self, mem0_provider, caplog) -> None:
+        # An empty result would hide an incompatible Mem0 release or a
+        # broken store; the agent catches and logs search errors itself.
         mem0_provider._client.search.side_effect = ConnectionError("down")
-        results = await mem0_provider.search("query")
-        assert results == []
+        with pytest.raises(ConnectionError):
+            await mem0_provider.search("query")
         assert "Mem0Provider.search failed" in caplog.text
 
     @pytest.mark.asyncio

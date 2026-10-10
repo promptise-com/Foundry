@@ -768,6 +768,9 @@ class AgentProcess:
             "instructions": instructions,
             "memory": self._long_term_memory,
             "memory_auto_store": self.config.context.memory_auto_store,
+            "memory_max_results": self.config.context.memory_max,
+            "memory_min_score": self.config.context.memory_min_score,
+            "memory_timeout": self.config.context.memory_timeout,
             "extra_tools": extra_tools or None,
         }
 

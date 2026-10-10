@@ -118,7 +118,7 @@ Requires: `pip install redis`
 
 `agent.chat()` is the high-level interface. It handles the full cycle:
 
-1. **Ownership check** — verify session belongs to caller (when `user_id` provided)
+1. **Ownership check** — verify session belongs to caller (when `user_id` or `caller` is provided)
 2. Load history from store (by `session_id`)
 3. Build LangChain message list with history + new user message
 4. Invoke the agent (with memory injection, prompt context, etc.)
@@ -131,7 +131,9 @@ from promptise.conversations import generate_session_id
 # Always use generate_session_id() — never user-controlled or predictable IDs
 sid = generate_session_id()  # "sess_a1b2c3d4e5f6..."
 
-# Multi-user: user_id enables ownership enforcement
+# Multi-user: user_id enables ownership enforcement. It is shorthand for
+# caller=CallerContext(user_id="user-42"): per-user memory, the semantic cache,
+# guardrails and observability see the same user for this call.
 response = await agent.chat(
     "Hello",
     session_id=sid,
@@ -311,7 +313,32 @@ response = await agent.chat("Continue where we left off", session_id="s1", user_
 - **Parameterized queries** — all user data passes through parameterized queries, never interpolated into SQL.
 - **Connection pooling** — PostgreSQL store uses `asyncpg` connection pools with configurable min/max.
 - **Lazy initialization** — database connections are created on first use, not at construction time.
-- **Graceful degradation** — if the store fails (DB down, network error), `chat()` still returns a response — it just has no history for that call.
+- **Store failures** — see [When the store fails](#when-the-store-fails).
+
+## When the store fails
+
+`chat()` treats a store failure differently depending on what it was doing. Verifying ownership fails closed; reading and writing history degrade gracefully:
+
+| Step | If the store raises (DB down, network error, …) |
+|---|---|
+| Ownership check (`get_session`, before anything else) | `chat()` raises `RuntimeError("Cannot verify session ownership (store unreachable): ...")`. The model is **not** called: an agent that cannot tell whose session this is must not answer in it. |
+| Loading history (`load_messages`) | Logged (`Failed to load conversation history`); the agent answers without the earlier messages. |
+| Saving history (`save_messages`) | Logged (`Failed to save conversation history`); the reply is returned but this turn is not persisted. |
+| Assigning ownership of a new session (`update_session`) | Logged as a warning (`Failed to assign session ... to its user`); the reply is returned, and the session has no owner until one is assigned, so ownership is not enforced for it. |
+
+Handle the `RuntimeError` the way you handle any other unavailable dependency — for example, return HTTP 503 and let the client retry:
+
+```python
+from fastapi import HTTPException
+from promptise.conversations import SessionAccessDenied
+
+try:
+    reply = await agent.chat(text, session_id=sid, user_id=user.id)
+except SessionAccessDenied:
+    raise HTTPException(status_code=403)
+except RuntimeError:
+    raise HTTPException(status_code=503, detail="Conversation store unavailable")
+```
 
 ## API Summary
 

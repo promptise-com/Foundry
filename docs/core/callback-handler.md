@@ -59,8 +59,9 @@ attached to an agent's `config["callbacks"]`, LangChain invokes the handler's
 handler = PromptiseCallbackHandler(
     collector,                      # ObservabilityCollector instance
     agent_id="my-agent",            # Optional agent identifier
-    record_prompts=False,           # Whether to log prompt/response text
+    record_prompts=None,            # None = follow level (text at FULL only)
     level=ObserveLevel.STANDARD,    # Observation detail level
+    record_tool_io=True,            # Record tool arguments and result previews
 )
 ```
 
@@ -70,9 +71,12 @@ The `level` parameter controls how much detail the handler records:
 
 | Level | Behaviour |
 |-------|-----------|
-| `ObserveLevel.BASIC` | Skips detailed LLM start events.  Records end events, tools, errors. |
-| `ObserveLevel.STANDARD` | Records LLM start/end, tool start/end, errors.  Default. |
-| `ObserveLevel.FULL` | Additionally captures individual streaming tokens. |
+| `ObserveLevel.OFF` | Records nothing. |
+| `ObserveLevel.BASIC` | Tool calls, results and errors, LLM errors. No `llm.start` / `llm.end` events; token usage is still added to the current agent run, so `agent.output` carries it. |
+| `ObserveLevel.STANDARD` | BASIC plus `llm.start` / `llm.end` for every LLM turn (tokens, latency, model, requested tools).  Default. |
+| `ObserveLevel.FULL` | STANDARD plus prompt and response text (unless `record_prompts=False`) and the streamed-token count. |
+
+`record_prompts=None` (the default) follows the level: prompt and response text is recorded at `FULL` only. `True` records it at any level; `False` never records it. `record_tool_io=False` replaces tool arguments, result previews and tool error messages with their lengths.
 
 ### Session counters
 
@@ -106,16 +110,20 @@ The handler implements these LangChain callback methods:
 | Method | When fired | What it records |
 |--------|------------|-----------------|
 | `on_tool_start` | Tool invocation begins | Tool name, arguments, starts timer |
-| `on_tool_end` | Tool invocation completes | Result preview, latency |
-| `on_tool_error` | Tool invocation fails | Error type, message, traceback |
+| `on_tool_end` | Tool invocation completes | Result preview, latency — or a `tool.error` when the output is a `ToolMessage` with `status="error"` |
+| `on_tool_error` | Tool invocation fails | Tool name, error type, message, traceback, latency |
+
+A failed MCP tool call (the server answered with `isError: true`, e.g. a `ToolError`) raises a `ToolException` from the Promptise tool adapter, so it arrives here as `on_tool_error` and is recorded as `tool.error`.
 
 #### Chain (agent-level) events
 
 | Method | When fired | What it records |
 |--------|------------|-----------------|
-| `on_chain_start` | Top-level agent invocation begins | Input preview or length |
-| `on_chain_end` | Top-level agent invocation completes | Session totals (tokens, call counts) |
-| `on_chain_error` | Top-level agent invocation fails | Error type, message, traceback |
+| `on_chain_start` | Top-level chain begins | `agent.input` with input preview or length |
+| `on_chain_end` | Top-level chain completes | `agent.output` with session totals (tokens, call counts) |
+| `on_chain_error` | Top-level chain fails | `agent.error` with error type, message, traceback |
+
+These apply when you attach the handler to a LangChain runnable yourself. Inside a `PromptiseAgent` the agent records `agent.input` / `agent.output` / `agent.error` for every invocation itself (with per-run token totals) and the handler skips its chain events, so nothing is recorded twice.
 
 #### Retry events
 
@@ -148,8 +156,9 @@ summary = handler.get_summary()
 |-----------|------|---------|-------------|
 | `collector` | `ObservabilityCollector` | *required* | The collector that receives timeline events |
 | `agent_id` | `str \| None` | `None` | Optional identifier for this agent |
-| `record_prompts` | `bool` | `False` | If `True`, log prompt text and response previews |
-| `level` | `ObserveLevel` | `STANDARD` | Detail level: `BASIC`, `STANDARD`, or `FULL` |
+| `record_prompts` | `bool \| None` | `None` | Record prompt and response text. `None` follows `level` (on at `FULL` only) |
+| `level` | `ObserveLevel` | `STANDARD` | Detail level: `OFF`, `BASIC`, `STANDARD`, or `FULL` |
+| `record_tool_io` | `bool` | `True` | Record tool arguments, result previews and tool error messages (`False`: lengths only) |
 
 ### get_summary()
 
@@ -164,9 +173,10 @@ summary = handler.get_summary()
     `ainvoke()` calls.  Session counters accumulate automatically.
 
 !!! warning
-    Setting `record_prompts=True` logs prompt text and response previews into
-    the observability timeline.  Avoid this in production if prompts contain
-    sensitive data (PII, credentials, etc.).
+    `record_prompts=True` (or `level=FULL`) logs prompt text and response
+    previews into the observability timeline, and tool arguments and results
+    are recorded unless `record_tool_io=False`.  Avoid both in production if
+    prompts or tool calls carry sensitive data (PII, credentials, etc.).
 
 !!! tip
     The handler is synchronous (`BaseCallbackHandler`, not

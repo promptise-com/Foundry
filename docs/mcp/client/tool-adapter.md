@@ -161,22 +161,35 @@ joins them with newlines:
 # "Found 3 results\nResult 1: ..."
 ```
 
-If the result has `isError=True`, the text is still returned so the LLM can
-see the error message and decide how to proceed.
+If the result has `isError=True` (the server ran the tool and it failed, e.g.
+a `ToolError`), the tool raises a LangChain `ToolException` whose message is
+that text — see below.
 
 ### Error handling
 
 When a tool call fails at the transport or protocol level, the adapter raises
-`MCPClientError`:
+`MCPClientError`. When the server reports a failed call (`isError=True`), it
+raises `ToolException` with the server's error text, so LangChain callbacks get
+`on_tool_error` (observability records `tool.error`) and the `on_error`
+adapter callback runs instead of `on_after`:
 
 ```python
+from langchain_core.tools import ToolException
 from promptise.mcp.client import MCPClientError
 
 try:
     result = await tool.ainvoke({"query": "test"})
+except ToolException as exc:
+    print(f"Tool reported an error: {exc}")   # e.g. {"error": {"code": "TOOL_ERROR", ...}}
 except MCPClientError as exc:
     print(f"Tool call failed: {exc}")
 ```
+
+Inside a Promptise agent you do not need to catch either: the agent loop marks
+the call as failed and passes the error text to the model (`Error:
+ToolException: {...}`) so it can correct itself. When you use the tools in
+another framework, set `tool.handle_tool_error = True` to have LangChain
+return the error text to the model instead of raising.
 
 ## API summary
 

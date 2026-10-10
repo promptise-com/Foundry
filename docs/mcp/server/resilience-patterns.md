@@ -291,6 +291,8 @@ async def get_employee(employee_id: str) -> dict:
 
 The handler receives the `RequestContext` and the exception. It returns a `ToolError` that's sent to the client as a structured error response.
 
+**How clients see a failed call**: whenever a tool call fails — a `ToolError` or other `MCPError` raised by the handler, an exception mapped by a handler here, an unhandled exception (`INTERNAL_ERROR`, details kept in the server log), or an unknown tool (`TOOL_NOT_FOUND`) — the server answers with a `CallToolResult` that has `isError: true` and the structured `{"error": {"code", "message", "retryable", ...}}` JSON as its text content, as the MCP specification requires for tool execution errors. Clients can tell a failed call from a result without parsing the text, and the model still reads the message and can correct itself. A Promptise agent records these calls as `tool.error` events.
+
 **MRO-based matching**: If you register a handler for `ValueError` and throw a `SpecificValueError(ValueError)`, the `ValueError` handler catches it. The most specific handler in the MRO wins.
 
 ---
