@@ -112,17 +112,22 @@ result = await agent.ainvoke({
     "messages": [{"role": "user", "content": "Summarize sales.csv"}]
 })
 
-# Async streaming
+# Async streaming: the conversation after each step of the agent's graph
 async for chunk in agent.astream({
     "messages": [{"role": "user", "content": "Explain quantum computing"}]
 }):
-    print(chunk)
+    print(chunk["messages"][-1])  # the last chunk is what ainvoke() returns
 
 # Synchronous invocation (convenience wrapper)
 result = agent.invoke({
     "messages": [{"role": "user", "content": "Hello"}]
 })
 ```
+
+`astream()` yields `{"messages": [...]}` once per step (a model call and the
+tools it asked for), applying input and output guardrails, memory and
+observability as `ainvoke()` does. For token-by-token text and tool activity —
+what a chat UI needs — use [`astream_with_tools()`](../streaming.md).
 
 !!! warning "Sync invocation and memory"
     `invoke()` delegates to `ainvoke()` internally when memory is enabled because memory search requires async I/O. If a running event loop is already active (e.g. inside Jupyter), memory injection is skipped for the sync path. Use `ainvoke()` in async contexts to ensure memory always works.

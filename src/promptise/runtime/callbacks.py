@@ -91,7 +91,9 @@ class RuntimeCallbackHandler(AsyncCallbackHandler):
         """Called when a tool finishes.  Records response for health."""
         if self._health is not None:
             try:
-                text = str(output) if output is not None else ""
+                # A tool invoked as a tool call returns a ToolMessage.
+                content = getattr(output, "content", output)
+                text = str(content) if content is not None else ""
                 await self._health.record_response(text)
             except Exception as exc:
                 logger.debug("Health tool end recording failed: %s", exc)

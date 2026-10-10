@@ -584,6 +584,14 @@ class DatabaseNode(BaseNode):
         return NodeResult(node_name=self.name, output=result)
 ```
 
+When the graph is streamed (`astream()`, `astream_events()`,
+`agent.astream_with_tools()`), the engine calls the node's `stream()`. The
+default runs `execute()` once and yields an `on_node_end` event with the result,
+so a subclass only overrides `stream()` to emit events of its own — and then
+must end with `NodeEvent(event="on_node_end", node_name=self.name,
+data={"result": result})`. A stream that ends without the result fails the run;
+the engine never executes a node twice to get one.
+
 ### BaseNode Parameters
 
 All nodes inherit these parameters from BaseNode:
