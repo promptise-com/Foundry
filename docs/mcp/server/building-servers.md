@@ -235,28 +235,53 @@ Supported return types:
 
 ## Registering Resources
 
-Resources expose static, read-only data at a fixed URI.
+Resources expose read-only data at a fixed URI.
 
 ```python
-@server.resource("config://app", mime_type="application/json")
-async def app_config() -> str:
+@server.resource("config://app")
+async def app_config() -> dict:
     """Server configuration."""
-    return '{"version": "1.0.0", "environment": "production"}'
+    return {"version": "1.0.0", "environment": "production"}
+```
+
+What the handler returns decides what the client receives:
+
+| Handler returns | Client receives |
+|---|---|
+| `str` | Text, with the declared `mime_type` |
+| `dict`, `list` or a Pydantic model | JSON text |
+| `bytes` | Binary content (`BlobResourceContents`, base64-encoded) |
+| `ReadResourceContents` (or a list of them) | Passed through, for several contents or per-item MIME types |
+
+Without `mime_type=`, the MIME type comes from the return annotation: `-> dict`, `-> list` or a Pydantic model gives `application/json`, `-> bytes` gives `application/octet-stream`, anything else `text/plain`. A declared `mime_type` is always sent as declared:
+
+```python
+@server.resource("img://logo", mime_type="image/png")
+async def logo() -> bytes:
+    return Path("logo.png").read_bytes()
 ```
 
 ### Resource templates
 
-For dynamic URIs, use `@server.resource_template()` with `{param}` placeholders:
+For dynamic URIs, use `@server.resource_template()` with `{param}` placeholders. Each placeholder must name a handler parameter, and its value is converted to the parameter's type hint (`"2"` becomes `2` for an `int`):
 
 ```python
-@server.resource_template(
-    "users://{user_id}/profile",
-    mime_type="application/json",
-)
-async def user_profile(user_id: str) -> str:
-    """Fetch a user profile by ID."""
-    return json.dumps({"user_id": user_id, "name": "Alice"})
+@server.resource_template("users://{user_id}/orders/{page}")
+async def user_orders(user_id: str, page: int) -> dict:
+    """One page of a user's orders."""
+    return {"user_id": user_id, "page": page, "orders": await db.orders(user_id, page)}
 ```
+
+`{param}` matches a single path segment (no `/`). For hierarchical ids, use `{param*}` (or `{+param}`), which matches the rest of the URI, slashes included:
+
+```python
+@server.resource_template("docs://pages/{path*}", mime_type="text/markdown")
+async def page(path: str) -> str:
+    # docs://pages/guides/setup → path == "guides/setup"
+    return load_page(path)
+```
+
+A template without a catch-all is tried before one with a catch-all, so `docs://pages/{slug}/history` wins over `docs://pages/{path*}` whatever the registration order. Parameter values are percent-decoded (`caf%C3%A9` → `café`).
 
 ## Registering Prompts
 
@@ -264,9 +289,67 @@ Prompts are reusable templates that clients discover and render with arguments.
 
 ```python
 @server.prompt()
-async def summarize(text: str, style: str = "concise") -> str:
+async def summarize(text: str, max_words: int = 100) -> str:
     """Summarize the given text."""
-    return f"Please summarize the following text in a {style} style:\n\n{text}"
+    return f"Summarize the following text in at most {max_words} words:\n\n{text}"
+```
+
+MCP sends every prompt argument as a string. They are converted to the handler's type hints, so `max_words` above arrives as an `int`; a value that does not fit is refused with a validation error.
+
+A prompt handler can return:
+
+- a `str` (one user message)
+- a `PromptMessage`
+- a `{"role": ..., "content": ...}` dict (string content becomes text)
+- a list mixing any of the above, for a multi-turn prompt
+- a full `GetPromptResult`
+
+```python
+@server.prompt()
+async def code_review(code: str) -> list:
+    """Review a piece of code."""
+    return [
+        f"Review this code:\n\n{code}",
+        {"role": "assistant", "content": "I'll check correctness first, then style."},
+    ]
+```
+
+## Securing Resources and Prompts
+
+Resource reads and prompt requests run through the same middleware chain as tool calls: logging, audit, rate limits, timeouts, caching and authentication all apply. `@server.resource`, `@server.resource_template` and `@server.prompt` take the same access-control options as `@server.tool`:
+
+```python
+server.add_middleware(AuthMiddleware(JWTAuth(secret=os.environ["JWT_SECRET"])))
+
+@server.resource("hr://payroll", roles=["hr"], rate_limit="30/min")
+async def payroll() -> dict:
+    return await db.payroll()
+
+@server.prompt(auth=True, guards=[HasTenant("acme")])
+async def onboarding(name: str) -> str:
+    return f"Write an onboarding plan for {name}."
+```
+
+| Option | Effect |
+|---|---|
+| `auth=True` | The caller must be authenticated |
+| `roles=[...]` | Adds a `HasRole` guard and implies `auth=True` |
+| `guards=[...]` | Guards checked before the handler runs |
+| `rate_limit="100/min"` | Per-client rate limit, enforced with no extra wiring |
+| `timeout=5.0` | Per-request timeout (with `TimeoutMiddleware`) |
+| `tags=[...]` | Tags for categorisation |
+
+A denied read or prompt request returns an MCP error to the client; the handler never runs. `MCPServer(require_auth=True)` and `require_tenant=True` cover resources and prompts too, as do a router's `auth`, `guards` and `middleware`. A middleware that only makes sense for one kind of request can check `ctx.request_type` (`"tool"`, `"resource"` or `"prompt"`); for a resource read, `ctx.state["resource_uri"]` holds the URI.
+
+!!! note "Listing"
+    By default `resources/list`, `resources/templates/list` and `prompts/list` show every registration to every client, as `tools/list` does; guards apply when a resource is read or a prompt is requested. With `MCPServer(hide_unauthorized_tools=True)` all four lists (and `docs://manifest`) are filtered per caller: each definition's guards are evaluated against the caller's credentials, and what the caller may not use is not listed.
+
+## Notifying Clients of Changes
+
+The server advertises `listChanged` for tools, resources and prompts. Registering a tool, resource or prompt while the server is running sends `notifications/tools/list_changed` (or the resources or prompts equivalent) to every connected client, so they can list again. After changing what a listing returns some other way, send it yourself:
+
+```python
+await server.notify_resources_changed()   # also notify_tools_changed(), notify_prompts_changed()
 ```
 
 ## Lifecycle Hooks
@@ -418,7 +501,7 @@ if __name__ == "__main__":
     The server uses Pydantic v2 for input validation and schema generation. Pydantic v1 models are not supported.
 
 !!! tip "Auto-generated manifest"
-    By default, `MCPServer` registers a `manifest://server` resource containing a JSON summary of all tools, resources, and prompts. Disable with `auto_manifest=False`.
+    By default, `MCPServer` registers a `docs://manifest` resource containing a JSON summary of all tools, resources, and prompts. Disable with `auto_manifest=False`.
 
 ## What's Next?
 

@@ -40,7 +40,16 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from mcp.client.session import ClientSession
 from mcp.shared.exceptions import McpError
-from mcp.types import CallToolResult, ListToolsResult, Tool
+from mcp.types import (
+    CallToolResult,
+    GetPromptResult,
+    ListToolsResult,
+    Prompt,
+    ReadResourceResult,
+    Resource,
+    ResourceTemplate,
+    Tool,
+)
 
 if TYPE_CHECKING:
     from mcp.client.session import ElicitationFnT
@@ -858,6 +867,118 @@ class MCPClient:
             "mcp-session-id to the same one (sticky sessions) or serve it stateless."
         )
 
+    # ------------------------------------------------------------------
+    # Resources and prompts
+    # ------------------------------------------------------------------
+
+    async def _list_all(self, method: str, field: str, what: str) -> list[Any]:
+        """Collect every page of a paginated ``*/list`` request.
+
+        Each page is fetched with :meth:`_with_session`, so a session the
+        server lost is re-opened like for ``call_tool``.
+        """
+        items: list[Any] = []
+        cursor: str | None = None
+        try:
+            while True:
+                page = await self._with_session(_page_fetcher(method, cursor))
+                items.extend(getattr(page, field))
+                cursor = page.nextCursor
+                if not cursor:
+                    return items
+        except MCPClientError:
+            raise
+        except Exception as exc:
+            raise MCPClientError(f"Failed to list {what}: {self._describe(exc)}") from exc
+
+    async def list_resources(self) -> list[Resource]:
+        """List the server's static resources (every page).
+
+        Returns:
+            MCP ``Resource`` objects with ``uri``, ``name``, ``description``
+            and ``mimeType``.
+        """
+        return await self._list_all("list_resources", "resources", "resources")
+
+    async def list_resource_templates(self) -> list[ResourceTemplate]:
+        """List the server's resource templates (every page).
+
+        Returns:
+            MCP ``ResourceTemplate`` objects with ``uriTemplate``, ``name``,
+            ``description`` and ``mimeType``.
+        """
+        return await self._list_all(
+            "list_resource_templates", "resourceTemplates", "resource templates"
+        )
+
+    async def read_resource(self, uri: str) -> ReadResourceResult:
+        """Read a resource by URI (a static resource or a template expansion).
+
+        Args:
+            uri: The resource URI, e.g. ``"docs://pages/refunds"``.
+
+        Returns:
+            MCP ``ReadResourceResult``.  Each item of ``contents`` carries
+            ``mimeType`` and either ``text`` (``TextResourceContents``) or
+            base64 ``blob`` data (``BlobResourceContents``).
+
+        Raises:
+            MCPClientError: The server refused the read (unknown URI, denied
+                by auth or a guard, ...) or the connection failed.
+        """
+        from pydantic import AnyUrl
+
+        target = AnyUrl(uri)
+        try:
+            return await self._with_session(lambda s: s.read_resource(target))
+        except MCPClientError:
+            raise
+        except Exception as exc:
+            raise MCPClientError(f"Failed to read resource '{uri}': {self._describe(exc)}") from exc
+
+    async def list_prompts(self) -> list[Prompt]:
+        """List the server's prompts (every page).
+
+        Returns:
+            MCP ``Prompt`` objects with ``name``, ``description`` and
+            ``arguments``.
+        """
+        return await self._list_all("list_prompts", "prompts", "prompts")
+
+    async def get_prompt(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> GetPromptResult:
+        """Get a prompt, rendered with *arguments*.
+
+        Args:
+            name: Prompt name.
+            arguments: Prompt arguments.  MCP carries them as strings:
+                strings are sent as is, other values as JSON (``3`` →
+                ``"3"``); a Promptise server converts them back to the
+                prompt's parameter types.
+
+        Returns:
+            MCP ``GetPromptResult`` with ``description`` and ``messages``.
+
+        Raises:
+            MCPClientError: The server refused the request (unknown prompt,
+                missing argument, denied, ...) or the connection failed.
+        """
+        import json
+
+        wire_args = {
+            key: value if isinstance(value, str) else json.dumps(value, default=str)
+            for key, value in (arguments or {}).items()
+        }
+        try:
+            return await self._with_session(lambda s: s.get_prompt(name, wire_args or None))
+        except MCPClientError:
+            raise
+        except Exception as exc:
+            raise MCPClientError(f"Failed to get prompt '{name}': {self._describe(exc)}") from exc
+
     @property
     def session(self) -> ClientSession | None:
         """The underlying MCP ``ClientSession``, or ``None`` if not connected."""
@@ -867,3 +988,13 @@ class MCPClient:
     def headers(self) -> dict[str, str]:
         """Current HTTP headers (read-only copy)."""
         return dict(self._headers)
+
+
+def _page_fetcher(method: str, cursor: str | None) -> Callable[[ClientSession], Awaitable[Any]]:
+    """An operation fetching one page of the paginated ``ClientSession.<method>``."""
+
+    async def fetch(session: ClientSession) -> Any:
+        list_page = getattr(session, method)
+        return await (list_page() if cursor is None else list_page(cursor))
+
+    return fetch

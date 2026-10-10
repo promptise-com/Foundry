@@ -193,7 +193,7 @@ async def test_list_tools():
 
 ### Reading resources
 
-Test static resources and URI templates:
+Test static resources and URI templates. Reads run the full pipeline (middleware, authentication, guards, conversion of template parameters), as on the live server:
 
 ```python
 from promptise.mcp.server import MCPServer
@@ -202,32 +202,38 @@ from promptise.mcp.server.testing import TestClient
 server = MCPServer(name="test")
 
 @server.resource("config://app")
-async def app_config() -> str:
-    return '{"version": "1.0"}'
+async def app_config() -> dict:
+    return {"version": "1.0"}
 
-@server.resource("users://{user_id}/profile")
-async def user_profile(user_id: str) -> str:
-    return f'{{"user_id": "{user_id}"}}'
+@server.resource_template("users://{user_id}/profile")
+async def user_profile(user_id: int) -> dict:
+    return {"user_id": user_id}
 
 async def test_resources():
     client = TestClient(server)
 
-    # Static resource
+    # Static resource: a dict arrives as JSON text
     text = await client.read_resource("config://app")
-    assert "1.0" in text
+    assert json.loads(text) == {"version": "1.0"}
 
-    # URI template
+    # URI template: "42" is converted to the int the handler declares
     text = await client.read_resource("users://42/profile")
-    assert "42" in text
+    assert json.loads(text) == {"user_id": 42}
 
-    # List resources
+    # The MIME type and raw MCP contents, as a client receives them
+    (item,) = await client.read_resource_contents("config://app")
+    assert item.mimeType == "application/json"
+
+    # List resources (includes the auto-registered docs://manifest)
     resources = await client.list_resources()
-    assert any(r.uri == "config://app" for r in resources)
+    assert {str(r.uri) for r in resources} == {"config://app", "docs://manifest"}
 
     # List templates
     templates = await client.list_resource_templates()
-    assert len(templates) > 0
+    assert len(templates) == 1
 ```
+
+`read_resource()` returns the text of the first content item, or `bytes` for a binary resource.
 
 ### Testing prompts
 
@@ -254,6 +260,30 @@ async def test_prompt():
     assert any(p.name == "summarize" for p in prompts)
 ```
 
+### Testing access to resources and prompts
+
+Pass credentials with `meta=` (or per call with `headers=`). A denied read or prompt request raises the error the live server sends back as an MCP error:
+
+```python
+from promptise.mcp.server import APIKeyAuth, AuthenticationError, AuthMiddleware
+
+server = MCPServer(name="test")
+server.add_middleware(AuthMiddleware(APIKeyAuth(keys={
+    "sk-admin": {"client_id": "alice", "roles": ["admin"]},
+    "sk-user": {"client_id": "bob", "roles": ["user"]},
+})))
+
+@server.resource("hr://payroll", roles=["admin"])
+async def payroll() -> dict:
+    return {"alice": 100}
+
+async def test_payroll_needs_admin():
+    with pytest.raises(AuthenticationError):
+        await TestClient(server, meta={"x-api-key": "sk-user"}).read_resource("hr://payroll")
+    admin = TestClient(server, meta={"x-api-key": "sk-admin"})
+    assert json.loads(await admin.read_resource("hr://payroll")) == {"alice": 100}
+```
+
 ## API summary
 
 ### TestClient
@@ -269,10 +299,11 @@ async def test_prompt():
 |--------|---------|-------------|
 | `call_tool(name, arguments)` | `list[TextContent]` | Call a tool through the full pipeline |
 | `list_tools()` | `list[Tool]` | List all registered tools |
-| `read_resource(uri)` | `str` | Read a resource by URI |
-| `list_resources()` | `list[Resource]` | List all static resources |
+| `read_resource(uri, *, headers=None)` | `str \| bytes` | Read a resource through the full pipeline |
+| `read_resource_contents(uri, *, headers=None)` | `list[TextResourceContents \| BlobResourceContents]` | Read a resource and return the MCP contents (with `mimeType`) |
+| `list_resources()` | `list[Resource]` | List all static resources, including `docs://manifest` |
 | `list_resource_templates()` | `list[ResourceTemplate]` | List all resource URI templates |
-| `get_prompt(name, arguments)` | `GetPromptResult` | Execute a prompt template |
+| `get_prompt(name, arguments, *, headers=None)` | `GetPromptResult` | Get a prompt through the full pipeline |
 | `list_prompts()` | `list[Prompt]` | List all registered prompts |
 
 ## Tips and gotchas

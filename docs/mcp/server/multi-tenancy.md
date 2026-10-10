@@ -123,6 +123,10 @@ resource) the server authenticates the request with its `AuthMiddleware`,
 exactly as a tool call would, and evaluates every tool's guards against
 that identity. Acme's agent sees `forecast_renewals`; Globex's does not.
 
+`resources/list`, `resources/templates/list` and `prompts/list` are
+filtered the same way, using each resource's and prompt's `auth`, `roles`
+and `guards`.
+
 - **It fails closed.** Credentials that do not verify hide every tool that
   needs authentication, and a guard that raises hides its tool.
 - **Calls are still guarded.** Hiding is not the access control; a client

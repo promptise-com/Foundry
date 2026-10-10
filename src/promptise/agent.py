@@ -2455,6 +2455,8 @@ async def build_agent(
     node_pool: list[Any] | None = None,
     max_agent_iterations: int = 25,
     code_action: Any | None = None,
+    expose_resources: bool = False,
+    expose_prompts: bool = False,
 ) -> PromptiseAgent:
     """Build an MCP-first agent and return a :class:`PromptiseAgent`.
 
@@ -2513,6 +2515,18 @@ async def build_agent(
         extra_tools: Optional additional :class:`BaseTool` instances to
             include alongside MCP-discovered tools.  Used by the runtime
             for meta-tools (open mode) and custom agent-created tools.
+        expose_resources: Also give the agent the MCP servers' resources:
+            adds a ``read_resource`` tool (its description lists the
+            available resources and URI templates) and a ``list_resources``
+            tool.  Nothing is added when no server serves resources.
+        expose_prompts: Also give the agent the MCP servers' prompts: adds a
+            ``get_prompt`` tool (its description lists the prompts and their
+            arguments) that returns the rendered prompt for the agent to
+            follow.  A generated tool is named ``mcp_<name>`` when an MCP
+            server already has a tool with its name.  With
+            ``forward_caller_token`` set on a server, both send the invoking
+            caller's bearer token, exactly like MCP tool calls; otherwise
+            they use the credentials configured for the server.
         flow: Optional :class:`~promptise.prompts.flows.ConversationFlow`
             instance, subclass, or zero-argument factory.  The system
             prompt then evolves across turns with the flow's phase and
@@ -2844,6 +2858,29 @@ async def build_agent(
         try:
             discovered = await adapter.as_langchain_tools()
             tools = list(discovered) if discovered else []
+            if expose_resources or expose_prompts:
+                from .mcp.client._context_tools import make_prompt_tools, make_resource_tools
+
+                # Same caller-token forwarding as the MCP tools: a user's
+                # read is judged by the server as that user, never the agent.
+                _hooks: dict[str, Any] = {
+                    "on_before": _cb_before,
+                    "on_after": _cb_after,
+                    "on_error": _cb_error,
+                    "forward_caller_token": forward_to,
+                }
+                if expose_resources:
+                    tools.extend(
+                        await make_resource_tools(
+                            _promptise_multi, taken={t.name for t in tools}, **_hooks
+                        )
+                    )
+                if expose_prompts:
+                    tools.extend(
+                        await make_prompt_tools(
+                            _promptise_multi, taken={t.name for t in tools}, **_hooks
+                        )
+                    )
         except MCPClientError as exc:
             # Clean up on failure
             try:

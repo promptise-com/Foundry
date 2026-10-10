@@ -123,7 +123,13 @@ class ToolDef:
 
 @dataclass(frozen=True)
 class ResourceDef:
-    """Internal definition of a registered resource."""
+    """Internal definition of a registered resource or resource template.
+
+    The access-control fields mirror :class:`ToolDef`: a read runs through
+    the server middleware chain with this definition in
+    ``ctx.state["tool_def"]``, so ``AuthMiddleware``, guards, rate limits
+    and timeouts apply to resources exactly as they do to tools.
+    """
 
     uri: str
     name: str
@@ -131,13 +137,37 @@ class ResourceDef:
     handler: Any  # Callable
     mime_type: str = "text/plain"
     is_template: bool = False
+    tags: list[str] = field(default_factory=list)
+    auth: bool = False
+    rate_limit: str | None = None
+    timeout: float | None = None
+    guards: list[Any] = field(default_factory=list)
+    roles: list[str] = field(default_factory=list)
+    router_middleware: list[Any] = field(default_factory=list)
+    # Pydantic model that coerces template parameters (always strings in
+    # the URI) to the handler's type hints.  ``None`` for a static resource.
+    input_model: Any = None
 
 
 @dataclass(frozen=True)
 class PromptDef:
-    """Internal definition of a registered prompt."""
+    """Internal definition of a registered prompt.
+
+    The access-control fields mirror :class:`ToolDef` (see
+    :class:`ResourceDef`).
+    """
 
     name: str
     description: str
     handler: Any  # Callable
     arguments: list[dict[str, Any]] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    auth: bool = False
+    rate_limit: str | None = None
+    timeout: float | None = None
+    guards: list[Any] = field(default_factory=list)
+    roles: list[str] = field(default_factory=list)
+    router_middleware: list[Any] = field(default_factory=list)
+    # Pydantic model that coerces the string-valued MCP prompt arguments to
+    # the handler's type hints.  ``None`` passes arguments through unchanged.
+    input_model: Any = None

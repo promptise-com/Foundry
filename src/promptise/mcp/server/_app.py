@@ -21,6 +21,7 @@ import inspect
 import json
 import logging
 import secrets
+import weakref
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
@@ -29,14 +30,15 @@ if TYPE_CHECKING:
 
     from ._types import PromptDef
 
+from mcp.server.lowlevel import NotificationOptions
 from mcp.server.lowlevel import Server as LowLevelServer
+from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.types import (
     EmbeddedResource as MCPEmbeddedResource,
 )
 from mcp.types import (
     GetPromptResult,
     PromptArgument,
-    PromptMessage,
     Resource,
     ResourceTemplate,
     TextContent,
@@ -62,6 +64,28 @@ from ._validation import build_input_model, validate_arguments
 logger = logging.getLogger("promptise.server")
 
 
+class _LowLevelServer(LowLevelServer):  # type: ignore[type-arg]
+    """``mcp`` low-level server that advertises ``listChanged`` by default.
+
+    ``MCPServer`` sends ``notifications/{tools,resources,prompts}/list_changed``
+    (see :meth:`MCPServer.notify_tools_changed`), so the capability is on
+    however the initialisation options are created — including by the SDK's
+    own in-memory test transport.
+    """
+
+    def create_initialization_options(
+        self,
+        notification_options: NotificationOptions | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        if notification_options is None:
+            notification_options = NotificationOptions(
+                prompts_changed=True, resources_changed=True, tools_changed=True
+            )
+        return super().create_initialization_options(notification_options, *args, **kwargs)
+
+
 class _ToolErrorResult(Exception):
     """A tool call that failed; its message is the error payload (JSON text).
 
@@ -80,21 +104,23 @@ class MCPServer:
         name: Server name advertised to MCP clients.
         version: Server version string.
         instructions: Optional instructions sent to clients on initialisation.
-        require_auth: Force ``auth=True`` on every registered tool.
+        require_auth: Force ``auth=True`` on every registered tool,
+            resource and prompt.
         require_tenant: Make tenant identity a server-wide invariant: every
-            tool authenticates and carries a ``RequireTenant`` guard, so a
-            client whose token lacks the tenant claim is denied on every
-            call.  Implies ``require_auth``.
-        hide_unauthorized_tools: Filter ``tools/list`` (and the
+            tool, resource and prompt authenticates and carries a
+            ``RequireTenant`` guard, so a client whose token lacks the
+            tenant claim is denied on every call.  Implies ``require_auth``.
+        hide_unauthorized_tools: Filter ``tools/list``, ``resources/list``,
+            ``resources/templates/list``, ``prompts/list`` (and the
             ``docs://manifest`` resource) per request, so each caller sees
-            only the tools its identity may call: the request is
-            authenticated with the server's ``AuthMiddleware`` and every
-            tool's guards are evaluated against it.  Off by default, in
-            which case every tool is listed to everyone and guards apply
-            when a tool is called.  Guards that depend on state set by
-            other middleware (not ``AuthMiddleware`` or its
-            ``on_authenticate`` hook) cannot be evaluated at list time and
-            hide their tool.
+            only what its identity may use: the request is authenticated
+            with the server's ``AuthMiddleware`` and every definition's
+            guards are evaluated against it.  Off by default, in which case
+            everything is listed to everyone and guards apply when a tool
+            is called, a resource read or a prompt requested.  Guards that
+            depend on state set by other middleware (not ``AuthMiddleware``
+            or its ``on_authenticate`` hook) cannot be evaluated at list
+            time and hide their definition.
         cancel_grace_period: When a client cancels a call to a tool that
             takes a ``CancellationToken``, the token is set and the handler
             gets this many seconds to stop on its own before its task is
@@ -128,10 +154,21 @@ class MCPServer:
         self._background_runs: set[asyncio.Task[None]] = set()
         self._background_drain_registered = False
 
-        self._tool_registry = ToolRegistry()
-        self._resource_registry = ResourceRegistry()
-        self._prompt_registry = PromptRegistry()
+        self._tool_registry = ToolRegistry(on_change=lambda: self._on_registry_change("tools"))
+        self._resource_registry = ResourceRegistry(
+            on_change=lambda: self._on_registry_change("resources")
+        )
+        self._prompt_registry = PromptRegistry(
+            on_change=lambda: self._on_registry_change("prompts")
+        )
         self._lifecycle = LifecycleManager()
+
+        # MCP sessions seen by this server (for list_changed notifications),
+        # and the event loop serving them (set by the first request).
+        self._sessions: weakref.WeakSet[Any] = weakref.WeakSet()
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._pending_notifications: set[str] = set()
+        self._notification_tasks: set[asyncio.Task[Any]] = set()
 
         # Middleware chain
         self._middlewares: list[Any] = []
@@ -296,15 +333,34 @@ class MCPServer:
         *,
         name: str | None = None,
         description: str | None = None,
-        mime_type: str = "text/plain",
+        mime_type: str | None = None,
+        tags: list[str] | None = None,
+        auth: bool = False,
+        roles: list[str] | None = None,
+        guards: list[Any] | None = None,
+        rate_limit: str | None = None,
+        timeout: float | None = None,
     ) -> Callable[..., Any]:
         """Register a function as an MCP resource.
+
+        Reads run through the server's middleware chain, like tool calls.
 
         Args:
             uri: Static resource URI (e.g. ``"config://app"``).
             name: Resource name (defaults to function name).
             description: Description (defaults to docstring).
-            mime_type: MIME type of the resource content.
+            mime_type: MIME type of the resource content.  Defaults to
+                ``application/json`` for a handler annotated ``-> dict`` /
+                ``-> list`` (or a Pydantic model), ``application/octet-stream``
+                for ``-> bytes``, and ``text/plain`` otherwise.
+            tags: Optional tags for categorisation.
+            auth: Require authentication to read this resource.
+            roles: Required roles shorthand (adds a ``HasRole`` guard and
+                implies ``auth=True``).
+            guards: Access control guards, checked before the handler.
+            rate_limit: Rate limit string, e.g. ``"100/min"``.
+            timeout: Per-read timeout in seconds (enforced by
+                ``TimeoutMiddleware``).
         """
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -315,6 +371,12 @@ class MCPServer:
                 description=description,
                 mime_type=mime_type,
                 is_template=False,
+                tags=tags,
+                auth=auth or self._require_auth,
+                roles=roles,
+                guards=guards,
+                rate_limit=rate_limit,
+                timeout=timeout,
             )
             self._resource_registry.register(res_def)
             return func
@@ -327,15 +389,33 @@ class MCPServer:
         *,
         name: str | None = None,
         description: str | None = None,
-        mime_type: str = "text/plain",
+        mime_type: str | None = None,
+        tags: list[str] | None = None,
+        auth: bool = False,
+        roles: list[str] | None = None,
+        guards: list[Any] | None = None,
+        rate_limit: str | None = None,
+        timeout: float | None = None,
     ) -> Callable[..., Any]:
         """Register a function as an MCP resource template.
+
+        Each ``{param}`` placeholder matches one path segment and is passed
+        to the handler parameter of the same name, coerced to its type hint
+        (``{page}`` → ``int``).  ``{param*}`` (or ``{+param}``) matches the
+        rest of the URI including ``/``, for hierarchical ids such as
+        ``docs://pages/{path*}``.
 
         Args:
             uri_template: URI template with ``{param}`` placeholders.
             name: Resource name.
             description: Description.
-            mime_type: MIME type.
+            mime_type: MIME type (see :meth:`resource`).
+            tags: Optional tags for categorisation.
+            auth: Require authentication to read these resources.
+            roles: Required roles shorthand (implies ``auth=True``).
+            guards: Access control guards, checked before the handler.
+            rate_limit: Rate limit string, e.g. ``"100/min"``.
+            timeout: Per-read timeout in seconds.
         """
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -346,6 +426,12 @@ class MCPServer:
                 description=description,
                 mime_type=mime_type,
                 is_template=True,
+                tags=tags,
+                auth=auth or self._require_auth,
+                roles=roles,
+                guards=guards,
+                rate_limit=rate_limit,
+                timeout=timeout,
             )
             self._resource_registry.register(res_def)
             return func
@@ -357,16 +443,44 @@ class MCPServer:
         name: str | None = None,
         *,
         description: str | None = None,
+        tags: list[str] | None = None,
+        auth: bool = False,
+        roles: list[str] | None = None,
+        guards: list[Any] | None = None,
+        rate_limit: str | None = None,
+        timeout: float | None = None,
     ) -> Callable[..., Any]:
         """Register a function as an MCP prompt.
+
+        The handler may return a ``str`` (one user message), a
+        ``PromptMessage``, a list mixing those (or ``{"role", "content"}``
+        dicts), or a full ``GetPromptResult``.  MCP sends arguments as
+        strings; they are coerced to the handler's type hints.  Requests run
+        through the server's middleware chain, like tool calls.
 
         Args:
             name: Prompt name (defaults to function name).
             description: Description (defaults to docstring).
+            tags: Optional tags for categorisation.
+            auth: Require authentication to get this prompt.
+            roles: Required roles shorthand (implies ``auth=True``).
+            guards: Access control guards, checked before the handler.
+            rate_limit: Rate limit string, e.g. ``"100/min"``.
+            timeout: Per-request timeout in seconds.
         """
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-            prompt_def = build_prompt_def(func, name=name, description=description)
+            prompt_def = build_prompt_def(
+                func,
+                name=name,
+                description=description,
+                tags=tags,
+                auth=auth or self._require_auth,
+                roles=roles,
+                guards=guards,
+                rate_limit=rate_limit,
+                timeout=timeout,
+            )
             self._prompt_registry.register(prompt_def)
             return func
 
@@ -377,7 +491,11 @@ class MCPServer:
     # ------------------------------------------------------------------
 
     def add_middleware(self, middleware: Any) -> None:
-        """Add a middleware to the processing chain."""
+        """Add a middleware to the processing chain.
+
+        The chain runs for tool calls, resource reads and prompt requests;
+        ``ctx.request_type`` says which.
+        """
         self._middlewares.append(middleware)
 
         # Auto-track auth provider for transport-level gating
@@ -475,10 +593,15 @@ class MCPServer:
           prompts in the suite.
 
         Each prompt is converted to an MCP ``PromptDef`` with arguments
-        extracted from the prompt's function signature.  The MCP handler
+        extracted from the prompt's function signature.  Each argument is
+        described by the YAML file's ``arguments``, an
+        ``Annotated[..., Field(description=...)]`` hint, or else by the
+        placeholder it fills, its type and its default.  The MCP handler
+        converts the string-valued arguments to the parameters' types and
         calls ``render_async(**arguments)`` to produce fully rendered
         prompt text with context providers, strategy, perspective, and
-        constraints applied.
+        constraints applied.  Templates written as docstrings are dedented,
+        so the code's indentation is not sent to the model.
 
         Args:
             *sources: Prompt registries, individual prompts, or suites.
@@ -898,7 +1021,7 @@ class MCPServer:
             self._lifecycle.add_shutdown(self._drain_background_tasks)
             self._background_drain_registered = True
 
-        ll = LowLevelServer(self.name, self.version, instructions=self.instructions)
+        ll = _LowLevelServer(self.name, self.version, instructions=self.instructions)
         self._register_tool_handlers(ll)
         self._register_resource_handlers(ll)
         self._register_prompt_handlers(ll)
@@ -924,26 +1047,133 @@ class MCPServer:
             middleware_count=len(self._middlewares),
         )
 
-    def _apply_require_tenant(self) -> None:
-        """Enforce ``MCPServer(require_tenant=True)`` on every registered tool.
+    def _all_definitions(self) -> list[Any]:
+        """Every registered tool, resource, resource template and prompt."""
+        return [
+            *self._tool_registry.list_all(),
+            *self._resource_registry.list_all(),
+            *self._resource_registry.list_templates(),
+            *self._prompt_registry.list_all(),
+        ]
 
-        Forces ``auth=True`` and appends a ``RequireTenant`` guard to each
-        tool that lacks one, covering every registration path (decorator,
-        routers, mounts, OpenAPI import).  Idempotent — called at build
-        time and by ``TestClient`` so all execution paths enforce the
-        tenant invariant.  Guards fail closed: an unauthenticated call or
-        a token without the tenant claim is denied.
+    def _apply_require_tenant(self) -> None:
+        """Enforce ``require_auth`` / ``require_tenant`` on every registration.
+
+        ``require_auth`` forces ``auth=True``; ``require_tenant`` also
+        appends a ``RequireTenant`` guard to each tool, resource and prompt
+        that lacks one.  Covers every registration path (decorator, routers,
+        mounts, OpenAPI import, ``include_prompts``, the manifest).
+        Idempotent — called at build time, on registrations made while
+        serving, and by ``TestClient``, so all execution paths enforce the
+        invariant.  Guards fail closed: an unauthenticated call or a token
+        without the tenant claim is denied.
         """
-        if not self._require_tenant:
+        if not self._require_auth:
             return
         from ._guards import RequireTenant
 
-        for tdef in self._tool_registry.list_all():
-            # ToolDef is a frozen dataclass; the registry holds the same
-            # instance everywhere, so mutate in place via the escape hatch.
-            object.__setattr__(tdef, "auth", True)
-            if not any(isinstance(g, RequireTenant) for g in tdef.guards):
-                tdef.guards.append(RequireTenant())
+        for definition in self._all_definitions():
+            # The definitions are frozen dataclasses; the registry holds the
+            # same instance everywhere, so mutate in place via the escape hatch.
+            object.__setattr__(definition, "auth", True)
+            if self._require_tenant and not any(
+                isinstance(g, RequireTenant) for g in definition.guards
+            ):
+                definition.guards.append(RequireTenant())
+
+    # ------------------------------------------------------------------
+    # list_changed notifications
+    # ------------------------------------------------------------------
+
+    async def notify_tools_changed(self) -> int:
+        """Send ``notifications/tools/list_changed`` to every connected client.
+
+        Registering a tool while the server is serving sends this
+        automatically; call it yourself after changing what ``list_tools``
+        returns some other way.
+
+        Returns:
+            How many sessions the notification reached.
+        """
+        return await self._broadcast("send_tool_list_changed")
+
+    async def notify_resources_changed(self) -> int:
+        """Send ``notifications/resources/list_changed`` to every connected client.
+
+        Sent automatically when a resource or resource template is
+        registered while the server is serving.
+
+        Returns:
+            How many sessions the notification reached.
+        """
+        return await self._broadcast("send_resource_list_changed")
+
+    async def notify_prompts_changed(self) -> int:
+        """Send ``notifications/prompts/list_changed`` to every connected client.
+
+        Sent automatically when a prompt is registered while the server is
+        serving.
+
+        Returns:
+            How many sessions the notification reached.
+        """
+        return await self._broadcast("send_prompt_list_changed")
+
+    async def _broadcast(self, method: str) -> int:
+        sent = 0
+        for session in list(self._sessions):
+            try:
+                await getattr(session, method)()
+                sent += 1
+            except Exception:
+                # Closed or stateless session — it will not come back.
+                self._sessions.discard(session)
+                logger.debug("Dropping MCP session after failed %s", method, exc_info=True)
+        return sent
+
+    def _note_session(self, ll: LowLevelServer) -> Any:
+        """Remember the MCP session of the current request; return it (or None)."""
+        try:
+            session = ll.request_context.session
+        except LookupError:
+            return None
+        self._sessions.add(session)
+        if self._loop is None:
+            self._loop = asyncio.get_running_loop()
+        return session
+
+    def _on_registry_change(self, kind: str) -> None:
+        """Schedule a ``list_changed`` notification for a registration made while serving."""
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return  # not serving yet: clients will list after they connect
+        # Re-apply server-wide auth/tenant invariants to the new registration.
+        self._apply_require_tenant()
+        if kind in self._pending_notifications:
+            return  # coalesce a burst of registrations into one notification
+        self._pending_notifications.add(kind)
+
+        async def _send() -> None:
+            self._pending_notifications.discard(kind)
+            await {
+                "tools": self.notify_tools_changed,
+                "resources": self.notify_resources_changed,
+                "prompts": self.notify_prompts_changed,
+            }[kind]()
+
+        def _schedule() -> None:
+            task = loop.create_task(_send())
+            self._notification_tasks.add(task)
+            task.add_done_callback(self._notification_tasks.discard)
+
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is loop:
+            _schedule()
+        else:
+            loop.call_soon_threadsafe(_schedule)
 
     def _register_tool_handlers(self, ll: LowLevelServer) -> None:
         tool_reg = self._tool_registry
@@ -968,7 +1198,9 @@ class MCPServer:
         # Auto-insert declared rate-limit enforcement if any tool has
         # rate_limit set (guard against double-insert). This makes
         # @server.tool(rate_limit="100/min") enforced with no manual wiring.
-        has_declared_rate_limits = any(getattr(t, "rate_limit", None) for t in tool_reg.list_all())
+        has_declared_rate_limits = any(
+            getattr(d, "rate_limit", None) for d in self._all_definitions()
+        )
         if has_declared_rate_limits:
             from ._rate_limit import DeclaredRateLimitMiddleware
 
@@ -1016,22 +1248,18 @@ class MCPServer:
         # Pre-compiled chain for tools registered after build (fallback)
         _default_chain = compile_middleware_chain(list(middlewares))
 
+        note_session = self._note_session
         hide_unauthorized = self._hide_unauthorized_tools
 
         @ll.list_tools()
         async def list_tools() -> list[Tool]:
+            note_session(ll)
             tdefs = tool_reg.list_all()
             if hide_unauthorized:
-                from ._context import bind_transport_request
                 from ._visibility import visible_tools
 
-                try:
-                    mcp_request = getattr(ll.request_context, "request", None)
-                except LookupError:
-                    mcp_request = None
-                http_headers, _ = bind_transport_request(mcp_request)
                 tdefs = await visible_tools(
-                    tdefs, middlewares, server_name=server_name, meta=dict(http_headers)
+                    tdefs, middlewares, server_name=server_name, meta=_request_headers(ll)
                 )
             tools: list[Tool] = []
             for tdef in tdefs:
@@ -1057,6 +1285,7 @@ class MCPServer:
 
         @ll.call_tool()
         async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[Any]:
+            note_session(ll)
             tdef = tool_reg.get(name)
             if tdef is None:
                 raise _ToolErrorResult(
@@ -1291,14 +1520,30 @@ class MCPServer:
             logger.info("Waiting for %d background task run(s)", len(self._background_runs))
             await asyncio.gather(*self._background_runs, return_exceptions=True)
 
+    async def _visible(self, ll: LowLevelServer, definitions: list[Any], kind: str) -> list[Any]:
+        """*definitions* filtered for the caller with ``hide_unauthorized_tools``."""
+        if not self._hide_unauthorized_tools:
+            return definitions
+        from ._visibility import visible_tools
+
+        return await visible_tools(
+            definitions,
+            self._middlewares,
+            server_name=self.name,
+            meta=_request_headers(ll),
+            request_type=kind,
+        )
+
     def _register_resource_handlers(self, ll: LowLevelServer) -> None:
         res_reg = self._resource_registry
-        server_name = self.name
+        note_session = self._note_session
+        visible = self._visible
 
         @ll.list_resources()
         async def list_resources() -> list[Resource]:
+            note_session(ll)
             resources: list[Resource] = []
-            for rdef in res_reg.list_all():
+            for rdef in await visible(ll, res_reg.list_all(), "resource"):
                 resources.append(
                     Resource(
                         uri=cast("AnyUrl", rdef.uri),
@@ -1311,8 +1556,9 @@ class MCPServer:
 
         @ll.list_resource_templates()
         async def list_resource_templates() -> list[ResourceTemplate]:
+            note_session(ll)
             templates: list[ResourceTemplate] = []
-            for rdef in res_reg.list_templates():
+            for rdef in await visible(ll, res_reg.list_templates(), "resource"):
                 templates.append(
                     ResourceTemplate(
                         uriTemplate=rdef.uri,
@@ -1323,62 +1569,34 @@ class MCPServer:
                 )
             return templates
 
-        def _request_meta() -> dict[str, Any]:
-            """Headers of the HTTP request carrying this read (see call_tool)."""
-            from ._context import bind_transport_request
-
-            try:
-                mcp_request = getattr(ll.request_context, "request", None)
-            except LookupError:
-                mcp_request = None
-            http_headers, _ = bind_transport_request(mcp_request)
-            return dict(http_headers)
-
         @ll.read_resource()
-        async def read_resource(uri: str) -> str:
-            # Try static resource first
-            rdef = res_reg.get(str(uri))
-            if rdef is not None:
-                ctx = RequestContext(
-                    server_name=server_name, tool_name=rdef.name, meta=_request_meta()
-                )
-                set_context(ctx)
-                try:
-                    result = rdef.handler()
-                    if asyncio.iscoroutine(result):
-                        result = await result
-                    return str(result)
-                finally:
-                    clear_context()
+        async def read_resource(uri: AnyUrl) -> list[ReadResourceContents]:
+            from . import _dispatch
 
-            # Try template match
-            match = res_reg.match_template(str(uri))
-            if match is not None:
-                tmpl_def, params = match
-                ctx = RequestContext(
-                    server_name=server_name, tool_name=tmpl_def.name, meta=_request_meta()
+            session = note_session(ll)
+            headers = _request_headers(ll)
+            try:
+                return await _dispatch.read_resource(
+                    self, str(uri), meta=headers, mcp_session=session
                 )
-                set_context(ctx)
-                try:
-                    result = tmpl_def.handler(**params)
-                    if asyncio.iscoroutine(result):
-                        result = await result
-                    return str(result)
-                finally:
-                    clear_context()
-
-            raise ValueError(f"Resource not found: {uri}")
+            except MCPError as exc:
+                raise _dispatch.to_protocol_error(exc) from exc
+            except Exception as exc:
+                logger.exception("Unhandled error reading resource '%s'", uri)
+                raise _dispatch.internal_protocol_error() from exc
 
     def _register_prompt_handlers(self, ll: LowLevelServer) -> None:
         prompt_reg = self._prompt_registry
-        server_name = self.name
+        note_session = self._note_session
+        visible = self._visible
 
         @ll.list_prompts()
         async def list_prompts() -> list[Any]:
             from mcp.types import Prompt as MCPPrompt
 
+            note_session(ll)
             prompts: list[MCPPrompt] = []
-            for pdef in prompt_reg.list_all():
+            for pdef in await visible(ll, prompt_reg.list_all(), "prompt"):
                 args = [
                     PromptArgument(
                         name=a["name"],
@@ -1397,32 +1615,20 @@ class MCPServer:
             return prompts
 
         @ll.get_prompt()
-        async def get_prompt(name: str, arguments: dict[str, str] | None) -> Any:
-            pdef = prompt_reg.get(name)
-            if pdef is None:
-                raise ValueError(f"Prompt not found: {name}")
+        async def get_prompt(name: str, arguments: dict[str, str] | None) -> GetPromptResult:
+            from . import _dispatch
 
-            ctx = RequestContext(server_name=server_name, tool_name=name)
-            set_context(ctx)
+            session = note_session(ll)
+            headers = _request_headers(ll)
             try:
-                result = pdef.handler(**(arguments or {}))
-                if asyncio.iscoroutine(result):
-                    result = await result
-
-                # Return as GetPromptResult
-                if isinstance(result, str):
-                    return GetPromptResult(
-                        description=pdef.description,
-                        messages=[
-                            PromptMessage(
-                                role="user",
-                                content=TextContent(type="text", text=result),
-                            )
-                        ],
-                    )
-                return result
-            finally:
-                clear_context()
+                return await _dispatch.get_prompt(
+                    self, name, arguments, meta=headers, mcp_session=session
+                )
+            except MCPError as exc:
+                raise _dispatch.to_protocol_error(exc) from exc
+            except Exception as exc:
+                logger.exception("Unhandled error in prompt '%s'", name)
+                raise _dispatch.internal_protocol_error() from exc
 
 
 # ------------------------------------------------------------------
@@ -1487,6 +1693,22 @@ def _serialise_result(result: Any) -> list[TextContent | MCPImageContent | MCPEm
     return [TextContent(type="text", text=str(result))]
 
 
+def _request_headers(ll: LowLevelServer) -> dict[str, str]:
+    """Headers of the HTTP request carrying the current MCP message (``{}`` on stdio).
+
+    See :func:`~._context.bind_transport_request` — per request, never the
+    request that opened the session.
+    """
+    from ._context import bind_transport_request
+
+    try:
+        mcp_request = getattr(ll.request_context, "request", None)
+    except LookupError:
+        mcp_request = None
+    headers, _ = bind_transport_request(mcp_request)
+    return dict(headers)
+
+
 def _is_content_list(items: list[Any]) -> bool:
     """Check whether a list contains MCP content items (not plain data)."""
     from ._types import ImageContent
@@ -1505,9 +1727,16 @@ def _excluded_params_for(func: Callable[..., Any]) -> set[str]:
 def _prompt_to_mcp_def(p: Any, *, version: str | None = None) -> PromptDef:
     """Convert a Promptise :class:`Prompt` to an MCP :class:`PromptDef`.
 
-    Builds a rich description from prompt metadata (template, model,
-    version, strategy, perspective, constraints) and creates a handler
-    that calls ``render_async(**kwargs)`` to produce fully rendered text.
+    - **Description** — the prompt's ``description`` (``@prompt(description=...)``
+      or a YAML file's ``description``), else the first line of its template,
+      followed by its metadata (``[v1.0.0, model: ..., strategy: ...]``).
+    - **Arguments** — one per template parameter.  Each description comes
+      from the YAML file's ``arguments``, an ``Annotated[..., Field(description=...)]``
+      hint, or else names the placeholder, type and default
+      (``"Fills {max_words} (int, default 50)."``).
+    - **Handler** — coerces the string-valued MCP arguments to the
+      parameters' type hints, then renders with ``render_async(**kwargs)``
+      (context providers, strategy, perspective and constraints applied).
 
     Args:
         p: A :class:`~promptise.prompts.core.Prompt` instance.
@@ -1516,15 +1745,14 @@ def _prompt_to_mcp_def(p: Any, *, version: str | None = None) -> PromptDef:
     Returns:
         A :class:`PromptDef` ready for MCP registration.
     """
+    from typing import get_type_hints
+
     from ._types import PromptDef
 
-    # Build description with metadata
-    desc_parts: list[str] = []
-    if p.template:
-        first_line = p.template.split("\n")[0].strip()
-        desc_parts.append(first_line)
-    else:
-        desc_parts.append(p.name)
+    description = getattr(p, "description", None) or ""
+    if not description:
+        first_line = p.template.strip().split("\n")[0].strip() if p.template else ""
+        description = first_line or p.name
 
     meta: list[str] = []
     if version:
@@ -1536,25 +1764,56 @@ def _prompt_to_mcp_def(p: Any, *, version: str | None = None) -> PromptDef:
         meta.append(f"perspective: {p._perspective!r}")
     if p._constraints:
         meta.append(f"constraints: {len(p._constraints)}")
-    if meta:
-        desc_parts.append(f"[{', '.join(meta)}]")
-    description = " ".join(desc_parts)
+    description = f"{description} [{', '.join(meta)}]"
 
-    # Build arguments from signature
-    from ._decorators import _extract_param_doc
+    # A model over the prompt's own signature (a YAML file may replace it)
+    # with the original function's type hints.
+    try:
+        hints = get_type_hints(p._fn, include_extras=True)
+    except Exception:
+        hints = {}
+    params = {
+        name: param
+        for name, param in p._sig.parameters.items()
+        if param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+    }
 
-    docstring = p.template or ""
+    def _shape() -> None: ...
+
+    _shape.__name__ = p.name
+    _shape.__signature__ = inspect.Signature(list(params.values()))  # type: ignore[attr-defined]
+    _shape.__annotations__ = {n: hints[n] for n in params if n in hints}
+    input_model, schema = build_input_model(_shape)
+    properties = schema.get("properties", {})
+
+    stored_schemas: dict[str, Any] = getattr(p, "_argument_schemas", {}) or {}
     arguments: list[dict[str, Any]] = []
-    for param_name, param in p._sig.parameters.items():
-        desc = _extract_param_doc(docstring, param_name) or param_name
-        arg: dict[str, Any] = {
-            "name": param_name,
-            "description": desc,
-            "required": param.default is inspect.Parameter.empty,
-        }
-        arguments.append(arg)
+    for param_name, param in params.items():
+        stored = stored_schemas.get(param_name)
+        desc = (getattr(stored, "description", "") if stored is not None else "") or properties.get(
+            param_name, {}
+        ).get("description")
+        if not desc:
+            desc = f"Fills {{{param_name}}} in the prompt"
+            hint = hints.get(param_name)
+            details = []
+            if hint is not None:
+                details.append(
+                    hint.__name__ if isinstance(hint, type) else str(hint).replace("typing.", "")
+                )
+            if param.default is not inspect.Parameter.empty and param.default != "":
+                details.append(f"default {param.default!r}")
+            if details:
+                desc += f" ({', '.join(details)})"
+            desc += "."
+        arguments.append(
+            {
+                "name": param_name,
+                "description": desc,
+                "required": param.default is inspect.Parameter.empty,
+            }
+        )
 
-    # Build handler — renders the prompt via render_async
     prompt_ref = p  # capture for closure
 
     async def handler(**kwargs: Any) -> str:
@@ -1565,6 +1824,7 @@ def _prompt_to_mcp_def(p: Any, *, version: str | None = None) -> PromptDef:
         description=description,
         handler=handler,
         arguments=arguments,
+        input_model=input_model,
     )
 
 

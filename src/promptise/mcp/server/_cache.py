@@ -384,20 +384,22 @@ def _cacheable(tool_def: Any) -> bool:
 class CacheMiddleware:
     """Server-wide caching middleware.
 
-    Caches every tool's result, keyed on the server, tool name, arguments
-    and — by default — the authenticated caller, so one client never
-    receives a result computed for another.  Note that it caches *every*
-    tool that doesn't opt out: mark tools that change data or must always
-    be fresh with ``@server.tool(cache=False)`` (tools annotated
+    Caches tool results, resource reads and prompt results, keyed on the
+    server, request type, name, resource URI, arguments and — by default —
+    the authenticated caller, so one client never receives a result
+    computed for another.  Note that it caches *every* tool that doesn't
+    opt out: mark tools that change data or must always be fresh with
+    ``@server.tool(cache=False)`` (tools annotated
     ``destructive_hint=True`` are skipped automatically), or use
     :func:`cached` on just the handlers you want cached.
 
-    A cache hit still runs the tool's guards (``HasRole``, ``HasTenant``,
-    ...), so a cached result is never returned to a caller the tool would
-    refuse.  When the tool requires authentication but the caller has not
-    been identified yet (``CacheMiddleware`` added *before*
-    ``AuthMiddleware``), the call bypasses the cache rather than share
-    entries between unidentified callers: add ``AuthMiddleware`` first.
+    A cache hit still runs the definition's guards (``HasRole``,
+    ``HasTenant``, ...), so a cached result is never returned to a caller
+    the tool, resource or prompt would refuse.  When it requires
+    authentication but the caller has not been identified yet
+    (``CacheMiddleware`` added *before* ``AuthMiddleware``), the request
+    bypasses the cache — whatever the scope — so a hit can never skip
+    authentication: add ``AuthMiddleware`` first.
 
     Args:
         backend: Cache backend.
@@ -428,23 +430,32 @@ class CacheMiddleware:
         if not _cacheable(tool_def):
             return await call_next(ctx)
         guards = getattr(tool_def, "guards", None)
-        needs_identity = self.scope != "shared" or bool(guards)
-        if needs_identity and getattr(tool_def, "auth", False) and not _is_authenticated(ctx):
+        if getattr(tool_def, "auth", False) and not _is_authenticated(ctx):
+            # The caller is not identified yet, so a hit here would skip
+            # authentication (and, for a non-shared scope, could not tell
+            # callers apart).  Bypass the cache.
             if not self._warned_order:
                 self._warned_order = True
                 logger.warning(
                     "CacheMiddleware runs before authentication, so it cannot tell "
-                    "callers apart; caching is skipped for authenticated tools. "
-                    "Add AuthMiddleware before CacheMiddleware."
+                    "callers apart; caching is skipped for authenticated tools, "
+                    "resources and prompts. Add AuthMiddleware before CacheMiddleware."
                 )
             return await call_next(ctx)
 
+        # The validated arguments (or a resource template's parameters).
+        # Resource reads and prompt requests are namespaced by request type
+        # and keyed on the URI too, so a tool and a prompt sharing a name,
+        # or two URIs of one template, never share an entry.
         arguments = ctx.state.get("_tool_arguments", ctx.state.get("arguments", {}))
-        final_key = _make_cache_key(
-            f"mw:{ctx.server_name}:{ctx.tool_name}",
-            arguments,
-            _scope_part(self.scope, ctx),
-        )
+        kind = getattr(ctx, "request_type", "tool")
+        if kind == "tool":
+            name = f"mw:{ctx.server_name}:{ctx.tool_name}"
+            keyed: Any = arguments
+        else:
+            name = f"mw:{ctx.server_name}:{kind}:{ctx.tool_name}"
+            keyed = {"uri": ctx.state.get("resource_uri"), "args": arguments}
+        final_key = _make_cache_key(name, keyed, _scope_part(self.scope, ctx))
 
         cached_value = await self.cache.get(final_key)
         if cached_value is not None:

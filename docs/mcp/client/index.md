@@ -380,6 +380,43 @@ If the retry is answered `404` as well, the request reached a process that does 
 
 The legacy SSE transport has no session-level `404`: when its stream breaks, the call in progress fails and the next call opens a new session.
 
+## Resources and prompts
+
+Besides tools, an MCP server can publish **resources** (documents and data, by URI) and **prompts** (ready-made instructions, by name). `MCPClient` and `MCPMultiClient` read both:
+
+```python
+async with MCPClient(url="http://localhost:8080/mcp", api_key="sk-docs") as client:
+    resources = await client.list_resources()            # list[Resource]
+    templates = await client.list_resource_templates()   # list[ResourceTemplate]
+
+    result = await client.read_resource("docs://pages/refunds")
+    item = result.contents[0]
+    print(item.mimeType)        # e.g. "text/markdown"
+    print(item.text)            # TextResourceContents; binary data arrives
+                                # base64-encoded in BlobResourceContents.blob
+
+    prompts = await client.list_prompts()                # list[Prompt]
+    prompt = await client.get_prompt("code_review", {"code": src, "strict": True})
+    for message in prompt.messages:
+        print(message.role, message.content.text)
+```
+
+MCP carries prompt arguments as strings. `get_prompt` sends strings as they are and other values as JSON (`True` → `"true"`, `3` → `"3"`); a Promptise server converts them back to the prompt's parameter types.
+
+The list methods fetch every page. A read the server refuses (unknown URI, missing credentials, a guard such as `roles=["admin"]`) raises `MCPClientError`.
+
+`MCPMultiClient` routes `read_resource` by URI (static resources first, then the servers' URI templates) and `get_prompt` by name. It discovers what each server serves on the first call that needs it, or when you call `list_resources()`, `list_resource_templates()` or `list_prompts()`. Pass `server=` to pick a server yourself, and `bearer_token=` to read as a caller over that caller's own session, as with `call_tool`:
+
+```python
+async with multi:
+    page = await multi.read_resource("docs://pages/refunds")
+    plan = await multi.get_prompt("onboarding", {"name": "Ada"}, server="hr")
+    payroll = await multi.read_resource("hr://payroll", bearer_token=user_token)
+    print(multi.resource_to_server, multi.template_to_server, multi.prompt_to_server)
+```
+
+To give an agent these resources and prompts, see `build_agent(expose_resources=True, expose_prompts=True)` in [Building Agents](../../core/agents/building-agents.md).
+
 ## MCPToolAdapter
 
 Convert MCP tools into LangChain `BaseTool` instances for use with LangGraph or any LangChain-compatible agent.
@@ -507,6 +544,10 @@ asyncio.run(main())
 | `MCPClient.fetch_token(url, client_id, secret)` | Static method | Acquire a JWT from a token endpoint |
 | `client.list_tools()` | Method | Discover all tools on the server |
 | `client.call_tool(name, arguments, progress_callback=None)` | Method | Call a tool and get a `CallToolResult`; the callback receives progress notifications |
+| `client.list_resources()` / `client.list_resource_templates()` | Method | Discover the server's resources and resource templates |
+| `client.read_resource(uri)` | Method | Read a resource and get a `ReadResourceResult` |
+| `client.list_prompts()` | Method | Discover the server's prompts |
+| `client.get_prompt(name, arguments)` | Method | Get a rendered prompt as a `GetPromptResult` |
 | `client.in_flight_calls` | Property | `InFlightToolCall`s awaiting a result (for relating elicitation to a call) |
 | `client.session` | Property | Underlying MCP `ClientSession` (no automatic reconnect for calls made on it directly) |
 | `client.session_generation` | Property | Number of sessions opened; grows by one on each transparent re-initialisation |
@@ -516,6 +557,8 @@ asyncio.run(main())
 | `multi.list_tools()` | Method | Discover tools from all servers |
 | `multi.call_tool(name, arguments, progress_callback=None)` | Method | Call a tool, auto-routed to the correct server |
 | `multi.tool_to_server` | Property | Tool name to server name mapping |
+| `multi.read_resource(uri, *, server=None)` | Method | Read a resource, routed by URI |
+| `multi.get_prompt(name, arguments, *, server=None)` | Method | Get a prompt, routed by name |
 | `multi.servers` | Property | Server name to `MCPClient` mapping |
 | `MCPToolAdapter(multi, on_before, on_after, on_error, on_progress)` | Class | MCP-to-LangChain tool converter |
 | `adapter.as_langchain_tools()` | Method | Convert MCP tools to `BaseTool` instances |

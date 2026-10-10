@@ -1,4 +1,5 @@
-"""Which tools a caller may see, for ``MCPServer(hide_unauthorized_tools=True)``.
+"""Which tools, resources and prompts a caller may see, for
+``MCPServer(hide_unauthorized_tools=True)``.
 
 ``tools/list`` normally returns every registered tool: guards are enforced
 when a tool is *called*, so listing a tool grants nothing.  But names,
@@ -8,6 +9,8 @@ cannot use wastes turns on it.  With hiding enabled, the list (and the
 ``docs://manifest`` resource) is filtered per request: the request is
 authenticated with the server's ``AuthMiddleware`` exactly as a tool call
 would be, and each tool's guards are evaluated against that identity.
+``resources/list``, ``resources/templates/list`` and ``prompts/list`` are
+filtered the same way.
 
 Filtering fails closed: a guard that raises, or credentials that do not
 verify, hide the tool.  Calling a hidden tool is still refused by its
@@ -41,15 +44,21 @@ async def visible_tools(
     *,
     server_name: str,
     meta: dict[str, Any],
+    request_type: str = "tool",
 ) -> list[Any]:
-    """Return the tool definitions the caller identified by *meta* may call.
+    """Return the definitions the caller identified by *meta* may use.
+
+    Works for tools, resources, resource templates and prompts alike: each
+    definition carries ``auth``, ``guards`` and ``router_middleware``.
 
     Args:
-        tools: Registered ``ToolDef`` objects.
+        tools: Registered ``ToolDef``, ``ResourceDef`` or ``PromptDef`` objects.
         server_middlewares: The server's middleware list (searched, with each
             tool's router middleware, for the ``AuthMiddleware`` to use).
         server_name: Server name for the request contexts.
         meta: The request's HTTP headers (lower-cased names).
+        request_type: ``"tool"``, ``"resource"`` or ``"prompt"``, set on the
+            context the guards see.
     """
     # One authenticated context per AuthMiddleware: a router can bring its own.
     contexts: dict[int, RequestContext] = {}
@@ -57,7 +66,9 @@ async def visible_tools(
     async def context_for(auth_mw: Any | None) -> RequestContext:
         key = id(auth_mw)
         if key not in contexts:
-            ctx = RequestContext(server_name=server_name, meta=dict(meta))
+            ctx = RequestContext(
+                server_name=server_name, meta=dict(meta), request_type=request_type
+            )
             if auth_mw is not None:
                 set_context(ctx)
                 try:
