@@ -625,6 +625,69 @@ class TestPoisoning:
 
 
 # ---------------------------------------------------------------------------
+# A coarse clock (Windows): failures recorded in the same tick
+# ---------------------------------------------------------------------------
+
+FROZEN = 1_700_000_000.0
+
+
+@pytest.fixture
+def frozen_clock(monkeypatch):
+    """Every ``time.time()`` in the strategy module returns the same value.
+
+    On Windows (before Python 3.13) ``time.time()`` ticks every ~15 ms, so
+    failures recorded back to back carry the same timestamp.
+    """
+    import promptise.strategy as strategy_module
+
+    clock = SimpleNamespace(**{k: getattr(time, k) for k in dir(time) if not k.startswith("_")})
+    clock.time = lambda: FROZEN
+    clock.time_ns = lambda: int(FROZEN) * 1_000_000_000
+    monkeypatch.setattr(strategy_module, "time", clock)
+
+
+def _tick_fail(**overrides) -> FailureLog:
+    return _fail(timestamp=FROZEN, **overrides)
+
+
+@pytest.mark.usefixtures("frozen_clock")
+class TestCoarseClock:
+    @pytest.mark.asyncio
+    async def test_a_failure_in_the_same_tick_is_still_pending(self):
+        model = _ScriptedModel(_lessons(("book_room", GOOD)), _lessons(("book_room", GOOD)))
+        mgr = _manager(InMemoryProvider(), model, synthesis_threshold=1, auto_cleanup=False)
+        await mgr.record_failure(_tick_fail(), caller=ALICE)
+        await mgr.record_failure(_tick_fail(error_message="Room '7' not found."), caller=ALICE)
+        assert len(model.prompts) == 2
+        assert "Room '7' not found." in model.prompts[1]
+        assert "Room '4' not found." not in model.prompts[1]  # consumed by the first
+
+    @pytest.mark.asyncio
+    async def test_threshold_counts_failures_in_the_same_tick(self):
+        model = _ScriptedModel(_lessons(("book_room", GOOD)))
+        mgr = _manager(InMemoryProvider(), model, synthesis_threshold=2, auto_cleanup=False)
+        for _ in range(3):
+            await mgr.record_failure(_tick_fail(), caller=ALICE)
+        assert len(model.prompts) == 1
+        await mgr.record_failure(_tick_fail(), caller=ALICE)
+        assert len(model.prompts) == 2
+
+    @pytest.mark.asyncio
+    async def test_a_tie_with_another_process_is_not_lost(self):
+        """Two processes sharing a provider can stamp a failure with the same seq."""
+        memory = InMemoryProvider()
+        model = _ScriptedModel(_lessons(("book_room", GOOD)), _lessons(("book_room", GOOD)))
+        first = _manager(memory, model, synthesis_threshold=1, auto_cleanup=False)
+        second = _manager(memory, model, synthesis_threshold=1, auto_cleanup=False)
+        await first.record_failure(_tick_fail(), caller=ALICE)
+        await second.record_failure(_tick_fail(error_message="Room '7' not found."), caller=ALICE)
+        seqs = {m.get("seq") for _, m in _rows(memory) if m.get("type") == "failure_log"}
+        assert len(seqs) == 1  # the same stamp in both "processes"
+        assert len(model.prompts) == 2
+        assert "Room '7' not found." in model.prompts[1]
+
+
+# ---------------------------------------------------------------------------
 # Retrieval: ranking, TTL, decay
 # ---------------------------------------------------------------------------
 

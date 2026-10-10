@@ -489,6 +489,26 @@ def _matches(meta: dict[str, Any], wanted: dict[str, Any]) -> bool:
     return all(meta.get(k) == v for k, v in wanted.items())
 
 
+def _seq(meta: dict[str, Any]) -> int:
+    """An entry's position in write order, in microseconds since the epoch.
+
+    Entries carry a ``seq`` that strictly increases within a process; older
+    entries without one fall back to their ``timestamp``.  ``time.time()``
+    alone is not enough: on Windows it can return the same value for writes
+    made milliseconds apart.
+    """
+    raw = meta.get("seq")
+    if raw is not None:
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            pass
+    try:
+        return int(float(meta.get("timestamp", 0) or 0) * 1_000_000)
+    except (TypeError, ValueError):
+        return 0
+
+
 # ---------------------------------------------------------------------------
 # AdaptiveLesson vetting — synthesized lessons come from untrusted tool output
 # ---------------------------------------------------------------------------
@@ -565,6 +585,7 @@ class AdaptiveStrategyManager:
         self._fallback_counts: dict[str, int] = {}
         self._warned_no_listing = False
         self._background: set[asyncio.Task[Any]] = set()
+        self._last_seq = 0
 
     @property
     def config(self) -> AdaptiveStrategyConfig:
@@ -609,9 +630,20 @@ class AdaptiveStrategyManager:
     def _can_list(self) -> bool:
         return callable(getattr(self._memory, "list_entries", None))
 
+    def _next_seq(self) -> int:
+        """A write-order stamp: wall-clock microseconds, strictly increasing.
+
+        Microseconds keep the value exact in providers that store numbers as
+        64-bit floats.
+        """
+        seq = max(time.time_ns() // 1000, self._last_seq + 1)
+        self._last_seq = seq
+        return seq
+
     async def _add(self, partition: _Partition, content: str, metadata: dict[str, Any]) -> str:
         meta = {k: v for k, v in metadata.items() if v is not None}
         meta[_ADAPTIVE_SCOPE_META_KEY] = partition.key
+        meta["seq"] = self._next_seq()
         memory_id: str = await self._memory.add(content, metadata=meta, user_id=partition.owner)
         return memory_id
 
@@ -634,7 +666,7 @@ class AdaptiveStrategyManager:
             rows = await self._memory.search(query, limit=_LIST_LIMIT, user_id=partition.owner)
         # Re-check every row: the scope tag is what partitions a shared provider.
         matched = [r for r in rows if _matches(_flat_metadata(r), wanted)]
-        matched.sort(key=lambda r: float(_flat_metadata(r).get("timestamp", 0) or 0))
+        matched.sort(key=lambda r: _seq(_flat_metadata(r)))
         return matched
 
     async def _delete(self, partition: _Partition, memory_id: str) -> None:
@@ -733,28 +765,52 @@ class AdaptiveStrategyManager:
         for log in logs[: max(0, excess)]:
             await self._delete(partition, log.memory_id)
 
-    async def _watermark(self, partition: _Partition) -> float:
-        """Timestamp up to which failures have already been synthesized."""
-        states = await self._entries(partition, type="adaptive_state")
-        return max((float(_flat_metadata(s).get("watermark", 0) or 0) for s in states), default=0.0)
+    async def _watermark(self, partition: _Partition) -> tuple[int, frozenset[str]]:
+        """How far failures have been synthesized: a ``seq``, and the ids consumed at it.
 
-    async def _set_watermark(self, partition: _Partition, watermark: float) -> None:
+        A failure is consumed when its ``seq`` is below the watermark, or
+        equal to it and its id is listed.  The ids make ties safe: another
+        process can write a failure with the same ``seq`` after a synthesis
+        has read the logs, and that failure is still pending.
+        """
+        best: tuple[int, frozenset[str]] = (0, frozenset())
+        for state in await self._entries(partition, type="adaptive_state"):
+            meta = _flat_metadata(state)
+            seq = int(meta.get("watermark_seq", 0) or 0)
+            ids = frozenset(i for i in str(meta.get("watermark_ids") or "").split(",") if i)
+            if seq > best[0]:
+                best = (seq, ids)
+            elif seq == best[0]:
+                best = (seq, best[1] | ids)
+        return best
+
+    async def _set_watermark(self, partition: _Partition, seq: int, ids: frozenset[str]) -> None:
         old = await self._entries(partition, type="adaptive_state")
         await self._add(
             partition,
             "Adaptive strategy bookkeeping",
-            {"type": "adaptive_state", "watermark": watermark, "timestamp": time.time()},
+            {
+                "type": "adaptive_state",
+                "watermark_seq": seq,
+                "watermark_ids": ",".join(sorted(ids)),
+                "timestamp": time.time(),
+            },
         )
         for state in old:
             await self._delete(partition, state.memory_id)
 
     async def _pending_failures(self, partition: _Partition) -> list[MemoryResult]:
-        watermark = await self._watermark(partition)
+        seq, consumed = await self._watermark(partition)
+
+        def unconsumed(r: MemoryResult) -> bool:
+            at = _seq(_flat_metadata(r))
+            return at > seq or (at == seq and r.memory_id not in consumed)
+
         return [
             r
             for r in await self._entries(partition, type="failure_log")
             if _flat_metadata(r).get("category") != FailureCategory.INFRASTRUCTURE.value
-            and float(_flat_metadata(r).get("timestamp", 0) or 0) > watermark
+            and unconsumed(r)
             and self._learns_from(_flat_metadata(r).get("tool"))
         ]
 
@@ -942,11 +998,9 @@ class AdaptiveStrategyManager:
             logger.warning("Adaptive: no model available for synthesis")
             return 0
 
-        batch = sorted(
-            pending,
-            key=lambda r: float(_flat_metadata(r).get("timestamp", 0) or 0),
-            reverse=True,
-        )[:_MAX_FAILURES_PER_SYNTHESIS]
+        batch = sorted(pending, key=lambda r: _seq(_flat_metadata(r)), reverse=True)[
+            :_MAX_FAILURES_PER_SYNTHESIS
+        ]
         failing_tools = sorted(
             {str(_flat_metadata(r).get("tool")) for r in batch if _flat_metadata(r).get("tool")}
         )
@@ -1001,9 +1055,13 @@ class AdaptiveStrategyManager:
 
         # The failures are consumed even when every proposal was rejected, so
         # a poisoned error message is not re-synthesized on every failure.
-        watermark = max(float(_flat_metadata(r).get("timestamp", 0) or 0) for r in pending)
+        old_seq, old_ids = await self._watermark(partition)
+        new_seq = max(_seq(_flat_metadata(r)) for r in pending)
+        new_ids = frozenset(r.memory_id for r in pending if _seq(_flat_metadata(r)) == new_seq)
+        if new_seq == old_seq:
+            new_ids |= old_ids
         try:
-            await self._set_watermark(partition, watermark)
+            await self._set_watermark(partition, new_seq, new_ids)
         except Exception as exc:
             logger.warning("Adaptive: failed to store synthesis state: %s", exc)
         if self._config.auto_cleanup:
@@ -1068,7 +1126,7 @@ class AdaptiveStrategyManager:
         kept.sort(
             key=lambda r: (
                 _flat_metadata(r).get("source", "synthesis") != "synthesis",
-                float(_flat_metadata(r).get("timestamp", 0) or 0),
+                _seq(_flat_metadata(r)),
             )
         )
         for r in kept[:excess]:
