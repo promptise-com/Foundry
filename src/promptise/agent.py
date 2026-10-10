@@ -411,25 +411,28 @@ class PromptiseAgent:
                 agent_id=self._actor(),
             )
 
-        # Step 0: Guardrails — scan input BEFORE anything else
+        # Step 0: Guardrails — scan input BEFORE anything else.  The guard
+        # may rewrite the user's message (redact_input); everything below
+        # sees the rewritten input.
+        _input_sink: list[str] | None = kwargs.pop("_promptise_input_sink", None)
         if self._guardrails is not None:
-            from .memory import _extract_user_text as _ext
+            try:
+                input = await self._guard_input(input)
+            except Exception as guard_exc:
+                if self._event_notifier is not None:
+                    from .events import emit_event
 
-            raw_text = _ext(input)
-            if raw_text:
-                try:
-                    await self._guardrails.check_input(raw_text)
-                except Exception as guard_exc:
-                    if self._event_notifier is not None:
-                        from .events import emit_event
+                    emit_event(
+                        self._event_notifier,
+                        "guardrail.blocked",
+                        "warning",
+                        {"direction": "input", "error": type(guard_exc).__name__},
+                    )
+                raise  # Re-raise — don't swallow the violation
+            if _input_sink is not None:
+                from .memory import _extract_user_text as _ext
 
-                        emit_event(
-                            self._event_notifier,
-                            "guardrail.blocked",
-                            "warning",
-                            {"direction": "input", "error": type(guard_exc).__name__},
-                        )
-                    raise  # Re-raise — don't swallow the violation
+                _input_sink.append(_ext(input))
 
         # ── Context Engine path (opt-in) ──
         # When a ContextEngine is configured, it replaces the ad-hoc
@@ -789,6 +792,11 @@ class PromptiseAgent:
         **kwargs: Any,
     ) -> AsyncIterator[Any]:
         """Inner stream — runs with CallerContext in contextvar."""
+        # Step 0: Input guardrails.  Raw graph chunks are not scanned on the
+        # way out; use astream_with_tools() or ainvoke() for output scanning.
+        if self._guardrails is not None:
+            input = await self._guard_input(input)
+
         # Step 1: Memory — search and inject context
         if self.provider is not None:
             from .memory import (
@@ -889,29 +897,25 @@ class PromptiseAgent:
                     agent_id=self._actor(),
                 )
 
-            # Step 0: Input guardrails
+            # Step 0: Input guardrails (may rewrite the user's message)
             if self._guardrails is not None:
-                from .memory import _extract_user_text as _ext
+                try:
+                    input = await self._guard_input(input)
+                except Exception:
+                    if self._event_notifier is not None:
+                        from .events import emit_event
 
-                raw_text = _ext(input)
-                if raw_text:
-                    try:
-                        await self._guardrails.check_input(raw_text)
-                    except Exception:
-                        if self._event_notifier is not None:
-                            from .events import emit_event
-
-                            emit_event(
-                                self._event_notifier,
-                                "guardrail.blocked",
-                                "warning",
-                                {"direction": "input"},
-                            )
-                        yield ErrorEvent(
-                            message="Input blocked by safety policy.",
-                            recoverable=False,
+                        emit_event(
+                            self._event_notifier,
+                            "guardrail.blocked",
+                            "warning",
+                            {"direction": "input"},
                         )
-                        return
+                    yield ErrorEvent(
+                        message="Input blocked by safety policy.",
+                        recoverable=False,
+                    )
+                    return
 
             # Step 1: Memory injection
             if self.provider is not None:
@@ -1039,26 +1043,25 @@ class PromptiseAgent:
                                 {"direction": "output", "streaming": True},
                             )
                 except Exception as guard_exc:
-                    # GuardrailViolation = output blocked. Yield error, don't
-                    # serve the unsafe response. Same security as ainvoke().
-                    guard_type = type(guard_exc).__name__
-                    if "Violation" in guard_type or "Guardrail" in guard_type:
-                        if self._event_notifier is not None:
-                            from .events import emit_event
+                    # A violation, or a guard that failed: either way don't
+                    # serve an unchecked response.  Same as ainvoke(), where
+                    # the exception propagates.
+                    if "Violation" not in type(guard_exc).__name__:
+                        logger.error("Output guardrail error in stream: %s", guard_exc)
+                    if self._event_notifier is not None:
+                        from .events import emit_event
 
-                            emit_event(
-                                self._event_notifier,
-                                "guardrail.blocked",
-                                "warning",
-                                {"direction": "output", "streaming": True},
-                            )
-                        yield ErrorEvent(
-                            message="Output blocked by safety policy.",
-                            recoverable=False,
+                        emit_event(
+                            self._event_notifier,
+                            "guardrail.blocked",
+                            "warning",
+                            {"direction": "output", "streaming": True},
                         )
-                        return
-                    # Other exceptions — log and continue with unredacted response
-                    logger.warning("Output guardrail error in stream: %s", guard_exc)
+                    yield ErrorEvent(
+                        message="Output blocked by safety policy.",
+                        recoverable=False,
+                    )
+                    return
 
             # Step 5: Memory auto-store
             if self.provider is not None and _cumulative:
@@ -1393,8 +1396,13 @@ class PromptiseAgent:
 
         lc_messages.append(HumanMessage(content=message))
 
-        # Step 4: Invoke the agent
-        output = await self.ainvoke({"messages": lc_messages}, caller=caller)
+        # Step 4: Invoke the agent.  The sink receives the user's message as
+        # the input guardrail left it (redacted with redact_input), which is
+        # what gets persisted: history is replayed to the model unscanned.
+        input_sink: list[str] = []
+        output = await self.ainvoke(
+            {"messages": lc_messages}, caller=caller, _promptise_input_sink=input_sink
+        )
 
         # Step 5: Extract assistant response text
         response_text = _extract_response_text(output)
@@ -1403,7 +1411,7 @@ class PromptiseAgent:
         if self._conversation_store is not None:
             user_msg = Message(
                 role="user",
-                content=message,
+                content=input_sink[0] if input_sink else message,
                 metadata=metadata or {},
             )
             assistant_msg = Message(
@@ -1601,6 +1609,32 @@ class PromptiseAgent:
                 owner_user_id=session_owner,
             )
 
+    async def _guard_input(self, input: Any) -> Any:
+        """Run the input guardrail on the user's message.
+
+        Raises whatever the guard raises (``GuardrailViolation`` on a
+        block).  When the guard returns different text (a redaction), the
+        message is replaced with it in a copy of *input*, which is
+        returned; the caller's input is never mutated.
+        """
+        from .memory import _extract_user_text
+
+        guard = self._guardrails
+        raw_text = _extract_user_text(input)
+        if guard is None or not raw_text:
+            return input
+        checked = await guard.check_input(raw_text)
+        if not isinstance(checked, str) or checked == raw_text:
+            return input
+        replaced = _replace_user_text(input, checked)
+        if replaced is None:
+            logger.warning(
+                "Input guardrail rewrote the message, but its content is not plain "
+                "text; sending it unchanged"
+            )
+            return input
+        return replaced
+
     @staticmethod
     def _replace_response_text(output: Any, new_text: str) -> Any:
         """Replace the last AI message content with redacted text."""
@@ -1724,6 +1758,37 @@ class PromptiseAgent:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
+
+
+def _replace_user_text(input: Any, new_text: str) -> Any | None:
+    """Return a copy of *input* with the user's message text replaced.
+
+    Mirrors :func:`promptise.memory._extract_user_text`: the last message
+    of ``{"messages": [...]}``, a plain string, or an ``input`` / ``query``
+    / ``question`` / ``text`` key.  Returns ``None`` when the message
+    content is not a plain string (multimodal blocks), so the caller can
+    tell the rewrite was not applied.
+    """
+    if isinstance(input, str):
+        return new_text
+    if not isinstance(input, dict):
+        return None
+    messages = input.get("messages")
+    if messages:
+        last = messages[-1]
+        if isinstance(last, dict):
+            if not isinstance(last.get("content"), str):
+                return None
+            new_last: Any = {**last, "content": new_text}
+        elif isinstance(getattr(last, "content", None), str) and hasattr(last, "model_copy"):
+            new_last = last.model_copy(update={"content": new_text})
+        else:
+            return None
+        return {**input, "messages": [*messages[:-1], new_last]}
+    for key in ("input", "query", "question", "text"):
+        if isinstance(input.get(key), str):
+            return {**input, key: new_text}
+    return None
 
 
 def _extract_response_text(output: Any) -> str:
@@ -1874,6 +1939,14 @@ async def build_agent(
         conversation_max_messages: Maximum messages to keep per session
             when using the conversation store.  ``0`` = unlimited.
             Oldest messages are dropped when the limit is reached.
+        guardrails: Optional input/output scanner — a
+            :class:`~promptise.guardrails.PromptiseSecurityScanner` or any
+            object with ``check_input`` / ``check_output``.  ``True`` uses
+            :meth:`PromptiseSecurityScanner.default` (call ``warmup()`` on
+            your own scanner to load its model at startup instead of on the
+            first message).  When the scanner has
+            ``scan_tool_results=True``, every tool is wrapped so its result
+            is scanned before the model reads it.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -2284,6 +2357,26 @@ async def build_agent(
         from .approval import wrap_tools_with_approval
 
         tools = wrap_tools_with_approval(tools, approval, event_notifier=events)
+
+    # ------------------------------------------------------------------
+    # Guardrails: ``True`` is the default scanner; scan tool results when
+    # the scanner asks for it (outermost wrapper, so it sees what the
+    # model would see)
+    # ------------------------------------------------------------------
+    if guardrails is True:
+        from .guardrails import PromptiseSecurityScanner
+
+        guardrails = PromptiseSecurityScanner.default()
+    elif guardrails is False:
+        guardrails = None
+    if guardrails is not None and getattr(guardrails, "scan_tool_results", False):
+        if not hasattr(guardrails, "check_tool_result"):
+            raise TypeError(
+                "guardrails has scan_tool_results=True but no check_tool_result() method"
+            )
+        from .guardrails import wrap_tools_with_guardrails
+
+        tools = wrap_tools_with_guardrails(tools, guardrails, event_notifier=events)
 
     graph = _build_graph(tools)
 

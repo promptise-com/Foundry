@@ -76,6 +76,7 @@ from .fallback import FallbackChain
 
 # Guardrails
 from .guardrails import (
+    Action,
     ContentSafetyDetector,
     CredentialCategory,
     CredentialDetector,
@@ -88,6 +89,7 @@ from .guardrails import (
     PromptiseSecurityScanner,
     ScanReport,
     SecurityFinding,
+    Severity,
 )
 from .identity import AgentIdentity, IdentityError
 from .mcp.client import (
@@ -263,6 +265,8 @@ __all__ = [
     "SecurityFinding",
     "ScanReport",
     "GuardrailViolation",
+    "Action",
+    "Severity",
     "PIICategory",
     "CredentialCategory",
     "InjectionDetector",

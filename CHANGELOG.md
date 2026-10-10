@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- **Guardrails: ML heads failed open** -- when `transformers` was not installed, a model failed to load or run, Ollama was unreachable for `ContentSafetyDetector` or Azure rejected the request, `scan_text` logged a warning (`skipping ML injection detection`) and **passed** the text, while `report.scanners_run` still listed the head. `PromptiseSecurityScanner.default()` on a core install therefore let every prompt injection through. Scans now fail closed: a head that cannot run adds a `CRITICAL` `BLOCK` finding (category `scanner_unavailable`), so `check_input` / `check_output` raise `GuardrailViolation`, and the head is reported in the new `ScanReport.scanners_skipped` (head → reason) instead of `scanners_run`. `PromptiseSecurityScanner(..., fail_open=True)` (also accepted by `default()`) restores pass-through, still reporting the skip and logging a warning. `warmup()` now also checks that Ollama is reachable and `llama-guard3` is pulled, and raises on any missing library or model whatever `fail_open` says.
+- **Guardrails: injection after ~570 characters was never classified** -- the injection and toxicity heads read only `text[:512]`, so padding a message pushed an attack past the classifier. Both now classify the whole text in overlapping 512-character windows (256-character overlap) and report the highest-scoring window. GLiNER NER and content safety (Llama Guard / Azure) scan in windows too instead of truncating at 5,000 / 4,000 / 10,000 characters.
+
+### Fixed
+
+- **`build_agent(guardrails=True)` crashed on the first message** -- `True` was stored as the guard, so the first `ainvoke()` raised `AttributeError: 'bool' object has no attribute 'check_input'`. `True` now means `PromptiseSecurityScanner.default()` and `False` means no guardrails.
+- **Guardrails: overlapping redactions deleted text** -- a connection string such as `postgres://user:pass@host/db` also matches the email pattern, and replacing both spans one after the other cut into the text that followed. Overlapping findings are now merged into one span, labelled by the longest finding and then the most specific detector (custom rule, credential, PII, NER).
+- **Guardrails: `blood_type` redacted order numbers and grades** -- `\b(?:A|B|AB|O)[+-]\b` turned "order A-1001" into "[MEDICAL]1001". The pattern now needs a "blood type" / "blood group" keyword and does not match when a digit or letter follows the sign.
+- **Guardrails: input redaction had no effect** -- the agent ignored the value `check_input` returned. The returned text now replaces the user's message (in a copy; the caller's input is not mutated) in `ainvoke`, `astream`, `astream_with_tools` and `chat`, and `chat` stores the rewritten message in the conversation history. New `PromptiseSecurityScanner(redact_input=True)` applies the PII and credential actions to input, so PII is redacted before the model sees it (default: input PII stays a warning).
+- **Agent: plain `astream()` skipped the input guardrail**, and `astream_with_tools()` served the unredacted response when the output guard raised something other than `GuardrailViolation`; it now ends the stream with an error event, as `ainvoke()` raises.
+
+### Added
+
+- **Guardrails: tool-result scanning (indirect prompt injection)** -- `PromptiseSecurityScanner(scan_tool_results=True)` makes `build_agent` wrap every tool so its result passes `check_tool_result()` before the model reads it: all heads run (the injection model included), secrets and PII are redacted, and a blocked result is replaced with a `[Tool result withheld by guardrails: ...]` notice. Off by default. Also available as `promptise.guardrails.wrap_tools_with_guardrails()`.
+- **`Action` and `Severity` are exported from `promptise`**, as the guardrails docs already imported them.
+
+### Changed
+
+- **Guardrails fail closed by default** -- a scanner whose ML or service-backed head cannot run now blocks every scan instead of passing it unchecked (see Security). `PromptiseSecurityScanner.default()` and `guardrails=True` need `transformers` and `torch` (`pip install "promptise[all]"`); pass `fail_open=True` to keep the old behaviour. GLiNER (`NERDetector`) stays a separate `pip install gliner`, now stated in the docs.
+- **Guardrails docs corrected** -- model sizes (injection model ~750 MB, GLiNER ~500 MB), the `ScanReport` example (PII on input is a passing warning, not a block), and references to `scan_input` / `scan_output`, which do not exist (`scan_text`, `check_input`, `check_output`, `check_tool_result`).
+
 ## 1.2.1 — 2026-10-10
 
 ### Fixed
