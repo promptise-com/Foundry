@@ -788,6 +788,55 @@ class TestMocksByRisk:
             ] == "addPhoto"
         assert seen == ["POST /v1/pets/search", "GET /v1/pets/7"]
 
+    @pytest.mark.asyncio
+    async def test_a_gated_route_is_never_shadowed_by_a_templated_read(self, monkeypatch):
+        """A short literal segment (``wipe``) must not lose to ``{id}`` and go live.
+
+        Ordering routes by regex length put ``GET /users/[^/]+`` ahead of
+        ``GET /users/wipe``, so the escalated ``wipeUsers`` matched the read
+        route first and reached the real API during an evaluation.
+        """
+        seen = []
+
+        async def fake_real(self, request):
+            seen.append(f"{request.method} {request.url.path}")
+            return httpx.Response(200, json={"live": True}, request=request)
+
+        monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", fake_real)
+        id_param = {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+        spec = {
+            "openapi": "3.0.0",
+            "info": {"title": "Users"},
+            "servers": [{"url": "https://u.example"}],
+            "paths": {
+                "/users/{id}": {"get": {"operationId": "getUser", "parameters": [id_param]}},
+                "/users/wipe": {"get": {"operationId": "wipeUsers", "summary": "Wipe all users"}},
+                "/org/{a}/{b}": {
+                    "get": {
+                        "operationId": "getMember",
+                        "parameters": [
+                            {**id_param, "name": "a"},
+                            {**id_param, "name": "b"},
+                        ],
+                    }
+                },
+                "/org/x/purge": {"get": {"operationId": "purgeOrg", "summary": "Purge the org"}},
+            },
+        }
+        plan = mcpcast(spec, name="users", profile=SafetyProfile.STANDARD, auth="none")  # type: ignore[arg-type]
+        assert plan.tool("wipe_users").risk.value != "read"
+        assert plan.tool("purge_org").risk.value != "read"
+        transport = mock_transport(plan, live_reads=True)
+        async with httpx.AsyncClient(transport=transport) as client:
+            wipe = await client.get("https://u.example/users/wipe")
+            assert wipe.json()["mock"] == "wipeUsers"
+            purge = await client.get("https://u.example/org/x/purge")
+            assert purge.json()["mock"] == "purgeOrg"
+            # the reads beside them still go live
+            assert (await client.get("https://u.example/users/7")).json() == {"live": True}
+            assert (await client.get("https://u.example/org/a1/b2")).json() == {"live": True}
+        assert seen == ["GET /users/7", "GET /org/a1/b2"]
+
 
 class TestEvalCredentials:
     @pytest.mark.asyncio

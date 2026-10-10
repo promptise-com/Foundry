@@ -390,6 +390,19 @@ def _template_regex(base_path: str, path: str) -> re.Pattern[str]:
     return re.compile(re.escape(base_path.rstrip("/")) + template + r"/?")
 
 
+def _specificity(path: str) -> tuple[int, int, int]:
+    """Sort key putting the most specific route first.
+
+    Literal segments beat placeholders: ``/users/wipe`` (two literals) sorts
+    ahead of ``/users/{id}`` (one literal, one placeholder) however long the
+    placeholder's regex is. Ties go to the longer literal text.
+    """
+    segments = [s for s in path.strip("/").split("/") if s]
+    templated = [s for s in segments if "{" in s]
+    literal = [s for s in segments if "{" not in s]
+    return (-len(literal), len(templated), -sum(len(s) for s in literal))
+
+
 def base_url_override() -> str | None:
     """``MCPCAST_BASE_URL`` exactly as the generated ``config.py`` reads it (``None`` when unset).
 
@@ -438,15 +451,21 @@ class EvalTransport(httpx.AsyncBaseTransport):
         A request that matches no route is answered with :data:`NO_MOCK_STATUS`
         and a body saying so — never with an invented success.
         """
-        match = next(
-            (
-                (op_id, risk)
-                for method, regex, op_id, risk in self._routes
-                if method == request.method and regex.fullmatch(request.url.path)
-            ),
-            None,
-        )
-        if match is not None and self._live_reads and match[1] is RiskClass.READ:
+        matches = [
+            (op_id, risk)
+            for method, regex, op_id, risk in self._routes
+            if method == request.method and regex.fullmatch(request.url.path)
+        ]
+        # The most specific route answers the mock. Going live is decided over
+        # *every* route the request matches: one non-read among them and it is
+        # mocked, so a templated read (``/users/{id}``) can never carry a gated
+        # route (``/users/wipe``) to the real API.
+        match = matches[0] if matches else None
+        if (
+            match is not None
+            and self._live_reads
+            and all(risk is RiskClass.READ for _, risk in matches)
+        ):
             return await self._real.handle_async_request(request)
         if match is not None:
             schema = self._responses.get(match[0])
@@ -513,6 +532,7 @@ def mock_transport(
     }
     bases: list[str] = []
     entries: list[tuple[str, re.Pattern[str], str, RiskClass]] = []
+    keys: list[tuple[int, int, int]] = []
     for tool in plan.tools:
         for route in tool.routes:
             base = base_url or route.base_url or plan.api.base_url
@@ -527,7 +547,8 @@ def mock_transport(
                     tool.risk,
                 )
             )
-    routes = sorted(entries, key=lambda r: -len(r[1].pattern))  # most specific template first
+            keys.append(_specificity(base_path.rstrip("/") + route.path))
+    routes = [e for _, e in sorted(zip(keys, entries, strict=True), key=lambda ke: ke[0])]
     return EvalTransport(routes, responses, live_reads=live_reads, expected_bases=bases)
 
 
