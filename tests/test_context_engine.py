@@ -41,7 +41,43 @@ class TestEstimateCounter:
 
 class TestModelDetection:
     def test_openai_gpt5_mini(self):
-        assert _detect_context_window("openai:gpt-5-mini") == 128_000
+        # OpenAI lists a 400k window (272k input + 128k output) for the GPT-5 family.
+        assert _detect_context_window("openai:gpt-5-mini") == 400_000
+        assert _detect_context_window("openai:gpt-5") == 400_000
+
+    def test_gpt5_budget_is_capped_at_the_input_limit(self):
+        engine = ContextEngine(model="openai:gpt-5-mini")
+        assert engine.window == 400_000
+        assert engine.max_input_tokens == 272_000
+        assert engine.budget == 272_000
+
+    def test_explicit_window_is_not_capped(self):
+        engine = ContextEngine(model="openai:gpt-5-mini", model_context_window=50_000)
+        assert engine.max_input_tokens is None
+        assert engine.budget == 50_000 - 4096
+
+    def test_window_from_model_profile(self):
+        class _Model:
+            profile = {"max_input_tokens": 1_000_000, "max_output_tokens": 64_000}
+
+        engine = ContextEngine(model="custom:my-model")
+        assert engine._apply_model_profile(_Model())
+        assert engine.window == 1_064_000
+        assert engine.max_input_tokens == 1_000_000
+        assert engine.budget == 1_000_000
+
+    def test_model_profile_does_not_override_explicit_window(self):
+        class _Model:
+            profile = {"max_input_tokens": 1_000_000}
+
+        engine = ContextEngine(model_context_window=32_000)
+        assert not engine._apply_model_profile(_Model())
+        assert engine.window == 32_000
+
+    def test_model_without_profile_keeps_table_value(self):
+        engine = ContextEngine(model="openai:gpt-4o")
+        assert not engine._apply_model_profile(object())
+        assert engine.window == 128_000
 
     def test_claude_sonnet(self):
         assert _detect_context_window("anthropic:claude-sonnet-4") == 200_000
@@ -85,7 +121,7 @@ class TestContextLayer:
 
 class TestContextEngine:
     def test_construction_defaults(self):
-        engine = ContextEngine(model="openai:gpt-5-mini")
+        engine = ContextEngine(model="openai:gpt-4o")
         assert engine.window == 128_000
         assert engine.budget == 128_000 - 4096
 

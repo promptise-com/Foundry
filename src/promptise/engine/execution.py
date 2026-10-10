@@ -96,6 +96,12 @@ class PromptGraphEngine:
         allow_self_modification: Allow the LLM to modify the graph
             via structured output ``_graph_action`` fields.
         max_mutations_per_run: Cap on graph mutations per run.
+        tools: Tools for nodes with ``inject_tools=True`` (``build_agent``
+            passes the MCP tools it discovered).  Tools set on the graph's
+            nodes are added to them.
+        compaction: :class:`~promptise.engine.compaction.ContextCompaction`
+            settings for nodes that compact (``context_scope="auto"`` /
+            ``"ledger"``) and set none of their own.
     """
 
     def __init__(
@@ -109,8 +115,12 @@ class PromptGraphEngine:
         allow_self_modification: bool = True,
         max_mutations_per_run: int = 10,
         lightweight_model: BaseChatModel | None = None,
+        tools: list[Any] | None = None,
+        compaction: Any | None = None,
     ) -> None:
         self.graph = graph
+        self.tools = list(tools) if tools else []
+        self.compaction = compaction
         self.model = model
         self.max_iterations = max_iterations
         self.max_node_iterations = max_node_iterations
@@ -138,11 +148,13 @@ class PromptGraphEngine:
         config["_engine_model"] = self.model
         config["_max_iterations"] = self.max_iterations
         config["_engine_hooks"] = self.hooks
+        if self.compaction is not None and "_engine_compaction" not in config:
+            config["_engine_compaction"] = self.compaction
 
         # Collect all tools from all nodes for runtime injection
         if "_engine_tools" not in config:
-            all_tools: list = []
-            seen_names: set[str] = set()
+            all_tools: list = list(self.tools)
+            seen_names: set[str] = {t.name for t in all_tools}
             for node_obj in self.graph.nodes.values():
                 for tool in getattr(node_obj, "tools", []) or []:
                     if tool.name not in seen_names:
@@ -352,11 +364,13 @@ class PromptGraphEngine:
         config["_engine_model"] = self.model
         config["_max_iterations"] = self.max_iterations
         config["_engine_hooks"] = self.hooks
+        if self.compaction is not None and "_engine_compaction" not in config:
+            config["_engine_compaction"] = self.compaction
 
         # Collect all tools for runtime injection
         if "_engine_tools" not in config:
-            all_tools_s: list = []
-            seen_s: set[str] = set()
+            all_tools_s: list = list(self.tools)
+            seen_s: set[str] = {t.name for t in all_tools_s}
             for node_obj in self.graph.nodes.values():
                 for tool in getattr(node_obj, "tools", []) or []:
                     if tool.name not in seen_s:

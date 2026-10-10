@@ -4,6 +4,26 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## v1.3.0 — unreleased
+
+### Fixed
+
+- **Context compaction dropped the user's question** -- once a tool loop passed 6 tool results (call 7 on, with the default ReAct agent's `context_scope="auto"`), the compacted view kept only the first input message that was a `HumanMessage` object. A question passed as a `{"role": "user", ...}` dict, the form the docs and quickstart use, disappeared, and the agent asked what to do or answered partially. Input messages are now converted to LangChain messages when the graph state is created (dicts, tuples and strings alike), and compaction always sends the **current** user question: the last user message of the input.
+- **Compaction answered the session's first question in a chat** -- with chat history in the input (as `agent.chat()` builds it), the compacted view showed the first question of the session instead of the current one. Earlier turns now become a short "Earlier in this conversation" note (the last 6 messages, 400 characters each), and the current question follows it.
+- **Compaction dropped system and runtime-injected messages** -- system messages in the input (your own, and runtime ones such as `[Context State]`, mission and budget) vanished once a loop compacted; they are now pinned on every call. A tool-loop re-entry no longer overwrites the input's second system message with the node's prompt, and `GraphState.trim_messages()` keeps the current question and never starts the window on a tool result whose call was cut.
+- **The ledger did not shrink anything** -- it repeated every tool result in full, and the latest results appeared twice (in the latest exchange and in the ledger), so a parallel batch doubled the final call's tokens. The ledger now lists only results older than the latest exchange, once per `(tool, args)` (last value wins), cuts a result longer than 2,000 characters to an excerpt that names the call so the model can fetch it again (served from cache), and, with a token budget, shrinks the oldest entries to a bare reference until the view fits. A cache-served repeat call now returns the latest result for its `(tool, args)`.
+- **`ContextEngine` layers never reached the model** -- `build_agent` called `engine.clear_all()` on every call, so `add_layer()` content was lost even with `required=True`; the instructions were sent twice; and the question was turned back into a dict. The engine is no longer cleared: the agent passes this call's content to `assemble()` as overrides, your layers are sent on every call, assembly never changes the registered layers, the instructions and tool definitions count toward the budget without being sent twice, input system messages pass through, and the question is sent as given. What the budget leaves after the instructions and tool definitions becomes the token budget for compacting the tool loop, so the engine bounds every model call, not only the first. An engine without some built-in layers (`auto_register_builtins=False`) no longer fails the call.
+- **Wrong context window for GPT-5** -- `gpt-5`, `gpt-5-mini` and `gpt-5-nano` were assumed to have 128k tokens; OpenAI lists 400k (272k input). The table now has 400k with the budget capped at the 272k input limit, plus GPT-4.1, o4-mini and Gemini 2.5. With `build_agent`, the window comes from the chat model's profile metadata when it has one; an explicit `model_context_window` still wins.
+- **Custom graphs** -- an `inject_tools=True` node in a graph passed as `agent_pattern` now gets the agent's MCP and `extra_tools`, and a single-node graph without edges runs once instead of being wrapped in a planner that could re-pick it.
+
+### Added
+
+- **`build_agent(context_compaction=...)`** -- turn compaction off (`False`: the model always sees the full transcript), change the threshold (an `int`: tool results before compacting), or pass a `ContextCompaction` (`promptise.engine`) with `after_tool_results`, `keep_result_chars`, `max_tokens` (also compact past this many tokens), `history_messages` and `history_chars`. `PromptNode(compaction=...)` sets it for one node and wins over the agent's setting.
+
+### Docs
+
+- `docs/guides/context-lifecycle.md` describes how compaction works and how to tune it; it said the ReAct default was `"full"` (it is `"auto"`). `docs/core/context-engine.md` showed `register_layer()` (the method is `add_layer()`) and a 128k window for GPT-5, and now documents how the engine works with `build_agent`. `docs/core/engine-nodes.md` documents `compaction=`.
+
 ## v1.2.1 — 2026-10-10
 
 ### Fixed

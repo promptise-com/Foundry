@@ -27,7 +27,7 @@ from typing import Any, cast
 from uuid import uuid4
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 
@@ -132,6 +132,18 @@ class PromptNode(BaseNode):
         include_observations: Auto-inject recent tool results from state.
         include_plan: Auto-inject current plan/subgoals from state.
         include_reflections: Auto-inject past learnings from state.
+
+        context_scope: How much history the model sees: ``"full"``,
+            ``"auto"`` (full, compacting once the tool loop gets long),
+            ``"ledger"`` (always compacted) or ``"scoped"``.  See
+            :mod:`promptise.engine.compaction`.
+        auto_ledger_after: Tool results before an ``"auto"`` node compacts
+            (default 6).  Shorthand for
+            ``compaction=ContextCompaction(after_tool_results=...)``.
+        compaction: :class:`~promptise.engine.compaction.ContextCompaction`
+            settings for this node (or ``True`` / ``False`` / an ``int``).
+            Without it the node uses the settings ``build_agent`` passed,
+            else the defaults.
     """
 
     def __init__(
@@ -160,7 +172,8 @@ class PromptNode(BaseNode):
         output_key: str | None = None,
         inherit_context_from: str | None = None,
         context_scope: str = "full",
-        auto_ledger_after: int = 6,
+        auto_ledger_after: int | None = None,
+        compaction: Any | None = None,
         # Processing pipeline
         preprocessor: Callable | None = None,
         postprocessor: Callable | None = None,
@@ -209,7 +222,14 @@ class PromptNode(BaseNode):
         #     re-querying facts it already has.
         self.context_scope = context_scope
         # "auto" flips to ledger once this many tool results have accumulated.
-        self.auto_ledger_after = auto_ledger_after
+        self._auto_ledger_explicit = auto_ledger_after is not None
+        self.auto_ledger_after = auto_ledger_after if auto_ledger_after is not None else 6
+        # Node-level compaction settings; None defers to the engine's.
+        from .compaction import ContextCompaction
+
+        self.compaction: ContextCompaction | None = (
+            ContextCompaction.coerce(compaction) if compaction is not None else None
+        )
         # Pipeline
         self.preprocessor = preprocessor
         self.postprocessor = postprocessor
@@ -225,16 +245,49 @@ class PromptNode(BaseNode):
 
         return NodeFlag.INJECT_TOOLS in self.flags
 
-    def _effective_context_scope(self, state: GraphState) -> str:
+    def _compaction_settings(self, config: dict[str, Any] | None = None) -> Any:
+        """The :class:`ContextCompaction` settings this node runs with.
+
+        The node's own ``compaction`` wins, then the engine's (from
+        ``build_agent(context_compaction=...)``), then the defaults.  An
+        explicit ``auto_ledger_after`` overrides the threshold of the
+        engine's settings.
+        """
+        from dataclasses import replace
+
+        from .compaction import ContextCompaction
+
+        if self.compaction is not None:
+            return self.compaction
+        settings = (config or {}).get("_engine_compaction") or ContextCompaction()
+        if self._auto_ledger_explicit:
+            settings = replace(settings, after_tool_results=self.auto_ledger_after)
+        return settings
+
+    def _effective_context_scope(
+        self, state: GraphState, config: dict[str, Any] | None = None
+    ) -> str:
         """Resolve ``context_scope``, expanding ``"auto"`` for the current state.
 
         ``"auto"`` stays ``"full"`` while the tool loop is short (no change to
         simple tasks) and switches to ``"ledger"`` once enough tool results have
-        accumulated, so deep tool loops stay bounded automatically.
+        accumulated, or once the transcript passes the token budget, so deep
+        tool loops stay bounded automatically.  With compaction disabled it
+        stays ``"full"``.
         """
         if self.context_scope != "auto":
             return self.context_scope
-        return "ledger" if len(state.observations) >= self.auto_ledger_after else "full"
+        settings = self._compaction_settings(config)
+        if not settings.enabled:
+            return "full"
+        if len(state.observations) >= settings.after_tool_results:
+            return "ledger"
+        if (
+            settings.max_tokens is not None
+            and settings.tokens(state.messages) > settings.max_tokens
+        ):
+            return "ledger"
+        return "full"
 
     async def execute(self, state: GraphState, config: dict[str, Any]) -> NodeResult:
         """Execute the full node pipeline:
@@ -451,13 +504,11 @@ class PromptNode(BaseNode):
             node_sys_msg = _cached["sys_msg"]
             model_to_use = _cached["model"]
             active_tools = _cached["tools"]
-            insert_idx = _cached.get("insert_idx", 1)
-
-            # Build messages: replace our node's SystemMessage at the cached index
+            # Build messages: insert our SystemMessage as on the first call.
+            # (It is never in state.messages, so nothing there to replace;
+            # replacing overwrote the input's second system message.)
             messages = list(state.messages)
-            if insert_idx < len(messages) and isinstance(messages[insert_idx], SystemMessage):
-                messages[insert_idx] = node_sys_msg
-            elif messages and isinstance(messages[0], SystemMessage):
+            if messages and isinstance(messages[0], SystemMessage):
                 messages.insert(1, node_sys_msg)
             else:
                 messages.insert(0, node_sys_msg)
@@ -493,19 +544,9 @@ class PromptNode(BaseNode):
                 except Exception:
                     pass
 
-            # Cache for tool-loop re-entries — store insert index, not object ref
-            insert_idx = (
-                1
-                if (
-                    messages
-                    and isinstance(messages[0], SystemMessage)
-                    and messages[0] is not node_sys_msg
-                )
-                else 0
-            )
+            # Cache for tool-loop re-entries
             config[_cache_key] = {
                 "sys_msg": node_sys_msg,
-                "insert_idx": insert_idx,
                 "model": model_to_use,
                 "tools": active_tools,
             }
@@ -520,61 +561,26 @@ class PromptNode(BaseNode):
         # produced by *other* stages are dropped, so token usage does not grow
         # super-linearly across a multi-stage reasoning graph. ``"auto"`` resolves
         # to "full" (short loops) or "ledger" (deep loops) based on the state.
-        _scope = self._effective_context_scope(state)
-        if _scope == "scoped":
-            first_human = next((m for m in state.messages if isinstance(m, HumanMessage)), None)
-            own_tool_loop: list[Any] = []
-            for m in reversed(state.messages):
-                if isinstance(m, ToolMessage) or (
-                    isinstance(m, AIMessage) and getattr(m, "tool_calls", None)
-                ):
-                    own_tool_loop.append(m)
-                else:
-                    break
-            own_tool_loop.reverse()
-            messages = [node_sys_msg]
-            if first_human is not None:
-                messages.append(first_human)
-            messages.extend(own_tool_loop)
+        _scope = self._effective_context_scope(state, config)
+        if _scope in ("scoped", "ledger"):
+            # Compaction (see promptise.engine.compaction): pinned input system
+            # messages, a note on earlier conversation, the CURRENT question,
+            # then for "ledger" the latest tool exchange verbatim plus a
+            # deduplicated ledger of older results (long ones cut to an
+            # excerpt); for "scoped" this node's own trailing tool loop.
+            from .compaction import build_compacted_view
 
-        elif _scope == "ledger":
-            # Tool-loop context lifecycle management. A long multi-tool task
-            # produces an ever-growing transcript of tool calls + results; the
-            # model loses track and re-queries the same facts many times. Here
-            # we replace that transcript with a compact, DEDUPLICATED "facts
-            # gathered" ledger built from ``state.observations`` (last value
-            # wins per tool+args), so context stays bounded and the model can
-            # see what it already knows and stop re-looking-it-up.
-            first_human = next((m for m in state.messages if isinstance(m, HumanMessage)), None)
-            facts: dict[str, str] = {}
-            for obs in state.observations:
-                key = f"{obs.get('tool', '?')}({obs.get('args', {})})"
-                facts[key] = str(obs.get("result", ""))
-            # Keep ONLY the most recent assistant turn + its tool results, so the
-            # model still sees its last action's outcome in-flow (without this it
-            # loses continuity and loops). Everything older is in the ledger.
-            last_exchange: list[Any] = []
-            for m in reversed(state.messages):
-                if isinstance(m, (SystemMessage, HumanMessage)):
-                    break
-                last_exchange.append(m)
-                if isinstance(m, AIMessage):
-                    break
-            last_exchange.reverse()
-            messages = [node_sys_msg]
-            if first_human is not None:
-                messages.append(first_human)
-            messages.extend(last_exchange)
-            # The ledger goes LAST — right before the model's turn — where it is
-            # most salient, so the model actually consults it before re-querying.
-            if facts:
-                messages.append(
-                    SystemMessage(
-                        content="Facts already gathered (do NOT call a tool to "
-                        "fetch any of these again):\n"
-                        + "\n".join(f"- {k} = {v}" for k, v in facts.items())
-                    )
-                )
+            messages = build_compacted_view(
+                state.messages,
+                question=state.turn_question,
+                head=state.turn_input,
+                settings=self._compaction_settings(config),
+                scoped=_scope == "scoped",
+            )
+            if messages and isinstance(messages[0], SystemMessage):
+                messages.insert(1, node_sys_msg)
+            else:
+                messages.insert(0, node_sys_msg)
 
         # ── 3. Call LLM ──
         llm_start = time.monotonic()
@@ -624,8 +630,9 @@ class PromptNode(BaseNode):
                     # Ledger mode: serve a previously-gathered fact from cache
                     # instead of re-executing the same (tool, args). Deep tasks
                     # otherwise re-fetch identical facts dozens of times.
-                    if self._effective_context_scope(state) == "ledger":
-                        for obs in state.observations:
+                    if self._effective_context_scope(state, config) == "ledger":
+                        # Latest result wins, as in the ledger.
+                        for obs in reversed(state.observations):
                             if (
                                 obs.get("tool") == tool_name
                                 and obs.get("args") == tool_args

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import json
 import logging
 import time
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import Runnable, RunnableConfig
@@ -131,7 +132,7 @@ def get_current_caller() -> CallerContext | None:
 from .tools import MCPClientError
 
 # Model can be a provider string (handled by LangChain), a chat model instance, or a Runnable.
-ModelLike = str | Model | BaseChatModel | Runnable[Any, Any]
+ModelLike: TypeAlias = str | Model | BaseChatModel | Runnable[Any, Any]
 """Type alias for model parameter: string, BaseChatModel, Runnable, or FallbackChain."""
 
 logger = logging.getLogger("promptise.agent")
@@ -380,6 +381,97 @@ class PromptiseAgent:
         finally:
             _caller_ctx_var.reset(_ctx_token)
 
+    async def _assemble_with_engine(
+        self,
+        engine: Any,
+        input: dict[str, Any],
+        config: dict[str, Any] | None,
+        user_text: str,
+        memory_results: list[Any],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Build this call's input with the :class:`ContextEngine`.
+
+        The engine's layers (your ``add_layer`` content, memory, strategies,
+        conversation history) go in as system messages, budgeted.  The
+        input's own system messages and the current question pass through
+        unchanged.  The instructions and tool definitions count toward the
+        budget but are not sent twice (the graph sends them).  The budget
+        left over becomes the token budget for compacting the tool loop,
+        so the engine keeps bounding the context on every model call.
+        Registered layers are never modified.
+        """
+        from langchain_core.messages import AIMessage as _AI
+        from langchain_core.messages import HumanMessage as _HM
+        from langchain_core.messages import SystemMessage as _SM
+
+        from .engine.compaction import ContextCompaction, normalize_messages, split_input
+
+        messages = normalize_messages(input.get("messages", []))
+        question, head = split_input(messages)
+        history_lines: list[str] = []
+        for msg in head:
+            text = msg.content if isinstance(msg.content, str) else str(msg.content or "")
+            if msg is question or not text:
+                continue
+            if isinstance(msg, _HM):
+                history_lines.append(f"User: {text}")
+            elif isinstance(msg, _AI):
+                history_lines.append(f"Assistant: {text}")
+
+        # Layers this agent fills are overridden for this call only, so
+        # nothing carries over between calls and add_layer content persists.
+        turn: dict[str, str] = {
+            "identity": self._raw_instructions or "",
+            "tools": _tool_definitions_text(self._tools),
+            "user_message": user_text,
+            "conversation": "\n".join(history_lines),
+        }
+        if memory_results:
+            from .memory import _format_memory_context
+
+            turn["memory"] = _format_memory_context(memory_results)
+        if self._strategy_manager is not None and user_text:
+            try:
+                strategies = await self._strategy_manager.get_relevant_strategies(user_text)
+                if strategies:
+                    turn["strategies"] = self._strategy_manager.format_strategy_block(strategies)
+            except Exception:
+                logger.debug("Strategy lookup failed, continuing", exc_info=True)
+
+        # An engine built with auto_register_builtins=False may lack some of
+        # these layers: skip them rather than fail the call.
+        registered = {info["name"] for info in engine.get_layer_info()}
+        turn = {name: text for name, text in turn.items() if name in registered}
+        assembled = engine.assemble(turn, budget_only=("identity", "tools", "user_message"))
+
+        # [input system messages] [engine layers] [budgeted history]
+        # [current question, as given] [anything the input had after it]
+        rebuilt: list[Any] = [m for m in head if isinstance(m, _SM)]
+        rebuilt.extend(normalize_messages(assembled))
+        if "conversation" not in registered:
+            # No layer to budget the history in: pass it through unchanged.
+            rebuilt.extend(m for m in head if m is not question and not isinstance(m, _SM))
+        if question is not None:
+            rebuilt.append(question)
+            rebuilt.extend(messages[len(head) :])
+        elif user_text:
+            rebuilt.append(_HM(content=user_text))
+
+        # Budget the tool loop: what the window has left after the parts
+        # the graph sends itself (instructions, tool definitions).
+        report = engine.last_report
+        fixed = sum(
+            layer["tokens"]
+            for layer in (report.layers if report is not None else [])
+            if layer["name"] in ("identity", "tools")
+        )
+        base = getattr(self._inner, "compaction", None) or ContextCompaction()
+        config = dict(config) if config else {}
+        config["_engine_compaction"] = base.with_budget(
+            max(1, engine.budget - fixed), engine.count_tokens
+        )
+        return {**input, "messages": rebuilt}, config
+
     async def _ainvoke_inner(
         self,
         input: Any,
@@ -480,52 +572,11 @@ class PromptiseAgent:
                 logger.debug("Strategy injection failed, continuing", exc_info=True)
 
         # ── Context Engine assembly (when active, replaces ad-hoc injection) ──
-        if _engine_active:
+        if _engine_active and isinstance(input, dict):
             assert self._context_engine is not None  # narrowed by _engine_active
-            engine = self._context_engine
-            engine.clear_all()
-
-            # Populate layers from collected data
-            engine.set_content("identity", getattr(self, "_raw_instructions", "") or "")
-            if user_text:
-                engine.set_content("user_message", user_text)
-
-            # Preserve conversation history from original input
-            if isinstance(input, dict):
-                history_msgs = input.get("messages", [])
-                conv_lines = []
-                for msg in history_msgs:
-                    role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "type", "")
-                    content = (
-                        msg.get("content", "")
-                        if isinstance(msg, dict)
-                        else getattr(msg, "content", "")
-                    )
-                    if role in ("user", "human") and content and content != user_text:
-                        conv_lines.append(f"User: {content}")
-                    elif role in ("assistant", "ai") and content:
-                        conv_lines.append(f"Assistant: {content}")
-                if conv_lines:
-                    engine.set_content("conversation", "\n".join(conv_lines))
-
-            if _memory_results:
-                from .memory import _format_memory_context
-
-                engine.set_content("memory", _format_memory_context(_memory_results))
-            if self._strategy_manager is not None and user_text:
-                try:
-                    strategies = await self._strategy_manager.get_relevant_strategies(user_text)
-                    if strategies:
-                        engine.set_content(
-                            "strategies", self._strategy_manager.format_strategy_block(strategies)
-                        )
-                except Exception:
-                    pass
-
-            # Assemble with token budgeting
-            assembled = engine.assemble()
-            if assembled:
-                input = {"messages": assembled}
+            input, config = await self._assemble_with_engine(
+                self._context_engine, input, config, user_text, _memory_results
+            )
 
         # Step 1.5: Cache check — AFTER memory so fingerprint includes memory content
         if self._cache is not None:
@@ -1811,6 +1862,7 @@ async def build_agent(
     max_invocation_time: float = 0,
     adaptive: Any | None = None,
     context_engine: Any | None = None,
+    context_compaction: bool | int | Any | None = None,
     agent_pattern: str | Any | None = None,
     pattern: str | Any | None = None,  # Deprecated alias for agent_pattern
     graph_blocks: list[Any] | None = None,
@@ -1874,6 +1926,21 @@ async def build_agent(
         conversation_max_messages: Maximum messages to keep per session
             when using the conversation store.  ``0`` = unlimited.
             Oldest messages are dropped when the limit is reached.
+        context_engine: Optional :class:`~promptise.ContextEngine`.  Its
+            layers (including your ``add_layer`` content) are assembled
+            with token budgeting on every call, and what the budget leaves
+            after the instructions and tool definitions bounds the tool
+            loop through context compaction.  Its window is taken from the
+            chat model's profile metadata unless you passed
+            ``model_context_window``.
+        context_compaction: How long tool loops are compacted
+            (:class:`~promptise.engine.ContextCompaction`).  ``None`` or
+            ``True``: the defaults (compact after 6 tool results).
+            ``False``: never compact; the model always sees the full
+            transcript.  An ``int``: compact after that many tool results.
+            Applies to nodes with ``context_scope="auto"`` (the default
+            ReAct pattern) and the threshold-free settings of ``"ledger"``
+            nodes; a node's own ``compaction=`` wins.
 
     Returns:
         A :class:`PromptiseAgent` instance.
@@ -2197,6 +2264,16 @@ async def build_agent(
     # Build the PromptGraph engine (replaces LangGraph).
     # ----------------------------------------------------------------------
 
+    from .engine.compaction import ContextCompaction
+
+    _compaction = (
+        ContextCompaction.coerce(context_compaction) if context_compaction is not None else None
+    )
+
+    # Take the context window from the chat model's profile metadata.
+    if context_engine is not None and hasattr(context_engine, "_apply_model_profile"):
+        context_engine._apply_model_profile(chat)
+
     def _build_graph(graph_tools: list[BaseTool]) -> Runnable[Any, Any]:
         """Build a PromptGraph engine with the given tools.
 
@@ -2212,11 +2289,15 @@ async def build_agent(
         # Priority 2: PromptGraph instance passed directly
         elif isinstance(_pattern, PromptGraph):
             graph = _pattern
-            # If autonomous mode and no edges, wrap in AutonomousNode
+            # If autonomous mode and no edges, wrap in AutonomousNode — but
+            # only when there is a choice to make.  A single node runs as
+            # is: wrapping it makes a planner re-pick it after its answer.
             if graph.mode == "autonomous" and not graph.edges:
                 pool = list(graph.nodes.values())
-                if pool:
+                if len(pool) > 1:
                     graph = PromptGraph.from_pool(pool, system_prompt=sys_prompt)
+                elif pool and not graph.entry:
+                    graph.set_entry(pool[0].name)
         # Priority 3: String pattern name
         elif isinstance(_pattern, str):
             builders = {
@@ -2274,6 +2355,9 @@ async def build_agent(
                 graph=graph,
                 model=cast(BaseChatModel, chat),
                 max_iterations=max_agent_iterations,
+                # inject_tools nodes in a custom graph get these tools
+                tools=graph_tools,
+                compaction=_compaction,
             ),
         )
 
@@ -2447,6 +2531,26 @@ async def build_agent(
         agent._sandbox_manager = sandbox_manager
 
     return agent
+
+
+def _tool_definitions_text(tools: Sequence[BaseTool]) -> str:
+    """Tool names, descriptions and argument schemas, as the model receives them.
+
+    Used to count the tool definitions toward a ContextEngine budget.
+    """
+    lines: list[str] = []
+    for t in tools:
+        schema: Any = {}
+        try:
+            args_schema = getattr(t, "args_schema", None)
+            if isinstance(args_schema, dict):
+                schema = args_schema
+            elif args_schema is not None and hasattr(args_schema, "model_json_schema"):
+                schema = args_schema.model_json_schema()
+        except Exception:
+            schema = {}
+        lines.append(f"{t.name}: {t.description or ''} {json.dumps(schema, default=str)}")
+    return "\n".join(lines)
 
 
 def _build_provider_from_config(config: dict[str, Any]) -> Any:
