@@ -75,8 +75,11 @@ class _PromptiseMCPTool(BaseTool):
         on_before: OnBefore | None = None,
         on_after: OnAfter | None = None,
         on_error: OnError | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(name=name, description=description, args_schema=args_schema)
+        super().__init__(
+            name=name, description=description, args_schema=args_schema, metadata=metadata
+        )
         self._tool_name = tool_name
         self._multi = multi
         self._on_before = on_before
@@ -183,6 +186,10 @@ class MCPToolAdapter:
                 model_name=f"Args_{name}",
                 strip_descriptions=strip_desc,
             )
+            # Keep the server's hints (readOnlyHint, destructiveHint, ...):
+            # the semantic cache uses them to tell reads from writes.
+            annotations = getattr(t, "annotations", None)
+            hints = annotations.model_dump(exclude_none=True) if annotations is not None else None
             out.append(
                 _PromptiseMCPTool(
                     name=name,
@@ -193,6 +200,7 @@ class MCPToolAdapter:
                     on_before=self._on_before,
                     on_after=self._on_after,
                     on_error=self._on_error,
+                    metadata={"mcp_annotations": hints} if hints else None,
                 )
             )
 

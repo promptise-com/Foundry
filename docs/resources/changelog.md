@@ -4,6 +4,31 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## v1.3.0 — unreleased
+
+### Added
+- **`SemanticCache(cache_tool_turns=..., write_tools=[...], read_only_tools=[...])`** -- control which tool turns may be cached and which tools count as writes (`*` wildcards; `write_tools` wins). `cache.is_write_tool(name, annotations)` shows the verdict. `MCPToolAdapter` now keeps each MCP tool's annotations on `tool.metadata["mcp_annotations"]`, which is where the cache reads `readOnlyHint`.
+- **`FallbackChain.bind_tools()` and streaming** -- see Fixed. `promptise.fallback.is_request_error(exc)` tells a rejected request from a provider failure.
+
+### Changed
+- **Semantic cache: fewer requests are cached by default** -- follow-ups (requests with earlier turns) and turns that called tools are no longer cached unless you pass `cache_multi_turn=True` / `cache_tool_turns=True`; `scope="per_session"` needs a `user_id`; `build_agent(cache=...)` fails when the cache's packages are missing. See Security and Fixed for why.
+
+### Security
+- **Semantic cache: a cached answer could skip an approval gate** -- every turn was cached, tool calls included, so asking again replayed the first answer without calling the tool: a read gated by `approval=ApprovalPolicy(...)` was answered without asking the reviewer, and a denial was replayed even after the reviewer would have approved. A turn that called an approval-gated tool is now never cached (see the tool-turn change under Fixed).
+- **Semantic cache: `scope="per_session"` shared answers between users** -- the partition was keyed by `metadata["session_id"]` alone, so two users passing the same session id (often a short counter or a guessable value) read each other's cached answers. A session partition now belongs to the user and session together, and a caller without a `user_id` is not cached, as with `per_user`.
+- **Semantic cache: a hit returned the original asker's messages** -- the whole stored graph output came back, so with `scope="shared"` a paraphrase match handed Bob the message Alice had sent (`"I'm Alice (acct 4417). Opening hours?"`), plus any injected context and tool results. The cache now stores only the final answer, and a hit returns the current request's messages followed by it.
+- **Semantic cache: one conversation's follow-up was served in another** -- the context fingerprint counted messages without reading them, so "What river runs through it?" after a turn about Paris was answered "The Seine" in a conversation about London. Requests that carry earlier turns now bypass the cache (`cache_multi_turn=False`, the documented default that was never enforced); with `cache_multi_turn=True` the history's roles, content and tool calls are hashed into the key.
+
+### Fixed
+- **Semantic cache: tool turns were replayed and writes never invalidated anything** -- an answer built from a tool call was cached like any other, so "Open a ticket" was answered "T-101 opened" a second time without opening a ticket, and "How many open tickets?" kept returning a stale count. `invalidate_on_write` existed but nothing called it. Now a turn that called a write tool is never cached, turns that called only read-only tools are cached only with `cache_tool_turns=True`, and a write tool evicts the caller's cached answers as soon as it finishes or fails (also from `astream()` / `astream_with_tools()`, and even if the run fails afterwards); a request already running when the write landed does not store its answer. A tool is read-only when its MCP annotations say `readOnlyHint: true`; an unannotated tool counts as a write.
+- **Semantic cache: the cache did nothing with `observe=True`** -- the timeline calls passed `description=`, which `ObservabilityCollector.record()` does not take, so every lookup raised, was logged as "Cache check failed" and went to the LLM. `cache.hit` events now carry `similarity` and `age_seconds` as documented.
+- **Semantic cache: a closer entry for another context hid the matching one** -- only the most similar entry was checked, so an entry stored under a different context, model or instructions turned a valid hit into a miss. The most similar entry *with the same context* is served. Each looked-up request now counts once in `stats()`; a context mismatch counted as a hit and a miss.
+- **Semantic cache: fallback answers were keyed as the primary's** -- with a `FallbackChain`, answers were stored and looked up under the model configured at build time. They are stored under the model that wrote them and looked up under the model currently serving.
+- **Semantic cache: a missing `sentence-transformers` silently disabled caching** -- every request logged an embedding warning and cached nothing. `build_agent(cache=SemanticCache())` now raises `ImportError` naming the package (`cache.check_dependencies()`).
+- **`FallbackChain` could not drive an agent with tools** -- it had no `bind_tools()`, so `build_agent(model=FallbackChain([...]))` with any tool failed on the first model call with `NotImplementedError`. `bind_tools()` binds the tools to every model in the chain; the bound chain shares the circuit breakers. Each answer records its model in `response_metadata["fallback_model"]`.
+- **`FallbackChain` did not stream** -- `astream_with_tools()` got the answer in one piece. It now streams from the first model that starts answering; a model that fails before its first chunk is skipped (the timeouts bound the wait for that chunk), and a failure after it is raised rather than spliced onto another model's answer.
+- **`FallbackChain`: one bad request could open a healthy model's circuit** -- every exception counted toward the breaker, so three oversized prompts (HTTP 400 "context length exceeded") took the primary out of rotation for every user for `recovery_timeout` seconds. Requests the provider rejects (HTTP 400, 413, 422) still fall back but no longer count. The "all models failed" `RuntimeError` now has the last error as its `__cause__`.
+
 ## v1.2.1 — 2026-10-10
 
 ### Fixed

@@ -508,6 +508,7 @@ class _ApprovalToolWrapper(BaseTool):
             name=inner.name,
             description=inner.description,
             args_schema=getattr(inner, "args_schema", None),
+            metadata=getattr(inner, "metadata", None),
         )
         self._inner = inner
         self._policy = policy

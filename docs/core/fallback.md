@@ -30,9 +30,48 @@ Single-provider agents are a single point of failure. When OpenAI has an outage 
 
 1. Primary model receives the request
 2. If it fails (error, timeout, rate limit), the next model is tried
-3. Each model has an independent **circuit breaker** — after N consecutive failures, the model is skipped entirely for a recovery period
+3. Each model has an independent **circuit breaker** — after N consecutive failures, the model is skipped entirely for a recovery period (a request the provider rejects as invalid does not count; see [Which Errors Fall Back](#which-errors-fall-back))
 4. When the recovery period elapses, one test request is sent (half-open state)
 5. If the test succeeds, the circuit closes and the model resumes normal traffic
+
+---
+
+## Which Errors Fall Back
+
+Every exception from a model moves on to the next one: timeouts (`timeout_per_model`), connection errors, rate limits, server errors, authentication errors, and also requests the provider rejects. What differs is whether the failure counts toward the model's circuit breaker:
+
+| Error | Next model tried | Counts toward the circuit breaker |
+|-------|------------------|-----------------------------------|
+| Timeout, connection error, 429, 5xx, 401/403, anything without a status | Yes | Yes |
+| The request was rejected: HTTP 400, 413, 422 (malformed, too large, context window exceeded) | Yes | **No** |
+
+A rejected request says nothing about the provider's health, so one oversized prompt cannot open the primary's circuit and push every other user to the fallback for `recovery_timeout` seconds. The status is read from the exception's `status_code` (OpenAI and Anthropic SDK errors) or `response.status_code` (`httpx`); `promptise.fallback.is_request_error(exc)` shows the verdict.
+
+When every model fails, `FallbackChain` raises `RuntimeError` listing each model's error, with the last one as its `__cause__`.
+
+---
+
+## Tools
+
+`build_agent()` binds the agent's tools with `bind_tools()`, and `FallbackChain.bind_tools()` binds them to **every** model in the chain, so a fallback model can call tools too. Every model must support tool calling; one that doesn't is named in the `NotImplementedError`. The bound chain shares the original chain's circuit breakers, and `chain.model_name` / `chain.get_chain_status()` reflect the requests it served.
+
+Each answer records the model that wrote it in `AIMessage.response_metadata["fallback_model"]`.
+
+---
+
+## Streaming
+
+`FallbackChain` streams: `astream()`, `astream_events()` and `agent.astream_with_tools()` get the answer token by token from whichever model serves it.
+
+- A model that fails before its first chunk is skipped for the next, as with `ainvoke()`. `timeout_per_model` and `global_timeout` bound the wait for that first chunk.
+- Once a model has sent a chunk, the answer is committed to it. If its stream then fails, the error is raised (and counted toward its circuit breaker): the chunks already delivered cannot be taken back, so the chain does not splice another model's answer onto them.
+- A model in the chain that cannot stream answers in one chunk.
+
+---
+
+## With the Semantic Cache
+
+A [`SemanticCache`](cache.md) keys answers by the model that wrote them: an answer from a fallback model is stored under that model's id, and lookups use the first model whose circuit is not open. A fallback's answer is never served as the primary's.
 
 ---
 

@@ -19,6 +19,10 @@ Example::
     )
     # If OpenAI is down, Claude handles it. If both are down, local Llama.
 
+Tools work as with any chat model: ``build_agent()`` calls
+:meth:`FallbackChain.bind_tools`, which binds the tools to every model in
+the chain, so a fallback model can call them too.
+
 Example with per-model timeouts::
 
     agent = await build_agent(
@@ -34,23 +38,27 @@ Example with per-model timeouts::
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage
-from langchain_core.outputs import ChatResult
+from langchain_core.messages import AIMessageChunk, BaseMessage, BaseMessageChunk
+from langchain_core.messages.tool import tool_call_chunk
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+from langchain_core.runnables import Runnable, RunnableBinding
+from langchain_core.tools import BaseTool
 from pydantic import ConfigDict
 
 from .models import Model
 
 logger = logging.getLogger("promptise.fallback")
 
-__all__ = ["FallbackChain"]
+__all__ = ["FallbackChain", "is_request_error"]
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +128,16 @@ class FallbackChain(BaseChatModel):
 
     Passes through to ``build_agent(model=...)`` seamlessly — it's a
     ``BaseChatModel`` subclass, so LangChain treats it like any other model.
+    :meth:`bind_tools` binds tools to every model in the chain.
+
+    Each answer records the model that wrote it in
+    ``AIMessage.response_metadata["fallback_model"]``.
+
+    Every exception moves on to the next model, but a request the provider
+    rejects as invalid (HTTP 400/413/422, see :func:`is_request_error`)
+    does not count toward the circuit breaker.  Streaming falls back only
+    until the first chunk: after that the answer is committed to the model
+    that sent it, and a failure is raised.
 
     Args:
         models: Ordered list of model identifiers (strings like
@@ -155,6 +173,11 @@ class FallbackChain(BaseChatModel):
     _model_ids: list[str] = []
     _initialized: bool = False
     _last_serving_model: str = ""  # Tracks which model actually served the last request
+    # Per model: extra call kwargs from bind_tools() (a dict), or a bound
+    # Runnable when the model's binding is not a plain kwargs binding.
+    _bindings: list[Any] = []
+    # The chain a bind_tools() copy came from; it reports the serving model.
+    _root: Any = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -188,6 +211,8 @@ class FallbackChain(BaseChatModel):
         self._resolved = []
         self._circuits = []
         self._initialized = False
+        self._bindings = []
+        self._root = None
 
     def _ensure_resolved(self) -> None:
         """Lazily resolve model strings to BaseChatModel instances.
@@ -260,8 +285,9 @@ class FallbackChain(BaseChatModel):
         this is what observability and cache use.
         """
         self._ensure_resolved()
-        if self._last_serving_model:
-            return self._last_serving_model
+        root = self._root or self
+        if root._last_serving_model:
+            return str(root._last_serving_model)
         return self._model_ids[0] if self._model_ids else "fallback-chain"
 
     @property
@@ -272,6 +298,65 @@ class FallbackChain(BaseChatModel):
             if not circuit.should_skip():
                 return self._model_ids[i]
         return self._model_ids[0]  # All tripped — try primary anyway
+
+    def bind_tools(
+        self,
+        tools: Sequence[dict[str, Any] | type | Callable[..., Any] | BaseTool],
+        *,
+        tool_choice: str | None = None,
+        **kwargs: Any,
+    ) -> FallbackChain:
+        """Bind tools to every model in the chain.
+
+        Returns a copy of the chain whose models all have the tools bound.
+        The copy shares this chain's circuit breakers, so failures seen
+        while calling tools count toward the same thresholds, and
+        :attr:`model_name` / :meth:`get_chain_status` on this chain reflect
+        requests served through the copy.
+
+        Raises:
+            NotImplementedError: If a model in the chain cannot call tools.
+        """
+        self._ensure_resolved()
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
+        bindings: list[Any] = []
+        for model_id, model in zip(self._model_ids, self._resolved, strict=True):
+            try:
+                bound = model.bind_tools(tools, **kwargs)
+            except NotImplementedError as exc:
+                raise NotImplementedError(
+                    f"FallbackChain: model {model_id!r} does not support tool calling, "
+                    "so it cannot serve an agent with tools. Remove it from the chain "
+                    "or use a model that supports tools."
+                ) from exc
+            if isinstance(bound, RunnableBinding) and bound.bound is model:
+                bindings.append(dict(bound.kwargs))
+            else:
+                bindings.append(bound)
+        chain = self.model_copy()
+        chain._bindings = bindings
+        chain._root = self._root or self
+        return chain
+
+    def _mark_serving(self, index: int) -> None:
+        """Record that model ``index`` is answering the current request."""
+        model_id = self._model_ids[index]
+        (self._root or self)._last_serving_model = model_id
+        self._last_serving_model = model_id
+
+    def _served(self, index: int, result: ChatResult) -> ChatResult:
+        """Record that model ``index`` served ``result``; tag its messages."""
+        model_id = self._model_ids[index]
+        self._mark_serving(index)
+        for generation in result.generations:
+            message = getattr(generation, "message", None)
+            if message is not None:
+                message.response_metadata["fallback_model"] = model_id
+        return result
+
+    def _binding(self, index: int) -> Any:
+        return self._bindings[index] if self._bindings else {}
 
     def _generate(
         self,
@@ -296,29 +381,22 @@ class FallbackChain(BaseChatModel):
                 break
 
             try:
-                result = model._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+                binding = self._binding(i)
+                if isinstance(binding, Runnable):
+                    if stop is not None:
+                        kwargs = {**kwargs, "stop": stop}
+                    message = binding.invoke(messages, **kwargs)
+                    result = ChatResult(generations=[ChatGeneration(message=message)])
+                else:
+                    result = model._generate(
+                        messages, stop=stop, run_manager=run_manager, **{**binding, **kwargs}
+                    )
                 circuit.record_success()
-                self._last_serving_model = self._model_ids[i]
-                return result
+                return self._served(i, result)
             except Exception as exc:
-                errors.append((self._model_ids[i], exc))
-                circuit.record_failure()
-                logger.warning(
-                    "FallbackChain: %s failed (%s), trying next",
-                    self._model_ids[i],
-                    type(exc).__name__,
-                )
-                if self.on_fallback and i + 1 < len(self._resolved):
-                    try:
-                        self.on_fallback(self._model_ids[i], self._model_ids[i + 1], exc)
-                    except Exception:
-                        pass
+                self._attempt_failed(i, exc, errors)
 
-        detail = "\n".join(f"  {mid}: {type(err).__name__}: {err}" for mid, err in errors)
-        skipped = [self._model_ids[i] for i, c in enumerate(self._circuits) if c.state == "open"]
-        if skipped:
-            detail += f"\n  Skipped (circuit open): {', '.join(skipped)}"
-        raise RuntimeError(f"All {len(self._resolved)} models in FallbackChain failed.\n{detail}")
+        raise self._all_failed(errors)
 
     async def _agenerate(
         self,
@@ -352,34 +430,164 @@ class FallbackChain(BaseChatModel):
                 timeout = None  # No timeout
 
             try:
-                coro = model._agenerate(messages, stop=stop, run_manager=run_manager, **kwargs)
+                binding = self._binding(i)
+                if isinstance(binding, Runnable):
+                    coro = _ainvoke_as_result(binding, messages, stop, kwargs)
+                else:
+                    coro = model._agenerate(
+                        messages, stop=stop, run_manager=run_manager, **{**binding, **kwargs}
+                    )
                 if timeout:
                     result = await asyncio.wait_for(coro, timeout=timeout)
                 else:
                     result = await coro
                 circuit.record_success()
-                self._last_serving_model = self._model_ids[i]
-                return result
+                return self._served(i, result)
             except Exception as exc:
-                errors.append((self._model_ids[i], exc))
-                circuit.record_failure()
-                logger.warning(
-                    "FallbackChain: %s failed (%s: %s), trying next",
-                    self._model_ids[i],
-                    type(exc).__name__,
-                    str(exc)[:100],
-                )
-                if self.on_fallback and i + 1 < len(self._resolved):
-                    try:
-                        self.on_fallback(self._model_ids[i], self._model_ids[i + 1], exc)
-                    except Exception:
-                        pass
+                self._attempt_failed(i, exc, errors)
 
+        raise self._all_failed(errors)
+
+    async def _astream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        """Stream from the first model that starts answering.
+
+        A model that fails (or times out) before its first chunk is skipped
+        for the next, as in :meth:`_agenerate`.  Once a model has sent a
+        chunk the answer is committed to it: a failure after that is raised,
+        since the chunks already sent cannot be taken back.  With
+        ``timeout_per_model`` / ``global_timeout``, the timeout bounds the
+        wait for the first chunk.  A model that cannot stream answers in
+        one chunk.
+        """
+        self._ensure_resolved()
+
+        global_deadline = (
+            time.monotonic() + self.global_timeout if self.global_timeout > 0 else float("inf")
+        )
+        errors: list[tuple[str, Exception]] = []
+
+        for i, (model, circuit) in enumerate(zip(self._resolved, self._circuits, strict=False)):
+            if circuit.should_skip():
+                continue
+
+            remaining_global = global_deadline - time.monotonic()
+            if remaining_global <= 0:
+                break
+            if self.timeout_per_model > 0:
+                timeout: float | None = min(self.timeout_per_model, remaining_global)
+            elif remaining_global < float("inf"):
+                timeout = remaining_global
+            else:
+                timeout = None
+
+            stream = self._member_astream(i, model, messages, stop, kwargs)
+            try:
+                first = stream.__anext__()
+                chunk = await (asyncio.wait_for(first, timeout) if timeout else first)
+            except StopAsyncIteration:
+                circuit.record_success()
+                self._mark_serving(i)
+                return
+            except Exception as exc:
+                await _aclose_quietly(stream)
+                self._attempt_failed(i, exc, errors)
+                continue
+
+            # Committed: from here on the caller has this model's output.
+            self._mark_serving(i)
+            chunk.message.response_metadata["fallback_model"] = self._model_ids[i]
+            yield chunk
+            try:
+                async for chunk in stream:
+                    yield chunk
+            except Exception as exc:
+                if not is_request_error(exc):
+                    circuit.record_failure()
+                raise
+            circuit.record_success()
+            return
+
+        raise self._all_failed(errors)
+
+    async def _member_astream(
+        self,
+        index: int,
+        model: BaseChatModel,
+        messages: list[BaseMessage],
+        stop: list[str] | None,
+        kwargs: dict[str, Any],
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        """Stream one chain member's answer as generation chunks."""
+        binding = self._binding(index)
+        if isinstance(binding, Runnable):
+            call_kwargs = {**kwargs, "stop": stop} if stop is not None else kwargs
+            async for message in binding.astream(messages, **call_kwargs):
+                yield ChatGenerationChunk(message=_as_chunk(message))
+            return
+        call_kwargs = {**binding, **kwargs}
+        if _can_stream(model):
+            # No run_manager: the chain's own run reports each token once.
+            async for chunk in model._astream(messages, stop=stop, **call_kwargs):
+                yield chunk
+            return
+        result = await model._agenerate(messages, stop=stop, **call_kwargs)
+        for generation in result.generations:
+            yield ChatGenerationChunk(
+                message=_as_chunk(generation.message),
+                generation_info=generation.generation_info,
+            )
+
+    def _attempt_failed(
+        self, index: int, exc: Exception, errors: list[tuple[str, Exception]]
+    ) -> None:
+        """Record a failed attempt and tell ``on_fallback``.
+
+        Every exception moves on to the next model.  Only failures that say
+        something about the provider's health count toward its circuit
+        breaker; a request the provider rejected as invalid
+        (:func:`is_request_error`) does not, so one oversized or malformed
+        request cannot take a healthy model out of rotation for everyone.
+        """
+        model_id = self._model_ids[index]
+        errors.append((model_id, exc))
+        if is_request_error(exc):
+            logger.warning(
+                "FallbackChain: %s rejected the request (%s: %s), trying next "
+                "(not counted toward its circuit breaker)",
+                model_id,
+                type(exc).__name__,
+                str(exc)[:100],
+            )
+        else:
+            self._circuits[index].record_failure()
+            logger.warning(
+                "FallbackChain: %s failed (%s: %s), trying next",
+                model_id,
+                type(exc).__name__,
+                str(exc)[:100],
+            )
+        if self.on_fallback and index + 1 < len(self._resolved):
+            try:
+                self.on_fallback(model_id, self._model_ids[index + 1], exc)
+            except Exception:
+                pass
+
+    def _all_failed(self, errors: list[tuple[str, Exception]]) -> RuntimeError:
+        """The error raised when no model could answer, chained to the last failure."""
         detail = "\n".join(f"  {mid}: {type(err).__name__}: {err}" for mid, err in errors)
         skipped = [self._model_ids[i] for i, c in enumerate(self._circuits) if c.state == "open"]
         if skipped:
             detail += f"\n  Skipped (circuit open): {', '.join(skipped)}"
-        raise RuntimeError(f"All {len(self._resolved)} models in FallbackChain failed.\n{detail}")
+        error = RuntimeError(f"All {len(self._resolved)} models in FallbackChain failed.\n{detail}")
+        if errors:
+            error.__cause__ = errors[-1][1]
+        return error
 
     def get_chain_status(self) -> list[dict[str, Any]]:
         """Get the health status of each model in the chain.
@@ -398,3 +606,78 @@ class FallbackChain(BaseChatModel):
             }
             for i, circuit in enumerate(self._circuits)
         ]
+
+
+# HTTP statuses with which a provider rejects the request itself (malformed,
+# too large, unprocessable) rather than failing to serve it.
+_REQUEST_ERROR_STATUSES = frozenset({400, 413, 422})
+
+
+def is_request_error(exc: BaseException) -> bool:
+    """Whether ``exc`` is a provider rejecting the request as invalid.
+
+    True for errors carrying HTTP status 400, 413 or 422 (on the exception's
+    ``status_code``, as the OpenAI and Anthropic SDKs set it, or on its
+    ``response``).  Such errors still fall back to the next model -- it may
+    accept the request, for example with a larger context window -- but
+    they do not count toward the model's circuit breaker.  Timeouts,
+    connection errors, rate limits (429), server errors (5xx) and
+    authentication errors (401/403) do.
+    """
+    status = getattr(exc, "status_code", None)
+    if not isinstance(status, int):
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+    return isinstance(status, int) and status in _REQUEST_ERROR_STATUSES
+
+
+def _can_stream(model: BaseChatModel) -> bool:
+    """Whether the model implements streaming itself."""
+    return (
+        type(model)._astream is not BaseChatModel._astream
+        or type(model)._stream is not BaseChatModel._stream
+    )
+
+
+def _as_chunk(message: Any) -> BaseMessageChunk:
+    """An answer message as a streaming chunk (tool calls included)."""
+    if isinstance(message, BaseMessageChunk):
+        return message
+    tool_call_chunks = [
+        tool_call_chunk(
+            name=call.get("name"),
+            args=json.dumps(call.get("args") or {}),
+            id=call.get("id"),
+            index=n,
+        )
+        for n, call in enumerate(getattr(message, "tool_calls", None) or [])
+    ]
+    return AIMessageChunk(
+        content=message.content,
+        additional_kwargs=dict(message.additional_kwargs),
+        response_metadata=dict(message.response_metadata),
+        id=message.id,
+        usage_metadata=getattr(message, "usage_metadata", None),
+        tool_call_chunks=tool_call_chunks,
+    )
+
+
+async def _aclose_quietly(stream: AsyncIterator[Any]) -> None:
+    aclose = getattr(stream, "aclose", None)
+    if aclose is not None:
+        try:
+            await aclose()
+        except Exception:
+            pass
+
+
+async def _ainvoke_as_result(
+    runnable: Runnable[Any, Any],
+    messages: list[BaseMessage],
+    stop: list[str] | None,
+    kwargs: dict[str, Any],
+) -> ChatResult:
+    """Call a bound model that is not a plain kwargs binding."""
+    if stop is not None:
+        kwargs = {**kwargs, "stop": stop}
+    message = await runnable.ainvoke(messages, **kwargs)
+    return ChatResult(generations=[ChatGeneration(message=message)])
