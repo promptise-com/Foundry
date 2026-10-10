@@ -237,9 +237,19 @@ ROUTES: dict[str, tuple[Route, ...]] = {
   a route could never be reached. `register(server, upstream)` declares the
   tools with `@server.tool(...)` and the MCP annotation hints
   (`read_only_hint`, `destructive_hint`, `requires_approval`).
+  `PARAM_SCHEMAS` holds the JSON Schema each parameter advertises in
+  `tools/list`, taken from the spec and applied with `@advertise(...)`: enums,
+  patterns, bounds, lengths, formats, defaults, nullability (`nullable: true`
+  becomes a `"null"` type), `oneOf`/`anyOf` unions, nested objects with their
+  own `required` lists, and descriptions. `readOnly` properties (an `id`, a
+  timestamp) are not inputs and are left out. The handler's annotation keeps
+  the base type the server validates (`str`, `int`, `dict[str, Any]`); the API
+  stays the authority on the rest and rejects what breaks it.
 - **`upstream.py`** — `Upstream.call` builds the HTTP request: path values
   must be a single real segment (an empty value or `..` is rejected rather
-  than reaching a neighbouring endpoint), `None` optionals are omitted, form
+  than reaching a neighbouring endpoint), `None` optionals are omitted (a
+  required body property the spec marks nullable is the exception: its
+  `None` is the caller's explicit `null` and is sent as `null`), form
   bodies and `deepObject` query values are bracket-encoded, and every failure
   comes back as a structured error the agent can act on
   (`UPSTREAM_AUTH_MISSING`, `UPSTREAM_TIMEOUT`, `UPSTREAM_UNREACHABLE`, `UPSTREAM_ERROR` with the
@@ -579,8 +589,9 @@ MCPCAST_UPSTREAM_TOKEN="Bearer demo-token" promptise mcpcast bookshelf-mcp/mcpca
 ```text
 Evaluating with openai:gpt-5-mini (12 tasks)…
 Agent Readiness: A  (11/12 tasks succeeded)
-  ✗ `find_books` called the API with identifiers it does not recognise — the example in the plan
-    teaches both the task writer and the agent, so replace those example values with ones that exist
+  ✗ `find_books` (task t2: book_id=42) called the API with identifiers from the plan's example that
+    it does not recognise — the example teaches both the task writer and the agent, so replace those
+    example values with ones that exist
 ```
 
 The one failure, from `eval/report.md`:
@@ -595,6 +606,20 @@ called `GET /books/42`, the API said 404. An invented identifier in an
 example is exactly the kind of thing that reads fine and fails in
 production — and it took the evaluation ten seconds to find. The fix is the
 example in the plan; then regenerate and re-score.
+
+A "not found" is only blamed on the plan when the identifier came from one of
+its examples. When the task itself made the identifier up, or it came from a
+mocked write's reply (writes are mocked, so the id they return exists
+nowhere), the report says so with a `•` note and nothing to change; when it
+came from nowhere at all, the agent guessed it, and the fix is a description
+that says where such identifiers come from.
+
+A tool whose parameter schemas are too large to list in full — a page-long
+body schema, an enum of thousands of entries — advertises a trimmed schema
+(nested descriptions first, then nested structure, then the enum go) and is
+named both in the review and in the report (*"• `lookup_code` advertises a
+trimmed input schema — …"*). Hide or split parameters, or shorten the schema
+in the plan.
 
 The score varies between runs — treat it as a floor to assert in CI, not a
 number to chase:

@@ -1034,13 +1034,17 @@ def _collect_params_resolved(
             location = loc
         else:
             continue
-        schema = _mapping(_deref(p.get("schema") or _swagger2_param_schema(p), spec), where)
+        raw = p.get("schema") or _pick_media(p.get("content"))[1] or _swagger2_param_schema(p)
+        schema = dict(_mapping(_deref(raw, spec), where))
+        if "example" in p and not ({"example", "examples"} & set(schema)):
+            # OpenAPI 3 lets the example sit on the parameter instead of its schema.
+            schema["example"] = p["example"]
         params.append(
             ParamSpec(
                 name=name,
                 location=location,  # type: ignore[arg-type]
                 required=bool(p.get("required", False)) or loc == "path",
-                json_schema=dict(schema),
+                json_schema=schema,
                 # A description may sit on the parameter or inside its schema
                 # (pydantic Field(description=...) lands in the schema).
                 description=str(p.get("description") or schema.get("description") or "").strip(),
@@ -1140,10 +1144,13 @@ def _body_params(
                 name=name,
                 location="body",
                 required=name in required,
-                json_schema=dict(prop),
+                json_schema=_request_shape(prop),
                 description=str(prop.get("description") or "").strip(),
             )
             for name, prop in resolved.items()
+            # The server sets a readOnly property (an id, a timestamp); a request
+            # never carries it, and its ``required`` only binds responses.
+            if prop.get("readOnly") is not True
         ]
     if schema:
         return [
@@ -1151,18 +1158,67 @@ def _body_params(
                 name="body",
                 location="raw_body",
                 required=body_required,
-                json_schema=dict(schema),
+                json_schema=_request_shape(schema),
                 description=str(schema.get("description") or "Request body").strip(),
             )
         ]
     return []
 
 
+def _request_shape(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """*schema* as a request sends it: nested ``readOnly`` properties left out.
+
+    Data (``example``, ``default``, ``enum``…) is copied as written.
+    """
+    out: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key in _DATA_KEYS or not isinstance(value, (dict, list)):
+            out[key] = value
+        elif key in _NAMED_SCHEMA_MAPS and isinstance(value, dict):
+            out[key] = {
+                n: _request_shape(s) if isinstance(s, Mapping) else s
+                for n, s in value.items()
+                if not (
+                    key == "properties" and isinstance(s, Mapping) and s.get("readOnly") is True
+                )
+            }
+        elif isinstance(value, list):
+            out[key] = [_request_shape(v) if isinstance(v, Mapping) else v for v in value]
+        else:
+            out[key] = _request_shape(value)
+    properties = schema.get("properties")
+    if isinstance(properties, Mapping) and isinstance(out.get("required"), list):
+        dropped = {
+            n for n, s in properties.items() if isinstance(s, Mapping) and s.get("readOnly") is True
+        }
+        out["required"] = [r for r in out["required"] if r not in dropped]
+    return out
+
+
+_SWAGGER2_SCHEMA_KEYS = (
+    "type",
+    "format",
+    "enum",
+    "default",
+    "items",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+    "minLength",
+    "maxLength",
+    "pattern",
+    "minItems",
+    "maxItems",
+    "uniqueItems",
+    "x-nullable",
+)
+"""The JSON Schema keywords a Swagger 2 parameter carries on itself (no ``schema``)."""
+
+
 def _swagger2_param_schema(param: Mapping[str, Any]) -> dict[str, Any]:
-    schema: dict[str, Any] = {}
-    for key in ("type", "format", "enum", "default", "items", "minimum", "maximum", "pattern"):
-        if key in param:
-            schema[key] = param[key]
+    schema = {key: param[key] for key in _SWAGGER2_SCHEMA_KEYS if key in param}
     return schema or {"type": "string"}
 
 

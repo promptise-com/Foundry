@@ -32,6 +32,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ._llm import Completer, completer_for, extract_json_object, final_text
+from .emit import trimmed_schemas
 from .parse import Operation
 from .plan import example_value
 from .schema import AuthMode, MCPcastError, MCPcastPlan, RiskClass
@@ -825,6 +826,16 @@ def score(
         fixes.append(
             f"• {len(not_covered)} tool{'s' if len(not_covered) != 1 else ''} not covered by any "
             f"task: {listed}{more} — raise --eval-tasks to score them"
+        )
+    trimmed = trimmed_schemas(plan)
+    if trimmed:
+        listed = ", ".join(f"`{n}`" for n in trimmed[:8])
+        more = f" (+{len(trimmed) - 8} more)" if len(trimmed) > 8 else ""
+        fixes.append(
+            f"• {listed}{more} advertise{'s' if len(trimmed) == 1 else ''} a trimmed input "
+            "schema — the spec's schema is too large for one tools/list entry, so nested "
+            "descriptions, nested structure or a long enum were cut and the agent sees less "
+            "than the API accepts: hide or split parameters, or shorten the schema in the plan"
         )
     for tool in plan.tools:
         if not tool.example and tool.visible_params:
