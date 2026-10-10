@@ -25,7 +25,12 @@ agent = await build_agent(
 )
 ```
 
-Input is scanned **before** it reaches the agent. Output is scanned **after** the agent responds. Injection attacks are blocked. PII and credentials are redacted. The user never sees leaked data. The agent never sees injected instructions.
+Input is scanned **before** it reaches the agent. Output is scanned **after** the agent responds. Injection attacks are blocked. PII and credentials in the agent's output are redacted, so the user never sees leaked data; on input they are logged as warnings unless you set [`redact_input=True`](#input-redaction). Tool results can be scanned too, for injection planted in web pages, emails or tickets ([`scan_tool_results=True`](#scanning-tool-results)).
+
+`build_agent(guardrails=True)` is shorthand for `guardrails=PromptiseSecurityScanner.default()`.
+
+!!! warning "Guardrails fail closed"
+    If a detector cannot run (its library is not installed, its model fails to load, Ollama or Azure is unreachable), the scan **blocks** with a `scanner_unavailable` finding instead of letting the text through unchecked. `PromptiseSecurityScanner.default()` and `guardrails=True` use the injection model, so they need `transformers` and `torch` (`pip install "promptise[all]"`). See [Failure handling](#failure-handling).
 
 ---
 
@@ -35,10 +40,10 @@ The scanner is built from composable **detectors**. Each detector is a self-cont
 
 | Detector | What It Detects | Method | Size |
 |----------|----------------|--------|------|
-| `InjectionDetector` | Prompt injection, jailbreaks, system prompt extraction | Local DeBERTa transformer model | 260 MB |
+| `InjectionDetector` | Prompt injection, jailbreaks, system prompt extraction | Local DeBERTa transformer model | ~750 MB |
 | `PIIDetector` | Credit cards, SSNs, government IDs (22+ countries), emails, phones, medical records | 69 regex patterns + Luhn validation | 0 MB |
 | `CredentialDetector` | API keys for 60+ services, database URLs, private keys, tokens | 96 regex patterns (gitleaks/trufflehog) | 0 MB |
-| `NERDetector` | Person names, physical addresses, organizations | GLiNER zero-shot NER model | ~200 MB |
+| `NERDetector` | Person names, physical addresses, organizations | GLiNER zero-shot NER model (`pip install gliner`) | ~500 MB |
 | `ContentSafetyDetector` | 13 harm categories: violence, hate, self-harm, sexual content, weapons, elections, etc. | Llama Guard (local) or Azure AI Content Safety (cloud) | 4.9 GB local |
 | `CustomRule` | Anything you define | Your regex pattern | 0 MB |
 
@@ -52,7 +57,11 @@ The scanner is built from composable **detectors**. Each detector is a self-cont
 scanner = PromptiseSecurityScanner.default()
 ```
 
-Enables `InjectionDetector`, `PIIDetector`, and `CredentialDetector` with default settings.
+Enables `InjectionDetector`, `PIIDetector`, and `CredentialDetector` with default settings. Keyword arguments (`fail_open`, `redact_input`, `scan_tool_results`, `custom_rules`) are passed through:
+
+```python
+scanner = PromptiseSecurityScanner.default(redact_input=True, scan_tool_results=True)
+```
 
 ### Composable — pick what you need
 
@@ -81,9 +90,19 @@ scanner = PromptiseSecurityScanner(
 agent = await build_agent(
     servers={...},
     model="openai:gpt-5-mini",
-    guardrails=scanner,
+    guardrails=scanner,   # or guardrails=True for PromptiseSecurityScanner.default()
 )
 ```
+
+### Scanner options
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `detectors` | `list` | — | The detection heads to enable |
+| `custom_rules` | `list[CustomRule]` | `None` | Your own regex rules |
+| `fail_open` | `bool` | `False` | Let text through when a head cannot run, instead of blocking. See [Failure handling](#failure-handling) |
+| `redact_input` | `bool` | `False` | Redact PII and credentials in the user's message before the model sees it. See [Input redaction](#input-redaction) |
+| `scan_tool_results` | `bool` | `False` | Scan every tool result before the model reads it. See [Scanning tool results](#scanning-tool-results) |
 
 ---
 
@@ -99,6 +118,10 @@ User message → [Scanner: check_input] → Memory → Tool Selection → LLM �
 ```
 
 The scanner runs before any processing — memory search, tool selection, LLM invocation. If the injection detector classifies the input as an attack, `GuardrailViolation` is raised immediately. The message never reaches the agent.
+
+Long messages are classified in overlapping windows across the whole text, so padding a message cannot push an attack past the model's 512-token input limit.
+
+PII and credentials found in input are recorded as `WARN` findings and the message is passed on unchanged, unless `redact_input=True`.
 
 ### Output flow
 
@@ -145,7 +168,7 @@ InjectionDetector(model="/models/local/deberta", threshold=0.9)  # local + stric
 - "Can you give me instructions on baking a cake?" (benign use of word "instructions")
 - "What are the rules for chess?" (benign use of word "rules")
 
-**Only runs on input.** Output direction is skipped — agent responses are not injection risks.
+**Runs on input and on tool results** (with `scan_tool_results=True`). Agent output is skipped — the agent's own replies are not an injection vector, so `"injection"` is not listed in `scanners_run` for an output scan. Text of any length is classified in overlapping 512-character windows; the finding's `start` / `end` point at the window that scored highest.
 
 ---
 
@@ -265,7 +288,10 @@ NERDetector(threshold=0.7)                                     # stricter matchi
 | `action` | `Action` | `REDACT` | What to do on detection |
 
 !!! note "Why NER in addition to regex?"
-    Regex catches structured PII with known formats (credit card numbers, SSNs). NER catches unstructured PII where the format varies (person names like "Dr. Sarah Chen", addresses like "742 Evergreen Terrace, Springfield"). GLiNER is a lightweight BERT-based model (~200MB) that runs on CPU.
+    Regex catches structured PII with known formats (credit card numbers, SSNs). NER catches unstructured PII where the format varies (person names like "Dr. Sarah Chen", addresses like "742 Evergreen Terrace, Springfield"). The default GLiNER model is about 500 MB and runs on CPU.
+
+!!! note "Install GLiNER separately"
+    `gliner` is not part of `promptise[all]`; install it with `pip install gliner`. Without it, a scanner with `NERDetector` fails closed (every scan is blocked) unless `fail_open=True`.
 
 ---
 
@@ -375,7 +401,7 @@ Zero model downloads. Sub-millisecond scans. Only detects structured patterns.
 scanner = PromptiseSecurityScanner.default()
 ```
 
-Injection model (~260MB, downloaded once), plus all PII and credential regex patterns.
+Injection model (~750 MB, downloaded once), plus all PII and credential regex patterns.
 
 ### Enterprise — all heads
 
@@ -409,6 +435,8 @@ Models download from HuggingFace on first use and cache at `~/.cache/huggingface
 scanner = PromptiseSecurityScanner.default()
 scanner.warmup()  # Force download + load now (not on first message)
 ```
+
+`warmup()` also fails fast: a missing library or model, or an unreachable Ollama for `ContentSafetyDetector`, raises there — whatever `fail_open` says — instead of on the first request.
 
 ### Swap models
 
@@ -449,14 +477,15 @@ No internet access needed. Models load from disk. Works in air-gapped data cente
 Every scan returns a detailed `ScanReport` with full analysis results.
 
 ```python
-report = await scanner.scan_text("My card is 4532015112830366")
+report = await scanner.scan_text("My card is 4532015112830366", direction="output")
 
-report.passed          # False
-report.findings        # [SecurityFinding(...)]
-report.duration_ms     # 1.23
-report.scanners_run    # ["injection", "pii", "credential"]
-report.text_length     # 28
-report.redacted_text   # "My card is [CREDIT_CARD_VISA]"
+report.passed            # True — REDACT findings don't fail a scan, only BLOCK ones do
+report.findings          # [SecurityFinding(category="credit_card_visa", action=REDACT, ...)]
+report.duration_ms       # 1.23
+report.scanners_run      # ["pii", "credential"] — injection skips output
+report.scanners_skipped  # {} — heads that could not run, with the reason
+report.text_length       # 27
+report.redacted_text     # "My card is [CREDIT_CARD_VISA]"
 
 # Caller attribution (snapshotted at scan time)
 report.user_id         # "alice" — from CallerContext.user_id
@@ -469,9 +498,11 @@ report.redacted        # findings with action=REDACT
 report.warnings        # findings with action=WARN
 ```
 
+`direction` is `"input"` (the default), `"output"` or `"tool"` (a tool result). On input the same card number is a `WARN` finding: the report passes and `redacted_text` is `None`, unless the scanner has `redact_input=True`.
+
 ### Multi-user attribution
 
-`scan_text` / `scan_input` / `scan_output` snapshot the current `CallerContext` at invocation time. The `ScanReport` holds those values directly, so audit logs can attribute findings to the right tenant even after the contextvar has been reset:
+`scan_text` (and `check_input` / `check_output` / `check_tool_result`, which call it) snapshots the current `CallerContext` at invocation time. The `ScanReport` holds those values directly, so audit logs can attribute findings to the right tenant even after the contextvar has been reset:
 
 ```python
 from promptise.agent import CallerContext, _caller_ctx_var
@@ -497,7 +528,7 @@ Each finding contains full detection details:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `detector` | `str` | Which head found this: `"injection"`, `"pii"`, `"credential"`, `"custom"` |
+| `detector` | `str` | Which head found this: `"injection"`, `"pii"`, `"credential"`, `"ner"`, `"content_safety"`, `"toxicity"`, `"custom"` |
 | `category` | `str` | Specific type: `"credit_card_visa"`, `"ssn"`, `"aws_access_key"` |
 | `severity` | `Severity` | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
 | `confidence` | `float` | Model confidence (0.0-1.0) or 1.0 for regex matches |
@@ -511,7 +542,7 @@ Each finding contains full detection details:
 
 ## Guard Protocol
 
-`PromptiseSecurityScanner` implements the Guard protocol (`check_input` / `check_output`), so it works with both `build_agent(guardrails=...)` and the `@guard()` decorator on prompts.
+`PromptiseSecurityScanner` implements the Guard protocol (`check_input` / `check_output`, plus `check_tool_result` for tool results), so it works with both `build_agent(guardrails=...)` and the `@guard()` decorator on prompts.
 
 ```python
 # Agent-level (recommended)
@@ -544,7 +575,63 @@ except GuardrailViolation as v:
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `report` | `ScanReport` | Full scan report with all findings |
-| `direction` | `str` | `"input"` or `"output"` |
+| `direction` | `str` | `"input"`, `"output"` or `"tool"` |
+
+---
+
+## Failure handling
+
+The ML and service-backed heads (`InjectionDetector`, toxicity, `NERDetector`, `ContentSafetyDetector`) can fail to run: `transformers` or `gliner` is not installed, a model fails to load or runs out of memory, Ollama is not running, Azure rejects the request. By default the scanner **fails closed**:
+
+- the head is listed in `report.scanners_skipped` (with the reason), never in `scanners_run`;
+- a `CRITICAL` `BLOCK` finding with category `scanner_unavailable` is added, so the scan fails and `check_input` / `check_output` raise `GuardrailViolation`.
+
+```python
+scanner = PromptiseSecurityScanner.default()   # transformers not installed
+report = await scanner.scan_text("What time is it?")
+report.passed            # False
+report.scanners_skipped  # {"injection": "ImportError: transformers and torch are required ..."}
+report.blocked[0].category  # "scanner_unavailable"
+```
+
+If you would rather keep serving traffic without a head, opt in to failing open. The head is still reported in `scanners_skipped`, and a warning is logged on every scan:
+
+```python
+scanner = PromptiseSecurityScanner.default(fail_open=True)
+```
+
+Call `scanner.warmup()` at startup either way: it loads every model and checks Ollama, and raises if anything is missing.
+
+---
+
+## Input redaction
+
+By default, PII and credentials in the **user's message** are `WARN` findings: they are logged and the message reaches the model unchanged. Set `redact_input=True` to apply each detector's action to input as well. `check_input` then returns the redacted text, and the agent sends that to the model — and stores it in conversation history — instead of the original:
+
+```python
+scanner = PromptiseSecurityScanner.default(redact_input=True)
+await scanner.check_input("Email me at maria.keller@example.com")
+# "Email me at [EMAIL]"
+```
+
+A custom guard can do the same: whatever string `check_input` returns replaces the user's message. Only plain-text messages are rewritten; multimodal content is scanned but sent unchanged.
+
+---
+
+## Scanning tool results
+
+A tool result is where *indirect* prompt injection arrives: a web page, an email or a support ticket carrying instructions for the model. Set `scan_tool_results=True` and `build_agent` wraps every tool so its result goes through `check_tool_result()` before the model reads it:
+
+```python
+scanner = PromptiseSecurityScanner.default(scan_tool_results=True)
+agent = await build_agent(servers={...}, model="openai:gpt-5-mini", guardrails=scanner)
+```
+
+- Every enabled head runs on the result, the injection model included.
+- PII and credentials get their configured action (as on output), so a secret a tool returns is redacted before the model or `result["messages"]` holds it.
+- A blocked result is replaced with a short `[Tool result withheld by guardrails: ...]` notice the model can see; the raw result is dropped. A `guardrail.blocked` event is emitted with `direction="tool"`.
+
+It is off by default because it adds a model pass to every tool call. A custom guard that sets `scan_tool_results = True` must implement `async check_tool_result(tool_name, result) -> str`.
 
 ---
 

@@ -30,6 +30,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from langchain_core.callbacks import CallbackManager
+from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables.config import patch_config
+from langchain_core.tools import BaseTool
+from pydantic import PrivateAttr
+
 logger = logging.getLogger("promptise.guardrails")
 
 __all__ = [
@@ -51,6 +57,8 @@ __all__ = [
     "Severity",
     "Action",
     "GuardrailViolation",
+    # Agent integration
+    "wrap_tools_with_guardrails",
 ]
 
 
@@ -322,6 +330,12 @@ class ScanReport:
         caller_roles: The caller's roles at scan time, captured so that
             downstream audit log entries can rationalize the decision
             even after the caller context has moved on.
+        scanners_skipped: Detection heads that were enabled but could not
+            run, mapped to the reason (``transformers`` missing, model
+            failed to load, Ollama unreachable, ...).  A skipped head is
+            never listed in ``scanners_run``.  With ``fail_open=False``
+            (the default) each skipped head also adds a ``BLOCK`` finding,
+            so the scan fails.
     """
 
     passed: bool
@@ -333,6 +347,7 @@ class ScanReport:
     user_id: str | None = None
     session_id: str | None = None
     caller_roles: tuple[str, ...] = field(default_factory=tuple)
+    scanners_skipped: dict[str, str] = field(default_factory=dict)
 
     @property
     def blocked(self) -> list[SecurityFinding]:
@@ -355,7 +370,7 @@ class GuardrailViolation(Exception):
 
     Attributes:
         report: The full scan report.
-        direction: Whether this was an input or output scan.
+        direction: ``"input"``, ``"output"`` or ``"tool"`` (a tool result).
     """
 
     def __init__(self, report: ScanReport, direction: str = "input") -> None:
@@ -888,13 +903,13 @@ _pii(
     "National Drug Code (NDC)",
     group="drug_code",
 )
-# Blood type — contextual: a bare "A-" or "B+" is far more often an ID prefix
-# ("A-1001") or a grade than a blood type, so require "blood type/group".
+# Contextual: a bare "A-" or "O+" is far more often an ID prefix ("order
+# A-1001") or a grade than a blood type, so the keyword is required.
 _pii(
     "blood_type",
     "medical",
-    r"(?i)\bblood[\s_-]*(?:type|group)\s*(?:is\s+)?[:=]?\s*(?:AB|A|B|O)\s?"
-    r"(?:[+-]|(?:Rh\s*)?(?:pos|neg)(?:itive|ative)?\b)(?![\w+-])",
+    r"(?i)\bblood[\s_-]*(?:type|group)\s*(?:is\s+)?[:=,]?\s*(?:AB|A|B|O)\s?"
+    r"(?:[+-](?![\w+-])|(?:Rh\s*)?(?:pos(?:itive)?|neg(?:ative)?)\b)",
     Severity.LOW,
     "Blood type (contextual)",
     group="blood_type",
@@ -1853,6 +1868,47 @@ def _load_classifier(model_name: str) -> Any:
 _DEFAULT_INJECTION_MODEL = "protectai/deberta-v3-base-prompt-injection-v2"
 _DEFAULT_TOXICITY_MODEL = "unitary/toxic-bert"
 
+# Classifier window, in characters.  The models read at most 512 tokens, so
+# long text is scanned as overlapping windows rather than cut off.  512
+# characters stays well inside the token limit for ordinary text, and the
+# 256-character overlap means any span up to 256 characters long (a whole
+# injected instruction, say) lands intact in at least one window.
+_CLASSIFIER_WINDOW = 512
+_CLASSIFIER_STRIDE = 256
+# GLiNER truncates its input at about 384 words, and Llama Guard / Azure
+# take a few thousand characters per request.
+_NER_WINDOW, _NER_STRIDE = 1500, 1200
+_SAFETY_LOCAL_WINDOW, _SAFETY_LOCAL_STRIDE = 4000, 3500
+_SAFETY_AZURE_WINDOW, _SAFETY_AZURE_STRIDE = 10000, 9000
+
+
+def _windows(text: str, size: int, stride: int) -> list[tuple[int, str]]:
+    """Split *text* into ``(offset, chunk)`` windows that cover all of it.
+
+    Consecutive windows overlap by ``size - stride`` characters.  Text no
+    longer than *size* is a single window.
+    """
+    if len(text) <= size:
+        return [(0, text)]
+    windows: list[tuple[int, str]] = []
+    start = 0
+    while True:
+        windows.append((start, text[start : start + size]))
+        if start + size >= len(text):
+            return windows
+        start += stride
+
+
+def _top_prediction(item: Any) -> dict[str, Any]:
+    """Return the top ``{label, score}`` dict from one pipeline result.
+
+    A pipeline called on a list returns one dict per input, or one list of
+    dicts per input when ``top_k`` is set.
+    """
+    if isinstance(item, list):
+        return item[0] if item else {}
+    return item if isinstance(item, dict) else {}
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # Detector classes — composable detection heads
@@ -2012,29 +2068,72 @@ class ContentSafetyDetector:
         "S13": "Elections",
     }
 
+    _OLLAMA_URL = "http://localhost:11434"
+    _OLLAMA_MODEL = "llama-guard3"
+
     async def scan(self, text: str) -> list[dict[str, Any]]:
         """Scan text for content safety violations.
 
+        Long text is checked in overlapping windows, so content past the
+        provider's per-request limit is scanned too.
+
         Returns:
             List of dicts with ``category``, ``label``, ``confidence``.
+
+        Raises:
+            Exception: When the provider cannot be reached or answers with
+                an error.  The scanner turns this into a blocked scan
+                (or a skipped one with ``fail_open=True``); it never
+                reads as "safe".
         """
         if self.provider == "azure":
-            return await self._scan_azure(text)
-        return await self._scan_local(text)
+            size, stride, scan_one = _SAFETY_AZURE_WINDOW, _SAFETY_AZURE_STRIDE, self._scan_azure
+        else:
+            size, stride, scan_one = _SAFETY_LOCAL_WINDOW, _SAFETY_LOCAL_STRIDE, self._scan_local
+        merged: dict[str, dict[str, Any]] = {}
+        for _, chunk in _windows(text, size, stride):
+            for found in await scan_one(chunk):
+                seen = merged.get(found["category"])
+                if seen is None or found["confidence"] > seen["confidence"]:
+                    merged[found["category"]] = found
+        return list(merged.values())
+
+    def check_ready(self) -> None:
+        """Verify the provider is usable now; raise if it is not.
+
+        Called by :meth:`PromptiseSecurityScanner.warmup`.  For the local
+        provider this asks Ollama whether ``llama-guard3`` is pulled; for
+        Azure it checks that the endpoint and key are configured.
+        """
+        if self.provider == "azure":
+            self._azure_credentials()
+            return
+        import httpx
+
+        try:
+            resp = httpx.get(f"{self._OLLAMA_URL}/api/tags", timeout=5)
+            resp.raise_for_status()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Content safety needs Ollama at {self._OLLAMA_URL}, which is unreachable: {exc}"
+            ) from exc
+        names = [m.get("name", "") for m in resp.json().get("models", [])]
+        if not any(n.split(":")[0] == self._OLLAMA_MODEL for n in names):
+            raise RuntimeError(
+                f"Ollama is running but {self._OLLAMA_MODEL!r} is not pulled: "
+                f"run `ollama pull {self._OLLAMA_MODEL}`"
+            )
 
     async def _scan_local(self, text: str) -> list[dict[str, Any]]:
-        """Scan using Llama Guard via Ollama."""
-        try:
-            import httpx
-        except ImportError:
-            raise ImportError("httpx required for local content safety: pip install httpx")
+        """Scan one window using Llama Guard via Ollama."""
+        import httpx
 
         prompt = (
             "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n"
             "Task: Check if there is unsafe content in 'User' messages "
             "in conversations according to our safety policy.\n\n"
             "<BEGIN CONVERSATION>\n"
-            f"User: {text[:4000]}\n"
+            f"User: {text}\n"
             "<END CONVERSATION>\n\n"
             "Provide your safety assessment for the user message. "
             "First line must read 'safe' or 'unsafe'. "
@@ -2046,9 +2145,9 @@ class ContentSafetyDetector:
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
-                    "http://localhost:11434/api/generate",
+                    f"{self._OLLAMA_URL}/api/generate",
                     json={
-                        "model": "llama-guard3",
+                        "model": self._OLLAMA_MODEL,
                         "prompt": prompt,
                         "stream": False,
                         "options": {"temperature": 0.0, "num_predict": 100},
@@ -2056,18 +2155,15 @@ class ContentSafetyDetector:
                 )
                 resp.raise_for_status()
                 response_text = resp.json().get("response", "").strip()
-        except Exception as exc:
-            logger.warning("Content safety local scan failed: %s", exc)
-            return []
+        except httpx.TransportError as exc:
+            raise RuntimeError(f"Ollama at {self._OLLAMA_URL} is unreachable: {exc}") from exc
 
         return self._parse_response(response_text)
 
-    async def _scan_azure(self, text: str) -> list[dict[str, Any]]:
-        """Scan using Azure AI Content Safety API."""
+    def _azure_credentials(self) -> tuple[str, str]:
+        """Return ``(endpoint, key)``, resolving ``${ENV_VAR}`` key syntax."""
         if not self.azure_endpoint or not self.azure_key:
             raise ValueError("azure_endpoint and azure_key required for Azure provider")
-
-        # Resolve env var syntax
         key = self.azure_key
         if key.startswith("${") and key.endswith("}"):
             import os
@@ -2076,27 +2172,24 @@ class ContentSafetyDetector:
             key = os.environ.get(var_name, "")
             if not key:
                 raise ValueError(f"Environment variable '{var_name}' not set")
+        return self.azure_endpoint, key
 
-        try:
-            import httpx
-        except ImportError:
-            raise ImportError("httpx required for Azure content safety: pip install httpx")
+    async def _scan_azure(self, text: str) -> list[dict[str, Any]]:
+        """Scan one window using Azure AI Content Safety API."""
+        endpoint, key = self._azure_credentials()
+        import httpx
 
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    f"{self.azure_endpoint.rstrip('/')}/contentsafety/text:analyze?api-version=2024-09-01",
-                    json={"text": text[:10000]},
-                    headers={
-                        "Ocp-Apim-Subscription-Key": key,
-                        "Content-Type": "application/json",
-                    },
-                )
-                resp.raise_for_status()
-                data = resp.json()
-        except Exception as exc:
-            logger.warning("Content safety Azure scan failed: %s", exc)
-            return []
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{endpoint.rstrip('/')}/contentsafety/text:analyze?api-version=2024-09-01",
+                json={"text": text},
+                headers={
+                    "Ocp-Apim-Subscription-Key": key,
+                    "Content-Type": "application/json",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
 
         # Azure returns categoriesAnalysis with severity 0-6
         findings: list[dict[str, Any]] = []
@@ -2205,30 +2298,36 @@ class NERDetector:
     async def scan(self, text: str) -> list[dict[str, Any]]:
         """Scan text for named entities.
 
+        Long text is scanned in overlapping windows (GLiNER truncates its
+        input), with offsets mapped back to the full text.
+
         Returns:
             List of dicts with ``text``, ``label``, ``start``, ``end``, ``score``.
         """
-        import asyncio
-
         loop = asyncio.get_running_loop()
         model = self._load_model()
 
-        # GLiNER is CPU-bound — run in executor
-        entities = await loop.run_in_executor(
-            None,
-            lambda: model.predict_entities(text[:5000], self.labels, threshold=self.threshold),
-        )
+        def _predict() -> list[dict[str, Any]]:
+            found: dict[tuple[int, int, str], dict[str, Any]] = {}
+            for offset, chunk in _windows(text, _NER_WINDOW, _NER_STRIDE):
+                for ent in model.predict_entities(chunk, self.labels, threshold=self.threshold):
+                    start = offset + ent.get("start", 0)
+                    end = offset + ent.get("end", 0)
+                    label = ent.get("label", "unknown")
+                    found.setdefault(
+                        (start, end, label),
+                        {
+                            "text": ent.get("text", ent.get("word", "")),
+                            "label": label,
+                            "start": start,
+                            "end": end,
+                            "score": round(ent.get("score", 0.0), 3),
+                        },
+                    )
+            return list(found.values())
 
-        return [
-            {
-                "text": ent.get("text", ent.get("word", "")),
-                "label": ent.get("label", "unknown"),
-                "start": ent.get("start", 0),
-                "end": ent.get("end", 0),
-                "score": round(ent.get("score", 0.0), 3),
-            }
-            for ent in entities
-        ]
+        # GLiNER is CPU-bound — run in executor
+        return await loop.run_in_executor(None, _predict)
 
 
 class CustomRule:
@@ -2311,6 +2410,23 @@ class PromptiseSecurityScanner:
     Args:
         detectors: List of detector instances to enable.
         custom_rules: List of :class:`CustomRule` instances.
+        fail_open: What to do when an enabled head cannot run (its
+            library is missing, its model fails to load, Ollama or Azure
+            is unreachable).  ``False`` (the default) fails closed: the
+            scan gets a ``BLOCK`` finding, so ``check_input`` /
+            ``check_output`` raise :class:`GuardrailViolation`.  ``True``
+            logs a warning and lets the text through.  Either way the head
+            is reported in :attr:`ScanReport.scanners_skipped`, not in
+            ``scanners_run``.
+        redact_input: Apply the PII and credential actions to input as
+            well as output, and have :meth:`check_input` return the
+            redacted text so the agent sends that to the model.  Off by
+            default: on input, PII and credentials are warnings and the
+            message is passed unchanged.
+        scan_tool_results: Scan every tool result before the model sees
+            it (indirect prompt injection, leaked secrets).
+            ``build_agent`` wraps the agent's tools when this is set; see
+            :meth:`check_tool_result`.
         detect_injection: (flat API) Enable injection detection.
         detect_pii: (flat API) Enable PII detection.
         detect_toxicity: (flat API) Enable toxicity detection.
@@ -2323,7 +2439,7 @@ class PromptiseSecurityScanner:
     _cred_groups: set[str] | None
 
     @classmethod
-    def default(cls) -> PromptiseSecurityScanner:
+    def default(cls, **kwargs: Any) -> PromptiseSecurityScanner:
         """Create a scanner with all detection heads enabled (defaults).
 
         Equivalent to::
@@ -2333,13 +2449,17 @@ class PromptiseSecurityScanner:
                 PIIDetector(),
                 CredentialDetector(),
             ])
+
+        Keyword arguments (``fail_open``, ``redact_input``,
+        ``scan_tool_results``, ``custom_rules``) are passed through.
         """
         return cls(
             detectors=[
                 InjectionDetector(),
                 PIIDetector(),
                 CredentialDetector(),
-            ]
+            ],
+            **kwargs,
         )
 
     def __init__(
@@ -2348,6 +2468,9 @@ class PromptiseSecurityScanner:
         # ── Composable API (recommended) ──
         detectors: list[Any] | None = None,
         custom_rules: list[CustomRule | dict[str, Any]] | None = None,
+        fail_open: bool = False,
+        redact_input: bool = False,
+        scan_tool_results: bool = False,
         # ── Flat API (backward compatible) ──
         detect_injection: bool = True,
         detect_pii: bool | set[PIICategory] = True,
@@ -2364,6 +2487,10 @@ class PromptiseSecurityScanner:
         credential_patterns: list[str] | None = None,
         exclude_patterns: set[str] | None = None,
     ) -> None:
+        self.fail_open = fail_open
+        self.redact_input = redact_input
+        self.scan_tool_results = scan_tool_results
+
         # Store detectors for warmup() and introspection
         self._detectors: list[Any] = []
 
@@ -2510,7 +2637,10 @@ class PromptiseSecurityScanner:
         """Pre-load ML models so the first scan is fast.
 
         Call this at startup to avoid download/load latency on the
-        first message.  Safe to call multiple times (models are cached).
+        first message, and to fail fast: a missing library or model, or an
+        unreachable Ollama for :class:`ContentSafetyDetector`, raises here
+        (whatever ``fail_open`` says) instead of surfacing on the first
+        request.  Safe to call multiple times (models are cached).
 
         Example::
 
@@ -2528,6 +2658,7 @@ class PromptiseSecurityScanner:
             self._ner_det._load_model()
             logger.info("Warmed up NER model: %s", self._ner_det.model)
         if self.detect_content_safety and self._content_safety_det is not None:
+            self._content_safety_det.check_ready()
             logger.info(
                 "Content safety detector ready (provider: %s)",
                 self._content_safety_det.provider,
@@ -2537,6 +2668,11 @@ class PromptiseSecurityScanner:
         """Scan input text.  Raises :class:`GuardrailViolation` on block.
 
         Called by the agent before any processing (memory, tools, LLM).
+
+        Returns:
+            The text to send on: the redacted text when ``redact_input``
+            is set and something was redacted, otherwise *text* unchanged.
+            The agent replaces the user's message with it.
         """
         if isinstance(text, dict):
             # Extract message text from LangChain input format
@@ -2546,10 +2682,14 @@ class PromptiseSecurityScanner:
                 text = last.get("content", "") if isinstance(last, dict) else str(last)
             else:
                 text = str(text)
+        if not isinstance(text, str):
+            text = str(text)  # e.g. a list of multimodal content blocks
 
         report = await self.scan_text(text, direction="input")
         if not report.passed:
             raise GuardrailViolation(report, direction="input")
+        if self.redact_input and report.redacted_text is not None:
+            return report.redacted_text
         return text
 
     async def check_output(self, output: Any) -> Any:
@@ -2568,6 +2708,34 @@ class PromptiseSecurityScanner:
             return report.redacted_text
         return output
 
+    async def check_tool_result(self, tool_name: str, result: str) -> str:
+        """Scan a tool result before the model reads it.
+
+        A tool result is where indirect prompt injection arrives (a web
+        page, an email, a ticket), so every enabled head runs, the
+        injection model included.  PII and credentials get their
+        configured actions, as on output, so a secret a tool returns is
+        redacted before the model (or ``result["messages"]``) holds it.
+
+        ``build_agent`` calls this for every tool call when
+        ``scan_tool_results=True``; a blocked result is replaced with a
+        short notice the model can see, and the raw result is dropped.
+
+        Raises:
+            GuardrailViolation: With ``direction="tool"`` on a block.
+        """
+        report = await self.scan_text(result, direction="tool")
+        if not report.passed:
+            logger.warning(
+                "Guardrails blocked the result of tool %r: %s",
+                tool_name,
+                "; ".join(f.description for f in report.blocked[:3]),
+            )
+            raise GuardrailViolation(report, direction="tool")
+        if report.redacted_text is not None:
+            return report.redacted_text
+        return result
+
     # ── Core scan ─────────────────────────────────────────────────────
 
     async def scan_text(
@@ -2580,16 +2748,23 @@ class PromptiseSecurityScanner:
 
         Args:
             text: Text to scan.
-            direction: ``"input"`` or ``"output"`` — affects default actions.
+            direction: ``"input"``, ``"output"`` or ``"tool"`` (a tool
+                result).  On input, PII and credential findings are
+                warnings unless ``redact_input`` is set; on output and
+                tool results they get their configured action.  The
+                injection head skips output.
 
         Returns:
-            A :class:`ScanReport` with all findings.
+            A :class:`ScanReport` with all findings.  An enabled head
+            that could not run is listed in ``scanners_skipped`` and,
+            unless ``fail_open`` is set, adds a ``BLOCK`` finding.
         """
         start_time = time.monotonic()
         findings: list[SecurityFinding] = []
         scanners_run: list[str] = []
+        scanners_skipped: dict[str, str] = {}
 
-        # Run all detection heads (regex heads are sync, model heads async)
+        # Regex heads (sync, cannot fail to run)
         if self.detect_pii:
             scanners_run.append("pii")
             findings.extend(self._scan_pii(text, direction))
@@ -2598,21 +2773,27 @@ class PromptiseSecurityScanner:
             scanners_run.append("credential")
             findings.extend(self._scan_credentials(text, direction))
 
-        if self.detect_injection:
-            scanners_run.append("injection")
-            findings.extend(await self._scan_injection(text, direction))
-
+        # Model and service heads: each one can fail to run
+        heads: list[tuple[str, Any]] = []
+        if self.detect_injection and direction != "output":
+            heads.append(("injection", self._scan_injection))
         if self.detect_toxicity:
-            scanners_run.append("toxicity")
-            findings.extend(await self._scan_toxicity(text, direction))
-
+            heads.append(("toxicity", self._scan_toxicity))
         if self.detect_content_safety and self._content_safety_det is not None:
-            scanners_run.append("content_safety")
-            findings.extend(await self._scan_content_safety(text, direction))
-
+            heads.append(("content_safety", self._scan_content_safety))
         if self.detect_ner and self._ner_det is not None:
-            scanners_run.append("ner")
-            findings.extend(await self._scan_ner(text, direction))
+            heads.append(("ner", self._scan_ner))
+
+        for name, head in heads:
+            try:
+                head_findings = await head(text, direction)
+            except Exception as exc:
+                reason = " ".join(f"{type(exc).__name__}: {exc}".split())[:300]
+                scanners_skipped[name] = reason
+                findings.extend(self._head_unavailable(name, reason))
+                continue
+            scanners_run.append(name)
+            findings.extend(head_findings)
 
         # Custom rules always run if defined
         if self._custom_rules:
@@ -2658,14 +2839,39 @@ class PromptiseSecurityScanner:
             user_id=caller_user_id,
             session_id=caller_session_id,
             caller_roles=caller_roles,
+            scanners_skipped=scanners_skipped,
         )
+
+    def _head_unavailable(self, name: str, reason: str) -> list[SecurityFinding]:
+        """Handle a head that could not run: fail closed unless ``fail_open``."""
+        if self.fail_open:
+            logger.warning("Guardrail head %r skipped (fail_open=True): %s", name, reason)
+            return []
+        logger.error("Guardrail head %r could not run, blocking (fail-closed): %s", name, reason)
+        return [
+            SecurityFinding(
+                detector=name,
+                category="scanner_unavailable",
+                severity=Severity.CRITICAL,
+                confidence=1.0,
+                matched_text="",
+                start=0,
+                end=0,
+                action=Action.BLOCK,
+                description=(
+                    f"Guardrail head {name!r} could not run: {reason} "
+                    "(blocked because fail_open=False)"
+                ),
+                metadata={"reason": reason, "fail_open": False},
+            )
+        ]
 
     # ── Detection heads ───────────────────────────────────────────────
 
     def _scan_pii(self, text: str, direction: str) -> list[SecurityFinding]:
         """Regex + Luhn validation for PII detection."""
         findings: list[SecurityFinding] = []
-        action = self._on_pii if direction == "output" else Action.WARN
+        action = self._on_pii if direction != "input" or self.redact_input else Action.WARN
 
         for name, category, pattern, severity, desc, group in _PII_PATTERNS:
             # Exclude blacklisted patterns
@@ -2706,7 +2912,7 @@ class PromptiseSecurityScanner:
     def _scan_credentials(self, text: str, direction: str) -> list[SecurityFinding]:
         """Regex patterns for credential/secret detection."""
         findings: list[SecurityFinding] = []
-        action = self._on_credentials if direction == "output" else Action.WARN
+        action = self._on_credentials if direction != "input" or self.redact_input else Action.WARN
 
         for name, category, pattern, severity, desc, group in _CRED_PATTERNS:
             if name in self._exclude:
@@ -2735,166 +2941,153 @@ class PromptiseSecurityScanner:
                 )
         return findings
 
+    async def _classify(self, model_name: str, text: str) -> list[tuple[int, str, str, float]]:
+        """Run a text classifier over overlapping windows of *text*.
+
+        Returns ``(offset, window, label, score)`` per window.  Raises if
+        the model cannot be loaded or run; the caller decides whether that
+        fails open or closed.
+        """
+        pipe = _load_classifier(model_name)
+        windows = _windows(text, _CLASSIFIER_WINDOW, _CLASSIFIER_STRIDE)
+        loop = asyncio.get_running_loop()
+        results = await loop.run_in_executor(None, pipe, [chunk for _, chunk in windows])
+        out: list[tuple[int, str, str, float]] = []
+        for (offset, chunk), item in zip(windows, results, strict=True):
+            top = _top_prediction(item)
+            out.append((offset, chunk, str(top.get("label", "")), float(top.get("score", 0.0))))
+        return out
+
     async def _scan_injection(self, text: str, direction: str) -> list[SecurityFinding]:
         """Prompt injection detection via local DeBERTa model.
 
         No regex pre-filter — the model handles all classification to
         avoid false positives on benign phrases like "pretend to be".
+        The whole text is classified in overlapping windows, so padding
+        cannot push an attack past the model's input limit.
         """
-        findings: list[SecurityFinding] = []
+        # Agent replies aren't an injection vector; user input and tool
+        # results are.
+        if direction == "output" or not text.strip():
+            return []
 
-        # Only scan input for injection — output isn't an injection risk
-        if direction != "input":
-            return findings
-
-        # Model-based classification
-        try:
-            pipe = _load_classifier(self._injection_model_name)
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, pipe, text[:512])
-            if result and len(result) > 0:
-                label = result[0].get("label", "").upper()
-                score = result[0].get("score", 0.0)
-
-                # protectai model: LABEL_1 = injection, LABEL_0 = benign
-                is_injection = label in ("INJECTION", "LABEL_1", "1")
-                if is_injection and score >= self._injection_threshold:
-                    findings.append(
-                        SecurityFinding(
-                            detector="injection",
-                            category="prompt_injection_model",
-                            severity=Severity.CRITICAL,
-                            confidence=score,
-                            matched_text=text[:100] + ("..." if len(text) > 100 else ""),
-                            start=0,
-                            end=len(text),
-                            action=Action.BLOCK,
-                            description=f"Prompt injection detected by model (confidence: {score:.2%})",
-                            metadata={
-                                "method": "model",
-                                "model": self._injection_model_name,
-                                "label": label,
-                                "score": score,
-                            },
-                        )
-                    )
-        except ImportError:
-            logger.warning("transformers not installed — skipping ML injection detection")
-        except Exception as exc:
-            logger.warning("Injection model error (scan continues): %s", exc)
-
-        return findings
+        windows = await self._classify(self._injection_model_name, text)
+        hits = [
+            (score, offset, chunk, label.upper())
+            for offset, chunk, label, score in windows
+            # protectai model: LABEL_1 = injection, LABEL_0 = benign
+            if label.upper() in ("INJECTION", "LABEL_1", "1") and score >= self._injection_threshold
+        ]
+        if not hits:
+            return []
+        score, offset, chunk, label = max(hits, key=lambda h: h[0])
+        return [
+            SecurityFinding(
+                detector="injection",
+                category="prompt_injection_model",
+                severity=Severity.CRITICAL,
+                confidence=score,
+                matched_text=chunk[:100] + ("..." if len(chunk) > 100 else ""),
+                start=offset,
+                end=offset + len(chunk),
+                action=Action.BLOCK,
+                description=f"Prompt injection detected by model (confidence: {score:.2%})",
+                metadata={
+                    "method": "model",
+                    "model": self._injection_model_name,
+                    "label": label,
+                    "score": score,
+                    "windows": len(windows),
+                },
+            )
+        ]
 
     async def _scan_toxicity(self, text: str, direction: str) -> list[SecurityFinding]:
-        """Toxicity detection via local transformer model."""
-        findings: list[SecurityFinding] = []
-
-        try:
-            pipe = _load_classifier(self._toxicity_model_name)
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, pipe, text[:512])
-            if result and len(result) > 0:
-                label = result[0].get("label", "").lower()
-                score = result[0].get("score", 0.0)
-
-                is_toxic = label in ("toxic", "label_1", "1")
-                if is_toxic and score >= self._toxicity_threshold:
-                    findings.append(
-                        SecurityFinding(
-                            detector="toxicity",
-                            category=f"toxic_{label}",
-                            severity=Severity.HIGH if score > 0.9 else Severity.MEDIUM,
-                            confidence=score,
-                            matched_text=text[:100] + ("..." if len(text) > 100 else ""),
-                            start=0,
-                            end=len(text),
-                            action=self._on_toxicity,
-                            description=f"Toxic content detected (confidence: {score:.2%})",
-                            metadata={
-                                "method": "model",
-                                "model": self._toxicity_model_name,
-                                "label": label,
-                                "score": score,
-                            },
-                        )
-                    )
-        except ImportError:
-            logger.warning("transformers not installed — skipping ML toxicity detection")
-        except Exception as exc:
-            logger.warning("Toxicity model error (scan continues): %s", exc)
-
-        return findings
+        """Toxicity detection via local transformer model (windowed)."""
+        if not text.strip():
+            return []
+        windows = await self._classify(self._toxicity_model_name, text)
+        hits = [
+            (score, offset, chunk, label.lower())
+            for offset, chunk, label, score in windows
+            if label.lower() in ("toxic", "label_1", "1") and score >= self._toxicity_threshold
+        ]
+        if not hits:
+            return []
+        score, offset, chunk, label = max(hits, key=lambda h: h[0])
+        return [
+            SecurityFinding(
+                detector="toxicity",
+                category=f"toxic_{label}",
+                severity=Severity.HIGH if score > 0.9 else Severity.MEDIUM,
+                confidence=score,
+                matched_text=chunk[:100] + ("..." if len(chunk) > 100 else ""),
+                start=offset,
+                end=offset + len(chunk),
+                action=self._on_toxicity,
+                description=f"Toxic content detected (confidence: {score:.2%})",
+                metadata={
+                    "method": "model",
+                    "model": self._toxicity_model_name,
+                    "label": label,
+                    "score": score,
+                    "windows": len(windows),
+                },
+            )
+        ]
 
     async def _scan_content_safety(self, text: str, direction: str) -> list[SecurityFinding]:
         """Content safety via Llama Guard (local) or Azure AI (cloud)."""
-        findings: list[SecurityFinding] = []
         det = self._content_safety_det
-        if det is None:
-            return findings
-
-        try:
-            results = await det.scan(text)
-            for r in results:
-                findings.append(
-                    SecurityFinding(
-                        detector="content_safety",
-                        category=r.get("category", "unsafe"),
-                        severity=Severity.HIGH,
-                        confidence=r.get("confidence", 0.9),
-                        matched_text=text[:100] + ("..." if len(text) > 100 else ""),
-                        start=0,
-                        end=len(text),
-                        action=det.action,
-                        description=f"Content safety violation: {r.get('label', 'unsafe')}",
-                        metadata={
-                            "method": "model",
-                            "provider": det.provider,
-                            "category_code": r.get("category"),
-                        },
-                    )
-                )
-        except ImportError:
-            logger.warning("httpx not installed — skipping content safety scan")
-        except Exception as exc:
-            logger.warning("Content safety scan error (continues): %s", exc)
-
-        return findings
+        if det is None or not text.strip():
+            return []
+        return [
+            SecurityFinding(
+                detector="content_safety",
+                category=r.get("category", "unsafe"),
+                severity=Severity.HIGH,
+                confidence=r.get("confidence", 0.9),
+                matched_text=text[:100] + ("..." if len(text) > 100 else ""),
+                start=0,
+                end=len(text),
+                action=det.action,
+                description=f"Content safety violation: {r.get('label', 'unsafe')}",
+                metadata={
+                    "method": "model",
+                    "provider": det.provider,
+                    "category_code": r.get("category"),
+                },
+            )
+            for r in await det.scan(text)
+        ]
 
     async def _scan_ner(self, text: str, direction: str) -> list[SecurityFinding]:
         """Named Entity Recognition via GLiNER."""
-        findings: list[SecurityFinding] = []
         det = self._ner_det
-        if det is None:
-            return findings
-
-        try:
-            entities = await det.scan(text)
-            for ent in entities:
-                label = ent.get("label", "entity")
-                matched = ent.get("text", "")
-                findings.append(
-                    SecurityFinding(
-                        detector="ner",
-                        category=f"ner_{label.replace(' ', '_').lower()}",
-                        severity=Severity.MEDIUM,
-                        confidence=ent.get("score", 0.5),
-                        matched_text=matched,
-                        start=ent.get("start", 0),
-                        end=ent.get("end", 0),
-                        action=det.action,
-                        description=f"{label} detected: '{matched}'",
-                        metadata={
-                            "method": "model",
-                            "model": det.model,
-                            "entity_type": label,
-                        },
-                    )
+        if det is None or not text.strip():
+            return []
+        findings: list[SecurityFinding] = []
+        for ent in await det.scan(text):
+            label = ent.get("label", "entity")
+            matched = ent.get("text", "")
+            findings.append(
+                SecurityFinding(
+                    detector="ner",
+                    category=f"ner_{label.replace(' ', '_').lower()}",
+                    severity=Severity.MEDIUM,
+                    confidence=ent.get("score", 0.5),
+                    matched_text=matched,
+                    start=ent.get("start", 0),
+                    end=ent.get("end", 0),
+                    action=det.action,
+                    description=f"{label} detected: '{matched}'",
+                    metadata={
+                        "method": "model",
+                        "model": det.model,
+                        "entity_type": label,
+                    },
                 )
-        except ImportError:
-            logger.warning("gliner not installed — skipping NER detection")
-        except Exception as exc:
-            logger.warning("NER scan error (continues): %s", exc)
-
+            )
         return findings
 
     # ── Redaction engine ──────────────────────────────────────────────
@@ -2934,23 +3127,118 @@ class PromptiseSecurityScanner:
 
     # ── Redaction engine ──────────────────────────────────────────────
 
+    # When overlapping spans tie on length, the more specific detector names it.
+    _REDACTION_PRIORITY = {"custom": 3, "credential": 2, "pii": 1, "ner": 0}
+
     @staticmethod
     def _apply_redactions(text: str, findings: list[SecurityFinding]) -> str:
         """Replace detected spans with redaction labels.
 
-        Overlapping spans (two patterns matching the same phone number, say)
-        are merged first and replaced once, labelled by the earliest and
-        longest finding; replacing each one separately would cut into the
-        text after the first replacement.  Spans are then replaced right to
-        left so character offsets remain valid.
+        Overlapping spans (a connection string whose ``user:pass@host``
+        also reads as an email, two phone patterns on one number) are
+        merged into one span covering all of them and replaced once,
+        labelled by the longest finding, then the most specific detector.
+        Replacing them one by one would cut into text after the first
+        replacement.  Spans are replaced right to left so offsets stay
+        valid.
         """
-        spans: list[list[Any]] = []  # [start, end, label]
+        priority = PromptiseSecurityScanner._REDACTION_PRIORITY
+        groups: list[tuple[int, int, SecurityFinding]] = []  # (start, end, label finding)
         for f in sorted(findings, key=lambda f: (f.start, -f.end)):
-            if spans and f.start < spans[-1][1]:
-                spans[-1][1] = max(spans[-1][1], f.end)
+            if f.end <= f.start:
+                continue
+            if groups and f.start < groups[-1][1]:
+                start, end, best = groups[-1]
+                if (f.end - f.start, priority.get(f.detector, 0)) > (
+                    best.end - best.start,
+                    priority.get(best.detector, 0),
+                ):
+                    best = f
+                groups[-1] = (start, max(end, f.end), best)
             else:
-                spans.append([f.start, f.end, f"[{f.category.upper()}]"])
+                groups.append((f.start, f.end, f))
         result = text
-        for start, end, label in reversed(spans):
-            result = result[:start] + label + result[end:]
+        for start, end, best in reversed(groups):
+            result = result[:start] + f"[{best.category.upper()}]" + result[end:]
         return result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Tool-result scanning (indirect prompt injection)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class _GuardedTool(BaseTool):
+    """Wraps a tool so its result passes the guardrails before the model sees it.
+
+    Transparent to the LLM — same name, description, and schema as the
+    inner tool.  A blocked result is replaced with a short notice; a
+    redacted one is returned redacted.  Either way the raw result never
+    reaches the model or the agent's message history.
+    """
+
+    _inner: BaseTool = PrivateAttr()
+    _guard: Any = PrivateAttr()
+    _event_notifier: Any = PrivateAttr(default=None)
+
+    def __init__(self, inner: BaseTool, guard: Any, event_notifier: Any = None) -> None:
+        super().__init__(
+            name=inner.name,
+            description=inner.description,
+            args_schema=getattr(inner, "args_schema", None),
+            return_direct=inner.return_direct,
+        )
+        self._inner = inner
+        self._guard = guard
+        self._event_notifier = event_notifier
+
+    async def _arun(self, *args: Any, promptise_guard_config: RunnableConfig, **kwargs: Any) -> Any:
+        # LangChain fills ``promptise_guard_config`` by its type (an unusual
+        # name, so it cannot shadow a tool argument).  No callbacks on the
+        # inner call: observability records this wrapper's run, with the
+        # scanned output, once.
+        tool_input: Any = args[0] if len(args) == 1 and not kwargs else kwargs
+        result = await self._inner.ainvoke(
+            tool_input,
+            config=patch_config(promptise_guard_config, callbacks=CallbackManager(handlers=[])),
+        )
+        text = result if isinstance(result, str) else str(result)
+        try:
+            checked = await self._guard.check_tool_result(self.name, text)
+        except GuardrailViolation as violation:
+            self._emit("guardrail.blocked", "warning")
+            details = "; ".join(f.description for f in violation.report.blocked[:3])
+            return f"[Tool result withheld by guardrails: {details}]"
+        if checked == text:
+            return result
+        self._emit("guardrail.redacted", "info")
+        return checked
+
+    def _run(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover
+        raise NotImplementedError("Guardrail-wrapped tools are async-only; use ainvoke().")
+
+    def _emit(self, event_type: str, severity: str) -> None:
+        if self._event_notifier is None:
+            return
+        from .events import emit_event
+
+        emit_event(
+            self._event_notifier,
+            event_type,
+            severity,
+            {"direction": "tool", "tool": self.name},
+        )
+
+
+def wrap_tools_with_guardrails(
+    tools: list[BaseTool],
+    guard: Any,
+    *,
+    event_notifier: Any = None,
+) -> list[BaseTool]:
+    """Wrap every tool so its result is scanned by ``guard.check_tool_result``.
+
+    ``build_agent`` calls this when the guardrails object has
+    ``scan_tool_results=True``.  Order is preserved.
+    """
+    return [_GuardedTool(tool, guard, event_notifier) for tool in tools]

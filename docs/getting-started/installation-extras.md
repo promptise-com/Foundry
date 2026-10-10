@@ -40,7 +40,7 @@ Adds the heavy dependencies that unlock everything optional. Recommended for pro
 |---|---|---|
 | **Vector memory** | `chromadb`, `mem0ai` | `ChromaProvider`, `Mem0Provider` |
 | **Embeddings** | `sentence-transformers`, `numpy` | Semantic tool optimization, `SemanticCache` |
-| **ML guardrails** | `transformers` | DeBERTa prompt-injection + GLiNER NER |
+| **ML guardrails** | `transformers` | DeBERTa prompt-injection detection (`InjectionDetector`, `guardrails=True`). GLiNER NER (`NERDetector`) needs `pip install gliner` on top |
 | **Infrastructure** | `redis`, `docker` | `RedisConversationStore`, `RedisCache`, Docker sandbox |
 | **Observability** | `opentelemetry-*`, `prometheus_client` | OTel tracing, Prometheus `/metrics` |
 
