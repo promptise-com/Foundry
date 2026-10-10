@@ -248,7 +248,8 @@ def _unwrap_implicit_optional(hint: Any) -> Any:
         inner = args[0] if args[1] is type(None) else args[1]
         if get_origin(inner) is Annotated:
             base, *meta = get_args(inner)
-            return Annotated[(Optional[base], *meta)]
+            params = (Optional[base], *meta)
+            return Annotated[params]  # type: ignore[valid-type]
     return hint
 
 
