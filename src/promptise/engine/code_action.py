@@ -40,6 +40,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from .base import BaseNode
+from .nodes import TOOL_SELECTOR_KEY
 from .state import GraphState, NodeResult
 
 logger = logging.getLogger("promptise.engine.code_action")
@@ -444,8 +445,17 @@ class CodeActionNode(BaseNode):
 
         tools = self.tools or config.get("_engine_tools", []) or []
         tool_map = {getattr(t, "name", ""): t for t in tools}
+        # The run's tool selector (semantic tool selection) narrows the API the
+        # prompt describes; the bridge still serves every tool.
+        offered = tools
+        selector = config.get(TOOL_SELECTOR_KEY)
+        if selector is not None and tools:
+            try:
+                offered = list(selector(tools, state))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Tool selector failed in node %r: %s", self.name, exc)
         task = _extract_task(state)
-        messages = self._build_prompt(task, tools, _extract_context(state))
+        messages = self._build_prompt(task, offered, _extract_context(state))
 
         # 1. Generate the program (1 LLM turn; +1 per repair).
         code = ""

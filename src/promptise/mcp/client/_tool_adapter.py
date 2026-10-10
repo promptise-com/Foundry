@@ -189,11 +189,13 @@ class MCPToolAdapter:
         # Resolve optimization config if provided
         resolved = None
         strip_desc = False
+        preserve: frozenset[str] = frozenset()
         if self._optimize is not None:
             from ...tool_optimization import _resolve_config
 
             resolved = _resolve_config(self._optimize)
             strip_desc = resolved.minify_schema
+            preserve = resolved.preserve_tools
 
         mcp_tools = await self._multi.list_tools()
         tool_to_server = self._multi.tool_to_server
@@ -218,7 +220,8 @@ class MCPToolAdapter:
             model = _jsonschema_to_pydantic(
                 schema,
                 model_name=f"Args_{name}",
-                strip_descriptions=strip_desc,
+                # preserve_tools keep their parameter descriptions.
+                strip_descriptions=strip_desc and name not in preserve,
             )
             out.append(
                 _PromptiseMCPTool(

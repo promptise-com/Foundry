@@ -67,6 +67,13 @@ logger = logging.getLogger("promptise.engine")
 # dataclass field: it never serializes, never compares, never prints.
 _FAILURE_CAUSE_ATTR = "_failure_cause"
 
+#: Run-config key for a tool selector: ``selector(candidates, state)`` returns
+#: the subset of a node's candidate tools to offer on its next model call. It
+#: runs before every LLM call, so the offered tools can change between steps of
+#: one run (``build_agent(optimize_tools="semantic")`` installs one). Tool calls
+#: still execute against all candidates.
+TOOL_SELECTOR_KEY = "_tool_selector"
+
 
 def record_failure(result: NodeResult, exc: BaseException, error: str | None = None) -> None:
     """Record *exc* as the failure of *result*.
@@ -288,6 +295,32 @@ class PromptNode(BaseNode):
             settings = replace(settings, after_tool_results=self.auto_ledger_after)
         return settings
 
+    def _candidate_tools(self, config: dict[str, Any]) -> list[BaseTool]:
+        """The node's own tools plus, when flagged, the engine-injected ones."""
+        tools = list(self.tools)
+        if self.inject_tools:
+            names = {t.name for t in tools}
+            for et in config.get("_engine_tools", []):
+                if et.name not in names:
+                    tools.append(et)
+                    names.add(et.name)
+        return tools
+
+    def _offered_tools(
+        self, candidates: list[BaseTool], state: GraphState, config: dict[str, Any]
+    ) -> list[BaseTool]:
+        """Narrow *candidates* with the run's tool selector, if one is set."""
+        selector = config.get(TOOL_SELECTOR_KEY)
+        if selector is None or not candidates:
+            return candidates
+        try:
+            return list(selector(candidates, state))
+        except Exception as exc:
+            logger.warning(
+                "Tool selector failed in node %r, offering all tools: %s", self.name, exc
+            )
+            return candidates
+
     def _effective_context_scope(
         self, state: GraphState, config: dict[str, Any] | None = None
     ) -> str:
@@ -368,10 +401,11 @@ class PromptNode(BaseNode):
         # has to guess from tool names alone, which causes wrong parameters.
         # This is a major tool-accuracy improvement.
         _has_tools = bool(self.tools or self.inject_tools)
+        candidate_tools = self._candidate_tools(config) if _has_tools else []
+        offered_tools = self._offered_tools(candidate_tools, state, config)
+        offered_names = tuple(t.name for t in offered_tools)
         if _has_tools:
-            _all_tools = list(self.tools)
-            if self.inject_tools:
-                _all_tools.extend(config.get("_engine_tools", []))
+            _all_tools = offered_tools
             if _all_tools:
                 schema_lines = ["Available tools:"]
                 seen_tool_names: set[str] = set()
@@ -522,6 +556,10 @@ class PromptNode(BaseNode):
         # redundant string assembly, marker scanning, and tool resolution.
         _cache_key = f"_node_cache_{self.name}"
         _cached = config.get(_cache_key)
+        if _cached is not None and _cached.get("tool_names") != offered_names:
+            # The tool selector offers a different set this step: rebuild the
+            # system prompt's tool listing and the model binding.
+            _cached = None
 
         if _cached is not None:
             # Fast path: reuse cached system message + model binding
@@ -555,14 +593,8 @@ class PromptNode(BaseNode):
                 else:
                     messages.insert(0, node_sys_msg)
 
-            # ── 2. Resolve tools (runtime injection if flagged) ──
-            active_tools = list(self.tools)
-            if self.inject_tools:
-                engine_tools = config.get("_engine_tools", [])
-                existing_names = {t.name for t in active_tools}
-                for et in engine_tools:
-                    if et.name not in existing_names:
-                        active_tools.append(et)
+            # ── 2. Resolve tools (runtime injection + selection) ──
+            active_tools = offered_tools
 
             if active_tools:
                 model_to_use = model.bind_tools(active_tools)
@@ -581,6 +613,7 @@ class PromptNode(BaseNode):
                 "sys_msg": node_sys_msg,
                 "model": model_to_use,
                 "tools": active_tools,
+                "tool_names": offered_names,
             }
 
         # Structured output is already applied in the cached model_to_use
@@ -647,12 +680,9 @@ class PromptNode(BaseNode):
             # Handle tool calls
             tool_calls = getattr(response, "tool_calls", None) or []
             if tool_calls:
-                # Reuse cached tool_map if available
-                _tool_map_key = f"_tool_map_{self.name}"
-                tool_map = config.get(_tool_map_key)
-                if tool_map is None:
-                    tool_map = {t.name: t for t in active_tools}
-                    config[_tool_map_key] = tool_map
+                # Execute against every candidate, not just the offered ones:
+                # a tool the selector left out this step is still callable.
+                tool_map = {t.name: t for t in (candidate_tools or active_tools)}
                 tool_start = time.monotonic()
                 hooks = config.get("_engine_hooks", [])
 
@@ -698,7 +728,7 @@ class PromptNode(BaseNode):
                     else:
                         try:
                             tool_result = await tool_map[tool_name].ainvoke(
-                                tool_args, config=config
+                                tool_args, config=cast("RunnableConfig | None", config)
                             )
                             content = str(tool_result) if tool_result is not None else ""
                             tc_record["result"] = content
@@ -857,14 +887,9 @@ class PromptNode(BaseNode):
         else:
             messages.insert(0, SystemMessage(content=system_text))
 
-        # Resolve tools (runtime injection if flagged) — same as execute()
-        active_tools = list(self.tools)
-        if self.inject_tools:
-            engine_tools = config.get("_engine_tools", [])
-            existing_names = {t.name for t in active_tools}
-            for et in engine_tools:
-                if et.name not in existing_names:
-                    active_tools.append(et)
+        # Resolve tools (runtime injection + selection) — same as execute()
+        candidate_tools = self._candidate_tools(config)
+        active_tools = self._offered_tools(candidate_tools, state, config)
 
         model_to_use = model.bind_tools(active_tools) if active_tools else model
 
@@ -920,7 +945,7 @@ class PromptNode(BaseNode):
 
         # Execute tool calls with events
         if parsed_tool_calls:
-            tool_map = {t.name: t for t in active_tools}
+            tool_map = {t.name: t for t in candidate_tools}
             for tc in parsed_tool_calls:
                 tc_run_id = str(uuid4())
                 tool_name = tc["name"]

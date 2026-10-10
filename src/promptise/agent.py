@@ -254,8 +254,7 @@ class PromptiseAgent:
         conversation_max_messages: int = 0,
         # Tool optimization (semantic selection)
         tool_index: Any | None = None,
-        all_tools: list[Any] | None = None,
-        graph_builder_fn: Any | None = None,
+        tool_optimization: Any | None = None,
         tools: list[BaseTool] | None = None,
         # Security guardrails
         guardrails: Any | None = None,
@@ -298,10 +297,14 @@ class PromptiseAgent:
         # Conversation flow (Layer 2): one flow per session or caller
         self._flows: FlowSessions | None = None
 
-        # Tool optimization — semantic selection
+        # Tool optimization — semantic selection. The graph carries every tool;
+        # each run installs a selector that narrows them per model call.
         self._tool_index = tool_index
-        self._all_tools = all_tools or []
-        self._graph_builder_fn = graph_builder_fn
+        self._tool_selector: Any | None = None
+        if tool_index is not None and tool_optimization is not None:
+            from .tool_optimization import _ToolSelector
+
+            self._tool_selector = _ToolSelector(tool_index, tool_optimization)
         # Every tool the agent can call: MCP-discovered, extra_tools, sandbox,
         # cross-agent and meta tools alike.
         self._tools: list[BaseTool] = list(tools or [])
@@ -340,6 +343,20 @@ class PromptiseAgent:
         # Resolved attribution id (the agent's identifier, computed once by
         # build_agent). Used to attribute event notifications to the agent.
         self._actor_id: str | None = None
+
+    def _with_tool_selection(self, config: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Install the semantic tool selector in this run's *config*.
+
+        The engine calls it before every model call, so the offered tools
+        follow the conversation step by step (see ``_ToolSelector``).
+        """
+        if self._tool_selector is None:
+            return config
+        from .engine.nodes import TOOL_SELECTOR_KEY
+
+        config = dict(config) if config else {}
+        config[TOOL_SELECTOR_KEY] = self._tool_selector
+        return config
 
     def _actor(self) -> str | None:
         """Return the id to attribute the agent's events to.
@@ -721,28 +738,9 @@ class PromptiseAgent:
         if self._prompt_config is not None and not _engine_active:
             input = await self._inject_prompt_context(input, user_text)
 
-        # Step 1.8: Semantic tool selection — rebuild graph with relevant tools
-        _invocation_graph = None
-        if self._tool_index is not None and self._graph_builder_fn is not None:
-            query = user_text
-            if not query:
-                from .memory import _extract_user_text
-
-                query = _extract_user_text(input)
-            if query:
-                selected = self._tool_index.select(query)
-                # Build a per-invocation graph (don't mutate self._inner —
-                # concurrent ainvoke() calls would race on it)
-                _invocation_graph = self._graph_builder_fn(selected)
-            else:
-                _invocation_graph = None
-
-        # Use per-invocation graph if tool selection rebuilt it
-        _active_graph = (
-            _invocation_graph
-            if (_invocation_graph is not None and self._tool_index is not None)
-            else self._inner
-        )
+        # Step 1.8: Semantic tool selection — offer each model call only the
+        # tools relevant to the recent conversation (re-evaluated every step).
+        config = self._with_tool_selection(config)
 
         # Step 2: Observability — inject callback handler
         if self._handler is not None:
@@ -752,7 +750,7 @@ class PromptiseAgent:
             config["callbacks"] = callbacks
 
         # Step 3: Delegate to inner graph
-        output = await _active_graph.ainvoke(
+        output = await self._inner.ainvoke(
             input, config=cast("RunnableConfig | None", config), **kwargs
         )
 
@@ -947,6 +945,8 @@ class PromptiseAgent:
                 context = _format_memory_context(results)
                 input = _inject_memory_into_messages(input, context)
 
+        config = self._with_tool_selection(config)
+
         # Step 2: Observability — inject callback handler
         if self._handler is not None:
             config = dict(config) if config else {}
@@ -1084,6 +1084,8 @@ class PromptiseAgent:
                 if results:
                     context = _format_memory_context(results)
                     input = _inject_memory_into_messages(input, context)
+
+            config = self._with_tool_selection(config)
 
             # Step 2: Inject callback handler
             if self._handler is not None:
@@ -2506,6 +2508,13 @@ async def build_agent(
         else:
             _opt_config = ToolOptimizationConfig(level=OptimizationLevel.MINIMAL)
 
+        from .tool_optimization import _resolve_config, require_semantic_dependencies
+
+        # Validate the config and check optional dependencies before any MCP
+        # server is connected.
+        if _resolve_config(_opt_config).semantic_selection:
+            require_semantic_dependencies()
+
     # ``approval`` is an ApprovalPolicy (gates the agent's own calls and
     # answers server-side gates) or a bare handler (server-side gates only).
     if approval is not None:
@@ -2799,11 +2808,7 @@ async def build_agent(
         context_engine._apply_model_profile(chat)
 
     def _build_graph(graph_tools: list[BaseTool]) -> Runnable[Any, Any]:
-        """Build a PromptGraph engine with the given tools.
-
-        Extracted as a function so the semantic tool selection system
-        can cheaply rebuild the engine with different tool subsets.
-        """
+        """Build a PromptGraph engine with the given tools."""
         # Resolve agent_pattern (with backward compat for pattern)
         _pattern = agent_pattern or pattern
 
@@ -2918,6 +2923,32 @@ async def build_agent(
 
         tools = wrap_tools_with_guardrails(tools, guardrails, event_notifier=events)
 
+    # ------------------------------------------------------------------
+    # Semantic tool selection: index every tool and add the fallback. The
+    # graph carries all of them; at run time a selector narrows what each
+    # model call is offered (PromptiseAgent._with_tool_selection).
+    # ------------------------------------------------------------------
+    _tool_index = None
+    _semantic_config = None
+    if _opt_config is not None:
+        from .tool_optimization import ToolIndex, _RequestMoreToolsTool, _resolve_config
+
+        resolved = _resolve_config(_opt_config)
+        if resolved.semantic_selection and tools:
+            try:
+                _tool_index = ToolIndex(tools, model_name_or_path=resolved.embedding_model)
+            except BaseException:
+                # Don't leave MCP server connections (stdio subprocesses) behind.
+                if _promptise_multi is not None:
+                    with contextlib.suppress(Exception):
+                        await _promptise_multi.__aexit__(None, None, None)
+                raise
+            _semantic_config = resolved
+            if resolved.always_include_fallback:
+                tools.append(
+                    _RequestMoreToolsTool(tool_index=_tool_index, top_k=resolved.semantic_top_k)
+                )
+
     graph = _build_graph(tools)
 
     # ------------------------------------------------------------------
@@ -2967,30 +2998,6 @@ async def build_agent(
     # ------------------------------------------------------------------
     # Construct unified PromptiseAgent — no wrapper chain needed
     # ------------------------------------------------------------------
-    # Set up semantic tool selection if enabled
-    # ------------------------------------------------------------------
-    _tool_index = None
-    _all_tools = None
-    _graph_builder_fn = None
-
-    if _opt_config is not None:
-        from .tool_optimization import ToolIndex, _RequestMoreToolsTool, _resolve_config
-
-        resolved = _resolve_config(_opt_config)
-        if resolved.semantic_selection and tools:
-            _tool_index = ToolIndex(tools, model_name_or_path=resolved.embedding_model)
-            _all_tools = list(tools)
-
-            # Add fallback tool if enabled
-            if resolved.always_include_fallback:
-                fallback = _RequestMoreToolsTool(tool_index=_tool_index)
-                tools.append(fallback)
-                # Rebuild graph with fallback included
-                graph = _build_graph(tools)
-
-            _graph_builder_fn = _build_graph
-
-    # ------------------------------------------------------------------
     # Resolve model name string for prompt context
     _model_name: str | None = None
     if isinstance(model, str):
@@ -3017,8 +3024,7 @@ async def build_agent(
         conversation_store=conversation_store,
         conversation_max_messages=conversation_max_messages,
         tool_index=_tool_index,
-        all_tools=_all_tools,
-        graph_builder_fn=_graph_builder_fn,
+        tool_optimization=_semantic_config,
         tools=list(tools),
         guardrails=guardrails,
         cache=cache,

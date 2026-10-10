@@ -404,7 +404,7 @@ Run this with your real MCP servers. The model that uses fewer tool calls and pr
     Some open-source models support tool calling natively (Qwen, DeepSeek, GLM, Phi-4). Others need prompt engineering to fake it. Check the model's docs before assuming it works with `inject_tools=True`.
 
 !!! tip "Use semantic tool optimization for big tool sets"
-    If your agent has 30+ tools, enable `optimize_tools=True` in `build_agent()`. This uses local embeddings to send only the relevant tools per query, cutting input tokens by 40-70% regardless of model.
+    If your agent has 30+ tools, enable `optimize_tools="semantic"` in `build_agent()`. This uses local embeddings to send only the relevant tools per model call, cutting tool-definition tokens by roughly 90% on a 90-tool server, regardless of model.
 
 ---
 
