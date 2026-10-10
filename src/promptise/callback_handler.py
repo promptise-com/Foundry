@@ -30,6 +30,7 @@ from typing import Any
 from uuid import UUID
 
 from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.messages import ToolMessage
 from langchain_core.outputs import LLMResult
 
 from .observability_config import ObserveLevel
@@ -321,10 +322,19 @@ class PromptiseCallbackHandler(BaseCallbackHandler):
         # Extract tool name from kwargs if available
         tool_name = kwargs.get("name", "unknown")
 
+        # A tool invoked as a tool call returns a ToolMessage; record its
+        # content, and its status when the tool reported an error.
+        status = None
+        if isinstance(output, ToolMessage):
+            status = output.status
+            output = output.content
+
         metadata: dict[str, Any] = {
             "result_preview": self._truncate(str(output)),
             "run_id": str(run_id),
         }
+        if status == "error":
+            metadata["status"] = "error"
         if duration is not None:
             metadata["latency_ms"] = round(duration * 1000, 1)
         if tool_name != "unknown":

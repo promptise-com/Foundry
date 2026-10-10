@@ -27,9 +27,15 @@ from typing import Any, cast
 from uuid import uuid4
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    SystemMessage,
+    ToolMessage,
+    message_chunk_to_message,
+)
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, ToolException
 
 from .base import BaseNode
 from .state import GraphState, NodeEvent, NodeResult
@@ -357,8 +363,55 @@ class PromptNode(BaseNode):
         6. Guards (validate output)
         7. Write output to state.context[output_key]
         """
-        start = time.monotonic()
         result = NodeResult(node_name=self.name, node_type="prompt", iteration=state.iteration)
+        async for _event in self._pipeline(state, config, result, stream=False):
+            pass
+        return result
+
+    async def stream(self, state: GraphState, config: dict[str, Any]) -> AsyncIterator[NodeEvent]:
+        """Run the :meth:`execute` pipeline, streaming as it goes.
+
+        One model call per step, exactly as :meth:`execute`: the call is
+        streamed and its chunks are yielded as ``on_chat_model_stream``
+        events (``data["chunk"]``; all chunks of one call share
+        ``data["run_id"]``).  Each tool call yields ``on_tool_start`` and
+        then ``on_tool_end`` (``data["status"]`` is ``"error"`` when the
+        tool reported an error) or ``on_tool_error`` (the tool raised);
+        tool calls run in parallel, as in :meth:`execute`.  The last event
+        is ``on_node_end`` with the :class:`NodeResult` under
+        ``data["result"]``.
+
+        Nodes with ``output_schema`` call the model without streaming
+        (there are no text tokens to stream).  A subclass that overrides
+        :meth:`execute` but not this method streams through
+        :meth:`BaseNode.stream`, so its own logic is never bypassed.
+        """
+        if type(self).execute is not PromptNode.execute:
+            async for event in super().stream(state, config):
+                yield event
+            return
+
+        yield NodeEvent(event="on_node_start", node_name=self.name)
+        result = NodeResult(node_name=self.name, node_type="prompt", iteration=state.iteration)
+        async for event in self._pipeline(state, config, result, stream=True):
+            yield event
+        yield NodeEvent(event="on_node_end", node_name=self.name, data={"result": result})
+
+    async def _pipeline(
+        self,
+        state: GraphState,
+        config: dict[str, Any],
+        result: NodeResult,
+        *,
+        stream: bool,
+    ) -> AsyncIterator[NodeEvent]:
+        """The node pipeline behind :meth:`execute` and :meth:`stream`.
+
+        Fills *result* in place.  Yields tool events always, and model
+        chunks when *stream* is true (the model is then called with
+        ``astream()`` instead of ``ainvoke()``).
+        """
+        start = time.monotonic()
 
         # Resolve model — per-node override takes priority
         if self.model_override is not None:
@@ -375,12 +428,12 @@ class PromptNode(BaseNode):
                     # graph history and the on_node_error event payload.
                     label = model.spec if isinstance(model, Model) else repr(model)
                     record_failure(result, exc, f"Failed to initialize model {label}: {exc}")
-                    return result
+                    return
         else:
             model = config.get("_engine_model")
         if model is None:
             result.error = "No model available in config"
-            return result
+            return
 
         # ── 0. Run preprocessor ──
         if self.preprocessor:
@@ -652,7 +705,25 @@ class PromptNode(BaseNode):
         # ── 3. Call LLM ──
         llm_start = time.monotonic()
         try:
-            response = await model_to_use.ainvoke(messages, config=config)
+            if stream and self.output_schema is None:
+                # Stream the one model call of this step; the aggregated
+                # chunks are the same AIMessage ainvoke() would return.
+                llm_run_id = str(uuid4())
+                aggregate: Any = None
+                async for chunk in model_to_use.astream(messages, config=config):
+                    if getattr(chunk, "content", None):
+                        yield NodeEvent(
+                            event="on_chat_model_stream",
+                            node_name=self.name,
+                            data={"chunk": chunk, "run_id": llm_run_id},
+                        )
+                    aggregate = chunk if aggregate is None else aggregate + chunk
+                if isinstance(aggregate, AIMessageChunk):
+                    response = message_chunk_to_message(aggregate)
+                else:
+                    response = aggregate if aggregate is not None else AIMessage(content="")
+            else:
+                response = await model_to_use.ainvoke(messages, config=config)
             result.llm_duration_ms = (time.monotonic() - llm_start) * 1000
         except Exception as exc:
             # Recorded on the result for hooks/history; the engine raises
@@ -660,7 +731,7 @@ class PromptNode(BaseNode):
             # ends here, so a provider failure never becomes a silent "answer".
             record_failure(result, exc)
             result.duration_ms = (time.monotonic() - start) * 1000
-            return result
+            return
 
         # ── 4. Process response ──
         if isinstance(response, AIMessage):
@@ -727,16 +798,43 @@ class PromptNode(BaseNode):
                         tc_record["success"] = False
                     else:
                         try:
-                            tool_result = await tool_map[tool_name].ainvoke(
-                                tool_args, config=cast("RunnableConfig | None", config)
+                            # Invoked as a tool call, a tool answers with a
+                            # ToolMessage whose status says whether it failed
+                            # (a tool that handles its ToolException).
+                            tool_output = await tool_map[tool_name].ainvoke(
+                                {
+                                    "type": "tool_call",
+                                    "name": tool_name,
+                                    "args": tool_args,
+                                    "id": tc.get("id") or str(uuid4()),
+                                },
+                                config=cast("RunnableConfig | None", config),
                             )
-                            content = str(tool_result) if tool_result is not None else ""
+                            failed = False
+                            if isinstance(tool_output, ToolMessage):
+                                failed = tool_output.status == "error"
+                                tool_output = tool_output.content
+                            if tool_output is None:
+                                content = ""
+                            elif isinstance(tool_output, str):
+                                content = tool_output
+                            else:
+                                content = str(tool_output)
                             tc_record["result"] = content
-                            tc_record["success"] = True
+                            tc_record["success"] = not failed
+                        except ToolException as exc:
+                            # The tool ran and reported an error -- an MCP
+                            # error result raises MCPToolError.  The model
+                            # sees the server's own text (its error envelope).
+                            text = getattr(exc, "text", None)
+                            content = text if isinstance(text, str) and text else str(exc)
+                            tc_record["result"] = content
+                            tc_record["success"] = False
                         except Exception as exc:
                             content = f"Error: {type(exc).__name__}: {exc}"
                             tc_record["result"] = content
                             tc_record["success"] = False
+                            tc_record["raised"] = True
 
                     # Post-tool hooks
                     for hook in hooks:
@@ -745,38 +843,90 @@ class PromptNode(BaseNode):
 
                     return tc_record, content
 
-                # Execute tools — parallel if 2+ independent calls,
-                # sequential if only 1 (avoid asyncio.gather overhead)
-                if len(tool_calls) >= 2:
-                    gathered = await asyncio.gather(
-                        *[_exec_one_tool(tc) for tc in tool_calls],
-                        return_exceptions=True,
+                async def _timed_tool(tc: dict) -> tuple[dict[str, Any], str, float]:
+                    """Run one tool call; never raises. Returns (record, content, ms)."""
+                    started = time.monotonic()
+                    try:
+                        tc_record, content = await _exec_one_tool(tc)
+                    except Exception as exc:  # a hook failed
+                        content = f"Error: {exc}"
+                        tc_record = {
+                            "name": tc.get("name", ""),
+                            "args": tc.get("args", {}),
+                            "result": content,
+                            "success": False,
+                            "raised": True,
+                        }
+                    return tc_record, content, (time.monotonic() - started) * 1000
+
+                def _tool_end_event(
+                    index: int, tc_record: dict[str, Any], content: str, ms: float
+                ) -> NodeEvent:
+                    data: dict[str, Any] = {
+                        "output": content,
+                        "run_id": tool_run_ids[index],
+                        "duration_ms": ms,
+                    }
+                    if tc_record.get("raised"):
+                        data["error"] = content
+                        return NodeEvent(
+                            event="on_tool_error", node_name=tc_record["name"], data=data
+                        )
+                    data["status"] = "success" if tc_record.get("success", True) else "error"
+                    return NodeEvent(event="on_tool_end", node_name=tc_record["name"], data=data)
+
+                tool_run_ids = [str(uuid4()) for _ in tool_calls]
+                for index, tc in enumerate(tool_calls):
+                    yield NodeEvent(
+                        event="on_tool_start",
+                        node_name=tc.get("name", ""),
+                        data={"input": tc.get("args", {}), "run_id": tool_run_ids[index]},
                     )
-                    tool_results_ordered: list[tuple[dict[str, Any], Any]] = []
-                    for i, res_or_exc in enumerate(gathered):
-                        if isinstance(res_or_exc, BaseException):
-                            tc = tool_calls[i]
-                            tc_rec = {
-                                "name": tc.get("name", ""),
-                                "args": tc.get("args", {}),
-                                "result": f"Error: {res_or_exc}",
-                                "success": False,
-                            }
-                            tool_results_ordered.append((tc_rec, tc_rec["result"]))
-                        else:
-                            tool_results_ordered.append(res_or_exc)
+
+                # Execute tools — parallel if 2+ calls (each end event is
+                # yielded as soon as that tool finishes), direct if only 1.
+                outcomes: list[tuple[dict[str, Any], str, float] | None] = [None] * len(tool_calls)
+                if len(tool_calls) == 1:
+                    outcome = await _timed_tool(tool_calls[0])
+                    outcomes[0] = outcome
+                    yield _tool_end_event(0, *outcome)
                 else:
-                    tool_results_ordered = [await _exec_one_tool(tool_calls[0])]
+                    tasks = {
+                        asyncio.ensure_future(_timed_tool(tc)): index
+                        for index, tc in enumerate(tool_calls)
+                    }
+                    try:
+                        pending = set(tasks)
+                        while pending:
+                            done, pending = await asyncio.wait(
+                                pending, return_when=asyncio.FIRST_COMPLETED
+                            )
+                            for task in sorted(done, key=tasks.__getitem__):
+                                index = tasks[task]
+                                outcome = task.result()
+                                outcomes[index] = outcome
+                                yield _tool_end_event(index, *outcome)
+                    finally:
+                        # A consumer that stops reading must not leave tools running.
+                        for task in tasks:
+                            task.cancel()
 
                 # Append results in original order (preserves tool_call_id alignment)
-                for i, (tc_record, content) in enumerate(tool_results_ordered):
+                for i, maybe_outcome in enumerate(outcomes):
+                    assert maybe_outcome is not None
+                    tc_record, content, _ms = maybe_outcome
+                    tc_record.pop("raised", None)
                     tc = tool_calls[i]
-                    tool_id = tc.get("id", str(uuid4()))
+                    tool_id = tc.get("id") or str(uuid4())
 
                     if not tc_record.get("success", True):
                         result.tool_calls_failed += 1
 
-                    tool_msg = ToolMessage(content=content, tool_call_id=tool_id)
+                    tool_msg = ToolMessage(
+                        content=content,
+                        tool_call_id=tool_id,
+                        status="success" if tc_record.get("success", True) else "error",
+                    )
                     state.messages.append(tool_msg)
                     result.messages_added.append(tool_msg)
                     result.tool_calls.append(tc_record)
@@ -858,131 +1008,6 @@ class PromptNode(BaseNode):
             state.context[f"{self.name}_output"] = result.output
 
         result.duration_ms = (time.monotonic() - start) * 1000
-        return result
-
-    async def stream(self, state: GraphState, config: dict[str, Any]) -> AsyncIterator[NodeEvent]:
-        """Stream LLM tokens and tool events."""
-        yield NodeEvent(event="on_node_start", node_name=self.name)
-
-        _model_opt = config.get("_engine_model")
-        if _model_opt is None:
-            yield NodeEvent(event="on_node_end", node_name=self.name, data={"error": "No model"})
-            return
-        model: BaseChatModel = _model_opt
-
-        # Build messages (same as execute but simplified for streaming)
-        system_parts = [self.instructions] if self.instructions else []
-        for block in self.blocks:
-            try:
-                rendered = block.render(None)
-                if rendered:
-                    system_parts.append(rendered)
-            except Exception:
-                pass
-
-        system_text = "\n\n".join(system_parts)
-        messages = list(state.messages)
-        if messages and isinstance(messages[0], SystemMessage):
-            messages[0] = SystemMessage(content=f"{messages[0].content}\n\n{system_text}")
-        else:
-            messages.insert(0, SystemMessage(content=system_text))
-
-        # Resolve tools (runtime injection + selection) — same as execute()
-        candidate_tools = self._candidate_tools(config)
-        active_tools = self._offered_tools(candidate_tools, state, config)
-
-        model_to_use = model.bind_tools(active_tools) if active_tools else model
-
-        # Stream LLM response
-        full_content = ""
-        tool_call_chunks: list[dict] = []
-        run_id = str(uuid4())
-
-        async for chunk in model_to_use.astream(
-            messages, config=cast("RunnableConfig | None", config)
-        ):
-            if hasattr(chunk, "content") and chunk.content:
-                _chunk_content = chunk.content
-                full_content += (
-                    _chunk_content if isinstance(_chunk_content, str) else str(_chunk_content)
-                )
-                yield NodeEvent(
-                    event="on_chat_model_stream",
-                    node_name=self.name,
-                    data={"chunk": chunk, "run_id": run_id},
-                )
-
-            # Accumulate tool call chunks
-            if hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks:
-                for tc in chunk.tool_call_chunks:
-                    # Merge partial tool calls
-                    if tc.get("index") is not None:
-                        idx = tc["index"]
-                        while len(tool_call_chunks) <= idx:
-                            tool_call_chunks.append({"name": "", "args": "", "id": ""})
-                        entry = tool_call_chunks[idx]
-                        entry["name"] += tc.get("name", "") or ""
-                        entry["args"] += tc.get("args", "") or ""
-                        entry["id"] = tc.get("id") or entry.get("id", "")
-
-        # Build final message
-        parsed_tool_calls = []
-        for tc in tool_call_chunks:
-            try:
-                args = json.loads(tc["args"]) if tc["args"] else {}
-            except (json.JSONDecodeError, TypeError):
-                args = {}
-            parsed_tool_calls.append(
-                {
-                    "name": tc["name"],
-                    "args": args,
-                    "id": tc.get("id", str(uuid4())),
-                }
-            )
-
-        response = AIMessage(content=full_content, tool_calls=parsed_tool_calls)
-        state.messages.append(response)
-
-        # Execute tool calls with events
-        if parsed_tool_calls:
-            tool_map = {t.name: t for t in candidate_tools}
-            for tc in parsed_tool_calls:
-                tc_run_id = str(uuid4())
-                tool_name = tc["name"]
-                tool_args = tc["args"]
-                tool_id = tc.get("id", "")
-
-                yield NodeEvent(
-                    event="on_tool_start",
-                    node_name=tool_name,
-                    data={"input": tool_args, "run_id": tc_run_id},
-                )
-
-                try:
-                    if tool_name in tool_map:
-                        result = await tool_map[tool_name].ainvoke(
-                            tool_args, config=cast("RunnableConfig | None", config)
-                        )
-                        content = str(result) if result is not None else ""
-                    else:
-                        content = f"Error: Unknown tool '{tool_name}'"
-
-                    yield NodeEvent(
-                        event="on_tool_end",
-                        node_name=tool_name,
-                        data={"output": content, "run_id": tc_run_id},
-                    )
-                except Exception as exc:
-                    content = f"Error: {type(exc).__name__}: {exc}"
-                    yield NodeEvent(
-                        event="on_tool_error",
-                        node_name=tool_name,
-                        data={"error": str(exc), "run_id": tc_run_id},
-                    )
-
-                state.messages.append(ToolMessage(content=content, tool_call_id=tool_id))
-
-        yield NodeEvent(event="on_node_end", node_name=self.name)
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> PromptNode:

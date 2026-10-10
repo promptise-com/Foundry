@@ -637,30 +637,8 @@ class PromptiseAgent:
                 input = _inject_memory_into_messages(input, context)
 
         # Step 1.1: Adaptive strategy — inject learned strategies (legacy path only)
-        if self._strategy_manager is not None and user_text and not _engine_active:
-            try:
-                strategies = await self._strategy_manager.get_relevant_strategies(user_text)
-                if strategies:
-                    block = self._strategy_manager.format_strategy_block(strategies)
-                    if block and isinstance(input, dict) and "messages" in input:
-                        # Fix: create a copy to avoid mutating shared input
-                        from langchain_core.messages import SystemMessage as _SM
-
-                        messages = list(input["messages"])
-                        # Insert after all leading system messages (same algorithm as memory)
-                        insert_idx = 0
-                        for i, msg in enumerate(messages):
-                            is_sys = isinstance(msg, _SM) or (
-                                isinstance(msg, dict) and msg.get("role") == "system"
-                            )
-                            if is_sys:
-                                insert_idx = i + 1
-                            else:
-                                break
-                        messages.insert(insert_idx, _SM(content=block))
-                        input = {**input, "messages": messages}
-            except Exception:
-                logger.debug("Strategy injection failed, continuing", exc_info=True)
+        if not _engine_active:
+            input = await self._inject_strategies(input, user_text)
 
         # ── Context Engine assembly (when active, replaces ad-hoc injection) ──
         if _engine_active and isinstance(input, dict):
@@ -756,13 +734,7 @@ class PromptiseAgent:
 
         # Step 2.5: Adaptive strategy — collect this invocation's failed tool
         # calls (independent of observability, never shared across calls)
-        _failure_recorder = None
-        if self._strategy_manager is not None:
-            from .strategy import _ToolFailureRecorder
-
-            _failure_recorder = _ToolFailureRecorder()
-            config = dict(config) if config else {}
-            config["callbacks"] = [*config.get("callbacks", []), _failure_recorder]
+        config, _failure_recorder = self._attach_failure_recorder(config)
 
         # Step 3: Delegate to inner graph
         try:
@@ -904,11 +876,28 @@ class PromptiseAgent:
         caller: CallerContext | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[Any]:
-        """Stream the agent asynchronously with memory and observability.
+        """Stream the agent's run, one chunk per step of its graph.
+
+        Each chunk is ``{"messages": [...]}``: the conversation once a node
+        of the agent's graph has finished (LangGraph's
+        ``stream_mode="values"``).  The last chunk is what :meth:`ainvoke`
+        returns.  Input guardrails run first (a violation raises), an answer
+        is checked by the output guardrails before its chunk is yielded,
+        and memory and observability work as in :meth:`ainvoke`.  The
+        semantic cache is not consulted.
+
+        For token-by-token output and tool activity, use
+        :meth:`astream_with_tools`.
 
         Args:
+            input: Agent input (same format as ``ainvoke``).
+            config: LangChain config dict (callbacks, etc.).
             caller: Optional :class:`CallerContext` for per-request identity.
+                When omitted, the ambient caller is inherited, as in
+                :meth:`ainvoke`.
         """
+        if caller is None:
+            caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
         _inv_token = _begin_invocation(input)
         try:
@@ -925,24 +914,44 @@ class PromptiseAgent:
         **kwargs: Any,
     ) -> AsyncIterator[Any]:
         """Inner stream — runs with CallerContext in contextvar."""
-        # Step 0: Input guardrails.  Raw graph chunks are not scanned on the
-        # way out; use astream_with_tools() or ainvoke() for output scanning.
+        from .memory import _extract_user_text
+
+        # Defensive copy — never mutate the caller's input dict
+        if isinstance(input, dict):
+            input = {**input}
+            if "messages" in input:
+                input["messages"] = list(input["messages"])
+
+        # Step 0: Input guardrails — scan (and maybe rewrite) the user's
+        # message before anything else; a violation raises.
         if self._guardrails is not None:
-            input = await self._guard_input(input)
+            try:
+                input = await self._guard_input(input)
+            except Exception as guard_exc:
+                if self._event_notifier is not None:
+                    from .events import emit_event
+
+                    emit_event(
+                        self._event_notifier,
+                        "guardrail.blocked",
+                        "warning",
+                        {"direction": "input", "error": type(guard_exc).__name__},
+                    )
+                raise
+
+        user_text = _extract_user_text(input) if input else ""
 
         # Step 1: Memory — search and inject context
         if self.provider is not None:
-            from .memory import (
-                _extract_user_text,
-                _format_memory_context,
-                _inject_memory_into_messages,
-            )
+            from .memory import _format_memory_context, _inject_memory_into_messages
 
-            user_text = _extract_user_text(input)
             results = await self._search_memory(user_text)
             if results:
                 context = _format_memory_context(results)
                 input = _inject_memory_into_messages(input, context)
+
+        # Step 1.1: Adaptive strategy — inject learned strategies
+        input = await self._inject_strategies(input, user_text)
 
         config = self._with_tool_selection(config)
 
@@ -953,11 +962,59 @@ class PromptiseAgent:
             callbacks.append(self._handler)
             config["callbacks"] = callbacks
 
+        # Step 2.5: Adaptive strategy — collect this run's failed tool calls
+        config, _failure_recorder = self._attach_failure_recorder(config)
+
         # Step 3: Delegate to inner graph
-        async for chunk in self._inner.astream(
-            input, config=cast("RunnableConfig | None", config), **kwargs
-        ):
-            yield chunk
+        last_chunk: Any = None
+        try:
+            async for chunk in self._inner.astream(
+                input, config=cast("RunnableConfig | None", config), **kwargs
+            ):
+                if self._guardrails is not None:
+                    chunk = await self._guard_answer_chunk(chunk)
+                last_chunk = chunk
+                yield chunk
+        finally:
+            # Step 3.5: Adaptive strategy — record failures, also when the
+            # run failed or the consumer stopped reading.
+            await self._record_tool_failures(_failure_recorder)
+
+        # Step 4: Memory — auto-store the exchange
+        if self.provider is not None and user_text and last_chunk is not None:
+            await self._maybe_store(user_text, last_chunk)
+
+    async def _guard_answer_chunk(self, chunk: Any) -> Any:
+        """Run the output guardrails on a stream chunk that ends in an answer.
+
+        A chunk ends in an answer when its last message is an AI message
+        without tool calls -- the text :meth:`ainvoke` would check.  A
+        redaction replaces that message in the yielded chunk only (the
+        graph's own messages are not mutated); a violation raises.
+        """
+        assert self._guardrails is not None
+        messages = chunk.get("messages") if isinstance(chunk, dict) else None
+        if not messages or not isinstance(messages, list):
+            return chunk
+        last = messages[-1]
+        if getattr(last, "type", None) != "ai" or getattr(last, "tool_calls", None):
+            return chunk
+        text = _extract_response_text({"messages": [last]})
+        if not text:
+            return chunk
+        checked = await self._guardrails.check_output(text)
+        if not isinstance(checked, str) or checked == text:
+            return chunk
+        if self._event_notifier is not None:
+            from .events import emit_event
+
+            emit_event(
+                self._event_notifier,
+                "guardrail.redacted",
+                "info",
+                {"direction": "output", "streaming": True},
+            )
+        return {**chunk, "messages": [*messages[:-1], last.model_copy(update={"content": checked})]}
 
     async def astream_with_tools(
         self,
@@ -978,7 +1035,8 @@ class PromptiseAgent:
         Args:
             input: Agent input (same format as ``ainvoke``).
             config: LangChain config dict.
-            caller: Per-request identity for multi-user.
+            caller: Per-request identity for multi-user.  When omitted, the
+                ambient caller is inherited, as in :meth:`ainvoke`.
             include_arguments: Include tool arguments in events.
             tool_display_names: Custom display names for tools.
 
@@ -1003,19 +1061,31 @@ class PromptiseAgent:
             ToolStartEvent,
         )
         from .streaming import (
+            content_text as _content_text,
+        )
+        from .streaming import (
             redact_tool_args as _redact_args,
         )
         from .streaming import (
             tool_display_name as _display_name,
         )
         from .streaming import (
+            tool_error_summary as _error_summary,
+        )
+        from .streaming import (
             tool_summary as _summary,
         )
 
+        # Inherit the ambient CallerContext when none is given, as ainvoke() does.
+        if caller is None:
+            caller = _caller_ctx_var.get()
         _ctx_token = _caller_ctx_var.set(caller)
         _inv_token = _begin_invocation(input)
         _start = time.monotonic()
         _cumulative = ""
+        # The final answer: the text of the last model call (its run_id).
+        _answer = ""
+        _answer_run: Any = None
         _tool_counter = 0
         _tool_starts: dict[str, tuple[float, int]] = {}
         _all_tool_calls: list[dict[str, Any]] = []
@@ -1084,6 +1154,12 @@ class PromptiseAgent:
                     context = _format_memory_context(results)
                     input = _inject_memory_into_messages(input, context)
 
+            # Step 1.1: Adaptive strategy — inject learned strategies
+            if self._strategy_manager is not None:
+                from .memory import _extract_user_text as _ext_strategy
+
+                input = await self._inject_strategies(input, _ext_strategy(input))
+
             config = self._with_tool_selection(config)
 
             # Step 2: Inject callback handler
@@ -1093,7 +1169,10 @@ class PromptiseAgent:
                 callbacks.append(self._handler)
                 config["callbacks"] = callbacks
 
-            # Step 3: Stream via LangGraph astream_events
+            # Step 2.5: Adaptive strategy — collect this run's failed tool calls
+            config, _failure_recorder = self._attach_failure_recorder(config)
+
+            # Step 3: Stream the engine's events
             try:
                 async for event in self._inner.astream_events(
                     input, config=cast("RunnableConfig | None", config), version="v2", **kwargs
@@ -1110,8 +1189,12 @@ class PromptiseAgent:
                             args = await _redact_args(args, self._guardrails)
                         elif not include_arguments:
                             args = {}
-                        # Use run_id as key (handles parallel calls to same tool)
+                        # The engine keeps a tool call's run_id on its start and
+                        # end events, so the end finds its start time and index
+                        # even when parallel calls finish out of order.
                         _tool_starts[run_id] = (time.monotonic(), _tool_counter)
+                        # Text before a tool call is not the answer.
+                        _answer, _answer_run = "", None
                         yield ToolStartEvent(
                             tool_name=tool_name,
                             tool_display_name=_display_name(tool_name, tool_display_names),
@@ -1120,49 +1203,54 @@ class PromptiseAgent:
                         )
                         _tool_counter += 1
 
-                    elif etype == "on_tool_end":
+                    elif etype in ("on_tool_end", "on_tool_error"):
                         tool_name = event.get("name", "unknown")
                         run_id = event.get("run_id", "")
-                        output = event.get("data", {}).get("output", "")
-                        result_str = str(output) if output else ""
-                        start_t, idx = _tool_starts.pop(run_id, (_start, 0))
-                        summary = _summary(result_str)
+                        data = event.get("data", {})
+                        start_t, idx = _tool_starts.pop(run_id, (time.monotonic(), -1))
+                        if idx < 0:  # an end without a start: give it its own index
+                            idx = _tool_counter
+                            _tool_counter += 1
+                        duration_ms = data.get("duration_ms")
+                        if not isinstance(duration_ms, (int, float)):
+                            duration_ms = (time.monotonic() - start_t) * 1000
+                        output = data.get("output", "")
+                        result_str = output if isinstance(output, str) else _content_text(output)
+                        if etype == "on_tool_error":
+                            # The tool raised; its exception text is not exposed.
+                            success, summary = False, "Tool call failed"
+                        elif data.get("status") == "error":
+                            # The tool reported an error (an MCP ToolError).
+                            success, summary = False, _error_summary(result_str)
+                        else:
+                            success, summary = True, _summary(result_str)
                         yield ToolEndEvent(
                             tool_name=tool_name,
                             tool_summary=summary,
-                            duration_ms=round((time.monotonic() - start_t) * 1000, 1),
-                            success=True,
+                            duration_ms=round(duration_ms, 1),
+                            success=success,
                             tool_index=idx,
                         )
                         _all_tool_calls.append(
-                            {"name": tool_name, "summary": summary, "success": True}
-                        )
-
-                    elif etype == "on_tool_error":
-                        tool_name = event.get("name", "unknown")
-                        run_id = event.get("run_id", "")
-                        start_t, idx = _tool_starts.pop(run_id, (_start, 0))
-                        yield ToolEndEvent(
-                            tool_name=tool_name,
-                            tool_summary="Error occurred",
-                            duration_ms=round((time.monotonic() - start_t) * 1000, 1),
-                            success=False,
-                            tool_index=idx,
-                        )
-                        _all_tool_calls.append(
-                            {"name": tool_name, "summary": "Error", "success": False}
+                            {"name": tool_name, "summary": summary, "success": success}
                         )
 
                     elif etype == "on_chat_model_stream":
-                        chunk = event.get("data", {}).get("chunk")
-                        if chunk is not None:
-                            content = getattr(chunk, "content", None)
-                            if content:
-                                _cumulative += content
-                                yield TokenEvent(
-                                    text=content,
-                                    cumulative_text=_cumulative,
-                                )
+                        data = event.get("data", {})
+                        chunk = data.get("chunk")
+                        text = _content_text(getattr(chunk, "content", None))
+                        if text:
+                            # The answer is the last model call's text: a new
+                            # call (new run_id) starts it over.
+                            llm_run = data.get("run_id") or event.get("run_id")
+                            if llm_run != _answer_run:
+                                _answer_run, _answer = llm_run, ""
+                            _answer += text
+                            _cumulative += text
+                            yield TokenEvent(
+                                text=text,
+                                cumulative_text=_cumulative,
+                            )
 
             except Exception as exc:
                 yield ErrorEvent(
@@ -1180,9 +1268,13 @@ class PromptiseAgent:
                         agent_id=self._actor(),
                     )
                 return
+            finally:
+                # Adaptive strategy: record failures, also when the run
+                # failed or the consumer stopped reading.
+                await self._record_tool_failures(_failure_recorder)
 
-            # Step 4: Output guardrails on accumulated text
-            final_response = _cumulative
+            # Step 4: Output guardrails on the final answer
+            final_response = _answer
             if self._guardrails is not None and final_response:
                 try:
                     checked = await self._guardrails.check_output(final_response)
@@ -1233,14 +1325,14 @@ class PromptiseAgent:
                     final_response = checked_output
 
             # Step 5: Memory auto-store
-            if self.provider is not None and _cumulative:
+            if self.provider is not None and final_response:
                 try:
                     from .memory import _extract_user_text
 
                     user_text = _extract_user_text(input)
                     if user_text:
                         await self.provider.add(
-                            f"User: {user_text}\nAssistant: {_cumulative[:500]}"
+                            f"User: {user_text}\nAssistant: {final_response[:500]}"
                         )
                 except Exception:
                     pass
@@ -1394,6 +1486,59 @@ class PromptiseAgent:
         transporter._collector = self.collector
         transporter.flush()
         return path
+
+    async def _inject_strategies(self, input: Any, user_text: str) -> Any:
+        """Insert the adaptive strategy's relevant lessons as a system message.
+
+        The block goes after the input's leading system messages.  Returns a
+        copy of *input* (never mutated), or *input* itself when there is
+        nothing to inject.
+        """
+        if self._strategy_manager is None or not user_text:
+            return input
+        try:
+            strategies = await self._strategy_manager.get_relevant_strategies(user_text)
+            if not strategies:
+                return input
+            block = self._strategy_manager.format_strategy_block(strategies)
+            if not block or not isinstance(input, dict) or "messages" not in input:
+                return input
+            from langchain_core.messages import SystemMessage as _SM
+
+            messages = list(input["messages"])
+            # Insert after all leading system messages (same algorithm as memory)
+            insert_idx = 0
+            for i, msg in enumerate(messages):
+                is_sys = isinstance(msg, _SM) or (
+                    isinstance(msg, dict) and msg.get("role") == "system"
+                )
+                if is_sys:
+                    insert_idx = i + 1
+                else:
+                    break
+            messages.insert(insert_idx, _SM(content=block))
+            return {**input, "messages": messages}
+        except Exception:
+            logger.debug("Strategy injection failed, continuing", exc_info=True)
+            return input
+
+    def _attach_failure_recorder(
+        self, config: dict[str, Any] | None
+    ) -> tuple[dict[str, Any] | None, Any | None]:
+        """Add a per-invocation tool failure recorder for adaptive strategy.
+
+        Independent of observability and never shared across calls.  Returns
+        ``(config, recorder)``; the recorder is ``None`` without adaptive
+        strategy.
+        """
+        if self._strategy_manager is None:
+            return config, None
+        from .strategy import _ToolFailureRecorder
+
+        recorder = _ToolFailureRecorder()
+        config = dict(config) if config else {}
+        config["callbacks"] = [*config.get("callbacks", []), recorder]
+        return config, recorder
 
     async def _record_tool_failures(self, recorder: Any | None) -> None:
         """Hand an invocation's failed tool calls to adaptive strategy."""

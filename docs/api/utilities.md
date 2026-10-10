@@ -345,6 +345,28 @@ Multi-head security scanner: prompt injection (DeBERTa ML), PII detection (69 re
       show_source: false
       heading_level: 4
 
+### Stream helpers
+
+::: promptise.streaming.tool_display_name
+    options:
+      show_source: false
+      heading_level: 4
+
+::: promptise.streaming.tool_summary
+    options:
+      show_source: false
+      heading_level: 4
+
+::: promptise.streaming.tool_error_summary
+    options:
+      show_source: false
+      heading_level: 4
+
+::: promptise.streaming.content_text
+    options:
+      show_source: false
+      heading_level: 4
+
 ---
 
 ## Tool Optimization

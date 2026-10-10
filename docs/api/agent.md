@@ -57,6 +57,7 @@ Core agent creation, invocation, identity, conversations, and the full reasoning
       heading_level: 4
       members:
         - ainvoke
+        - astream
         - astream_events
         - last_report
 
