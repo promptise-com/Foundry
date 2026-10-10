@@ -41,21 +41,31 @@ class CachedCredential:
         expires_at_epoch: The Unix timestamp from the JWT's ``exp``
             claim, or ``None`` when no expiry could be decoded (in which
             case the credential is always considered stale).
+        acquired_at_epoch: When the credential was acquired. When known,
+            the refresh buffer is capped at half the credential's lifetime,
+            so a token that lives less than twice the buffer is still
+            reused for a while instead of being re-acquired on every call.
     """
 
     token: str
     expires_at_epoch: float | None
+    acquired_at_epoch: float | None = None
 
     def is_stale(self, buffer_seconds: int = CREDENTIAL_REFRESH_BUFFER_SECONDS) -> bool:
         """Return ``True`` when the credential should be re-acquired.
 
         A credential with no known expiry is always stale (re-acquired
         on every use). Otherwise it is stale once the current time is
-        within ``buffer_seconds`` of the ``exp`` claim.
+        within ``buffer_seconds`` of the ``exp`` claim — or within half its
+        lifetime of it, if that is shorter.
         """
         if self.expires_at_epoch is None:
             return True
-        return time.time() + buffer_seconds >= self.expires_at_epoch
+        buffer: float = buffer_seconds
+        if self.acquired_at_epoch is not None:
+            lifetime = max(self.expires_at_epoch - self.acquired_at_epoch, 0.0)
+            buffer = min(buffer, lifetime / 2)
+        return time.time() + buffer >= self.expires_at_epoch
 
 
 def decode_jwt_claims(jwt: str) -> dict[str, Any]:

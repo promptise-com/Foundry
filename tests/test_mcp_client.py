@@ -1185,3 +1185,61 @@ class TestToolNameCollisionWarning:
 
         # The last server wins
         assert multi._tool_to_server["do_stuff"] == "server2"
+
+
+class TestBearerTokenProvider:
+    """``bearer_token_provider``: a fresh credential per request, fail closed."""
+
+    def test_rejects_both_static_token_and_provider(self) -> None:
+        with pytest.raises(MCPClientError, match="either bearer_token or bearer_token_provider"):
+            MCPClient(url="http://x/mcp", bearer_token="t", bearer_token_provider=lambda f: "t")
+
+    def test_rejects_stdio(self) -> None:
+        with pytest.raises(MCPClientError, match="HTTP or SSE"):
+            MCPClient(transport="stdio", command="x", bearer_token_provider=lambda f: "t")
+
+    def test_static_authorization_header_is_dropped(self) -> None:
+        client = MCPClient(
+            url="http://x/mcp",
+            headers={"Authorization": "Bearer stale", "x-trace": "1"},
+            bearer_token_provider=lambda f: "fresh",
+        )
+        assert client.headers == {"x-trace": "1"}
+
+    async def test_provider_failure_raises_credential_error_without_details(self) -> None:
+        from promptise.mcp.client import MCPCredentialError
+        from promptise.mcp.client._client import _TokenSource
+
+        def provider(force: bool) -> str:
+            raise RuntimeError("secret-token-value leaked by a careless provider")
+
+        with pytest.raises(MCPCredentialError) as info:
+            await _TokenSource(provider).current()
+        assert "secret-token-value" not in str(info.value)
+        assert "RuntimeError" in str(info.value)
+        assert isinstance(info.value.__cause__, RuntimeError)
+
+    async def test_non_string_token_is_rejected(self) -> None:
+        from promptise.mcp.client import MCPCredentialError
+        from promptise.mcp.client._client import _TokenSource
+
+        with pytest.raises(MCPCredentialError, match="expected str"):
+            await _TokenSource(lambda force: 42).current()  # type: ignore[arg-type,return-value]
+
+    async def test_concurrent_401s_share_one_forced_refresh(self) -> None:
+        import asyncio
+
+        from promptise.mcp.client._client import _TokenSource
+
+        calls: list[bool] = []
+
+        async def provider(force: bool) -> str:
+            calls.append(force)
+            await asyncio.sleep(0)
+            return "fresh" if force else "stale"
+
+        source = _TokenSource(provider)
+        assert await source.current() == "stale"
+        results = await asyncio.gather(*(source.refresh(rejected="stale") for _ in range(5)))
+        assert results == ["fresh"] * 5
+        assert calls.count(True) == 1

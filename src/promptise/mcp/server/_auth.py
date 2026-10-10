@@ -456,6 +456,110 @@ class AsymmetricJWTAuth:
             return False
 
 
+class _JwksKeySet:
+    """An IdP's signing keys, fetched from its JWKS endpoint and cached.
+
+    The whole set is re-fetched once it is ``lifespan`` seconds old.  A
+    token whose ``kid`` is not in the cached set is most likely signed with
+    a key the IdP has just rotated in, so the set is re-fetched right away
+    rather than refusing the token until the cache expires.  To keep a
+    stream of made-up ``kid`` values from turning every request into a
+    JWKS fetch, that re-fetch happens at most once per ``kid`` every
+    ``unknown_kid_cooldown`` seconds, and at most once every
+    ``min_refetch_interval`` seconds across all unknown ``kid`` values.
+    """
+
+    #: Unknown ``kid`` values remembered for the per-kid rate limit.
+    _MAX_TRACKED_KIDS = 1024
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        timeout: float,
+        lifespan: float = 300.0,
+        unknown_kid_cooldown: float = 60.0,
+        min_refetch_interval: float = 1.0,
+    ) -> None:
+        self.url = url
+        self._timeout = timeout
+        self._lifespan = lifespan
+        self._unknown_kid_cooldown = unknown_kid_cooldown
+        self._min_refetch_interval = min_refetch_interval
+        self._keys: dict[str, Any] = {}
+        self._fetched_at: float | None = None
+        self._last_kid_refetch: float | None = None
+        self._kid_refetched_at: OrderedDict[str, float] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def get_signing_key_from_jwt(self, token: str) -> Any:
+        """Return the cached key (a ``jwt.PyJWK``) matching the token's ``kid``."""
+        import jwt as pyjwt
+
+        kid = pyjwt.get_unverified_header(token).get("kid")
+        if not isinstance(kid, str) or not kid:
+            raise LookupError("the token has no 'kid' header")
+        return self.get_signing_key(kid)
+
+    def get_signing_key(self, kid: str) -> Any:
+        """Return the key for *kid*, re-fetching the set if it is unknown."""
+        with self._lock:
+            now = time.monotonic()
+            if self._fetched_at is None or now - self._fetched_at >= self._lifespan:
+                self._refresh(now)
+            key = self._keys.get(kid)
+            if key is not None:
+                return key
+            last = self._kid_refetched_at.get(kid)
+            if (last is None or now - last >= self._unknown_kid_cooldown) and (
+                self._last_kid_refetch is None
+                or now - self._last_kid_refetch >= self._min_refetch_interval
+            ):
+                self._last_kid_refetch = now
+                self._kid_refetched_at[kid] = now
+                self._kid_refetched_at.move_to_end(kid)
+                while len(self._kid_refetched_at) > self._MAX_TRACKED_KIDS:
+                    self._kid_refetched_at.popitem(last=False)
+                logger.info("JWKS has no key %r; re-fetching %s", kid, self.url)
+                self._fetch(now)
+                key = self._keys.get(kid)
+                if key is not None:
+                    return key
+            raise LookupError(f"no signing key with kid {kid!r} is published")
+
+    def _refresh(self, now: float) -> None:
+        """Re-fetch an expired set, keeping the old keys if the IdP is down."""
+        try:
+            self._fetch(now)
+        except Exception as exc:
+            if not self._keys:
+                raise
+            # Keep verifying with the keys we have and retry in a while,
+            # rather than failing every caller while the IdP is unreachable.
+            assert self._fetched_at is not None
+            self._fetched_at = now - self._lifespan + min(30.0, self._lifespan)
+            logger.warning(
+                "Could not refresh the JWKS at %s (%s: %s); using the cached keys",
+                self.url,
+                type(exc).__name__,
+                exc,
+            )
+
+    def _fetch(self, now: float) -> None:
+        import httpx
+        import jwt as pyjwt
+
+        response = httpx.get(self.url, timeout=self._timeout)
+        if response.status_code != 200:
+            raise LookupError(f"the JWKS endpoint answered HTTP {response.status_code}")
+        keys: dict[str, Any] = {}
+        for key in pyjwt.PyJWKSet.from_dict(response.json()).keys:
+            if key.public_key_use in ("sig", None) and key.key_id:
+                keys[key.key_id] = key
+        self._keys = keys
+        self._fetched_at = now
+
+
 class JwksAuth:
     """JWT authentication against an identity provider's JWKS endpoint.
 
@@ -487,6 +591,13 @@ class JwksAuth:
         algorithms: Accepted signing algorithms. Asymmetric only, so a
             token claiming ``HS256`` (algorithm-confusion) is rejected.
         meta_key: Key in ``ctx.meta`` holding the bearer token.
+        leeway: Seconds of clock skew tolerated when checking ``exp``,
+            ``nbf`` and ``iat``.
+
+    Keys are cached for five minutes.  A token signed with a key that is
+    not in the cache (the IdP rotated its keys) makes the server re-fetch
+    the JWKS immediately, at most once per key id per minute, so a
+    rotated key is accepted on its first use.
 
     Example::
 
@@ -547,6 +658,7 @@ class JwksAuth:
         algorithms: tuple[str, ...] = ("RS256", "ES256"),
         meta_key: str = "authorization",
         request_timeout: float = 5.0,
+        leeway: float = 60.0,
     ) -> JwksAuth:
         """Build a :class:`JwksAuth` that discovers its JWKS from the issuer.
 
@@ -563,7 +675,10 @@ class JwksAuth:
             audience: Expected ``aud`` claim — required.
             algorithms: Accepted signing algorithms.
             meta_key: Key in ``ctx.meta`` holding the bearer token.
-            request_timeout: Seconds to wait for the discovery fetch.
+            request_timeout: Seconds to wait for the discovery and JWKS
+                fetches.
+            leeway: Seconds of clock skew tolerated when checking ``exp``,
+                ``nbf`` and ``iat`` (as for the constructor).
         """
         if not issuer:
             raise ValueError("JwksAuth.from_discovery requires a non-empty issuer.")
@@ -573,6 +688,7 @@ class JwksAuth:
             issuer=issuer,
             algorithms=algorithms,
             meta_key=meta_key,
+            leeway=leeway,
         )
         auth._discovery_issuer = issuer
         auth._request_timeout = request_timeout
@@ -613,7 +729,7 @@ class JwksAuth:
     def _client(self) -> Any:
         if self._jwk_client is None:
             try:
-                from jwt import PyJWKClient
+                import jwt  # noqa: F401
             except ImportError:
                 raise ImportError(
                     "PyJWT and cryptography are required for JWKS auth. "
@@ -623,7 +739,7 @@ class JwksAuth:
             if self._discovery_issuer is not None:
                 jwks_url = self._discover_jwks_url()
                 self._jwks_url = jwks_url  # cache for diagnostics
-            self._jwk_client = PyJWKClient(jwks_url)
+            self._jwk_client = _JwksKeySet(jwks_url, timeout=self._request_timeout)
         return self._jwk_client
 
     async def authenticate(self, ctx: RequestContext) -> str:
