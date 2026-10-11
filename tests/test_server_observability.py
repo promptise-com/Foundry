@@ -192,3 +192,59 @@ class TestMissingPackageErrors:
         monkeypatch.setitem(sys.modules, "prometheus_client", None)
         with pytest.raises(ImportError, match=r'pip install "promptise\[all\]"'):
             PrometheusMiddleware()
+
+
+class TestOTelErrorRedaction:
+    """Error text exported on spans is redacted like the agent's observability."""
+
+    @pytest.mark.asyncio
+    async def test_span_error_text_masks_credentials_and_pii(self):
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+        from promptise.mcp.server import MCPServer, TestClient
+        from promptise.mcp.server._otel import OTelMiddleware
+
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+
+        server = MCPServer(name="otel-redact")
+        server.add_middleware(OTelMiddleware(tracer_provider=provider))
+
+        @server.tool()
+        async def charge(email: str) -> str:
+            """Charge a customer."""
+            raise RuntimeError(
+                f"upstream refused {email} with key sk-proj-Ab3_dEf-GhIjKlMnOpQrStUvWxYz"
+            )
+
+        client = TestClient(server)
+        await client.call_tool("charge", {"email": "alice@example.com"})
+
+        [span] = exporter.get_finished_spans()
+        exported = [str(span.attributes.get("mcp.error.message")), str(span.status.description)]
+        for event in span.events:
+            exported += [str(v) for v in (event.attributes or {}).values()]
+        text = "\n".join(exported)
+        assert "upstream refused" in text
+        assert "alice@example.com" not in text
+        assert "sk-proj-Ab3_dEf-GhIjKlMnOpQrStUvWxYz" not in text
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "sk-abcdefghijklmnopqrstuvwxyz0123",
+        "sk-proj-Ab3_dEf-GhIjKlMnOpQrStUvWxYz0123456789",
+        "sk-ant-api03-Ab3_dEf-GhIjKlMnOpQrStUvWxYz0123456789",
+        "sk-svcacct-Ab3dEfGhIjKlMnOpQrStUvWxYz",
+    ],
+)
+def test_redaction_masks_current_api_key_formats(key):
+    from promptise.observability import redact_sensitive
+
+    out = redact_sensitive({"error": f"auth failed for {key} (retry later)"})
+    assert key not in out["error"]
+    assert "[API_KEY]" in out["error"] and out["error"].endswith("(retry later)")

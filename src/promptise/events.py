@@ -71,7 +71,9 @@ _PII_PATTERNS: list[tuple[_re.Pattern[str], str]] = [
     (_re.compile(r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"), "[CARD]"),
     (_re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN]"),
     (_re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"), "[EMAIL]"),
-    (_re.compile(r"\b(sk-[a-zA-Z0-9]{20,})\b"), "[API_KEY]"),
+    # OpenAI (``sk-proj-…``, ``sk-svcacct-…``), Anthropic (``sk-ant-…``) and
+    # legacy ``sk-…`` keys; the newer formats contain ``-`` and ``_``.
+    (_re.compile(r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9][A-Za-z0-9_-]{19,}"), "[API_KEY]"),
     (_re.compile(r"\b(AKIA[A-Z0-9]{16})\b"), "[AWS_KEY]"),
     (_re.compile(r"\b(ghp_[a-zA-Z0-9]{36})\b"), "[GITHUB_TOKEN]"),
     (_re.compile(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*"), "Bearer [REDACTED]"),

@@ -101,9 +101,13 @@ class OTelMiddleware:
 
         from opentelemetry import trace
 
+        # The exception is recorded below with redacted text; the context
+        # manager's own recording would export it as written.
         with self._tracer.start_as_current_span(
             f"mcp.tool.{ctx.tool_name}",
             kind=trace.SpanKind.SERVER,
+            record_exception=False,
+            set_status_on_exception=False,
         ) as span:
             span.set_attribute("mcp.tool.name", ctx.tool_name)
             span.set_attribute("mcp.request.id", ctx.request_id)
@@ -116,10 +120,19 @@ class OTelMiddleware:
                 span.set_attribute("mcp.status", "ok")
                 return result
             except Exception as exc:
+                message, stacktrace = _redacted_error(exc)
                 span.set_attribute("mcp.status", "error")
-                span.set_attribute("mcp.error.message", str(exc))
-                span.record_exception(exc)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
+                span.set_attribute("mcp.error.message", message)
+                # record_exception() would export str(exc) and the traceback
+                # as written; pass the redacted copies instead.
+                span.record_exception(
+                    exc,
+                    attributes={
+                        "exception.message": message,
+                        "exception.stacktrace": stacktrace,
+                    },
+                )
+                span.set_status(trace.Status(trace.StatusCode.ERROR, message))
                 if self._error_counter:
                     self._error_counter.add(1, {"tool": ctx.tool_name})
                 raise
@@ -130,3 +143,23 @@ class OTelMiddleware:
                         elapsed_ms,
                         {"tool": ctx.tool_name},
                     )
+
+
+def _redacted_error(exc: BaseException) -> tuple[str, str]:
+    """The exception's message and traceback with credentials and PII masked.
+
+    Error text often quotes the arguments a tool was called with, so it goes
+    through the same redaction as the agent's observability before it leaves
+    the process in a span.
+    """
+    import traceback
+
+    from ...observability import redact_sensitive
+
+    text = redact_sensitive(
+        {
+            "message": str(exc),
+            "stacktrace": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
+        }
+    )
+    return str(text["message"]), str(text["stacktrace"])
