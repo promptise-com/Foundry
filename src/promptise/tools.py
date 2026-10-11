@@ -13,12 +13,19 @@ many retries.
 from __future__ import annotations
 
 import itertools
+import json
+import logging
 import re
-from collections.abc import Callable
+import types
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, Optional, Union, cast
+from typing import Annotated, Any, Literal, Optional, Union, cast, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from langchain_core.tools import BaseTool, ToolException
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
+from pydantic_core import to_jsonable_python
+
+logger = logging.getLogger("promptise.tools")
 
 # Callback types for tracing tool calls
 OnBefore = Callable[[str, dict[str, Any]], None]
@@ -307,6 +314,269 @@ def _jsonschema_to_pydantic(
     safe_name = _unique_name(model_name)
     model = create_model(safe_name, **cast(dict[str, Any], fields))
     return cast(type[BaseModel], model)
+
+
+# ------------------------------------------------------------------
+# Tool arguments: what the model gave, as plain JSON
+# ------------------------------------------------------------------
+#
+# LangChain's ``BaseTool._parse_input`` validates a call against the
+# ``args_schema`` and hands the tool every field with a default (``None`` for
+# an optional parameter the model left out) and nested objects as instances
+# of the generated models.  Sent to an MCP server as-is, the defaults become
+# ``null`` arguments a validating server rejects, and reviewers, traces and
+# events see model reprs instead of data.  The helpers below keep only the
+# arguments the model gave, as plain dicts and lists.
+
+
+class ToolArgumentError(ToolException):
+    """A tool call's arguments do not match the tool's parameter schema.
+
+    Raised before the call is sent, so nothing ran.  The message lists each
+    problem by argument path and tells the model to correct the call; the
+    agent loop shows it to the model as the tool's result, and callbacks get
+    ``on_tool_error``.
+
+    Attributes:
+        tool_name: The tool that was called.
+        code: Always ``"INVALID_ARGUMENTS"``.
+        message: The model-facing message.
+        text: Same as ``message`` (what the agent loop shows the model).
+        errors: Pydantic's error list (``ValidationError.errors()``).
+    """
+
+    code = "INVALID_ARGUMENTS"
+
+    def __init__(
+        self, tool_name: str, message: str, *, errors: list[dict[str, Any]] | None = None
+    ) -> None:
+        self.tool_name = tool_name
+        self.message = message
+        self.text = message
+        self.errors = errors or []
+        super().__init__(message)
+
+    @classmethod
+    def from_validation_error(cls, tool_name: str, exc: ValidationError) -> ToolArgumentError:
+        errors = cast(list[dict[str, Any]], exc.errors(include_url=False))
+        lines = []
+        for err in errors:
+            path = ".".join(str(part) for part in err.get("loc", ())) or "(arguments)"
+            line = f"- {path}: {err.get('msg', 'invalid value')}"
+            if err.get("type") != "missing" and "input" in err:
+                line += f" (got {_short_repr(err['input'])})"
+            lines.append(line)
+        message = (
+            f"Invalid arguments for tool '{tool_name}':\n"
+            + "\n".join(lines)
+            + "\nCorrect the arguments and call the tool again."
+        )
+        return cls(tool_name, message, errors=errors)
+
+
+def _short_repr(value: Any, limit: int = 80) -> str:
+    """*value* as short JSON for an error message."""
+    try:
+        text = json.dumps(value, default=str, ensure_ascii=False)
+    except (TypeError, ValueError):
+        text = repr(value)
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+def _is_model_class(obj: Any) -> bool:
+    return isinstance(obj, type) and issubclass(obj, BaseModel)
+
+
+def _accepts_none(annotation: Any) -> bool:
+    """Whether a field typed *annotation* takes ``None`` (``Optional``, ``Any``...)."""
+    if annotation is None or annotation is type(None) or annotation is Any:
+        return True
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        return _accepts_none(get_args(annotation)[0])
+    if origin is Union or origin is types.UnionType:
+        return any(_accepts_none(arg) for arg in get_args(annotation))
+    if origin is Literal:
+        return None in get_args(annotation)
+    return False
+
+
+def _strip_annotation(annotation: Any) -> Any:
+    """*annotation* without ``Annotated[...]`` and ``Optional[...]`` around it."""
+    while True:
+        origin = get_origin(annotation)
+        if origin is Annotated:
+            annotation = get_args(annotation)[0]
+            continue
+        if origin is Union or origin is types.UnionType:
+            members = [a for a in get_args(annotation) if a is not type(None)]
+            if len(members) == 1:
+                annotation = members[0]
+                continue
+        return annotation
+
+
+def _drop_nulls_in(annotation: Any, value: Any, tool_name: str, path: str) -> Any:
+    """Apply :func:`drop_disallowed_nulls` inside a nested object or list of objects."""
+    inner = _strip_annotation(annotation)
+    if _is_model_class(inner) and isinstance(value, Mapping):
+        return drop_disallowed_nulls(inner, value, tool_name=tool_name, _path=path)
+    if get_origin(inner) is list and isinstance(value, list):
+        args = get_args(inner)
+        if args:
+            return [
+                _drop_nulls_in(args[0], item, tool_name, f"{path}[{i}]")
+                for i, item in enumerate(value)
+            ]
+    return value
+
+
+def drop_disallowed_nulls(
+    args_schema: type[BaseModel],
+    arguments: Mapping[str, Any],
+    *,
+    tool_name: str = "",
+    _path: str = "",
+) -> dict[str, Any]:
+    """*arguments* without explicit ``null`` for optional fields that cannot be null.
+
+    A model often writes ``null`` for an optional parameter it means to leave
+    out.  When the parameter's schema does not admit ``null``, the ``null``
+    is dropped, so the call goes out as if the model had not given it (logged
+    at debug level).  A ``null`` for a nullable field is kept, and so is one
+    for a required field, which then fails validation and is reported to the
+    model.  Nested objects and lists of objects are cleaned the same way.
+    """
+    fields = args_schema.model_fields
+    out: dict[str, Any] = {}
+    for key, value in arguments.items():
+        field = fields.get(key)
+        if field is None:
+            out[key] = value
+            continue
+        path = f"{_path}.{key}" if _path else key
+        if value is None:
+            if not field.is_required() and not _accepts_none(field.annotation):
+                logger.debug(
+                    "Tool %r: argument %r is null but its schema does not allow null; "
+                    "treating it as not given",
+                    tool_name,
+                    path,
+                )
+                continue
+            out[key] = value
+            continue
+        out[key] = _drop_nulls_in(field.annotation, value, tool_name, path)
+    return out
+
+
+def plain_arguments(value: Any) -> Any:
+    """*value* as plain JSON-like data: dicts, lists, strings, numbers, bools, ``None``.
+
+    Pydantic models become dicts of the fields that were set
+    (``model_dump(mode="json", exclude_unset=True)``); other values go
+    through pydantic's JSON conversion, and anything it cannot convert is
+    kept as is.
+    """
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json", exclude_unset=True)
+    if isinstance(value, Mapping):
+        return {str(k): plain_arguments(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [plain_arguments(v) for v in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    try:
+        return to_jsonable_python(value)
+    except Exception:
+        return value
+
+
+def accepts_free_form_arguments(args_schema: Any) -> bool:
+    """Whether *args_schema* is a model without fields that takes any keys."""
+    return (
+        _is_model_class(args_schema)
+        and not args_schema.model_fields
+        and args_schema.model_config.get("extra") == "allow"
+    )
+
+
+def parse_tool_arguments(
+    tool_name: str, args_schema: Any, tool_input: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Validate a tool call and return the arguments the model gave, as plain JSON.
+
+    Explicit ``null`` for optional, non-nullable fields is treated as not
+    given (see :func:`drop_disallowed_nulls`).  The result holds only the
+    fields the model set, at every level: no defaults are filled in, so a
+    server applies its own.
+
+    Raises:
+        ToolArgumentError: The arguments do not match *args_schema*.
+    """
+    if not _is_model_class(args_schema):
+        return cast(dict[str, Any], plain_arguments(dict(tool_input)))
+    cleaned = drop_disallowed_nulls(args_schema, tool_input, tool_name=tool_name)
+    try:
+        model = args_schema.model_validate(cleaned)
+    except ValidationError as exc:
+        raise ToolArgumentError.from_validation_error(tool_name, exc) from exc
+    return model.model_dump(mode="json", exclude_unset=True)
+
+
+class WrappingTool(BaseTool):
+    """Base for a tool that wraps another and shares its ``args_schema``.
+
+    Used by the approval gate, guardrail scanning and tool tracing.  The
+    wrapper's ``_arun`` receives the arguments the model gave, validated
+    against the shared schema, without the defaults LangChain fills in
+    (``None`` for every optional parameter left out) and without ``null``
+    for optional parameters that cannot be null.  Values keep their
+    validated types (nested objects are model instances, as the wrapped
+    tool's own ``_arun`` expects them); use :func:`plain_arguments` for a
+    JSON view.
+
+    When validation fails, the wrapped tool is asked to parse the same
+    input, so it reports the failure its own way (an MCP tool fires its
+    trace hooks and raises :class:`ToolArgumentError`).
+    """
+
+    def _to_args_and_kwargs(
+        self, tool_input: str | dict[str, Any], tool_call_id: str | None
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        # BaseTool drops every key of a schema without fields, even one
+        # that takes free-form keys.
+        if isinstance(tool_input, dict) and accepts_free_form_arguments(self.args_schema):
+            return (), dict(tool_input)
+        return super()._to_args_and_kwargs(tool_input, tool_call_id)
+
+    def _parse_input(
+        self, tool_input: str | dict[str, Any], tool_call_id: str | None
+    ) -> str | dict[str, Any]:
+        schema = self.args_schema
+        if not isinstance(tool_input, dict) or not _is_model_class(schema):
+            return super()._parse_input(tool_input, tool_call_id)
+        cleaned = drop_disallowed_nulls(
+            cast(type[BaseModel], schema), tool_input, tool_name=self.name
+        )
+        try:
+            parsed = super()._parse_input(cleaned, tool_call_id)
+        except ValidationError as exc:
+            self._on_invalid_arguments(cleaned, exc)
+            inner = getattr(self, "_inner", None)
+            if isinstance(inner, BaseTool):
+                inner._to_args_and_kwargs(dict(cleaned), tool_call_id)
+            raise
+        if not isinstance(parsed, dict):
+            return parsed
+        # LangChain adds every field with a default; keep what the model
+        # gave and injected values (InjectedToolCallId is written into
+        # ``cleaned``).
+        injected: frozenset[str] = getattr(self, "_injected_args_keys", frozenset())
+        return {k: v for k, v in parsed.items() if k in cleaned or k in injected}
+
+    def _on_invalid_arguments(self, arguments: dict[str, Any], exc: ValidationError) -> None:
+        """Called when a call's arguments fail validation, before the error is raised."""
 
 
 # Legacy aliases removed — use promptise.mcp.client.MCPToolAdapter instead.

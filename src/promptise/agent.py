@@ -17,7 +17,7 @@ from typing import Any, TypeAlias, cast
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, ValidationError
 
 from promptise.engine import PromptGraph, PromptGraphEngine
 
@@ -186,7 +186,7 @@ def get_current_session_id() -> str | None:
     return _session_ctx_var.get()
 
 
-from .tools import MCPClientError
+from .tools import MCPClientError, ToolArgumentError, WrappingTool, plain_arguments
 
 # Model can be a provider string (handled by LangChain), a chat model instance, or a Runnable.
 ModelLike: TypeAlias = str | Model | BaseChatModel | Runnable[Any, Any]
@@ -2739,13 +2739,15 @@ def _extract_response_text(output: Any) -> str:
     return str(output)
 
 
-class _TracedTool(BaseTool):
+class _TracedTool(WrappingTool):
     """Fires the agent's tool callbacks around a tool that is not from MCP.
 
     MCP-discovered tools report to ``trace_tools`` / ``observer`` from inside
     the MCP adapter. Cross-agent, sandbox and ``extra_tools`` are wrapped in
     this class so they report the same way. Transparent to the LLM: same
-    name, description and schema as the inner tool.
+    name, description and schema as the inner tool.  The callbacks get the
+    arguments as plain JSON, and a call whose arguments fail validation is
+    reported as an error before it is raised.
     """
 
     _inner: BaseTool = PrivateAttr()
@@ -2771,9 +2773,15 @@ class _TracedTool(BaseTool):
         self._on_after = on_after
         self._on_error = on_error
 
+    def _on_invalid_arguments(self, arguments: dict[str, Any], exc: ValidationError) -> None:
+        with contextlib.suppress(Exception):
+            self._on_before(self.name, plain_arguments(arguments))
+        with contextlib.suppress(Exception):
+            self._on_error(self.name, ToolArgumentError.from_validation_error(self.name, exc))
+
     async def _arun(self, **kwargs: Any) -> Any:
         with contextlib.suppress(Exception):
-            self._on_before(self.name, kwargs)
+            self._on_before(self.name, plain_arguments(kwargs))
         try:
             result = await self._inner.ainvoke(kwargs)
         except Exception as exc:
@@ -2786,7 +2794,7 @@ class _TracedTool(BaseTool):
 
     def _run(self, **kwargs: Any) -> Any:
         with contextlib.suppress(Exception):
-            self._on_before(self.name, kwargs)
+            self._on_before(self.name, plain_arguments(kwargs))
         try:
             result = self._inner.invoke(kwargs)
         except Exception as exc:

@@ -4,6 +4,16 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## v1.3.1 — unreleased
+
+### Fixed
+- **MCP tools sent `null` for every optional parameter the model left out** -- LangChain's tool input parsing (langchain-core 1.x) fills in every field with a default, and the agent's tool schema gives an optional parameter without a schema default the default `None`, so the MCP tool sent `{"limit": null, ...}` for each one. A server that validates its input rejected the call (`Input validation error: None is not of type 'integer'`): every MCPcast-generated server, and any tool whose schema has an optional, non-nullable parameter. Only the arguments the model gave are sent now, at every level of nesting, and the server applies its own defaults. An explicit `null` is sent only where the schema allows null; a `null` for an optional parameter that cannot be null counts as not given (logged at debug level). The same applies to MCPcast's readiness run.
+- **Invalid tool arguments failed silently** -- a call whose arguments did not match the tool's schema (including an explicit `null` for an optional, non-nullable parameter) failed before it was sent, with a raw pydantic error for the model and nothing in `trace_tools` or the observability timeline. It now raises `promptise.tools.ToolArgumentError` (a `ToolException`, code `INVALID_ARGUMENTS`): the model gets each problem by argument path (`- items.0.qty: Input should be a valid integer (got "two")`) and is told to correct the call, `trace_tools` and the timeline show the call and the error, and a `tool.error` event carries the code. Behind an approval gate, invalid arguments are reported the same way and never reach a reviewer.
+- **Nested tool arguments were model reprs downstream** -- nested objects reached `trace_tools`, the observability timeline, `ApprovalRequest.arguments` / `raw_arguments`, `approval.*` events and adaptive-strategy denial lessons as generated model instances (`Args_create_order_items_Item_2(sku='A', ...)`), so reviewers saw reprs and `ApprovalRule.argument_contains` / predicates matched them instead of the data. They are plain JSON now (dicts and lists, the fields the model set). Python tools behind the approval gate, guardrail scanning or tracing still receive validated values (model instances for model parameters) and their own defaults.
+- **Free-form MCP tool arguments were dropped** -- a tool whose input schema has no properties but allows any keys (`additionalProperties`) was called with `{}`, whatever the model passed.
+
+---
+
 ## v1.3.0 — 2026-10-11
 
 ### Upgrading from 1.2.x
