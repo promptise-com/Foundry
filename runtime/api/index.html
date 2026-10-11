@@ -9941,6 +9941,7 @@
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"max_cost_per_day": 500.0}'</span>
 </span></code></pre></div>
+<p>An <code>instructions</code> patch (<code>{"instructions": "..."}</code>, a string) replaces the process's instructions, including any an open-mode agent set for itself. The next invocation rebuilds the agent with them before it runs, keeping the connected MCP servers, the conversation history and the process state; an invocation already running finishes with the old instructions. No restart is needed. A process that is not running uses them when it starts. The same is available in Python as <code>process.update_instructions(text)</code>.</p>
 <p>The body of a <code>budget</code>, <code>health</code> or <code>mission</code> patch holds the fields to change, named as in <a href="../governance/budget/"><code>BudgetConfig</code>, <code>HealthConfig</code> and <code>MissionConfig</code></a>. The patched section is validated against its model before anything changes, with the same limits as at deploy time and strict JSON types (<code>"5"</code> is not a number, <code>1</code> is not <code>true</code>). A field the model does not declare, including inside <code>escalation</code> or <code>tool_costs</code>, is answered with <code>422 UNKNOWN_FIELD</code>; an invalid value with <code>422 INVALID_CONFIG</code>. In both cases nothing is changed, even when other fields in the same patch are valid. <code>null</code> clears an optional field such as <code>max_cost_per_day</code>.</p>
 <h3 id="trigger-management">Trigger Management<a class="headerlink" href="#trigger-management" title="Link to this section">&para;</a></h3>
 <table>
@@ -10039,6 +10040,7 @@
 </tr>
 </tbody>
 </table>
+<p>The process files its journal entries under its name (so they survive a restart, which gets a new <code>process_id</code>), and the endpoint reads them by name. The response is <code>{"name", "entries": [{"entry_type", "timestamp", "data"}, ...], "count"}</code>, oldest first, or <code>{"name", "entries": [], "journal_enabled": false}</code> when the process has no journal.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Read last 20 journal entries</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>curl<span class="w"> </span><span class="s2">"http://localhost:9100/api/v1/processes/monitor/journal?limit=20"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">"</span>
@@ -10646,7 +10648,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 21:07:09 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:02:23 UTC">2026-10-11</span>
   </span>
 
     

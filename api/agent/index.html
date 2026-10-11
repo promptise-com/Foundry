@@ -9171,6 +9171,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#promptise.engine.nodes.AutonomousNode.stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stream
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -15156,6 +15167,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#promptise.engine.nodes.AutonomousNode.stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stream
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -17757,10 +17779,11 @@ tool.  Nothing is added when no server serves resources.</p>
 <code>get_prompt</code> tool (its description lists the prompts and their
 arguments) that returns the rendered prompt for the agent to
 follow.  A generated tool is named <code>mcp_&lt;name&gt;</code> when an MCP
-server already has a tool with its name.  With
-<code>forward_caller_token</code> set on a server, both send the invoking
-caller's bearer token, exactly like MCP tool calls; otherwise
-they use the credentials configured for the server.</p>
+server already has a tool with its name.  For a server that
+receives caller tokens (<code>HTTPServerSpec.forwards_caller_token</code>),
+both send the invoking caller's bearer token, exactly like MCP
+tool calls; otherwise they use the credentials configured for
+the server.</p>
               </div>
             </td>
             <td>
@@ -19626,7 +19649,9 @@ HTTP/SSE MCP server during this invocation, over a session
 opened for this token — never shared with another caller —
 so the server authenticates the user, not the credential the
 agent was built with.  A server opts out with
-<code>HTTPServerSpec(forward_caller_token=False)</code>.  stdio servers
+<code>HTTPServerSpec(forward_caller_token=False)</code>; a server with
+an API key keeps it unless it sets
+<code>forward_caller_token=True</code>.  stdio servers
 have no request headers and never receive it.  Tool
 discovery at build time still uses the server spec's
 credentials.</p>
@@ -24609,8 +24634,65 @@ node multiple times.</p>
                   <code>15</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>entry_node</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pool node to run first, before the agent chooses.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>terminal_nodes</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pool nodes that end the run once they succeed.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>answer_node</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pool node that writes the final answer when the agent
+finishes without a terminal node having run last.  Defaults to
+the first terminal node; with no terminal node, the node asks
+the model for the final answer itself.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
+        <p>A chosen step runs its whole tool loop — the node is re-run while its
+model keeps calling tools, up to the node's <code>max_iterations</code> — before
+the agent chooses again.  The routing exchange (the step menu and the
+model's JSON choice) is never added to the conversation, and the run
+always ends with a written answer.  A tool name given as the next step
+runs the pool node that has that tool.</p>
 
 
 
@@ -24649,6 +24731,29 @@ node multiple times.</p>
     <div class="doc doc-contents ">
 
         <p>Autonomously select and execute nodes from the pool.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="promptise.engine.nodes.AutonomousNode.stream" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">stream</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.engine.nodes.AutonomousNode.stream" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Run the :meth:<code>execute</code> pipeline, relaying the chosen steps' events
+(model chunks and tool events).  The routing calls are not streamed.</p>
 
 
     </div>
@@ -24803,7 +24908,8 @@ the node creates one session per run and cleans it up.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>How many times to feed a crash's stderr back for a fix.</p>
+                <p>How many times to feed a failed program (a crash, or a
+program that reached <code>max_tool_calls</code>) back for a fix.</p>
               </div>
             </td>
             <td>
@@ -24851,10 +24957,16 @@ the node creates one session per run and cleans it up.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Hard upper bound on bridged tool calls per run. Once
-reached, further calls return an error to the program instead of
-executing — a hook-independent safety bound so a generated program
-cannot loop a tool unbounded. Set <code>0</code> to disable (not advised).</p>
+                <p>Hard upper bound on the bridged tool calls of each
+program (the first and each repaired one get their own budget).
+Every call counts: successful, failed, an unknown tool, or one a
+hook blocked. Once reached, further calls raise
+<code>ToolBudgetExceeded</code> in the program instead of executing, a
+warning is logged, and the program's output is discarded: the
+model is asked for a program that needs fewer calls, or, with no
+repairs left, the node fails (<code>GraphExecutionError</code>). A
+hook-independent safety bound so a generated program cannot loop
+a tool unbounded. Set <code>0</code> to disable (not advised).</p>
               </div>
             </td>
             <td>
@@ -26120,7 +26232,8 @@ call still passes through the engine's hooks (budget, health, audit).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Times to feed a crash's stderr back for a fix (default 1).</p>
+                <p>Times to feed a failed program (a crash, or one that
+reached <code>max_tool_calls</code>) back for a fix (default 1).</p>
               </div>
             </td>
             <td>
@@ -26152,8 +26265,10 @@ call still passes through the engine's hooks (budget, health, audit).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Hard per-run cap on bridged tool calls (default 50) — a
-hook-independent safety bound against a program looping a tool.</p>
+                <p>Hard cap on each program's bridged tool calls
+(default 50), failed calls included — a hook-independent safety
+bound against a program looping a tool. A program that reaches
+it fails (its output is discarded); a repair gets a fresh budget.</p>
               </div>
             </td>
             <td>
@@ -26394,7 +26509,7 @@ call (every tool-loop round) counts.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_research_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_research_graph</span><span class="p">(</span><span class="n">search_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">synthesis_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verify</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_research_graph</span><span class="p">(</span><span class="n">search_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">synthesis_tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">verify</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_search_steps</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">max_verify_rounds</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_research_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -26402,10 +26517,18 @@ call (every tool-loop round) counts.</p>
     <div class="doc doc-contents first">
 
         <p>Build a Search → Verify → Synthesize research pipeline.</p>
-<p>Three-stage pattern for research tasks:
-1. Search: use search tools to gather information
-2. Verify: cross-check findings (optional)
-3. Synthesize: combine findings into a final answer</p>
+<p>Three-stage pattern for research tasks:</p>
+<ol>
+<li>Search: use search tools to gather information, then summarize the
+   findings</li>
+<li>Verify: a model checks the findings against the tool results gathered
+   (structured :class:<code>ResearchVerdict</code>). A failed check sends the run
+   back to search with the issues; verify runs at most
+   <em>max_verify_rounds</em> times, then the run moves on to synthesize.</li>
+<li>Synthesize: write the final answer from the findings</li>
+</ol>
+<p>Every stage has an iteration budget; a search that exhausts its budget
+hands over to synthesize, so the run always ends with a written answer.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -26492,11 +26615,44 @@ call (every tool-loop round) counts.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Whether to include a verification stage.</p>
+                <p>Whether to include the verification stage.</p>
               </div>
             </td>
             <td>
                   <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_search_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Budget for the search stage across the run — each
+model call (every tool-loop round) counts.</p>
+              </div>
+            </td>
+            <td>
+                  <code>12</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_verify_rounds</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How many times verify may run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>2</code>
             </td>
           </tr>
       </tbody>
@@ -26535,7 +26691,7 @@ call (every tool-loop round) counts.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_autonomous_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_autonomous_graph</span><span class="p">(</span><span class="n">node_pool</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_autonomous_graph</span><span class="p">(</span><span class="n">node_pool</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_tool_rounds</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_autonomous_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
@@ -26545,7 +26701,12 @@ call (every tool-loop round) counts.</p>
         <p>Build an autonomous agent that composes its own reasoning path.</p>
 <p>The agent receives a pool of configured nodes and dynamically
 decides which to execute at each step.  If no node_pool is provided,
-a default set is created from the tools.</p>
+a default pool is created: <code>reason</code> (with the tools), <code>analyze</code>
+and <code>synthesize</code> (writes the final answer and ends the run).</p>
+<p>A chosen step with tools runs its whole tool loop (several model calls
+and tool calls) before the agent picks again.  When the agent finishes
+without running <code>synthesize</code>, it runs before the run ends, so the reply
+is always a written answer.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -26600,7 +26761,7 @@ a default set is created from the tools.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Tools to create default nodes from (if no pool given).</p>
+                <p>Tools for the default <code>reason</code> node (if no pool given).</p>
               </div>
             </td>
             <td>
@@ -26621,6 +26782,38 @@ a default set is created from the tools.</p>
             </td>
             <td>
                   <code>15</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>blocks</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional PromptBlocks for the default nodes.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_tool_rounds</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Model calls per <code>reason</code> step in the default pool.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
             </td>
           </tr>
       </tbody>
@@ -26659,16 +26852,124 @@ a default set is created from the tools.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_deliberate_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_deliberate_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_deliberate_graph</span><span class="p">(</span><span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_act_steps</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_deliberate_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Build a deliberate reasoning graph: Think → Plan → Act → Observe → Reflect.</p>
+        <p>Build a deliberate reasoning graph: Think → Plan → Act → Observe → Reflect → Answer.</p>
 <p>Slower but higher quality. The agent thinks before acting, observes
-results carefully, and reflects before continuing.</p>
+results carefully, and reflects before continuing. Plan and reflect
+produce structured output (:class:<code>PeoatrPlan</code>,
+:class:<code>PeoatrReflection</code>), so the plan's quality gate and reflect's
+<code>continue</code> / <code>replan</code> / <code>answer</code> route always reach the engine.
+Every stage has an iteration budget and the run ends at <code>answer</code>,
+which writes the reply.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>tools</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="langchain_core.tools.BaseTool">BaseTool</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tools for the act stage.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>system_prompt</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Base system prompt prepended to all stages.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>blocks</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional PromptBlocks shared across all stages.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_act_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Budget for the act stage across the run — each model
+call (every tool-loop round) counts.</p>
+              </div>
+            </td>
+            <td>
+                  <code>12</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="promptise.engine.graph.PromptGraph" href="#promptise.engine.graph.PromptGraph">PromptGraph</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>PromptGraph</code> with think → plan → act → observe → reflect → answer.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -26680,15 +26981,140 @@ results carefully, and reflects before continuing.</p>
 
 
 <h4 id="promptise.engine.prebuilts.build_debate_graph" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_debate_graph</span><span class="p">(</span><span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_rounds</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">promptise</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">prebuilts</span><span class="o">.</span><span class="n">build_debate_graph</span><span class="p">(</span><span class="n">system_prompt</span><span class="o">=</span><span class="s1">''</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_rounds</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">max_proposer_steps</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#promptise.engine.prebuilts.build_debate_graph" class="headerlink" title="Link to this section">&para;</a></h4>
 
 
     <div class="doc doc-contents first">
 
-        <p>Build a debate graph: Proposer → Critic → Judge.</p>
-<p>Two adversarial nodes alternate until consensus.</p>
+        <p>Build a debate graph: Proposer ↔ Critic → Judge → Answer.</p>
+<p>The proposer answers (with tools), the critic challenges the answer and
+sends it back for revision when its severity is above 0.3, the judge
+renders a verdict (a failed verdict also sends it back), and <code>answer</code>
+writes the reply. Critic and judge produce structured output
+(:class:<code>DebateCritique</code>, :class:<code>DebateVerdict</code>), so their routing
+always reaches the engine, and every stage has a budget, so the run
+always ends with a written answer.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>system_prompt</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Base system prompt prepended to the proposer and answer.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tools</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="langchain_core.tools.BaseTool">BaseTool</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tools the proposer can call.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>blocks</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="typing.Any">Any</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional PromptBlocks shared across stages.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_rounds</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How many times the critic and the judge may each run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>3</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_proposer_steps</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Budget for the proposer across the run — each
+model call (every tool-loop round) counts.</p>
+              </div>
+            </td>
+            <td>
+                  <code>12</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="promptise.engine.graph.PromptGraph" href="#promptise.engine.graph.PromptGraph">PromptGraph</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>PromptGraph</code> with proposer → critic → judge → answer nodes.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>

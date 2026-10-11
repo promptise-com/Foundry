@@ -7929,6 +7929,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#promptise.runtime.process.AgentProcess.update_instructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        update_instructions
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -10085,6 +10096,17 @@
     <span class="md-ellipsis">
       
         record_tool_call
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.runtime.health.HealthMonitor.take_new_anomalies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        take_new_anomalies
       
     </span>
   </a>
@@ -14577,6 +14599,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#promptise.runtime.process.AgentProcess.update_instructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        update_instructions
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -16733,6 +16766,17 @@
     <span class="md-ellipsis">
       
         record_tool_call
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.runtime.health.HealthMonitor.take_new_anomalies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        take_new_anomalies
       
     </span>
   </a>
@@ -20250,7 +20294,11 @@ expires.</p>
 
         <p>Revert to the original configuration.</p>
 <p>Clears all dynamic state (instructions, tools, servers,
-triggers) and rebuilds the agent from the original config.</p>
+triggers) and rebuilds the agent from the original config.
+A rollback is not refused by <code>OpenModeConfig.max_rebuilds</code> (it
+is how an operator undoes the agent's changes), but it counts as a
+rebuild.  If the rebuild fails, the instructions, tools and servers
+are restored and the previous agent is kept.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -20627,6 +20675,60 @@ instead we go straight to <code>STOPPED</code> via internal reset.</p>
 
         <p>Pause processing without tearing down the agent.</p>
 <p>Triggers continue to fire but events are queued, not processed.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="promptise.runtime.process.AgentProcess.update_instructions" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">update_instructions</span><span class="p">(</span><span class="n">instructions</span><span class="p">)</span></code>
+
+<a href="#promptise.runtime.process.AgentProcess.update_instructions" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Replace the agent's instructions from the next invocation on.</p>
+<p>The next invocation rebuilds the agent with <em>instructions</em> before
+it runs (reusing the connected MCP tools); an invocation already
+running finishes with the old instructions.  A process that is not
+running uses them when it starts.  They replace any instructions
+an open-mode agent set for itself, and :meth:<code>rollback</code> keeps them.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>instructions</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The new system prompt.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -24457,7 +24559,10 @@ Only takes effect when <code>ProcessConfig.execution_mode</code> is
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Max agent rebuilds per lifetime (<code>None</code> = unlimited).</p>
+                <p>Max agent rebuilds (hot reloads) per lifetime of the
+process object; restarts do not reset it. A change the limit
+refuses is not applied, now or after a restart.
+<code>rollback()</code> is not refused. <code>None</code> = unlimited.</p>
               </div>
             </td>
           </tr>
@@ -29076,6 +29181,27 @@ tool results: a tool returning <code>[]</code> is not an empty response.</p>
 <div class="doc doc-object doc-function">
 
 
+<h5 id="promptise.runtime.health.HealthMonitor.take_new_anomalies" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">take_new_anomalies</span><span class="p">()</span></code>
+
+<a href="#promptise.runtime.health.HealthMonitor.take_new_anomalies" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the anomalies detected since the previous call.</p>
+<p>Each anomaly is returned once.  <code>AgentProcess</code> calls this when a
+run ends (successfully or not) to apply <code>on_anomaly</code> to what the
+run produced, however long ago in the run it was detected.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h5 id="promptise.runtime.health.HealthMonitor.to_dict" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">to_dict</span><span class="p">()</span></code>
 
@@ -29385,18 +29511,22 @@ tool results: a tool returning <code>[]</code> is not an empty response.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Stop process when mission achieved.</p>
+                <p>Stop the process when the mission is achieved
+(<code>False</code> keeps it running; its later invocations are
+skipped, since the mission is completed).</p>
               </div>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td><code><span title="promptise.runtime.config.MissionConfig.on_complete">on_complete</span></code></td>
             <td>
-                  <code><span title="typing.Literal">Literal</span>[&#39;stop&#39;, &#39;continue&#39;, &#39;suspend&#39;]</code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;stop&#39;, &#39;continue&#39;, &#39;suspend&#39;] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Behavior when mission completes.</p>
+                <p>Deprecated and ignored.  It was never read: what
+happens on completion is decided by <code>auto_complete</code> alone.
+Setting it emits a <code>FutureWarning</code>; it will be removed.</p>
               </div>
             </td>
           </tr>
@@ -29732,11 +29862,16 @@ achieved.  <code>None</code> → fall through to LLM evaluator.</p>
                 <code>model</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><a class="autorefs autorefs-internal" title="promptise.types.ModelLike = str | Model | BaseChatModel | Runnable[Any, Any]
+
+  
+      module-attribute
+   (promptise.types.ModelLike)" href="../utilities/#promptise.types.ModelLike">ModelLike</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Fallback model ID if <code>eval_model</code> is not set.</p>
+                <p>Fallback model (an ID such as <code>"openai:gpt-5-mini"</code> or
+a chat model instance) if <code>eval_model</code> is not set.</p>
               </div>
             </td>
             <td>

@@ -9912,9 +9912,10 @@
 <p>The budget system handles <strong>behavioral limits</strong> (what the agent is allowed to do). External systems handle <strong>monetary limits</strong> (how much the infrastructure costs).</p>
 <hr />
 <h2 id="context-injection">Context injection<a class="headerlink" href="#context-injection" title="Link to this section">&para;</a></h2>
-<p>When <code>inject_remaining=True</code>, the agent sees remaining budget in its system prompt before every invocation:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>[Budget Remaining] {"tool_calls_this_run": 15, "cost_this_run": 18.5, "tool_calls_today": 340}
+<p>When <code>inject_remaining=True</code>, the agent sees remaining budget in a system message before every invocation. It lists every limit, <code>None</code> for one that is not set (with <code>max_tool_calls_per_run=20</code>, <code>max_irreversible_per_run=2</code> and <code>max_runs_per_day=50</code>, at the start of a run):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>[Budget Remaining] {'tool_calls_run': 20, 'llm_turns_run': None, 'cost_run': None, 'irreversible_run': 2, 'tool_calls_day': None, 'runs_day': 49, 'cost_day': None}
 </span></code></pre></div>
+<p>The values are what is left of each limit (<code>BudgetState.remaining()</code>); the run that is starting already counts toward <code>runs_day</code>.</p>
 <p>This lets the agent prioritize — if it's running low on budget, it can choose cheaper tools or skip non-essential operations. In open mode, the agent can also call <code>check_budget</code> to inspect remaining limits programmatically.</p>
 <hr />
 <h2 id="per-call-enforcement">Per-call enforcement<a class="headerlink" href="#per-call-enforcement" title="Link to this section">&para;</a></h2>
@@ -9951,14 +9952,20 @@
 </tr>
 </tbody>
 </table>
-<p>Escalation sends a POST to the configured webhook URL with violation details:</p>
+<p>Escalation sends a POST to the configured webhook URL (and emits the same payload as <code>escalation.event_type</code> on the process's EventBus) with the violation:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"budget_exceeded"</span><span class="p">,</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"process_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"support-agent"</span><span class="p">,</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"violation"</span><span class="p">:</span><span class="w"> </span><span class="s2">"max_cost_per_day exceeded (102.5 / 100.0)"</span><span class="p">,</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">"timestamp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-23T14:30:00Z"</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">}</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"budget_violation"</span><span class="p">,</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"process_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0c8e5d0a-6b8f-4c56-9a52-0f4f3c1e9b7d"</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"process_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"support-agent"</span><span class="p">,</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">"violation"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">"limit_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"max_cost_per_day"</span><span class="p">,</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">"limit_value"</span><span class="p">:</span><span class="w"> </span><span class="mf">100.0</span><span class="p">,</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="nt">"current_value"</span><span class="p">:</span><span class="w"> </span><span class="mf">102.5</span><span class="p">,</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="nt">"tool_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"send_email"</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="p">}</span>
 </span></code></pre></div>
+<p><code>limit_name</code> is the <code>BudgetConfig</code> field that was exceeded; <code>tool_name</code> is the tool whose call exceeded it, or <code>null</code> when no tool call did (a run over <code>max_runs_per_day</code>, or a model turn over <code>max_llm_turns_per_run</code>).</p>
 <p>The webhook URL must resolve to a public address (SSRF protection). The host is resolved before every notification, the notification is dropped with a warning if any address is private, loopback, link-local (cloud metadata) or otherwise internal, and the POST goes to the address that was checked, so a DNS record that changes in between (DNS rebinding) cannot send it to an internal service. Redirects are not followed. The same applies to health and mission escalations.</p>
 <hr />
 <h2 id="irreversible-action-tracking">Irreversible action tracking<a class="headerlink" href="#irreversible-action-tracking" title="Link to this section">&para;</a></h2>
@@ -10159,7 +10166,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 21:07:09 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:02:23 UTC">2026-10-11</span>
   </span>
 
     

@@ -9598,10 +9598,16 @@ webhook approvers.</p>
 <h2 id="step-4-tamper-evident-audit-tenant-stamped">Step 4 — Tamper-evident audit, tenant-stamped<a class="headerlink" href="#step-4-tamper-evident-audit-tenant-stamped" title="Link to this section">&para;</a></h2>
 <p>Add <code>AuditMiddleware</code> for an HMAC-chained, append-only record. Each entry
 carries the acting tenant, so per-customer forensics need no external join.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">AuditMiddleware</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">server</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span><span class="n">AuditMiddleware</span><span class="p">(</span><span class="n">secret</span><span class="o">=</span><span class="s2">"$</span><span class="si">{AUDIT_SECRET}</span><span class="s2">"</span><span class="p">))</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">AuditMiddleware</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">server</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">AuditMiddleware</span><span class="p">(</span><span class="n">log_path</span><span class="o">=</span><span class="s2">"audit.jsonl"</span><span class="p">,</span> <span class="n">hmac_secret</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"AUDIT_SECRET"</span><span class="p">])</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
 </span></code></pre></div>
+<p>Keep <code>AUDIT_SECRET</code>: it is what verifies the file later
+(<code>promptise audit verify audit.jsonl --key-env AUDIT_SECRET</code>).</p>
 <p>Approval outcomes flow through the same pipeline: a denial surfaces as a
 structured <code>APPROVAL_DENIED</code> error (recorded like any error, with the approval
 request id), and grants proceed to a normal audited call.</p>
@@ -9869,7 +9875,7 @@ approval is ever created.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:39:05 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:58:16 UTC">2026-10-11</span>
   </span>
 
     

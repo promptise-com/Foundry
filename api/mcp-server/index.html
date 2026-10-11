@@ -21810,7 +21810,11 @@ non-loopback bind, or an empty <code>allowed_hosts</code> list.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Access control guards (checked before handler).</p>
+                <p>Access control guards (checked before handler).  A
+built-in identity guard (<code>RequireAuth</code>, <code>HasRole</code>,
+<code>HasScope</code>, <code>RequireClientId</code>, tenant guards) implies
+<code>auth=True</code>: it can only pass once the caller is
+authenticated.</p>
               </div>
             </td>
             <td>
@@ -21826,7 +21830,8 @@ non-loopback bind, or an empty <code>allowed_hosts</code> list.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Required roles shorthand (creates <code>HasRole</code> guard).</p>
+                <p>Required roles shorthand (creates <code>HasRole</code> guard;
+implies <code>auth=True</code>).</p>
               </div>
             </td>
             <td>
@@ -24538,6 +24543,12 @@ includes roles.</p>
 
 
         <p>Protocol for authentication providers.</p>
+<p>A custom provider verifies the request's credential (<code>ctx.meta</code> holds
+the request headers) and returns the client id.  To give the caller
+roles, scopes and a tenant, store the verified claims as a dict in
+<code>ctx.state["jwt_payload"]</code>: <code>AuthMiddleware</code> builds <code>ctx.client</code>
+from them as it does for a JWT (<code>roles</code>, <code>scope</code>, the tenant claim,
+<code>iss</code> / <code>aud</code> / <code>sub</code> / <code>iat</code> / <code>exp</code>).</p>
 
 
 
@@ -26019,6 +26030,13 @@ back to <em>default_timeout</em>.</p>
 
 
         <p>Middleware that enforces rate limits.</p>
+<p>Buckets are per client (and per tenant) only when <code>ctx.client_id</code> is
+set by the time this middleware runs, which takes an <code>AuthMiddleware</code>
+added <strong>before</strong> it and an authenticated tool (<code>auth=True</code>, or
+<code>MCPServer(require_auth=True)</code>).  Otherwise every caller shares one
+<code>"global"</code> bucket; the server logs a warning at build time when an
+<code>AuthMiddleware</code> is installed but cannot identify the caller for this
+middleware.  Pass <code>key_func</code> to choose the key yourself.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

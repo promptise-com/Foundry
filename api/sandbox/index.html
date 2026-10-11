@@ -7797,6 +7797,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.sandbox.backends.SandboxBackend.kill_container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        kill_container
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.sandbox.backends.SandboxBackend.read_file" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7923,6 +7934,17 @@
     <span class="md-ellipsis">
       
         health_check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.sandbox.backends.DockerBackend.kill_container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        kill_container
       
     </span>
   </a>
@@ -10648,6 +10670,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.sandbox.backends.SandboxBackend.kill_container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        kill_container
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.sandbox.backends.SandboxBackend.read_file" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10774,6 +10807,17 @@
     <span class="md-ellipsis">
       
         health_check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.sandbox.backends.DockerBackend.kill_container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        kill_container
       
     </span>
   </a>
@@ -12309,7 +12353,9 @@ sandbox container, handling timeouts, and managing the session lifecycle.</p>
     <div class="doc doc-contents ">
 
         <p>Clean up the sandbox session.</p>
-<p>Stops and removes the container unless persistent mode is enabled.</p>
+<p>Kills and removes the container unless persistent mode is enabled.
+The container is removed at once, so it is killed without a grace
+period (a graceful stop waited its full timeout, 5 s, every time).</p>
 
 
     </div>
@@ -13435,6 +13481,62 @@ that know <em>why</em> they are unavailable override it to say so.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="promptise.sandbox.backends.SandboxBackend.kill_container" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">kill_container</span><span class="p">(</span><span class="n">container_id</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.sandbox.backends.SandboxBackend.kill_container" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Stop a container at once, without a grace period.</p>
+<p>Used when the container is removed right after (a non-persistent
+session's cleanup). The default stops it with
+:meth:<code>stop_container</code>; backends override it with a faster kill.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>container_id</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Container ID</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="promptise.sandbox.backends.SandboxBackend.read_file" class="doc doc-heading">
             <code class="highlight language-python"><span class="n">read_file</span><span class="p">(</span><span class="n">container_id</span><span class="p">,</span> <span class="n">file_path</span><span class="p">)</span></code>
 
@@ -14126,6 +14228,62 @@ does not keep burning CPU after the call returns.</p>
               <div class="doc-md-description">
                 <p>True if Docker is healthy (and the runtime is available if requested)</p>
               </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="promptise.sandbox.backends.DockerBackend.kill_container" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">kill_container</span><span class="p">(</span><span class="n">container_id</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.sandbox.backends.DockerBackend.kill_container" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Kill a Docker container (SIGKILL), without a grace period.</p>
+<p>A sandbox container's main process is <code>/bin/bash</code>, which ignores
+<code>SIGTERM</code> as PID 1, so a graceful <code>docker stop</code> always waited out
+its whole timeout before killing it.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>container_id</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Container ID</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
             </td>
           </tr>
       </tbody>

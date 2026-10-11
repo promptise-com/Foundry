@@ -9577,7 +9577,7 @@
 <li>When it returns a token other than the one the session was opened with, the client opens a new session for the next call; calls still running on the old session finish there and are never re-sent.</li>
 <li>If it raises, the call fails with <code>MCPCredentialError</code> and nothing is sent -- never a request without the credential.</li>
 </ul>
-<p><code>build_agent(identity=...)</code> wires this up for every HTTP/SSE server without a <code>bearer_token</code> of its own, scoped to the server's <code>audience</code>. A caller token forwarded with <code>call_tool(..., bearer_token=...)</code> (see <a href="#calling-a-tool-as-a-specific-user">Calling a tool as a specific user</a>) takes precedence: the per-caller session presents the caller's token, not the provider's.</p>
+<p><code>build_agent(identity=...)</code> wires this up for every HTTP/SSE server without a credential of its own (<code>bearer_token</code>, <code>api_key</code>, or an <code>Authorization</code> / <code>x-api-key</code> header), scoped to the server's <code>audience</code>. A caller token forwarded with <code>call_tool(..., bearer_token=...)</code> (see <a href="#calling-a-tool-as-a-specific-user">Calling a tool as a specific user</a>) takes precedence: the per-caller session presents the caller's token, not the provider's.</p>
 <h3 id="api-key-authentication">API key authentication<a class="headerlink" href="#api-key-authentication" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span>
@@ -9740,7 +9740,7 @@
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MCPClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8080/mcp"</span><span class="p">,</span> <span class="n">bearer_token</span><span class="o">=</span><span class="n">token</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
 </span></code></pre></div>
-<p><code>fetch_token</code> sends a POST with <code>{"client_id": ..., "client_secret": ...}</code> and returns the <code>access_token</code> string from the JSON response.</p>
+<p><code>fetch_token</code> sends a standard OAuth 2.0 <code>client_credentials</code> request (RFC 6749: a form-encoded POST with <code>grant_type</code>, <code>client_id</code> and <code>client_secret</code>) and returns the <code>access_token</code> string from the JSON response. It works against the built-in endpoint and any token endpoint that accepts client credentials in the request body; against a built-in endpoint from Promptise 1.3.2 or earlier, which reads JSON only, it retries once as JSON.</p>
 <div class="admonition warning">
 <p class="admonition-title">Production token acquisition</p>
 <p><code>fetch_token</code> is a convenience for development when the server has a built-in token endpoint. In production, obtain tokens from your Identity Provider (Auth0, Keycloak, Okta) and pass them via <code>bearer_token</code>.</p>
@@ -9879,7 +9879,7 @@ warning is logged once per server. <code>MCPClient.with_bearer_token(token)</cod
 returns an unconnected copy of a client that authenticates with <em>token</em>, if
 you manage sessions yourself.</p>
 <h3 id="tool-name-collisions">Tool name collisions<a class="headerlink" href="#tool-name-collisions" title="Link to this section">&para;</a></h3>
-<p>If two servers expose a tool with the same name, the last-discovered server wins and a warning is logged. Use server-specific prefixes on your MCP servers to avoid collisions.</p>
+<p>If two servers expose a tool with the same name, the server listed last wins: <code>list_tools()</code> returns only its copy, <code>call_tool()</code> routes the name to it, and a warning names both servers. The other copy is not reachable through <code>MCPMultiClient</code> (or an agent built on it), so use server-specific prefixes on your MCP servers to avoid collisions.</p>
 <h3 id="error-handling">Error handling<a class="headerlink" href="#error-handling" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClientError</span>
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
@@ -10236,7 +10236,7 @@ you manage sessions yourself.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:08:19 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:30:20 UTC">2026-10-11</span>
   </span>
 
     

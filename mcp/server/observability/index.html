@@ -10185,7 +10185,7 @@
 <p>The key must be one you keep: <code>hmac_secret=</code> or <code>PROMPTISE_AUDIT_SECRET</code>. A signed log file without either raises <code>ValueError</code> when the middleware is created, because a random per-process key would make the file impossible to verify. (Without <code>log_path</code>, the in-memory chain still falls back to a random key, with a warning.)</p>
 <p><strong>Restarts.</strong> A server that starts on an existing log file continues the chain from the file's last entry, so one key verifies the whole file across restarts. The first entry after a restart carries <code>"resumed": true</code>.</p>
 <p><strong>Crashes.</strong> Each entry is written with a single append, in chain order. If the process dies during a write, the last line is left incomplete. On the next start, the server closes that line and continues the chain from the entry before it, and the verifier reports the fragment as a warning, not as tampering. If the chain advanced but the write failed (a full disk, for example), the entry is not recorded: the error is logged and the chain stays where it was, so the file never shows a gap.</p>
-<p><strong>Key rotation.</strong> Start a new log file with the new key. If you keep the same file, the server warns at startup and continues the chain, and you verify the file with both keys (<code>verify_audit_log(path, [new_key, old_key])</code>, or <code>--key-env</code> twice).</p>
+<p><strong>Key rotation.</strong> Start a new log file with the new key. If you keep the same file, the chain continues, and you verify the file with both keys (<code>verify_audit_log(path, [new_key, old_key])</code>, or <code>--key-env</code> twice). The server warns that the last entry was not signed with the current key ("key rotated?") when it first reads the file's tail, which is on the first audited call after startup, not at startup itself.</p>
 <p><strong>Rotating the file.</strong> If a log rotator moves the file while the server runs, the next file continues the chain. Verify the files together, oldest first: <code>verify_audit_log([rotated, current], key)</code>.</p>
 <p>Run one writer per file. Two processes appending to the same file fork the chain, so give each worker its own <code>log_path</code>.</p>
 <p><code>audit.verify_chain()</code> checks the entries the middleware keeps in memory (the most recent <code>max_memory_entries</code>). To check a file, use the verifier.</p>
@@ -10475,7 +10475,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 00:57:22 UTC">2026-10-11</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:30:20 UTC">2026-10-11</span>
   </span>
 
     

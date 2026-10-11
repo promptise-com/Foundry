@@ -7292,6 +7292,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="HTTPServerSpec">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.config.HTTPServerSpec.forwards_caller_token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        forwards_caller_token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.config.HTTPServerSpec.has_api_key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has_api_key
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -9335,6 +9363,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="HTTPServerSpec">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.config.HTTPServerSpec.forwards_caller_token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        forwards_caller_token
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.config.HTTPServerSpec.has_api_key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        has_api_key
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -9713,20 +9769,32 @@ secret-based auth when JWT is overkill.</p>
           <tr class="doc-section-item">
             <td><code><span title="promptise.config.HTTPServerSpec.forward_caller_token">forward_caller_token</span></code></td>
             <td>
-                  <code><span title="bool">bool</span></code>
+                  <code><span title="bool">bool</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>When <code>True</code> (default) and an invocation
-carries a :class:<code>~promptise.CallerContext</code> with a
-<code>bearer_token</code>, this server's tools are called with
+                <p>Whether an invocation's caller token
+reaches this server.  When it does and the invocation carries
+a :class:<code>~promptise.CallerContext</code> with a <code>bearer_token</code>,
+this server's tools are called with
 <code>Authorization: Bearer &lt;caller token&gt;</code> over a session
 opened for that caller, so the server sees the user, not
-whoever built the agent.  <code>bearer_token</code> (or the agent
-identity) is still used for tool discovery and for calls
-without a caller token.  Set <code>False</code> for a third-party
+whoever built the agent.  The caller's token replaces
+<code>bearer_token</code> (and any <code>Authorization</code> header), which,
+like the agent identity, is still used for tool discovery and
+for calls without a caller token.</p>
+<p><code>None</code> (default): forward, unless the server is configured
+with an API key (<code>api_key</code> or an <code>x-api-key</code> header).  An
+API key is the server's explicit credential and wins: the
+caller's bearer would be sent <em>next to</em> it, and a gate that
+checks the bearer first (a Promptise server does) rejects the
+call with <code>401</code>.  <code>True</code>: always forward, also to an API-key
+server; the key is still sent, so the server receives both and
+decides which one counts (a Promptise server checks the bearer
+first).  <code>False</code>: never forward; use it for a third-party
 server that must not receive your users' tokens, or one that
-should always see the agent's own credential.</p>
+should always see the agent's own credential.  See
+:attr:<code>forwards_caller_token</code> for the resolved value.</p>
               </div>
             </td>
           </tr>
@@ -9768,6 +9836,53 @@ should always see the agent's own credential.</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="promptise.config.HTTPServerSpec.forwards_caller_token" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">forwards_caller_token</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#promptise.config.HTTPServerSpec.forwards_caller_token" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Whether tool calls send the invoking caller's bearer token here.</p>
+<p><code>forward_caller_token</code> when it is set; otherwise <code>True</code> unless
+the server has an API key (:attr:<code>has_api_key</code>), which then wins
+over the caller's token.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="promptise.config.HTTPServerSpec.has_api_key" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">has_api_key</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#promptise.config.HTTPServerSpec.has_api_key" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Whether an API key is configured (<code>api_key</code> or an <code>x-api-key</code> header).</p>
+
+    </div>
+
+</div>
 
 
 

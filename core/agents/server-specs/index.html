@@ -9732,9 +9732,9 @@
 </tr>
 <tr>
 <td><code>forward_caller_token</code></td>
-<td><code>bool</code></td>
-<td><code>True</code></td>
-<td>When an invocation's <code>CallerContext</code> has a <code>bearer_token</code>, call this server's tools with that token (one MCP session per caller) instead of <code>bearer_token</code> / the agent identity. Set <code>False</code> for servers that must not receive your users' tokens. See <a href="#per-user-tokens">Per-user tokens</a>.</td>
+<td><code>bool \| None</code></td>
+<td><code>None</code></td>
+<td>When an invocation's <code>CallerContext</code> has a <code>bearer_token</code>, call this server's tools with that token (one MCP session per caller) instead of <code>bearer_token</code> / the agent identity. <code>None</code>: forward, unless the server has an API key (<code>api_key</code> or an <code>x-api-key</code> header), which wins. <code>True</code>: always forward. <code>False</code>: never; use it for servers that must not receive your users' tokens. See <a href="#per-user-tokens">Per-user tokens</a>.</td>
 </tr>
 <tr>
 <td><code>auth</code></td>
@@ -9769,9 +9769,48 @@ invocation carries a user's token, the tool calls are made as that user:</p>
 reused by that caller's later calls, and closed after five idle minutes;
 concurrent invocations never share a session or a header. The forwarded
 token replaces any <code>Authorization</code> header from <code>bearer_token</code> or
-<code>headers</code>; other headers, including <code>x-api-key</code>, are kept. Invocations
-without a caller token use the spec's credentials. <code>StdioServerSpec</code>
-servers have no request headers and never receive a caller token.</p>
+<code>headers</code>. Invocations without a caller token use the spec's credentials.
+<code>StdioServerSpec</code> servers have no request headers and never receive a
+caller token.</p>
+<p><strong>Which credential a server sees on a tool call:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Spec</th>
+<th>Caller has a token</th>
+<th>Caller has no token</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>forward_caller_token=False</code></td>
+<td>spec credential</td>
+<td>spec credential</td>
+</tr>
+<tr>
+<td><code>api_key</code> / <code>x-api-key</code> header, <code>forward_caller_token</code> unset</td>
+<td>spec credential (the API key wins)</td>
+<td>spec credential</td>
+</tr>
+<tr>
+<td><code>bearer_token</code>, an <code>Authorization</code> header, or nothing</td>
+<td>caller's token</td>
+<td>spec credential / agent identity</td>
+</tr>
+<tr>
+<td><code>api_key</code> and <code>forward_caller_token=True</code></td>
+<td>caller's token <strong>and</strong> the API key</td>
+<td>spec credential</td>
+</tr>
+</tbody>
+</table>
+<p>An API key is an explicit credential for that server, so by default it
+wins: the caller's bearer is not sent. (It cannot replace the key: it
+would travel next to it, and a gate that checks the bearer first, as a
+Promptise server's does, answers <code>401</code>.) Set <code>forward_caller_token=True</code>
+only when the server is meant to authenticate your users: both headers
+are then sent and the server decides which one counts. A Promptise server
+checks the bearer first, so the user's token must be valid there.</p>
 <h3 id="transport-protocols">Transport Protocols<a class="headerlink" href="#transport-protocols" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
@@ -9919,7 +9958,7 @@ servers have no request headers and never receive a caller token.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:00:40 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:58:16 UTC">2026-10-11</span>
   </span>
 
     

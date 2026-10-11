@@ -11130,10 +11130,16 @@ a progress token, which is attached only when this is set.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Fetch a Bearer token from a server's token endpoint.</p>
-<p>This is a convenience for development/testing when the MCP server
-has a built-in token issuer enabled via
-:meth:<code>~promptise.mcp.server.MCPServer.enable_token_endpoint</code>.</p>
+        <p>Fetch a Bearer token with an OAuth 2.0 <code>client_credentials</code> grant.</p>
+<p>Sends a standard RFC 6749 token request: a form-encoded
+(<code>application/x-www-form-urlencoded</code>) POST with
+<code>grant_type=client_credentials</code>, <code>client_id</code> and
+<code>client_secret</code>.  That works against the MCP server's built-in
+token issuer (:meth:<code>~promptise.mcp.server.MCPServer.enable_token_endpoint</code>)
+and against any token endpoint that accepts <code>client_secret_post</code>.
+A built-in issuer from Promptise 1.3.2 or earlier only reads JSON; when
+one answers that the body must be JSON, the request is retried once as
+JSON.</p>
 <p>For production, obtain tokens from your Identity Provider
 (Auth0, Keycloak, Okta, etc.) and pass them directly via
 <code>bearer_token</code>.</p>
@@ -11966,7 +11972,9 @@ session (<code>mid_session=True</code>), typically because a static
 <p>Each server gets its own <code>MCPClient</code> with independent auth / headers.
 Tools are tracked per-server so <code>call_tool</code> routes to the correct one.</p>
 <p><strong>Tool name collisions</strong>: If two servers expose a tool with the same
-name, the last-discovered server wins and a warning is logged.
+name, the server that comes last in <code>clients</code> wins: <code>list_tools</code>
+returns only its copy, <code>call_tool</code> routes to it, and a warning names
+both servers.  The other copies are not reachable through this client.
 Consider using server-specific prefixes on your MCP servers to avoid
 collisions.</p>
 <p><strong>Per-caller tokens</strong>: <code>call_tool(..., bearer_token=...)</code> sends that
@@ -12564,8 +12572,9 @@ session (see :meth:<code>read_resource</code>).</p>
 
         <p>Discover prompts from every connected server.</p>
 <p>A server that does not serve prompts is skipped.  If two servers
-serve a prompt with the same name, the last one wins (a warning is
-logged) — pass <code>server=</code> to :meth:<code>get_prompt</code> to pick one.</p>
+serve a prompt with the same name, the last one wins: only its copy
+is listed (a warning is logged) — pass <code>server=</code> to
+:meth:<code>get_prompt</code> to pick another.</p>
 
 
     </div>
@@ -12653,7 +12662,7 @@ URI → server routing used by :meth:<code>read_resource</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Combined list of tools from all servers.  The</p>
+                <p>Combined list of tools from all servers, one per name.  When</p>
               </div>
             </td>
           </tr>
@@ -12663,7 +12672,37 @@ URI → server routing used by :meth:<code>read_resource</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>_tool_to_server</code> mapping is updated so <code>call_tool</code></p>
+                <p>two servers expose a tool with the same name, only the copy</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="mcp.types.Tool">Tool</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>from the server that comes last in <code>clients</code> is returned,</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="mcp.types.Tool">Tool</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>and <code>call_tool</code> routes that name to it (a warning is logged).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="mcp.types.Tool">Tool</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The <code>_tool_to_server</code> mapping is updated so <code>call_tool</code></p>
               </div>
             </td>
           </tr>

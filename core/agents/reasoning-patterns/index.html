@@ -9743,6 +9743,7 @@
 <p>The rest are specialized. Don't reach for a multi-stage pattern expecting more accuracy — on capable models they mostly add latency and tokens; the default plus <code>code-action</code> is the efficient path.</p>
 </div>
 <p>You can replace the default with any of the 9 built-in pattern names, a prebuilt graph such as <code>PromptGraph.pipeline(...)</code>, or a graph of your own. An unknown pattern name raises <code>ValueError</code> listing the valid names.</p>
+<p>Every built-in pattern's reply is a written answer. The multi-stage patterns end at a stage that writes it (<code>answer</code> in PEOATR, deliberate and debate; <code>synthesize</code> in research and autonomous), never at a verdict, a reflection or a routing step, and every stage that routes uses structured output so its decision reaches the engine.</p>
 <pre class="mermaid"><code>graph TD
     BA[build_agent] --&gt;|'react'| R1[ReAct]
     BA --&gt;|'verify'| R9[Verify]
@@ -9792,8 +9793,8 @@
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"peoatr"</span><span class="p">)</span>      <span class="c1"># Plan → Act → Think → Reflect → Answer</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"research"</span><span class="p">)</span>    <span class="c1"># Search → Verify → Synthesize</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"autonomous"</span><span class="p">)</span>  <span class="c1"># Agent builds own path</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"deliberate"</span><span class="p">)</span>  <span class="c1"># Think → Plan → Act → Observe → Reflect</span>
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"debate"</span><span class="p">)</span>      <span class="c1"># Proposer ↔ Critic → Judge</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"deliberate"</span><span class="p">)</span>  <span class="c1"># Think → Plan → Act → Observe → Reflect → Answer</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"debate"</span><span class="p">)</span>      <span class="c1"># Proposer ↔ Critic → Judge → Answer</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># Prebuilt graphs that take your nodes</span>
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">steps</span> <span class="o">=</span> <span class="n">PromptGraph</span><span class="o">.</span><span class="n">pipeline</span><span class="p">(</span><span class="n">PromptNode</span><span class="p">(</span><span class="s2">"extract"</span><span class="p">),</span> <span class="n">PromptNode</span><span class="p">(</span><span class="s2">"analyze"</span><span class="p">),</span> <span class="n">PromptNode</span><span class="p">(</span><span class="s2">"report"</span><span class="p">))</span>
@@ -9856,7 +9857,9 @@ instead of chaining dozens of conversational tool calls. The program runs in
 Promptise's hardened Docker sandbox; its tool calls bridge back to the real host
 tools, so the model gets code's exactness (loops, sums, filters) while each tool
 keeps its protections — approval gates, plus budget/health/audit hooks when the
-Agent Runtime has attached them, and a hard per-run <code>max_tool_calls</code> cap.</p>
+Agent Runtime has attached them, and a hard <code>max_tool_calls</code> cap on each
+program (every call counts; a program that reaches it fails instead of
+answering, and a repaired program gets a fresh budget).</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>reason → write ONE program → run in sandbox (tools bridged to host) → answer
 </span></code></pre></div>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
@@ -9884,26 +9887,31 @@ reaches the outside world only through your bridged tools.</p>
 </span></code></pre></div>
 <p><strong>Best for:</strong> Complex multi-step tasks, research, tasks requiring self-correction.</p>
 <h3 id="research">Research<a class="headerlink" href="#research" title="Link to this section">&para;</a></h3>
-<p>Three-stage pipeline: Search gathers information, Verify cross-checks for accuracy, Synthesize produces the final output. Verification loops back to search if quality is low.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>search ──→ verify ──→ synthesize
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>              ↓ (fail)
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>           search
+<p>Three-stage pipeline: Search gathers information with the tools and summarizes its findings, Verify checks them, Synthesize writes the answer. Verify is a model judgement with a structured verdict (<code>ResearchVerdict</code>): every claim must be backed by a tool result, nothing may contradict the sources, and the question must be fully covered. A failed check sends the run back to search with the issues it found; verify runs at most <code>max_verify_rounds</code> times (default 2), then the run goes on to synthesize, so it always ends with a written answer.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>search ──→ verify ──→ synthesize ──→ done
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>   ↑          │
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>   └──────────┘ (fail, at most max_verify_rounds checks)
 </span></code></pre></div>
 <p><strong>Best for:</strong> Fact-checking, research reports, tasks requiring verified information.</p>
 <h3 id="autonomous">Autonomous<a class="headerlink" href="#autonomous" title="Link to this section">&para;</a></h3>
-<p>The agent receives a pool of reasoning nodes and dynamically decides which to execute at each step. No static edges — the LLM builds its own execution path.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>[think, plan, search, analyze, synthesize] → Agent chooses → Agent chooses → ...
+<p>The agent receives a pool of reasoning nodes and dynamically decides which to execute at each step. No static edges — the LLM builds its own execution path. The default pool is <code>reason</code> (the agent's tools), <code>analyze</code> and <code>synthesize</code> (writes the answer and finishes).</p>
+<p>A chosen step runs its whole tool loop, so one <code>reason</code> step can make several tool calls and read their results before the agent picks again. The agent's step choice (the step menu and its JSON reply) never enters the conversation, a tool name given as the next step runs the step that has that tool, and when the agent finishes without running <code>synthesize</code>, it runs before the run ends — the reply is always a written answer.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>[reason, analyze, synthesize] → Agent chooses → Agent chooses → ... → synthesize
 </span></code></pre></div>
 <p><strong>Best for:</strong> Open-ended tasks, exploration, tasks where the optimal reasoning path isn't known ahead of time.</p>
 <h3 id="deliberate">Deliberate<a class="headerlink" href="#deliberate" title="Link to this section">&para;</a></h3>
-<p>Five-stage deep reasoning: Think before acting, plan the approach, act with tools, observe results carefully, then reflect. Slower but produces higher-quality results.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>think ──→ plan ──→ act ──→ observe ──→ reflect ──→ (continue/replan/answer)
+<p>Deep reasoning: Think before acting, plan the approach, act with tools, observe results carefully, reflect, then answer. Plan and reflect use structured output, so reflect's <code>continue</code> / <code>replan</code> / <code>answer</code> decision always routes; every stage has a budget, and the <code>answer</code> stage writes the reply. Slower and more expensive than ReAct.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>think ──→ plan ──→ act ──→ observe ──→ reflect ──→ answer ──→ done
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>            ↑       ↑                     │
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>            │       └─────────────────────┤ (continue)
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>            └─────────────────────────────┘ (replan)
 </span></code></pre></div>
 <p><strong>Best for:</strong> High-stakes decisions, complex analysis, tasks where accuracy matters more than speed.</p>
 <h3 id="debate">Debate<a class="headerlink" href="#debate" title="Link to this section">&para;</a></h3>
-<p>Adversarial two-agent debate. A proposer generates an answer, a critic challenges it, and they alternate until a judge renders the final verdict.</p>
+<p>Adversarial debate. A proposer answers with the agent's tools, a critic challenges the answer and sends it back for revision while its severity is above 0.3, a judge renders a verdict (a failed verdict also sends it back), and an <code>answer</code> stage writes the reply. Critic and judge use structured output, so their decisions always route; each runs at most <code>max_rounds</code> times (default 3).</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>proposer ──→ critic ──→ (severity high) ──→ proposer
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>                    ──→ (severity low)  ──→ judge ──→ done
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>                    ──→ (severity low)  ──→ judge ──→ (fail) ──→ proposer
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>                                                  ──→ (pass) ──→ answer ──→ done
 </span></code></pre></div>
 <p><strong>Best for:</strong> Controversial topics, decision-making, generating robust arguments.</p>
 <h3 id="pipeline">Pipeline<a class="headerlink" href="#pipeline" title="Link to this section">&para;</a></h3>
@@ -10066,7 +10074,7 @@ reaches the outside world only through your bridged tools.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 11:01:34 UTC">2026-10-11</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 17:14:45 UTC">2026-10-11</span>
   </span>
 
     

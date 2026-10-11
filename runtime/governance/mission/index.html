@@ -5428,6 +5428,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#context-injection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9354,6 +9365,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#context-injection" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9503,7 +9525,7 @@
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="n">objective</span><span class="o">=</span><span class="s2">"Migrate all database tables to v2 schema"</span><span class="p">,</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="n">success_criteria</span><span class="o">=</span><span class="s2">"All tables pass v2 schema validation with zero errors"</span><span class="p">,</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="n">eval_every</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>              <span class="c1"># Evaluate every 3 invocations</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="n">confidence_threshold</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>  <span class="c1"># Escalate below this</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="n">confidence_threshold</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>  <span class="c1"># Pause + escalate below this</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="n">timeout_hours</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>          <span class="c1"># Fail after 24h</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="n">max_invocations</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>        <span class="c1"># Fail after 50 invocations</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="n">auto_complete</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>        <span class="c1"># Stop on success</span>
@@ -9531,7 +9553,7 @@
 </span></code></pre></div>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Link to this section">&para;</a></h2>
 <h3 id="state-machine">State machine<a class="headerlink" href="#state-machine" title="Link to this section">&para;</a></h3>
-<p>Each mission moves through states:</p>
+<p>Each mission (<code>MissionState</code>) is in one of four states:</p>
 <table>
 <thead>
 <tr>
@@ -9541,37 +9563,46 @@
 </thead>
 <tbody>
 <tr>
-<td><code>pending</code></td>
-<td>Mission defined but not yet started</td>
+<td><code>active</code></td>
+<td>The agent is working on the mission and evaluations run (the initial state)</td>
 </tr>
 <tr>
-<td><code>in_progress</code></td>
-<td>Agent is actively working</td>
+<td><code>paused</code></td>
+<td>An evaluation was below <code>confidence_threshold</code>: no further evaluations until the mission is resumed (<code>POST /api/v1/processes/{name}/mission/resume</code>); the process keeps running its invocations</td>
 </tr>
 <tr>
 <td><code>completed</code></td>
-<td>Success criteria met</td>
+<td>Success criteria met; further invocations are skipped</td>
 </tr>
 <tr>
 <td><code>failed</code></td>
-<td>Timeout, max invocations, or manual failure</td>
+<td><code>timeout_hours</code> or <code>max_invocations</code> reached, or <code>fail()</code> called; further invocations are skipped</td>
 </tr>
 </tbody>
 </table>
 <h3 id="evaluation-cycle">Evaluation cycle<a class="headerlink" href="#evaluation-cycle" title="Link to this section">&para;</a></h3>
-<p>Every <code>eval_every</code> invocations, the runtime:</p>
+<p>Every <code>eval_every</code> successful invocations (after each one by default), the runtime:</p>
 <ol>
-<li>Takes the recent conversation history</li>
-<li>Calls a separate LLM (the <code>eval_model</code>) with the objective, success criteria, and conversation</li>
+<li>Collects the evidence: recent conversation, context state, recent tool calls (with health monitoring on) and the trigger event</li>
+<li>Calls a separate LLM (the <code>eval_model</code>, or the process model) with the objective, success criteria, and evidence</li>
 <li>Receives a structured <code>MissionEvaluation</code>: achieved (bool), confidence (0.0–1.0), reasoning, progress summary</li>
-<li>If achieved → mission completes, process stops (if <code>auto_complete=True</code>)</li>
-<li>If confidence &lt; <code>confidence_threshold</code> → fires escalation, the team can intervene</li>
+<li>If achieved → mission <code>completed</code>, <code>mission.complete</code> event, process stops (if <code>auto_complete=True</code>)</li>
+<li>If not achieved and confidence &lt; <code>confidence_threshold</code> → mission <code>paused</code>, escalation fires (<code>{"type": "low_confidence", "process_id", "confidence", "reasoning"}</code>), the team can intervene</li>
+<li>Otherwise → <code>mission.progress</code> event, the mission stays <code>active</code></li>
 </ol>
+<p>If the judge call fails or its reply is not valid JSON, the evaluation counts as not achieved with confidence 0.5 and its reasoning starts with <code>Evaluation failed:</code>, so with the default threshold it pauses the mission.</p>
+<h3 id="limits">Limits<a class="headerlink" href="#limits" title="Link to this section">&para;</a></h3>
+<p><code>timeout_hours</code> and <code>max_invocations</code> fail the mission (<code>mission.failed</code> event with <code>reason</code> <code>"timeout"</code> or <code>"max_invocations"</code>). Both are checked before each invocation and again after it, once its evaluation has run, so <code>max_invocations=50</code> lets 50 invocations run and the mission is <code>failed</code> right after the 50<sup>th</sup> unless that one completed it. Only successful invocations count. A failed or completed mission does not stop the process: its later invocations are skipped.</p>
 <h3 id="context-injection">Context injection<a class="headerlink" href="#context-injection" title="Link to this section">&para;</a></h3>
-<p>Before every invocation the agent sees its mission context in the system prompt:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>[Mission] State: in_progress | Objective: Migrate all database tables to v2 schema
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Evaluations: 2 | Last confidence: 0.82 | Last summary: 6 of 8 tables migrated
+<p>Before every invocation the agent sees its mission context as a system message:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>[Mission] Objective: Migrate all database tables to v2 schema
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Success Criteria: All tables pass v2 schema validation with zero errors
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Status: active
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Progress: 6 invocations/50, 2.3/24.0 hours
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Last Evaluation: confidence=0.82 — Tables users..orders migrated; invoices and payments remain.
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>Progress Summary: 6 of 8 tables migrated
 </span></code></pre></div>
+<p><code>/50</code> and the hours appear only when <code>max_invocations</code> and <code>timeout_hours</code> are set; the last two lines appear after the first evaluation.</p>
 <p>The agent can also call <code>check_mission</code> in open mode to inspect full evaluation history.</p>
 <h2 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Link to this section">&para;</a></h2>
 <h3 id="missionconfig"><code>MissionConfig</code><a class="headerlink" href="#missionconfig" title="Link to this section">&para;</a></h3>
@@ -9612,14 +9643,14 @@
 <tr>
 <td><code>eval_every</code></td>
 <td><code>int</code></td>
-<td><code>5</code></td>
+<td><code>1</code></td>
 <td>Evaluate every N invocations</td>
 </tr>
 <tr>
 <td><code>confidence_threshold</code></td>
 <td><code>float</code></td>
 <td><code>0.7</code></td>
-<td>Below this → escalate</td>
+<td>Below this → pause the mission and escalate</td>
 </tr>
 <tr>
 <td><code>timeout_hours</code></td>
@@ -9631,13 +9662,19 @@
 <td><code>max_invocations</code></td>
 <td><code>int</code></td>
 <td><code>0</code></td>
-<td>Max invocations (0 = unlimited)</td>
+<td>Fail the mission after this many invocations (0 = unlimited)</td>
 </tr>
 <tr>
 <td><code>auto_complete</code></td>
 <td><code>bool</code></td>
 <td><code>True</code></td>
-<td>Stop process when achieved</td>
+<td>Stop the process when achieved. <code>False</code> keeps it running (its later invocations are skipped: the mission is completed)</td>
+</tr>
+<tr>
+<td><code>on_complete</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td><strong>Deprecated, ignored.</strong> It was never read; setting it emits a <code>FutureWarning</code>. Use <code>auto_complete</code></td>
 </tr>
 <tr>
 <td><code>escalation</code></td>
@@ -9666,20 +9703,28 @@
 <td>Whether eval is due this invocation</td>
 </tr>
 <tr>
-<td><code>.evaluate(conversation, model)</code></td>
-<td>Run LLM-as-judge evaluation</td>
+<td><code>.evaluate(evidence, model)</code></td>
+<td>Run the evaluation on a <code>MissionEvidence</code> bundle; <code>model</code> (an ID or chat model) is used when <code>eval_model</code> is not set</td>
 </tr>
 <tr>
 <td><code>.context_summary()</code></td>
-<td>One-line string for agent context injection</td>
+<td>The multi-line mission block for agent context injection</td>
 </tr>
 <tr>
 <td><code>.is_timed_out()</code></td>
 <td>Whether the mission has exceeded <code>timeout_hours</code></td>
 </tr>
 <tr>
+<td><code>.is_over_limit()</code></td>
+<td>Whether the mission has reached <code>max_invocations</code></td>
+</tr>
+<tr>
 <td><code>.fail(reason)</code></td>
 <td>Manually fail the mission</td>
+</tr>
+<tr>
+<td><code>.pause()</code> / <code>.resume()</code></td>
+<td>Pause the mission, or resume a paused one</td>
 </tr>
 </tbody>
 </table>
@@ -9743,7 +9788,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="April 9, 2026 17:46:06 UTC">2026-04-09</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:58:16 UTC">2026-10-11</span>
   </span>
 
     

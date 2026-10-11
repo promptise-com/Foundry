@@ -11179,10 +11179,17 @@ that already have a result are not run again.</p>
 <td><code>terminal_nodes</code></td>
 <td><code>list[str]</code></td>
 <td><code>None</code></td>
-<td>Nodes that can end the autonomous loop</td>
+<td>Nodes that end the autonomous loop once they succeed</td>
+</tr>
+<tr>
+<td><code>answer_node</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Node that writes the final answer when the agent finishes without a terminal node having run last. Defaults to the first terminal node; with none, the node asks the model for the final answer itself</td>
 </tr>
 </tbody>
 </table>
+<p>A chosen node runs its whole tool loop (re-run while its model keeps calling tools, up to its <code>max_iterations</code>) before the agent picks again. The routing call's prompt and JSON reply never enter <code>state.messages</code>; a tool name given as the next step runs the pool node that has that tool. The run always ends with a written answer.</p>
 <hr />
 <h2 id="custom-nodes">Custom Nodes<a class="headerlink" href="#custom-nodes" title="Link to this section">&para;</a></h2>
 <h3 id="node-decorator">@node decorator<a class="headerlink" href="#node-decorator" title="Link to this section">&para;</a></h3>
@@ -11346,7 +11353,7 @@ the engine never executes a node twice to get one.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 11:31:22 UTC">2026-10-11</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 17:09:19 UTC">2026-10-11</span>
   </span>
 
     

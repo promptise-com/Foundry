@@ -9572,7 +9572,7 @@
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="n">empty_threshold</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>       <span class="c1"># 3 consecutive short responses = anomaly</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="n">empty_max_chars</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>      <span class="c1"># Below 10 chars = trivial response</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="n">error_rate_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="c1"># 50%+ error rate = anomaly</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="n">on_anomaly</span><span class="o">=</span><span class="s2">"escalate"</span><span class="p">,</span>   <span class="c1"># "pause", "stop", "escalate", "log"</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="n">on_anomaly</span><span class="o">=</span><span class="s2">"escalate"</span><span class="p">,</span>   <span class="c1"># "log", "pause" or "escalate"</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        <span class="n">cooldown</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>            <span class="c1"># 5 min between same anomaly type</span>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="n">escalation</span><span class="o">=</span><span class="n">EscalationTarget</span><span class="p">(</span>
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>            <span class="n">webhook_url</span><span class="o">=</span><span class="s2">"https://hooks.slack.com/..."</span><span class="p">,</span>
@@ -9602,7 +9602,7 @@
 <h3 id="recovery">Recovery<a class="headerlink" href="#recovery" title="Link to this section">&para;</a></h3>
 <p>After an anomaly, the next successful invocation emits a single <code>health.recovered</code> event. Further successes do not emit it again until another anomaly fires.</p>
 <h3 id="error-rate-detection">Error rate detection<a class="headerlink" href="#error-rate-detection" title="Link to this section">&para;</a></h3>
-<p>Sliding window error rate. When the fraction of failed tool calls exceeds <code>error_rate_threshold</code>, something is systematically wrong.</p>
+<p>Sliding window error rate over the last <code>error_window</code> invocations. An invocation counts as failed when it raises and has used up its retries (<code>trigger_delivery.max_retries</code>). When the fraction of failed invocations reaches <code>error_rate_threshold</code>, something is systematically wrong.</p>
 <h2 id="enforcement-actions">Enforcement actions<a class="headerlink" href="#enforcement-actions" title="Link to this section">&para;</a></h2>
 <table>
 <thead>
@@ -9621,15 +9621,13 @@
 <td>Suspend the process</td>
 </tr>
 <tr>
-<td><code>"stop"</code></td>
-<td>Stop the process entirely</td>
-</tr>
-<tr>
 <td><code>"escalate"</code></td>
 <td>Fire escalation notification, then suspend</td>
 </tr>
 </tbody>
 </table>
+<p>The action runs when the invocation that produced the anomaly ends, whether the run succeeded or raised (a stuck tool loop often ends in <code>GraphIterationLimitError</code>), and however long the run went on after the anomaly was detected. An anomaly from a failed run that is only detected once the failure is recorded (<code>high_error_rate</code>) is acted on right then. Each anomaly is acted on once: a later healthy run does not pause the process again for it. Every new anomaly also emits a <code>health.anomaly</code> event (<code>process_name</code>, <code>anomaly_type</code>, <code>details</code>).</p>
+<p>A suspended process keeps queueing its trigger events; <code>resume()</code> (or <code>POST /api/v1/processes/{name}/resume</code>) lets it continue. To stop a process outright on a hard limit, use the <a href="../budget/">Autonomy Budget</a> with <code>on_exceeded="stop"</code>.</p>
 <h2 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Link to this section">&para;</a></h2>
 <h3 id="healthconfig"><code>HealthConfig</code><a class="headerlink" href="#healthconfig" title="Link to this section">&para;</a></h3>
 <table>
@@ -9730,6 +9728,14 @@
 <td>Start a new invocation: clears the tool history used by stuck/loop detection (the runtime calls it)</td>
 </tr>
 <tr>
+<td><code>.record_error()</code></td>
+<td>Record a failed invocation for error-rate detection</td>
+</tr>
+<tr>
+<td><code>.take_new_anomalies()</code></td>
+<td>Anomalies detected since the previous call, each returned once (the runtime calls it when a run ends to apply <code>on_anomaly</code>)</td>
+</tr>
+<tr>
 <td><code>.anomalies</code></td>
 <td>List of all detected anomalies</td>
 </tr>
@@ -9738,8 +9744,8 @@
 <td>Most recent anomaly (or None)</td>
 </tr>
 <tr>
-<td><code>.clear()</code></td>
-<td>Reset all history and anomalies</td>
+<td><code>.health_status()</code></td>
+<td>Summary dict used by <code>process.status()</code></td>
 </tr>
 </tbody>
 </table>
@@ -9792,7 +9798,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:22:26 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:02:23 UTC">2026-10-11</span>
   </span>
 
     
