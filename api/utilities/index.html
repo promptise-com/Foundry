@@ -10312,6 +10312,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.tool_optimization.ToolIndex.rank" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rank
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.tool_optimization.ToolIndex.select" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -14878,6 +14889,17 @@
     <span class="md-ellipsis">
       
         tool_summaries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.tool_optimization.ToolIndex.rank" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rank
       
     </span>
   </a>
@@ -24337,7 +24359,8 @@ conversation.  Requires <code>sentence-transformers</code>
                 <p>Number of most-relevant tools to offer per model
 call.  Preserved tools, tools called in the previous or
 current turn, tools unlocked via <code>request_more_tools</code> and the
-fallback itself are added on top.</p>
+fallback itself are added on top, up to 100 indexed tools per
+model call (:data:<code>MAX_OFFERED_TOOLS</code>).</p>
               </div>
             </td>
             <td>
@@ -24375,7 +24398,11 @@ answers.</p>
             <td>
               <div class="doc-md-description">
                 <p>Include a <code>request_more_tools</code>
-fallback tool when semantic selection is active.</p>
+fallback tool when semantic selection is active.  It returns
+the matches for a <code>query</code>, the named <code>tool_names</code>, or,
+called without arguments, the next <code>semantic_top_k</code> tools
+most relevant to the conversation; never more than
+:data:<code>MAX_TOOLS_PER_REQUEST</code> per call.</p>
               </div>
             </td>
             <td>
@@ -24618,6 +24645,24 @@ names = [t.name for t in index.select("Suspend user u_42", top_k=8)]
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="promptise.tool_optimization.ToolIndex.rank" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">rank</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="nb">frozenset</span><span class="p">())</span></code>
+
+<a href="#promptise.tool_optimization.ToolIndex.rank" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>All indexed tool names, most relevant to <em>query</em> first, minus <em>exclude</em>.</p>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 

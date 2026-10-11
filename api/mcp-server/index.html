@@ -27953,7 +27953,8 @@ if not provided.</p>
 - <code>mcp_tool_calls_total</code> — Counter of tool calls (labels: tool, status)
 - <code>mcp_tool_duration_seconds</code> — Histogram of call duration (labels: tool)
 - <code>mcp_tool_in_flight</code> — Gauge of in-flight calls (labels: tool)</p>
-<p>Raises <code>ImportError</code> if <code>prometheus-client</code> is not installed.</p>
+<p>Raises <code>ImportError</code> if <code>prometheus-client</code> is not installed
+(<code>pip install "promptise[all]"</code>).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -28093,7 +28094,9 @@ default global registry if not provided.</p>
 <p>Creates a span for each tool call with attributes for tool name,
 request ID, client ID, and error status.  Also records a histogram
 metric for tool call duration.</p>
-<p>Raises <code>ImportError</code> if <code>opentelemetry-api</code> is not installed.</p>
+<p>Raises <code>ImportError</code> if <code>opentelemetry-api</code> is not installed
+(<code>pip install "promptise[all]"</code>).  It takes no endpoint: configure
+the exporter on the tracer / meter provider.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

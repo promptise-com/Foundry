@@ -10007,14 +10007,15 @@
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Tool: request_more_tools(query?: str, tool_names?: list[str])
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>"Call this when none of your current tools can do what is needed. Describe the
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a> capability in `query` (or give exact `tool_names`); the matching tools are
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a> returned and you can call them on your next step. Without arguments it lists
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a> and enables every available tool."
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a> returned and you can call them on your next step. Without arguments it returns
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a> the next few tools most relevant to the conversation; call it again for more."
 </span></code></pre></div>
 <ul>
 <li><code>query</code> searches the index and returns the <code>semantic_top_k</code> best matches.</li>
-<li><code>tool_names</code> returns exactly those tools (unknown names are reported).</li>
-<li>No arguments returns the whole catalogue — the escape hatch, at the cost of offering every tool from then on.</li>
+<li><code>tool_names</code> returns exactly those tools (unknown names are reported), at most 32 per call; the reply says how many were left out.</li>
+<li>No arguments returns the next <code>semantic_top_k</code> tools most relevant to the conversation that the model was not offered yet. Each further argument-less call pages on to the next <code>semantic_top_k</code>. It never enables the whole catalogue: on a server with hundreds of tools that would break the next model call (OpenAI accepts at most 128 tools per request).</li>
 </ul>
+<p>One call returns at most 32 tools, and a model call is offered at most 100 of the indexed tools (<code>preserve_tools</code> first, then tools already called, then tools <code>request_more_tools</code> returned, then the most relevant ones). Tools the index doesn't manage, such as the fallback itself, come on top, so a request stays under OpenAI's 128-tool limit.</p>
 <p>Every tool the call returns is offered on the agent's next model call, and stays offered for the rest of that turn and the next one. Nothing is stored on the agent: the selection is recomputed from the <code>request_more_tools</code> call in the conversation, so concurrent requests never see each other's tools.</p>
 <p>A tool call the model makes for a tool that exists but wasn't offered on that step still runs — selection decides what the model is shown, it is not access control. Use <a href="../approval/">approval</a> or server-side guards to restrict what may run.</p>
 <h3 id="preserve_tools"><code>preserve_tools</code><a class="headerlink" href="#preserve_tools" title="Link to this section">&para;</a></h3>
@@ -10094,7 +10095,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:48:16 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 00:57:22 UTC">2026-10-11</span>
   </span>
 
     
