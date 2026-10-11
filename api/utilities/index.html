@@ -23453,6 +23453,19 @@ event has the same index.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.streaming.ToolEndEvent.reused">reused</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>True</code> when the call was answered from an earlier
+result of the same call instead of running the tool (only for
+tools opted in with <code>ContextCompaction(reuse_results=...)</code>).</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 

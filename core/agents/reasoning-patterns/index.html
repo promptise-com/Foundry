@@ -9833,8 +9833,11 @@ forced self-check recovers errors a single pass would miss. See the
 chains</strong>. Instead of feeding the model an ever-growing transcript of tool calls
 and results — where it loses track and re-queries the same facts repeatedly —
 each turn it sees the task plus a compact, <strong>deduplicated "facts gathered"
-ledger</strong>. Context stays bounded and identical <code>(tool, args)</code> calls are served
-from cache instead of re-executed.</p>
+ledger</strong>. Context stays bounded, and the model consults the ledger instead of
+re-querying facts it has. A call it does repeat runs the tool again; to answer
+repeated lookups from the earlier result, opt those tools in with
+<code>ContextCompaction(reuse_results=[...])</code> (see
+<a href="../../../guides/context-lifecycle/#repeated-calls-run-the-tool">Repeated calls run the tool</a>).</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>reason ──→ (tool) ──→ reason + facts-ledger ──→ (tool) ──→ ... ──→ answer
 </span></code></pre></div>
 <p><strong>Best for:</strong> Deep multi-tool tasks — traversing a database/graph, gathering
@@ -10063,7 +10066,7 @@ reaches the outside world only through your bridged tools.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:24:39 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 11:01:34 UTC">2026-10-11</span>
   </span>
 
     

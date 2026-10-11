@@ -9380,9 +9380,9 @@
 <li><strong>One line per <code>tool(args) = result</code>, last value wins.</strong> Identical <code>(tool, args)</code> pairs collapse automatically, so a <strong>deduplicated tool ledger</strong> never lists the same fact twice.</li>
 <li><strong>The ledger sits last, right before the model's turn</strong> — the most salient position — so the model consults it instead of re-calling a tool.</li>
 <li><strong>The most recent exchange stays in-flow</strong>, so the model keeps continuity and doesn't lose its place.</li>
-<li><strong>Repeated calls are cache-served.</strong> If the model does re-request an identical <code>(tool, args)</code>, it gets the cached result instead of re-executing the tool.</li>
+<li><strong>A repeated call still runs.</strong> If the model does re-request an identical <code>(tool, args)</code>, the tool runs again, so a status it polls is current. For lookups whose result cannot change, <code>ContextCompaction(reuse_results=[...])</code> answers the repeat from the earlier result instead.</li>
 </ul>
-<p>That combination is what flattens the curve: the transcript stops growing, duplicate calls stop firing, and the model spends its attention on the facts rather than on its own history.</p>
+<p>That combination is what flattens the curve: the transcript stops growing, the model stops re-asking for facts it can see, and it spends its attention on the facts rather than on its own history.</p>
 <h2 id="runnable-switch-a-runaway-loop-to-the-ledger">Runnable: switch a runaway loop to the ledger<a class="headerlink" href="#runnable-switch-a-runaway-loop-to-the-ledger" title="Link to this section">&para;</a></h2>
 <p>Here is the whole fix. Take an agent that was thrashing on a deep lookup and set <code>agent_pattern="managed"</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
@@ -9435,7 +9435,7 @@
 <p>The good news is you rarely have to make this call by hand: <code>"auto"</code> keeps the full transcript on the simple cases and only reaches for the ledger when a loop actually grows. For a broader map of when each control flow earns its cost, see <a href="../agent-reasoning-patterns/">Agent Reasoning Patterns: The Complete Guide</a>.</p>
 <h2 id="frequently-asked-questions">Frequently asked questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this section">&para;</a></h2>
 <h3 id="why-does-my-llm-agent-keep-making-repeated-tool-calls">Why does my LLM agent keep making repeated tool calls?<a class="headerlink" href="#why-does-my-llm-agent-keep-making-repeated-tool-calls" title="Link to this section">&para;</a></h3>
-<p>Because a naive loop replays the whole transcript every turn, and once it is long enough the model can no longer clearly see a result it already fetched — so it fetches it again. It is a context-visibility failure, not a reasoning failure. A deduplicated facts ledger fixes it by putting each gathered fact in one salient place and serving identical calls from cache.</p>
+<p>Because a naive loop replays the whole transcript every turn, and once it is long enough the model can no longer clearly see a result it already fetched — so it fetches it again. It is a context-visibility failure, not a reasoning failure. A deduplicated facts ledger fixes it by putting each gathered fact in one salient place, where the model sees it instead of fetching it again.</p>
 <h3 id="do-i-have-to-change-patterns-to-avoid-context-window-overflow">Do I have to change patterns to avoid context window overflow?<a class="headerlink" href="#do-i-have-to-change-patterns-to-avoid-context-window-overflow" title="Link to this section">&para;</a></h3>
 <p>No. The default <code>react</code> agent already runs <code>context_scope="auto"</code>, which keeps the full transcript on simple tasks and automatically switches to a bounded ledger once a tool loop grows deep. You only need to set <code>agent_pattern="managed"</code> when you want to commit to the ledger up front for a task you already know is a deep traversal.</p>
 <h3 id="does-the-managed-pattern-make-my-agent-more-accurate">Does the managed pattern make my agent more accurate?<a class="headerlink" href="#does-the-managed-pattern-make-my-agent-more-accurate" title="Link to this section">&para;</a></h3>
@@ -9464,7 +9464,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:53:17 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 11:01:34 UTC">2026-10-11</span>
   </span>
 
     

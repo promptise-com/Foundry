@@ -9143,10 +9143,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-facts-ledger-last-value-wins-deduplicated-cache-served" class="md-nav__link">
+  <a href="#the-facts-ledger-last-value-wins-deduplicated-no-extra-model-call" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The facts ledger: last-value-wins, deduplicated, cache-served
+        The facts ledger: last-value-wins, deduplicated, no extra model call
       
     </span>
   </a>
@@ -9352,12 +9352,12 @@
 <li><strong>CrewAI, AutoGen, and Pydantic AI</strong> feed the full running transcript back to the model by default on a standard tool loop. Each gives you hooks to intervene, but none ships a deduplicating, last-value-wins tool ledger as a built-in <code>context_scope</code>-style primitive you flip on per node.</li>
 </ul>
 <p>The honest summary: trimming and summarizing are real, shipped features — trimming can evict a live fact, summarization costs a call, and truncation-based bounding keeps duplicates around. Promptise's edge is not "we have context control and they don't." It is that Promptise makes a <strong>deduplicated, last-value-wins tool ledger a first-class, structural node primitive</strong> — the default behaviour of a built-in pattern — rather than something you assemble yourself from hooks.</p>
-<h2 id="the-facts-ledger-last-value-wins-deduplicated-cache-served">The facts ledger: last-value-wins, deduplicated, cache-served<a class="headerlink" href="#the-facts-ledger-last-value-wins-deduplicated-cache-served" title="Link to this section">&para;</a></h2>
+<h2 id="the-facts-ledger-last-value-wins-deduplicated-no-extra-model-call">The facts ledger: last-value-wins, deduplicated, no extra model call<a class="headerlink" href="#the-facts-ledger-last-value-wins-deduplicated-no-extra-model-call" title="Link to this section">&para;</a></h2>
 <p>In the Promptise reasoning engine, an agent is a graph of <code>PromptNode</code>s, and every node takes a <code>context_scope</code> argument that controls what it sees on each LLM call. Set it to <code>"ledger"</code> and, instead of an ever-growing transcript, the node sees a compact ledger built from the tool results so far:</p>
 <ul>
 <li><strong>One line per <code>tool(args) = result</code>, last value wins.</strong> Duplicate <code>(tool, args)</code> calls collapse into a single line — the newest result. A fact you fetched at turn 3 is still there at turn 20, occupying one line, not scrolled off by a token counter.</li>
 <li><strong>Placed last, where the model reads it most reliably.</strong> The ledger sits right before the model's turn — the most salient position — so the model consults its gathered facts instead of re-calling a tool. The most recent exchange is kept in-flow so continuity isn't lost.</li>
-<li><strong>Cache-served repeats.</strong> A repeated <code>(tool, args)</code> call returns the cached result instead of re-executing the tool — no duplicate network round-trip, and crucially <strong>no extra LLM call</strong> to compress anything. The bounding is structural, not a second model pass.</li>
+<li><strong>No extra LLM call.</strong> Nothing is compressed by a model: the bounding is structural, not a second model pass. A call the model does repeat runs the tool again, so a value that changes (a job's status) is current; repeats of lookups whose result cannot change can be answered from the earlier result with <code>ContextCompaction(reuse_results=[...])</code>.</li>
 </ul>
 <p>That is the exact contrast with the two stock fixes. Trimming can evict the live fact; the ledger keeps it and evicts the <em>duplicate</em>. Summarization spends a model call to compress; the ledger spends nothing — it is a dictionary keyed by <code>(tool, args)</code>. The full mechanism, including how the most-recent turn is preserved, is documented in the <a href="../../guides/context-lifecycle/">context lifecycle guide</a>.</p>
 <h2 id="switch-your-deepest-tool-loop-to-a-ledger-runnable">Switch your deepest tool loop to a ledger (runnable)<a class="headerlink" href="#switch-your-deepest-tool-loop-to-a-ledger-runnable" title="Link to this section">&para;</a></h2>
@@ -9415,11 +9415,11 @@
 <h3 id="how-is-a-facts-ledger-different-from-trim_messages">How is a facts ledger different from trim_messages?<a class="headerlink" href="#how-is-a-facts-ledger-different-from-trim_messages" title="Link to this section">&para;</a></h3>
 <p><code>trim_messages</code> evicts messages by token or message count — positional eviction that can drop the exact <code>tool(args)=result</code> you still need on a deep loop, forcing a re-fetch. A facts ledger evicts <em>duplicates</em> instead: it keeps one line per unique <code>(tool, args)</code> with last value wins, so a fact fetched early survives to aggregation time while repeats collapse. Trimming bounds size; the ledger bounds redundancy without losing live facts.</p>
 <h3 id="does-the-ledger-cost-an-extra-llm-call-like-summarization">Does the ledger cost an extra LLM call like summarization?<a class="headerlink" href="#does-the-ledger-cost-an-extra-llm-call-like-summarization" title="Link to this section">&para;</a></h3>
-<p>No. Summarizing history compresses old turns with a second model round-trip on the critical path. The ledger is built mechanically from tool results — a dictionary keyed by <code>(tool, args)</code> — and repeated calls are cache-served, so there is no extra LLM call and no added latency. That is the core <code>context_scope</code> ledger vs summarization trade: same bounded transcript, one fewer model pass.</p>
+<p>No. Summarizing history compresses old turns with a second model round-trip on the critical path. The ledger is built mechanically from tool results — a dictionary keyed by <code>(tool, args)</code> — so there is no extra LLM call and no added latency. That is the core <code>context_scope</code> ledger vs summarization trade: same bounded transcript, one fewer model pass.</p>
 <h3 id="will-switching-to-context_scopeledger-change-my-existing-agents">Will switching to context_scope="ledger" change my existing agents?<a class="headerlink" href="#will-switching-to-context_scopeledger-change-my-existing-agents" title="Link to this section">&para;</a></h3>
 <p>Only where you opt in. A raw <code>PromptNode</code> defaults to <code>context_scope="full"</code>, so existing behaviour is unchanged until you set <code>"ledger"</code> (or adopt the <code>managed</code> pattern) on the node that runs your deep tool loop. Short tasks stay untouched; bounding only kicks in where the chain is actually long.</p>
 <h3 id="does-deduplication-ever-serve-a-stale-value">Does deduplication ever serve a stale value?<a class="headerlink" href="#does-deduplication-ever-serve-a-stale-value" title="Link to this section">&para;</a></h3>
-<p>The ledger is last-value-wins per <code>(tool, args)</code>: if a tool is called again with the <em>same</em> arguments, the newest result replaces the older line, so you always see the latest value for that exact call. Different arguments are different lines. Within-run cache-serving returns the most recent result for an identical call rather than re-executing it.</p>
+<p>No. The ledger is last-value-wins per <code>(tool, args)</code>: if a tool is called again with the <em>same</em> arguments, the tool runs and the newest result replaces the older line, so you always see the latest value for that exact call. Different arguments are different lines. Answering a repeated call from the earlier result instead of running the tool is an opt-in for lookups whose result cannot change (<code>ContextCompaction(reuse_results=[...])</code>), never for a status or anything else that changes.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Link to this section">&para;</a></h2>
 <p>Switch your deepest tool chain to <code>context_scope="ledger"</code> — or just adopt the <code>managed</code> pattern — and compare token growth against a LangGraph loop using <code>trim_messages</code>. Start with the <a href="../../guides/context-lifecycle/">context lifecycle guide</a> for the full decision table and the ledger internals, then layer in the <a href="../../core/cache/">semantic cache</a> and, for the deepest chains, the <a href="../../guides/code-action/">code-action pattern</a>.</p>
 
@@ -9444,7 +9444,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="July 17, 2026 19:53:17 UTC">2026-07-17</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 11:01:34 UTC">2026-10-11</span>
   </span>
 
     

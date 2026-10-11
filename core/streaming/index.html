@@ -9689,7 +9689,7 @@
 <td><code>tool_end</code></td>
 <td><code>ToolEndEvent</code></td>
 <td>Tool finishes</td>
-<td><code>tool_name</code>, <code>tool_summary</code>, <code>duration_ms</code>, <code>success</code>, <code>tool_index</code></td>
+<td><code>tool_name</code>, <code>tool_summary</code>, <code>duration_ms</code>, <code>success</code>, <code>tool_index</code>, <code>reused</code></td>
 </tr>
 <tr>
 <td><code>token</code></td>
@@ -9728,7 +9728,15 @@ view of that run, not a second one:</p>
   is in <code>cumulative_text</code>, but not in <code>full_response</code>.</li>
 <li><strong>Tool calls run in parallel</strong>, as in <code>ainvoke()</code>. When the model asks for
   several tools at once, every <code>tool_start</code> comes first, then each <code>tool_end</code>
-  as that call finishes — possibly out of order.</li>
+  as that call finishes — possibly out of order. In a custom graph whose
+  calls a <a href="../engine-nodes/#toolnode"><code>ToolNode</code></a> runs, the calls of one turn
+  run one after another, so each <code>tool_end</code> comes before the next call's
+  <code>tool_start</code>.</li>
+<li><strong>Every node's tool calls stream.</strong> Calls a <code>ToolNode</code> runs stream exactly
+  like the ReAct agent's (<code>PromptNode</code>) calls, with the same fields, including
+  calls it answers from an earlier result and calls a
+  <a href="../engine-hooks/#tool-hooks"><code>pre_tool</code> hook</a> blocked or that
+  <code>validate_inputs</code> rejected (both <code>success: false</code>).</li>
 <li><strong><code>tool_index</code> and <code>duration_ms</code> belong to the call.</strong> A <code>tool_end</code> has the
   same <code>tool_index</code> as its <code>tool_start</code>, and <code>duration_ms</code> is how long that
   call ran.</li>
@@ -9738,6 +9746,13 @@ view of that run, not a second one:</p>
   raises ends with <code>success: false</code> and <code>tool_summary</code> <code>"Tool call failed"</code>
   (the exception text is not streamed). The model sees the error either way
   and answers from it.</li>
+<li><strong>Reused results are <code>reused: true</code>.</strong> Only for tools you opted in with
+  <a href="../../guides/context-lifecycle/#repeated-calls-run-the-tool"><code>ContextCompaction(reuse_results=...)</code></a>,
+  and for a repeat of an identical call in one model turn of a
+  <a href="../engine-nodes/#toolnode"><code>ToolNode(deduplicate=True)</code></a>: a repeated call
+  answered from the earlier result of the same call, without running the
+  tool, still streams its <code>tool_start</code> and <code>tool_end</code>, and the <code>tool_end</code> has
+  <code>reused: true</code>.</li>
 </ul>
 <p><code>examples/mcp/stream_tool_calls.py</code> shows both against a real model:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>&gt;&gt;&gt; Where are my orders A-1001 and A-1002?
@@ -10082,7 +10097,7 @@ UI.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:03:19 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 11:31:22 UTC">2026-10-11</span>
   </span>
 
     

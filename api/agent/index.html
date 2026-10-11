@@ -7594,6 +7594,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#graphiterationlimiterror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GraphIterationLimitError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GraphIterationLimitError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.engine.execution.GraphIterationLimitError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GraphIterationLimitError
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptgraph" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8766,6 +8794,17 @@
     <span class="md-ellipsis">
       
         execute
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.engine.nodes.ToolNode.stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stream
       
     </span>
   </a>
@@ -9957,6 +9996,17 @@
     <span class="md-ellipsis">
       
         on_graph_mutation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.engine.hooks.Hook.on_tool_reused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        on_tool_reused
       
     </span>
   </a>
@@ -13529,6 +13579,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#graphiterationlimiterror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GraphIterationLimitError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GraphIterationLimitError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.engine.execution.GraphIterationLimitError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GraphIterationLimitError
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptgraph" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -14701,6 +14779,17 @@
     <span class="md-ellipsis">
       
         execute
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.engine.nodes.ToolNode.stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stream
       
     </span>
   </a>
@@ -15892,6 +15981,17 @@
     <span class="md-ellipsis">
       
         on_graph_mutation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.engine.hooks.Hook.on_tool_reused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        on_tool_reused
       
     </span>
   </a>
@@ -17342,7 +17442,9 @@ going out unauthenticated. The identity is exposed as
             <td>
               <div class="doc-md-description">
                 <p>Print each tool invocation and result to stdout. Covers
-MCP tools, cross-agent tools, sandbox tools and <code>extra_tools</code>.</p>
+MCP tools, cross-agent tools, sandbox tools and <code>extra_tools</code>,
+and calls answered from an earlier result
+(<code>ContextCompaction(reuse_results=...)</code>), marked as reused.</p>
               </div>
             </td>
             <td>
@@ -17766,7 +17868,9 @@ chat model's profile metadata unless you passed
 transcript.  An <code>int</code>: compact after that many tool results.
 Applies to nodes with <code>context_scope="auto"</code> (the default
 ReAct pattern) and the threshold-free settings of <code>"ledger"</code>
-nodes; a node's own <code>compaction=</code> wins.</p>
+nodes; a node's own <code>compaction=</code> wins.  Compaction never
+skips a tool call: a repeated call runs the tool, unless its
+tool is opted in with <code>ContextCompaction(reuse_results=...)</code>.</p>
               </div>
             </td>
             <td>
@@ -19750,7 +19854,9 @@ node can execute in one run (each tool-loop round counts). A
 node's own <code>max_iterations</code> applies when it is lower. When a
 node has used its budget, the engine does not run it again: it
 follows the node's <code>"error"</code> transition, else an <code>__error__</code>
-node, else ends the run.</p>
+node, else ends the run.  A run that ends this way (or on
+<code>max_iterations</code>) in the middle of a tool loop raises
+:class:<code>GraphIterationLimitError</code>: the model never answered.</p>
               </div>
             </td>
             <td>
@@ -20057,6 +20163,97 @@ so a broken credential is an exception at the call site, never an
             <td>
               <div class="doc-md-description">
                 <p>The :class:<code>ExecutionReport</code> of the failed run.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div><h3 id="graphiterationlimiterror">GraphIterationLimitError<a class="headerlink" href="#graphiterationlimiterror" title="Link to this section">&para;</a></h3>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="promptise.engine.execution.GraphIterationLimitError" class="doc doc-heading">
+            <code>promptise.engine.execution.GraphIterationLimitError</code>
+
+
+<a href="#promptise.engine.execution.GraphIterationLimitError" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="promptise.engine.execution.GraphExecutionError" href="#promptise.engine.execution.GraphExecutionError">GraphExecutionError</a></code></p>
+
+
+
+        <p>A run hit an iteration limit in the middle of a tool loop.</p>
+<p>The model asked for tools, the limit stopped the run before it saw their
+results, so there is no answer: the last message is a tool result.
+Raised instead of returning that tool result as if it were the agent's
+answer.  A subclass of :class:<code>GraphExecutionError</code>.</p>
+<p>Which limit: the node's own budget (<code>PromptNode(max_iterations=...)</code>,
+capped by the engine's <code>max_node_iterations</code>; the ReAct agent's
+<code>reason</code> node has 15) or the engine's <code>max_iterations</code> for the whole
+run (<code>build_agent(max_agent_iterations=...)</code>).</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.engine.execution.GraphIterationLimitError.limit">limit</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The limit that was reached.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.engine.execution.GraphIterationLimitError.pending_tools">pending_tools</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Names of the tools whose results the model never saw.</p>
               </div>
             </td>
           </tr>
@@ -23085,6 +23282,15 @@ is <code>on_node_end</code> with the :class:<code>NodeResult</code> under
 <p>Unlike PromptNode (where tools are called by the LLM), ToolNode
 executes tools directly based on state context.  Useful when tool
 selection is deterministic rather than LLM-driven.</p>
+<p>A call runs as it would in a :class:<code>PromptNode</code>: the engine hooks'
+<code>pre_tool</code> (may change the arguments, or block the call by raising)
+and <code>post_tool</code> (may change the result) run around it, the tool is
+invoked as a tool call (an MCP tool error reaches the model as the
+server's error envelope, flagged <code>status="error"</code>), and
+:meth:<code>stream</code> yields <code>on_tool_start</code> / <code>on_tool_end</code> (or
+<code>on_tool_error</code>) for each call, so <code>astream_events()</code> and
+<code>astream_with_tools()</code> show it.  The node runs one turn's calls one
+after another, in order.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -23123,7 +23329,17 @@ selection is deterministic rather than LLM-driven.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Validate tool arguments against schema.</p>
+                <p>Check each call's arguments against the tool's
+parameter schema before calling it (after <code>pre_tool</code> hooks).
+Invalid arguments do not reach the tool: the call's
+<code>ToolMessage</code> is an error (<code>status="error"</code>) listing each
+problem by argument path (<code>promptise.tools.ToolArgumentError</code>'s
+message) so the model can correct the call, and callbacks get
+<code>on_tool_error</code>.  As for MCP tools, an explicit <code>null</code> for an
+optional parameter that cannot be null counts as not given.  An
+MCP tool checks its own arguments the same way, so the node
+leaves the check to it.  With <code>False</code>, the arguments go to the
+tool as they are.</p>
               </div>
             </td>
             <td>
@@ -23139,7 +23355,18 @@ selection is deterministic rather than LLM-driven.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Block identical (tool, args) calls.</p>
+                <p>Run identical (tool, args) calls of one model turn
+once.  Each repeat in that turn still gets its own
+<code>ToolMessage</code> with the first call's result, and is reported
+as reused (<code>trace_tools</code>, <code>observer</code>, callbacks, engine
+hooks' <code>on_tool_reused</code> instead of <code>pre_tool</code> /
+<code>post_tool</code>, <code>"reused": True</code> in <code>NodeResult.tool_calls</code>
+and stream events).  A call in a later model turn, a later pass
+of a <code>tool_selector</code>, or another run runs the tool again, so a
+status check gets the current value.  A failed call is never
+reused.  The record lives in the run, never on the node, so
+sequential and concurrent runs of a graph do not affect each
+other.</p>
               </div>
             </td>
             <td>
@@ -23155,7 +23382,7 @@ selection is deterministic rather than LLM-driven.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Cap tool result size.</p>
+                <p>Cap the size of a successful tool result.</p>
               </div>
             </td>
             <td>
@@ -23177,8 +23404,8 @@ selection is deterministic rather than LLM-driven.</p>
             <td>
               <div class="doc-md-description">
                 <p>Optional callable that selects which tool
-to call based on state.  If <code>None</code>, uses the first
-tool call from the most recent AI message.</p>
+to call based on state.  If <code>None</code>, runs the tool calls
+of the most recent AI message that has tool calls.</p>
               </div>
             </td>
             <td>
@@ -23225,6 +23452,37 @@ tool call from the most recent AI message.</p>
     <div class="doc doc-contents ">
 
         <p>Execute tools from state or selector.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="promptise.engine.nodes.ToolNode.stream" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">stream</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.engine.nodes.ToolNode.stream" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Run the :meth:<code>execute</code> pipeline, yielding each call's events.</p>
+<p>Each call yields <code>on_tool_start</code> and then <code>on_tool_end</code>
+(<code>data["status"]</code> is <code>"error"</code> when the tool reported an error,
+<code>data["reused"]</code> is <code>True</code> for a repeat answered from the turn's
+earlier result) or <code>on_tool_error</code> (the tool or a hook raised),
+with the call's <code>run_id</code> and <code>duration_ms</code> -- the events a
+:class:<code>PromptNode</code> yields for its tool calls.  The last event is
+<code>on_node_end</code> with the :class:<code>NodeResult</code> under
+<code>data["result"]</code>.  A subclass that overrides :meth:<code>execute</code> but
+not this method streams through :meth:<code>BaseNode.stream</code>.</p>
 
 
     </div>
@@ -25634,7 +25892,10 @@ of feeding the model an ever-growing transcript of tool calls and results
 (where it loses track and re-queries the same facts dozens of times), each
 turn it sees the task plus a compact, <strong>deduplicated "facts gathered"
 ledger</strong> built from the tool results so far. Context stays bounded and the
-model stops re-looking-up what it already knows.</p>
+model stops re-looking-up what it already knows.  A call the model does
+repeat runs the tool again (a status changes); to answer repeats of
+lookups whose results cannot change from the earlier result, pass
+<code>build_agent(context_compaction=ContextCompaction(reuse_results=[...]))</code>.</p>
 <p>Use this for <strong>deep multi-tool tasks</strong> — traversing a database/graph,
 gathering many facts then aggregating. It cuts redundant tool calls and
 bounds token growth on long chains at equal accuracy — an efficiency
@@ -26544,6 +26805,31 @@ The engine checks <code>hasattr</code> before calling each method.</p>
     <div class="doc doc-contents ">
 
         <p>Called before a graph mutation is applied.  Return False to block it.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="promptise.engine.hooks.Hook.on_tool_reused" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">on_tool_reused</span><span class="p">(</span><span class="n">tool_name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-async"><code>async</code></small>
+  </span>
+
+<a href="#promptise.engine.hooks.Hook.on_tool_reused" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Called instead of <code>pre_tool</code> / <code>post_tool</code> when a call is answered
+from an earlier result without running the tool (tools opted in with
+<code>ContextCompaction(reuse_results=...)</code>, and a repeat of an identical
+call in one model turn of a <code>ToolNode(deduplicate=True)</code>).</p>
 
 
     </div>
@@ -29120,7 +29406,7 @@ Ideal for ephemeral sessions, caching, or high-throughput scenarios.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:03:19 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 11:01:34 UTC">2026-10-11</span>
   </span>
 
     
