@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Optional, Union, cast, get_args, get_origin
 
 from langchain_core.tools import BaseTool, ToolException
+from langchain_core.tools.base import ArgsSchema
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 from pydantic_core import to_jsonable_python
 
@@ -540,6 +541,15 @@ class WrappingTool(BaseTool):
     input, so it reports the failure its own way (an MCP tool fires its
     trace hooks and raises :class:`ToolArgumentError`).
     """
+
+    @property
+    def tool_call_schema(self) -> ArgsSchema:
+        # Offer the model what the wrapped tool offers (an MCP tool shows
+        # its args schema whole, see _PromptiseMCPTool.tool_call_schema).
+        inner = getattr(self, "_inner", None)
+        if isinstance(inner, BaseTool) and inner.args_schema is self.args_schema:
+            return inner.tool_call_schema
+        return super().tool_call_schema
 
     def _to_args_and_kwargs(
         self, tool_input: str | dict[str, Any], tool_call_id: str | None

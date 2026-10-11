@@ -10,6 +10,9 @@ Regressions (v1.3.0):
 2. Nested arguments were generated model instances (``Args_create_order_items_Item_2(...)``)
    in ``trace_tools``, ``ApprovalRequest.arguments`` / ``raw_arguments`` (so
    ``ApprovalRule.argument_contains`` matched a repr), events and observability.
+3. With ``optimize_tools``, minified tool schemas lost the constraints shown to
+   the model and the "takes any keys" setting of free-form tools, whose calls
+   were then sent as ``{}``.
 
 Every server binds ``127.0.0.1`` on an OS-assigned port in-process; the agents
 run on a scripted chat model (no LLM API).
@@ -18,11 +21,14 @@ run on a scripted chat model (no LLM API).
 from __future__ import annotations
 
 import asyncio
+import dataclasses
+import datetime
+import importlib.util
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import httpx
 import pytest
@@ -31,7 +37,8 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.tools import tool
-from pydantic import BaseModel, PrivateAttr
+from langchain_core.utils.function_calling import convert_to_openai_tool
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError
 
 from promptise import build_agent
 from promptise.approval import ApprovalDecision, ApprovalPolicy, ApprovalRequest
@@ -712,3 +719,312 @@ class TestParseToolArguments:
             "filter": {"tag": "t"},
             "n": [1, 2],
         }
+
+
+# ---------------------------------------------------------------------------
+# optimize_tools: minified schemas keep everything but descriptions
+# ---------------------------------------------------------------------------
+#
+# Regression (v1.3.0): with ``optimize_tools`` on, each tool's args model was
+# rebuilt without the constraints shown to the model (enum, pattern, bounds,
+# formats...) and without the "takes any keys" setting of a free-form
+# schema, whose calls were then sent as ``{}``.
+
+
+class Leg(BaseModel):
+    code: Annotated[str, Field(pattern=r"^[A-Z]{3}$", description="IATA airport code.")]
+    seats: Annotated[int, Field(ge=1, le=9, description="Seats to book.")] = 1
+    note: str | None = None
+
+
+def _travel() -> tuple[MCPServer, list[tuple[str, dict[str, Any]]]]:
+    server = MCPServer("travel")
+    received: list[tuple[str, dict[str, Any]]] = []
+
+    @server.tool()
+    async def book_trip(
+        traveler: Annotated[str, Field(min_length=2, max_length=40, description="Full name.")],
+        legs: Annotated[list[Leg], Field(min_length=1, max_length=4)],
+        cabin: Literal["economy", "business"] = "economy",
+        budget: Annotated[float, Field(gt=0, le=10000)] = 500.0,
+        depart: datetime.date | None = None,
+        home: Address | None = None,
+    ) -> dict:
+        """Book a trip."""
+        args = {
+            "traveler": traveler,
+            "legs": [leg.model_dump() for leg in legs],
+            "cabin": cabin,
+            "budget": budget,
+            "depart": depart.isoformat() if depart else None,
+            "home": home.model_dump() if home else None,
+        }
+        received.append(("book_trip", args))
+        return {"booking": "B-1"}
+
+    @server.tool()
+    async def configure(**settings: Any) -> dict:
+        """Set any configuration keys."""
+        received.append(("configure", settings))
+        return {"ok": True}
+
+    # A free-form tool: an object schema without properties that takes any keys.
+    tool_def = server._tool_registry.get("configure")
+    assert tool_def is not None
+    server._tool_registry.replace(
+        dataclasses.replace(tool_def, input_schema={"type": "object", "additionalProperties": True})
+    )
+    server._input_models.pop("configure", None)
+    return server, received
+
+
+class _OfferedModel(_ScriptedModel):
+    """A scripted model that records the parameter schema of every tool it is offered."""
+
+    _offered: dict[str, dict[str, Any]] = PrivateAttr()
+
+    def __init__(self, script: list[list[dict[str, Any]]]) -> None:
+        super().__init__(script)
+        self._offered = {}
+
+    def bind_tools(self, tools: Any, **kwargs: Any) -> _OfferedModel:
+        for t in tools:
+            function = convert_to_openai_tool(t)["function"]
+            self._offered[function["name"]] = function.get("parameters", {})
+        return self
+
+
+def _without_descriptions(schema: Any) -> Any:
+    """*schema* without descriptions and titles (generated model names differ)."""
+    if isinstance(schema, dict):
+        return {
+            k: _without_descriptions(v)
+            for k, v in schema.items()
+            if not (k in ("description", "title") and isinstance(v, str))
+        }
+    if isinstance(schema, list):
+        return [_without_descriptions(v) for v in schema]
+    return schema
+
+
+TRIP_ARGS: dict[str, Any] = {
+    "traveler": "Dana Scully",
+    "legs": [{"code": "ZRH"}, {"code": "LIS", "seats": None, "note": None}],
+    "cabin": None,
+    "depart": None,
+    "home": {"city": "Bern"},
+}
+# Omitted parameters and nulls for non-nullable ones are left out; nulls for
+# nullable ones are kept; nested objects are plain JSON.
+TRIP_SENT: dict[str, Any] = {
+    "traveler": "Dana Scully",
+    "legs": [{"code": "ZRH"}, {"code": "LIS", "note": None}],
+    "depart": None,
+    "home": {"city": "Bern"},
+}
+SETTINGS: dict[str, Any] = {"region": "eu", "limits": {"rps": 5, "burst": None}}
+
+_HAS_SEMANTIC = importlib.util.find_spec("sentence_transformers") is not None
+
+
+class TestOptimizedToolSchemas:
+    async def _offered_and_sent(
+        self, url: str, sent: list[tuple[str, dict[str, Any]]], **kwargs: Any
+    ) -> tuple[_OfferedModel, list[tuple[str, dict[str, Any]]], list[ApprovalRequest]]:
+        requests: list[ApprovalRequest] = []
+
+        async def handler(request: ApprovalRequest) -> bool:
+            requests.append(request)
+            return True
+
+        model = _OfferedModel(_calls(("book_trip", TRIP_ARGS), ("configure", SETTINGS)))
+        sent.clear()
+        # configure goes through the approval gate (a WrappingTool), book_trip does not.
+        await _run(
+            url, model, approval=ApprovalPolicy(tools=["configure"], handler=handler), **kwargs
+        )
+        return model, list(sent), requests
+
+    @pytest.mark.parametrize(
+        "level",
+        [
+            "minimal",
+            "standard",
+            pytest.param(
+                "semantic",
+                marks=pytest.mark.skipif(
+                    not _HAS_SEMANTIC, reason="sentence-transformers not installed"
+                ),
+            ),
+        ],
+    )
+    async def test_minified_tools_keep_their_schema_and_send_what_the_model_gave(
+        self, level, monkeypatch, sent
+    ):
+        server, received = _travel()
+        async with _serve(server, monkeypatch) as url:
+            plain_model, plain_sent, _ = await self._offered_and_sent(url, sent)
+            received.clear()
+            model, optimized_sent, requests = await self._offered_and_sent(
+                url, sent, optimize_tools=level
+            )
+
+        # What goes over MCP: the same as without optimization.
+        assert optimized_sent == plain_sent == [("book_trip", TRIP_SENT), ("configure", SETTINGS)]
+        assert all(_is_plain(arguments) for _, arguments in optimized_sent)
+        assert received == [
+            (
+                "book_trip",
+                {
+                    "traveler": "Dana Scully",
+                    "legs": [
+                        {"code": "ZRH", "seats": 1, "note": None},
+                        {"code": "LIS", "seats": 1, "note": None},
+                    ],
+                    "cabin": "economy",
+                    "budget": 500.0,
+                    "depart": None,
+                    "home": {"city": "Bern", "country": "CH"},
+                },
+            ),
+            ("configure", SETTINGS),
+        ]
+        assert [request.arguments for request in requests] == [SETTINGS]
+
+        # What the model is offered: the full schema, without descriptions.
+        trip = model._offered["book_trip"]
+        assert "description" not in trip["properties"]["traveler"]
+        assert "description" in plain_model._offered["book_trip"]["properties"]["traveler"]
+        assert _without_descriptions(trip) == _without_descriptions(
+            plain_model._offered["book_trip"]
+        )
+        props = trip["properties"]
+        assert sorted(trip["required"]) == ["legs", "traveler"]
+        assert (props["traveler"]["minLength"], props["traveler"]["maxLength"]) == (2, 40)
+        assert (props["legs"]["minItems"], props["legs"]["maxItems"]) == (1, 4)
+        leg = props["legs"]["items"]
+        assert leg["properties"]["code"]["pattern"] == "^[A-Z]{3}$"
+        assert (leg["properties"]["seats"]["minimum"], leg["properties"]["seats"]["maximum"]) == (
+            1,
+            9,
+        )
+        assert leg["required"] == ["code"]
+        assert props["cabin"]["enum"] == ["economy", "business"]
+        assert (props["budget"]["exclusiveMinimum"], props["budget"]["maximum"]) == (0, 10000)
+        assert {"type": "string", "format": "date"} in props["depart"]["anyOf"]
+        assert {"type": "null"} in props["depart"]["anyOf"]
+        assert {"type": "null"} in props["home"]["anyOf"]
+        assert model._offered["configure"] == plain_model._offered["configure"]
+        assert model._offered["configure"]["additionalProperties"] is True
+
+        results = model.tool_results()
+        assert [r.status for r in results] == ["success", "success"], [r.content for r in results]
+
+
+class TestMinifiedModel:
+    """``_minify_pydantic_model`` drops descriptions and nothing the argument helpers rely on."""
+
+    SCHEMA: dict[str, Any] = {
+        "type": "object",
+        "required": ["q"],
+        "properties": {
+            "q": {"type": "string", "minLength": 2, "pattern": "^[a-z]+$", "description": "Q."},
+            "n": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+            "ratio": {"type": "number", "enum": [0.5, 1.5]},
+            "when": {"type": ["string", "null"], "format": "date"},
+            "rows": {
+                "type": ["array", "null"],
+                "maxItems": 3,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "k": {"type": "integer", "minimum": 0, "description": "K."},
+                        "sub": {
+                            "type": "object",
+                            "properties": {"tag": {"type": "string", "maxLength": 5}},
+                        },
+                    },
+                },
+            },
+        },
+    }
+
+    @staticmethod
+    def _minify(schema: dict[str, Any], **kwargs: Any) -> type[BaseModel]:
+        from promptise.tool_optimization import _minify_pydantic_model
+
+        return _minify_pydantic_model(_jsonschema_to_pydantic(schema), **kwargs)
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [{}, {"strip_nested": True}, {"strip_nested": True, "max_depth": 3}],
+    )
+    def test_schema_is_the_original_without_descriptions(self, kwargs):
+        original = _jsonschema_to_pydantic(self.SCHEMA)
+        minified = self._minify(self.SCHEMA, **kwargs)
+        shown = convert_to_openai_tool(minified)["function"]["parameters"]
+        assert "description" not in shown["properties"]["q"]
+        assert _without_descriptions(shown) == _without_descriptions(
+            convert_to_openai_tool(original)["function"]["parameters"]
+        )
+
+    def test_argument_helpers_work_on_the_minified_model(self):
+        from promptise.tools import parse_tool_arguments
+
+        minified = self._minify(self.SCHEMA, strip_nested=True)
+        given = {
+            "q": "ab",
+            "n": None,
+            "ratio": None,
+            "when": None,
+            "rows": [{"k": None, "sub": {"tag": None}}, {"k": 2}],
+        }
+        assert parse_tool_arguments("t", minified, given) == {
+            "q": "ab",
+            "when": None,
+            "rows": [{"sub": {}}, {"k": 2}],
+        }
+        assert parse_tool_arguments("t", minified, {"q": "ab"}) == {"q": "ab"}
+
+    def test_depth_flattening_keeps_nullability_and_constraints(self):
+        from promptise.tools import parse_tool_arguments
+
+        minified = self._minify(self.SCHEMA, strip_nested=True, max_depth=1)
+        rows = convert_to_openai_tool(minified)["function"]["parameters"]["properties"]["rows"]
+        assert {"type": "null"} in rows["anyOf"]
+        [array] = [v for v in rows["anyOf"] if v.get("type") == "array"]
+        assert array["items"] == {"type": "object", "additionalProperties": True}
+        assert array["maxItems"] == 3
+        given = {"q": "ab", "rows": [{"k": 1, "sub": {"tag": "x"}}], "when": None}
+        assert parse_tool_arguments("t", minified, given) == given
+
+    def test_free_form_model_keeps_taking_any_keys(self):
+        from promptise.tools import accepts_free_form_arguments, parse_tool_arguments
+
+        minified = self._minify({"type": "object", "additionalProperties": True})
+        assert accepts_free_form_arguments(minified)
+        assert parse_tool_arguments("t", minified, SETTINGS) == SETTINGS
+
+    def test_pydantic_constraints_and_field_settings_are_kept(self):
+        from promptise.tool_optimization import _minify_pydantic_model
+
+        class Args(BaseModel):
+            model_config = ConfigDict(populate_by_name=True)
+
+            count: Annotated[int, Field(gt=0, description="How many.")] = 1
+            label: str = Field(
+                default="x", alias="Label", examples=["a"], json_schema_extra={"format": "slug"}
+            )
+
+        minified = _minify_pydantic_model(Args)
+        shown = minified.model_json_schema()["properties"]
+        assert shown["count"] == {
+            "default": 1,
+            "exclusiveMinimum": 0,
+            "title": "Count",
+            "type": "integer",
+        }
+        assert shown["Label"]["examples"] == ["a"] and shown["Label"]["format"] == "slug"
+        assert minified.model_validate({"label": "y"}).model_dump() == {"count": 1, "label": "y"}
+        with pytest.raises(ValidationError):
+            minified.model_validate({"count": 0})
