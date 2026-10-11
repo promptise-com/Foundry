@@ -36,6 +36,8 @@ from langchain_core.runnables.config import patch_config
 from langchain_core.tools import BaseTool
 from pydantic import PrivateAttr
 
+from .tools import WrappingTool
+
 logger = logging.getLogger("promptise.guardrails")
 
 __all__ = [
@@ -3168,7 +3170,7 @@ class PromptiseSecurityScanner:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class _GuardedTool(BaseTool):
+class _GuardedTool(WrappingTool):
     """Wraps a tool so its result passes the guardrails before the model sees it.
 
     Transparent to the LLM — same name, description, and schema as the

@@ -20,7 +20,13 @@ from langchain_core.tools import BaseTool, ToolException
 from mcp.types import CallToolResult, ToolAnnotations
 from pydantic import BaseModel, PrivateAttr
 
-from ...tools import ToolInfo, _jsonschema_to_pydantic
+from ...tools import (
+    ToolArgumentError,
+    ToolInfo,
+    _jsonschema_to_pydantic,
+    parse_tool_arguments,
+    plain_arguments,
+)
 from ._client import MCPClientError
 from ._multi import MCPMultiClient
 
@@ -212,16 +218,45 @@ class _PromptiseMCPTool(BaseTool):
         except Exception:
             logger.warning("on_progress callback failed for tool '%s'", self.name, exc_info=True)
 
+    def _to_args_and_kwargs(
+        self, tool_input: str | dict[str, Any], tool_call_id: str | None
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        """Validate a call and keep only the arguments the model gave, as plain JSON.
+
+        LangChain's own parsing fills in every optional parameter the model
+        left out (``None`` unless the schema has a default) and turns nested
+        objects into model instances; a server that validates its input
+        rejects those ``null`` arguments.  An explicit ``null`` for an
+        optional parameter that cannot be null counts as not given.  Invalid
+        arguments raise :class:`ToolArgumentError` (the model sees it and can
+        correct the call) and are reported to the trace callbacks.
+        """
+        if not isinstance(tool_input, dict):
+            return super()._to_args_and_kwargs(tool_input, tool_call_id)
+        try:
+            return (), parse_tool_arguments(self.name, self.args_schema, tool_input)
+        except ToolArgumentError as exc:
+            if self._on_before:
+                with contextlib.suppress(Exception):
+                    self._on_before(self.name, plain_arguments(tool_input))
+            if self._on_error:
+                with contextlib.suppress(Exception):
+                    self._on_error(self.name, exc)
+            raise
+
     async def _arun(self, **kwargs: Any) -> Any:
         """Execute the MCP tool via the persistent multi-client."""
+        # Normally plain already (see _to_args_and_kwargs); a wrapper that
+        # calls _arun directly may pass validated model instances.
+        arguments: dict[str, Any] = plain_arguments(kwargs)
         if self._on_before:
             with contextlib.suppress(Exception):
-                self._on_before(self.name, kwargs)
+                self._on_before(self.name, arguments)
 
         try:
             result = await self._multi.call_tool(
                 self._tool_name,
-                kwargs,
+                arguments,
                 bearer_token=self._caller_token(),
                 progress_callback=(
                     self._report_progress if self._on_progress is not None else None

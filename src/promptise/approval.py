@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import copy
 import hashlib
 import hmac as _hmac_mod
 import inspect
@@ -53,6 +54,7 @@ from langchain_core.tools import BaseTool
 from pydantic import PrivateAttr
 
 from ._outbound import pin_target
+from .tools import WrappingTool, plain_arguments
 
 if TYPE_CHECKING:
     from .approval_classifier import ClassifierDecisionTrace
@@ -1017,7 +1019,7 @@ def _decision_event_fields(decision: ApprovalDecision) -> dict[str, Any]:
     return fields
 
 
-class _ApprovalToolWrapper(BaseTool):
+class _ApprovalToolWrapper(WrappingTool):
     """Wraps a tool with an approval gate.
 
     Same name, description, and schema as the inner tool.  When
@@ -1082,14 +1084,18 @@ class _ApprovalToolWrapper(BaseTool):
 
         # Build approval request.  ``arguments`` is the reviewer's (redacted)
         # copy; ``raw_arguments`` is what classifier rules match against.
+        # Both are plain JSON (nested objects as dicts, not model instances).
         request_id = secrets.token_hex(16)
-        arguments = await policy.redact_arguments(kwargs) if policy.include_arguments else {}
+        plain: dict[str, Any] = plain_arguments(kwargs)
+        arguments = (
+            await policy.redact_arguments(copy.deepcopy(plain)) if policy.include_arguments else {}
+        )
         metadata: dict[str, Any] = {"source": "agent"}
         if session_id is not None:
             metadata["session_id"] = session_id
         if caller is not None and caller.tenant_id:
             metadata["tenant_id"] = caller.tenant_id
-        metadata.update(await policy.request_metadata(tool_name, kwargs))
+        metadata.update(await policy.request_metadata(tool_name, dict(plain)))
         request = ApprovalRequest(
             request_id=request_id,
             tool_name=tool_name,
@@ -1102,7 +1108,7 @@ class _ApprovalToolWrapper(BaseTool):
             timeout=policy.timeout,
             metadata=metadata,
             tool_annotations=_tool_annotations(self._inner),
-            raw_arguments=dict(kwargs),
+            raw_arguments=plain,
         )
 
         deny_key = (*_current_scope(policy.deny_scope), tool_name)
@@ -1136,9 +1142,13 @@ class _ApprovalToolWrapper(BaseTool):
         final_args: dict[str, Any] = kwargs
         changes: list[tuple[str, Any, Any]] = []
         if decision.modified_arguments is not None:
-            final_args, changes = _apply_modified_arguments(
-                kwargs, request.arguments, decision.modified_arguments
+            # Merged in plain JSON; _run_inner validates the result against
+            # the inner tool's schema.
+            modified_args, changes = _apply_modified_arguments(
+                plain, request.arguments, decision.modified_arguments
             )
+            if changes:
+                final_args = modified_args
         logger.info(
             "Approval: APPROVED %s (request_id=%s, reviewer=%s%s)",
             tool_name,

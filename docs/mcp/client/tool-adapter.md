@@ -156,6 +156,22 @@ tools = await adapter.as_langchain_tools()
 Callbacks are wrapped in `contextlib.suppress(Exception)` so a failing callback
 never breaks the actual tool call.
 
+### Arguments sent to the server
+
+A tool sends only the arguments the model gave, as plain JSON (nested
+objects as dicts), so the server applies its own defaults. LangChain would
+otherwise fill in `None` for every optional parameter left out, which a server
+that validates its input rejects. An explicit `null` is sent only where the
+parameter's schema allows null; a `null` for an optional parameter that
+cannot be null counts as not given. The `on_before` callback receives the same
+plain arguments.
+
+Arguments that don't match the tool's schema are not sent: the tool raises
+`ToolArgumentError` (from `promptise.tools`; a LangChain `ToolException` with
+code `INVALID_ARGUMENTS`), whose message lists each problem by argument path,
+and `on_before` and `on_error` run. Inside an agent the model sees that
+message and can correct the call.
+
 ### Result extraction
 
 MCP servers return `CallToolResult` objects containing a list of content items

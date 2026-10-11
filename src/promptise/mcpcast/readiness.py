@@ -22,7 +22,7 @@ import re
 from collections import Counter
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import httpx
@@ -337,7 +337,25 @@ async def tools_from_server(
     agent can react, and are recorded with their error code.
     """
     from promptise.mcp.server import TestClient
-    from promptise.tools import _jsonschema_to_pydantic
+    from promptise.tools import _jsonschema_to_pydantic, drop_disallowed_nulls
+
+    class _ServerTool(StructuredTool):
+        """Sends the arguments the agent gave, as plain JSON, as an MCP client does.
+
+        StructuredTool would fill in every optional parameter left out
+        (``None`` unless the schema has a default) and pass nested objects
+        as model instances.
+        """
+
+        def _to_args_and_kwargs(
+            self, tool_input: str | dict[str, Any], tool_call_id: str | None
+        ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+            if not isinstance(tool_input, dict):
+                return super()._to_args_and_kwargs(tool_input, tool_call_id)
+            schema = cast(type[BaseModel], self.args_schema)  # built below
+            cleaned = drop_disallowed_nulls(schema, tool_input, tool_name=self.name)
+            # A ValidationError goes to handle_validation_error.
+            return (), schema.model_validate(cleaned).model_dump(mode="json", exclude_unset=True)
 
     client = TestClient(server, meta=dict(headers or {}))
     tools: list[BaseTool] = []
@@ -378,7 +396,7 @@ async def tools_from_server(
 
         call, on_validation_error = _make(name)
         tools.append(
-            StructuredTool.from_function(
+            _ServerTool.from_function(
                 coroutine=call,
                 name=name,
                 description=mcp_tool.description or name,
