@@ -17,6 +17,7 @@ or pass an :class:`OptimizationLevel` string or a full
 
 from __future__ import annotations
 
+import contextvars
 import importlib.util
 import itertools
 import json
@@ -75,7 +76,8 @@ class ToolOptimizationConfig:
         semantic_top_k: Number of most-relevant tools to offer per model
             call.  Preserved tools, tools called in the previous or
             current turn, tools unlocked via ``request_more_tools`` and the
-            fallback itself are added on top.
+            fallback itself are added on top, up to 100 indexed tools per
+            model call (:data:`MAX_OFFERED_TOOLS`).
         semantic_context_turns: How many of the most recent user turns
             make up the selection query (together with the latest
             assistant reply and the tool calls of the previous and current
@@ -83,7 +85,11 @@ class ToolOptimizationConfig:
             follow-up like "Yes, go ahead." keeps the tools of the turn it
             answers.
         always_include_fallback: Include a ``request_more_tools``
-            fallback tool when semantic selection is active.
+            fallback tool when semantic selection is active.  It returns
+            the matches for a ``query``, the named ``tool_names``, or,
+            called without arguments, the next ``semantic_top_k`` tools
+            most relevant to the conversation; never more than
+            :data:`MAX_TOOLS_PER_REQUEST` per call.
         embedding_model: Model name or **local path** for
             ``sentence-transformers``.  Defaults to
             ``"all-MiniLM-L6-v2"`` (downloaded once, then cached in
@@ -558,15 +564,18 @@ class ToolIndex:
             The ranked tools (most relevant first), then the preserved ones.
         """
         preserve = frozenset(preserve or ())
-        scores = self._embedding_scores(query)
-        ranked = sorted(
-            (name for name in self._names if name not in preserve),
-            key=dict(zip(self._names, scores, strict=True)).__getitem__,
-            reverse=True,
-        )
-        selected = ranked[: max(top_k, 0)]
+        selected = self.rank(query, exclude=preserve)[: max(top_k, 0)]
         selected += [name for name in self._names if name in preserve]
         return [self._tools[name] for name in selected]
+
+    def rank(self, query: str, *, exclude: frozenset[str] | set[str] = frozenset()) -> list[str]:
+        """All indexed tool names, most relevant to *query* first, minus *exclude*."""
+        scores = dict(zip(self._names, self._embedding_scores(query), strict=True))
+        return sorted(
+            (name for name in self._names if name not in exclude),
+            key=scores.__getitem__,
+            reverse=True,
+        )
 
     def __contains__(self, name: object) -> bool:
         return name in self._tools
@@ -700,6 +709,12 @@ def _recent_tool_calls(messages: Sequence[Any]) -> list[tuple[str, Any]]:
     return calls
 
 
+def _recent_window_start(messages: Sequence[Any]) -> int:
+    """Index of the first message :func:`_recent_tool_calls` looks at."""
+    users = [i for i, msg in enumerate(messages) if _message_parts(msg)[0] == "user"]
+    return users[-2] + 1 if len(users) >= 2 else 0
+
+
 def build_selection_query(messages: Sequence[Any], *, user_turns: int = 3) -> str:
     """Build the semantic-selection query from the recent conversation.
 
@@ -751,17 +766,69 @@ def build_selection_query(messages: Sequence[Any], *, user_turns: int = 3) -> st
 #: Name of the fallback tool semantic selection adds.
 REQUEST_MORE_TOOLS = "request_more_tools"
 
+#: Most tools one ``request_more_tools`` call returns and unlocks, whatever
+#: its arguments (a long ``tool_names`` list is cut to this many).
+MAX_TOOLS_PER_REQUEST = 32
+
+#: Most indexed tools offered to one model call. OpenAI rejects a request
+#: with more than 128 tools; this leaves room for the tools the index does
+#: not manage (the ``request_more_tools`` fallback, tools a custom graph
+#: brings).
+MAX_OFFERED_TOOLS = 100
+
+#: What each tool index's selector offered on the model call about to run
+#: (keyed by ``id(index)``): the conversation before that call and the
+#: names of the indexed tools offered.  ``request_more_tools`` reads it to
+#: browse past those tools.  A context variable, so concurrent runs never
+#: share it.
+_offered_on_call: contextvars.ContextVar[dict[int, tuple[Sequence[Any], frozenset[str]]] | None] = (
+    contextvars.ContextVar("promptise_tool_selection_offered", default=None)
+)
+
+
+def _is_browse_call(name: str, args: Any) -> bool:
+    """Whether *name*/*args* is a ``request_more_tools`` call without arguments."""
+    if name != REQUEST_MORE_TOOLS:
+        return False
+    parsed = _call_args(args)
+    tool_names = parsed.get("tool_names")
+    query = parsed.get("query")
+    return not (isinstance(tool_names, list) and tool_names) and not (
+        isinstance(query, str) and query.strip()
+    )
+
 
 def _fallback_matches(
-    index: ToolIndex, query: Any, tool_names: Any, top_k: int
-) -> tuple[list[str], list[str]]:
-    """``(found, unknown)`` tool names for a ``request_more_tools`` call."""
+    index: ToolIndex,
+    query: Any,
+    tool_names: Any,
+    *,
+    top_k: int,
+    context_turns: int = 3,
+    messages: Sequence[Any] = (),
+    offered: frozenset[str] | set[str] = frozenset(),
+) -> tuple[list[str], list[str], int]:
+    """``(found, unknown, left_out)`` for a ``request_more_tools`` call.
+
+    * ``tool_names``: the named tools (``unknown`` lists the others).
+    * ``query``: the ``top_k`` best matches for it.
+    * neither: the ``top_k`` tools most relevant to *messages* (the
+      conversation before the model call that made the request) that were
+      not *offered* on that call, so each such call pages further on.
+
+    At most :data:`MAX_TOOLS_PER_REQUEST` tools are found; ``left_out``
+    counts the known names a long ``tool_names`` list lost to that cap.
+    """
+    size = min(top_k, MAX_TOOLS_PER_REQUEST)
     if isinstance(tool_names, list) and tool_names:
         names = [n for n in dict.fromkeys(tool_names) if isinstance(n, str)]
-        return [n for n in names if n in index], [n for n in names if n not in index]
+        known = [n for n in names if n in index]
+        found = known[:MAX_TOOLS_PER_REQUEST]
+        return found, [n for n in names if n not in index], len(known) - len(found)
     if isinstance(query, str) and query.strip():
-        return [t.name for t in index.select(query, top_k=top_k)], []
-    return index.all_tool_names, []
+        return [t.name for t in index.select(query, top_k=size)], [], 0
+    conversation = build_selection_query(messages, user_turns=context_turns)
+    return index.rank(conversation, exclude=frozenset(offered))[:size], [], 0
 
 
 def _call_args(args: Any) -> dict[str, Any]:
@@ -785,11 +852,13 @@ class _ToolSelector:
     * the ``preserve_tools``,
     * tools called in the previous or current turn,
     * tools a ``request_more_tools`` call in the previous or current turn
-      returned (recomputed from its arguments, so nothing is stored
-      between calls and concurrent runs can't affect each other),
+      returned (recomputed from its arguments and the conversation, so
+      nothing is stored between calls and concurrent runs can't affect each
+      other),
 
-    while tools the index doesn't manage (the fallback itself, tools a
-    custom graph brings) always pass through.
+    at most :data:`MAX_OFFERED_TOOLS` of them (preserved, then called, then
+    unlocked, then relevant tools win), while tools the index doesn't manage
+    (the fallback itself, tools a custom graph brings) always pass through.
     """
 
     def __init__(self, index: ToolIndex, config: _ResolvedConfig) -> None:
@@ -798,29 +867,58 @@ class _ToolSelector:
 
     def selected_names(self, messages: Sequence[Any]) -> set[str]:
         """Names of the indexed tools to offer for *messages*."""
-        query = build_selection_query(messages, user_turns=self._config.semantic_context_turns)
-        selected = self._index.select(
-            query,
-            top_k=self._config.semantic_top_k,
-            preserve=self._config.preserve_tools,
-        )
-        names = {t.name for t in selected}
-        for name, args in _recent_tool_calls(messages):
-            if name == REQUEST_MORE_TOOLS:
+        return set(self._selected(messages, len(messages), {}))
+
+    def _selected(
+        self, messages: Sequence[Any], end: int, memo: dict[int, frozenset[str]]
+    ) -> frozenset[str]:
+        """The tools offered for ``messages[:end]`` (*memo* caches by *end*)."""
+        if end in memo:
+            return memo[end]
+        cfg = self._config
+        view = messages[:end]
+        query = build_selection_query(view, user_turns=cfg.semantic_context_turns)
+        relevant = self._index.rank(query, exclude=cfg.preserve_tools)[: cfg.semantic_top_k]
+        called: list[str] = []
+        unlocked: list[str] = []
+        # The calls _recent_tool_calls() covers, with their positions.
+        for position in range(_recent_window_start(view), end):
+            role, _text, calls = _message_parts(view[position])
+            if role == "user":
+                continue
+            for name, args in calls:
+                if name != REQUEST_MORE_TOOLS:
+                    called.append(name)
+                    continue
                 parsed = _call_args(args)
-                found, _unknown = _fallback_matches(
+                browsing = _is_browse_call(name, parsed)
+                found, _unknown, _left_out = _fallback_matches(
                     self._index,
                     parsed.get("query"),
                     parsed.get("tool_names"),
-                    self._config.semantic_top_k,
+                    top_k=cfg.semantic_top_k,
+                    context_turns=cfg.semantic_context_turns,
+                    messages=view[:position],
+                    # What the model was offered when it made this call.
+                    offered=self._selected(messages, position, memo) if browsing else frozenset(),
                 )
-                names.update(found)
-            else:
-                names.add(name)
-        return names
+                unlocked[:0] = found  # the newest call first
+        preserved = [n for n in self._index.all_tool_names if n in cfg.preserve_tools]
+        ordered = [
+            n
+            for n in dict.fromkeys([*preserved, *called, *unlocked, *relevant])
+            if n in self._index
+        ]
+        memo[end] = frozenset(ordered[:MAX_OFFERED_TOOLS])
+        return memo[end]
 
     def __call__(self, candidates: Sequence[BaseTool], state: Any) -> list[BaseTool]:
-        keep = self.selected_names(getattr(state, "messages", None) or [])
+        messages = list(getattr(state, "messages", None) or [])
+        keep = self._selected(messages, len(messages), {})
+        # request_more_tools, if the model calls it now, browses past what
+        # this call offers.
+        seen = _offered_on_call.get() or {}
+        _offered_on_call.set({**seen, id(self._index): (messages, keep)})
         return [t for t in candidates if t.name not in self._index or t.name in keep]
 
 
@@ -844,8 +942,12 @@ class _RequestMoreToolsTool(BaseTool):
     """Fallback tool that finds and unlocks tools semantic selection left out.
 
     Every tool it returns becomes callable on the agent's next model call
-    in the same run: matches for ``query``, the named ``tool_names``, or —
-    called without arguments — the whole catalogue.
+    in the same run: the matches for ``query``, the named ``tool_names``,
+    or, called without arguments, the ``top_k`` tools most relevant to the
+    conversation that the model was not offered yet (so each further call
+    pages on).  One call returns at most
+    :data:`MAX_TOOLS_PER_REQUEST` tools, so a large catalogue is never
+    offered all at once.
     """
 
     name: str = REQUEST_MORE_TOOLS
@@ -853,19 +955,29 @@ class _RequestMoreToolsTool(BaseTool):
         "Call this when none of your current tools can do what is needed. "
         "Describe the capability in `query` (or give exact `tool_names`); "
         "the matching tools are returned and you can call them on your next "
-        "step. Without arguments it lists and enables every available tool."
+        "step. Without arguments it returns the next few tools most relevant "
+        "to the conversation; call it again for more."
     )
     args_schema: type[BaseModel] = _RequestMoreToolsArgs
 
     _tool_index: ToolIndex = PrivateAttr()
     _top_k: int = PrivateAttr(default=8)
+    _context_turns: int = PrivateAttr(default=3)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def __init__(self, tool_index: ToolIndex, top_k: int = 8, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        tool_index: ToolIndex,
+        top_k: int = 8,
+        *,
+        context_turns: int = 3,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
         self._tool_index = tool_index
         self._top_k = top_k
+        self._context_turns = context_turns
 
     async def _arun(
         self,
@@ -874,20 +986,42 @@ class _RequestMoreToolsTool(BaseTool):
         **kwargs: Any,
     ) -> str:
         # The agent's tool selector recomputes the same matches from this
-        # call's arguments and offers them from the next model call on.
+        # call's arguments (and, without arguments, the conversation before
+        # it) and offers them from the next model call on.
         index = self._tool_index
-        found, unknown = _fallback_matches(index, query, tool_names, self._top_k)
-        listing = (
-            index.summaries(found)
-            if (tool_names or (query and query.strip()))
-            else index.tool_summaries
+        messages, offered = (_offered_on_call.get() or {}).get(id(index), ((), frozenset()))
+        found, unknown, left_out = _fallback_matches(
+            index,
+            query,
+            tool_names,
+            top_k=self._top_k,
+            context_turns=self._context_turns,
+            messages=messages,
+            offered=offered,
         )
+        browsing = _is_browse_call(REQUEST_MORE_TOOLS, {"query": query, "tool_names": tool_names})
 
         parts = []
         if found:
             parts.append(
                 f"{len(found)} of {len(index.all_tool_names)} tools are now available; "
-                f"call them by name on your next step:\n\n{listing}"
+                f"call them by name on your next step:\n\n{index.summaries(found)}"
+            )
+            if browsing:
+                parts.append(
+                    "These are the next tools most relevant to this conversation. Call "
+                    "request_more_tools again without arguments for more, or with a "
+                    "`query` describing what you need."
+                )
+        elif browsing:
+            parts.append(
+                "No more tools to list. Call request_more_tools with a `query` "
+                "describing what you need."
+            )
+        if left_out:
+            parts.append(
+                f"{left_out} more of the named tools were not enabled: one call enables "
+                f"at most {MAX_TOOLS_PER_REQUEST}. Ask for them in another call."
             )
         if unknown:
             parts.append(

@@ -73,13 +73,26 @@ Your MCP server is one piece of a larger system -- the agent calls your server, 
 
 ### `OTelMiddleware`
 
+`OTelMiddleware(service_name="promptise-mcp-server", *, tracer_provider=None, meter_provider=None)` takes no endpoint: it records spans and metrics with OpenTelemetry's tracer and meter providers, and the provider decides where they are exported. Pass one explicitly, or leave both out to use the global providers.
+
 ```python
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
 from promptise.mcp.server import MCPServer, OTelMiddleware
+
+# Where the spans go: an OTLP collector (Jaeger, Tempo, the OTel Collector...)
+provider = TracerProvider(resource=Resource.create({"service.name": "order-mcp-server"}))
+provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint="http://jaeger:4317", insecure=True))
+)
 
 server = MCPServer(name="order-api")
 server.add_middleware(OTelMiddleware(
     service_name="order-mcp-server",
-    endpoint="http://jaeger:4317",  # OTLP collector endpoint
+    tracer_provider=provider,
 ))
 ```
 
@@ -90,23 +103,34 @@ Each tool call becomes a span with these attributes:
 | `mcp.tool.name` | `"create_order"` |
 | `mcp.request.id` | `"a3f2b1"` |
 | `mcp.client.id` | `"agent-checkout"` |
-| `mcp.tool.status` | `"ok"` or `"error"` |
+| `mcp.status` | `"ok"` or `"error"` |
+| `mcp.error.message` | the exception message (failed calls only) |
 
 The middleware also records:
 
 - **Histogram**: `mcp.tool.duration` -- call duration distribution
 - **Counter**: `mcp.tool.errors` -- error count by tool
 
-**No-op when not installed**: If `opentelemetry-api` is not installed, the middleware passes through without overhead. Install with `pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp`.
+**Requires OpenTelemetry**: without `opentelemetry-api`, creating an `OTelMiddleware` raises `ImportError`. Install the packages with `pip install "promptise[all]"`, or on their own with `pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp`. With the API installed but no provider configured (neither passed in nor set globally), OpenTelemetry's default no-op providers record nothing.
 
 ### Real-world setup with Jaeger
 
+Set the global provider once at startup and configure it with the standard `OTEL_*` environment variables; the middleware then needs no provider argument:
+
 ```python
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
 from promptise.mcp.server import MCPServer, OTelMiddleware
 
-# In production, configure via env vars:
+# In production, configure via env vars (read by the OpenTelemetry SDK):
 # OTEL_SERVICE_NAME=order-mcp-server
 # OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+provider = TracerProvider()
+provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+trace.set_tracer_provider(provider)
 
 server = MCPServer(name="order-api")
 server.add_middleware(OTelMiddleware(service_name="order-mcp-server"))
@@ -181,7 +205,7 @@ myapp_tool_duration_seconds_bucket{tool="search_employees",le="0.5"} 138
 myapp_tool_duration_seconds_bucket{tool="search_employees",le="1.0"} 141
 ```
 
-**No-op when not installed**: If `prometheus-client` is not installed, the middleware passes through. Install with `pip install prometheus-client`.
+**Requires `prometheus-client`**: without it, creating a `PrometheusMiddleware` raises `ImportError`. Install it with `pip install "promptise[all]"`, or on its own with `pip install prometheus-client`.
 
 ### Custom Prometheus registry
 
@@ -473,8 +497,8 @@ metrics.register_resource(server)
 | `MetricsCollector()` | Class | Per-tool call count, latency, error tracking |
 | `MetricsMiddleware(collector)` | Class | Record metrics for every tool call |
 | `MetricsCollector.register_resource(server)` | Method | Expose `metrics://server` resource |
-| `OTelMiddleware(service_name, endpoint)` | Class | OpenTelemetry tracing middleware |
-| `PrometheusMiddleware(namespace, registry)` | Class | Prometheus metrics middleware |
+| `OTelMiddleware(service_name, *, tracer_provider, meter_provider)` | Class | OpenTelemetry tracing middleware |
+| `PrometheusMiddleware(namespace, *, registry)` | Class | Prometheus metrics middleware |
 | `StructuredLoggingMiddleware()` | Class | JSON structured logging middleware |
 | `AuditMiddleware(log_path, signed, ...)` | Class | HMAC-chained audit log middleware |
 | `verify_audit_log(path, key, anchor=None)` | Function | Verify an audit log file; returns `AuditVerification` |

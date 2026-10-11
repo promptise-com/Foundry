@@ -1,14 +1,27 @@
 """OpenTelemetry integration middleware for MCP servers.
 
 Creates spans for each tool call and records latency metrics.
-Requires the ``opentelemetry-api`` package (optional dependency).
+Requires the ``opentelemetry-api`` package (``pip install "promptise[all]"``).
+
+The middleware takes no endpoint: spans and metrics go wherever the tracer
+and meter providers export them.  Pass providers explicitly, or set the
+global ones once at startup.
 
 Example::
 
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
     from promptise.mcp.server import MCPServer, OTelMiddleware
 
+    provider = TracerProvider()
+    provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter(endpoint="http://localhost:4317", insecure=True))
+    )
+
     server = MCPServer(name="api")
-    server.add_middleware(OTelMiddleware(service_name="my-mcp-server"))
+    server.add_middleware(OTelMiddleware(service_name="my-mcp-server", tracer_provider=provider))
 """
 
 from __future__ import annotations
@@ -27,7 +40,9 @@ class OTelMiddleware:
     request ID, client ID, and error status.  Also records a histogram
     metric for tool call duration.
 
-    Raises ``ImportError`` if ``opentelemetry-api`` is not installed.
+    Raises ``ImportError`` if ``opentelemetry-api`` is not installed
+    (``pip install "promptise[all]"``).  It takes no endpoint: configure
+    the exporter on the tracer / meter provider.
 
     Args:
         service_name: Service name for the tracer (default
@@ -73,11 +88,12 @@ class OTelMiddleware:
                 description="Tool call error count",
             )
             self._enabled = True
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
-                "opentelemetry-api is required to use OTelMiddleware. "
-                "Install with: pip install opentelemetry-api opentelemetry-sdk"
-            )
+                "OTelMiddleware requires OpenTelemetry. Install it with: "
+                'pip install "promptise[all]" (or just the packages: '
+                "pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp)"
+            ) from exc
 
     async def __call__(self, ctx: RequestContext, call_next: Callable[..., Any]) -> Any:
         if not self._enabled:

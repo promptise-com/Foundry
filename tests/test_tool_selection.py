@@ -312,7 +312,6 @@ class TestToolSelector:
         [
             ({"tool_names": ["list_audit_events", "nope"]}, {"list_audit_events"}),
             ({"query": "audit log of who did what"}, {"list_audit_events"}),
-            ({}, set(TOOL_DOCS)),
             ('{"tool_names": ["rotate_api_key"]}', {"rotate_api_key"}),
         ],
     )
@@ -326,6 +325,144 @@ class TestToolSelector:
         ]
         messages[1].tool_calls[0]["args"] = args  # type: ignore[index]
         assert expected <= self._selector(index).selected_names(messages)
+
+
+class TestRequestMoreToolsIsBounded:
+    """An argument-less request_more_tools call never enables the whole catalogue."""
+
+    def _selector(self, index: ToolIndex, top_k: int = 4, **overrides: Any) -> _ToolSelector:
+        cfg = _resolve_config(
+            ToolOptimizationConfig(level=SEMANTIC, semantic_top_k=top_k, **overrides)
+        )
+        return _ToolSelector(index, cfg)
+
+    @staticmethod
+    def _browse(call_id: str) -> AIMessage:
+        return _tool_call("request_more_tools", {}, call_id)
+
+    @staticmethod
+    async def _page(selector: _ToolSelector, tool: BaseTool, messages: list[Any]) -> set[str]:
+        """Run the model call for *messages*, then an argument-less request: the tools listed."""
+        selector(tool._tool_index.all_tools, _State(messages))  # type: ignore[attr-defined]
+        result = await tool._arun()
+        return {line[2:].split(":", 1)[0] for line in result.splitlines() if line.startswith("- ")}
+
+    async def test_selector_unlocks_a_bounded_page(self, big_index):
+        base = [HumanMessage(content="Rotate the API key of the billing service")]
+        selector = self._selector(big_index)
+        tool = _RequestMoreToolsTool(tool_index=big_index, top_k=4)
+        page = await self._page(selector, tool, base)
+        offered = selector.selected_names(base)
+        after = selector.selected_names(
+            [*base, self._browse("r1"), ToolMessage(content="...", tool_call_id="r1")]
+        )
+        assert len(offered) == 4
+        assert len(page) == 4 and not page & offered  # new tools, not the ones offered
+        assert page <= after
+        assert len(after) <= 8  # top_k + one page, never the 200-tool catalogue
+
+    async def test_each_further_call_pages_on(self, big_index):
+        selector = self._selector(big_index)
+        tool = _RequestMoreToolsTool(tool_index=big_index, top_k=4)
+        turn = [HumanMessage(content="Rotate the API key of the billing service")]
+        first = await self._page(selector, tool, turn)
+        turn += [self._browse("r1"), ToolMessage(content="...", tool_call_id="r1")]
+        second = await self._page(selector, tool, turn)
+        turn += [self._browse("r2"), ToolMessage(content="...", tool_call_id="r2")]
+        final = selector.selected_names(turn)
+        assert len(first) == len(second) == 4
+        assert not first & second
+        assert first | second <= final
+        assert len(final) <= 12
+
+    async def test_tool_reply_says_how_to_get_more(self, big_index):
+        result = await _RequestMoreToolsTool(tool_index=big_index, top_k=4)._arun()
+        assert result.startswith("4 of 200 tools are now available")
+        assert "again without arguments for more" in result
+
+    async def test_tool_names_are_capped(self, big_index):
+        from promptise.tool_optimization import MAX_TOOLS_PER_REQUEST
+
+        names = big_index.all_tool_names[:150]
+        result = await _RequestMoreToolsTool(tool_index=big_index)._arun(tool_names=names)
+        assert result.startswith(f"{MAX_TOOLS_PER_REQUEST} of 200 tools are now available")
+        assert f"{150 - MAX_TOOLS_PER_REQUEST} more of the named tools were not enabled" in result
+        messages = [
+            HumanMessage(content="enable them all"),
+            _tool_call("request_more_tools", {"tool_names": names}, "r1"),
+        ]
+        assert len(self._selector(big_index).selected_names(messages)) <= MAX_TOOLS_PER_REQUEST + 4
+
+    def test_offered_tools_never_pass_the_safe_maximum(self, big_index):
+        from promptise.tool_optimization import MAX_OFFERED_TOOLS
+
+        selector = self._selector(
+            big_index, top_k=90, preserve_tools=set(big_index.all_tool_names[:60])
+        )
+        messages = [
+            HumanMessage(content="do everything"),
+            _tool_call("request_more_tools", {"tool_names": big_index.all_tool_names[60:]}, "r1"),
+            ToolMessage(content="...", tool_call_id="r1"),
+            self._browse("r2"),
+        ]
+        names = selector.selected_names(messages)
+        assert len(names) == MAX_OFFERED_TOOLS < 128
+        # Preserved tools are never the ones dropped.
+        assert set(big_index.all_tool_names[:60]) <= names
+
+    async def test_agent_never_offers_the_whole_catalogue(self):
+        script = [
+            _tool_call("request_more_tools", {}, "c1"),
+            AIMessage(content="done"),
+        ]
+        agent = await build_agent(
+            model=_Scripted(script=script),
+            servers={},
+            extra_tools=_catalogue(200),
+            optimize_tools=ToolOptimizationConfig(level=SEMANTIC, semantic_top_k=5),
+        )
+        seen = _ToolsSeen()
+        try:
+            result = await agent.ainvoke(
+                {"messages": _user("Rotate the API key of the billing service")},
+                config={"callbacks": [seen]},
+            )
+        finally:
+            await agent.shutdown()
+        offered = seen.calls
+        # + request_more_tools; at most one page (5) more, not all 200 tools.
+        assert len(offered) == 2
+        assert len(offered[0]) == 6
+        assert 6 <= len(offered[1]) <= 11
+        # The reply lists the page the next call is offered: tools not offered before.
+        [reply] = [m.content for m in result["messages"] if isinstance(m, ToolMessage)]
+        listed = {line[2:].split(":", 1)[0] for line in reply.splitlines() if line.startswith("- ")}
+        assert len(listed) == 5
+        assert listed <= set(offered[1]) and not listed & set(offered[0])
+
+
+def _catalogue(n: int) -> list[BaseTool]:
+    services = ["billing", "search", "auth", "storage", "email", "dns", "queue", "cache"]
+    actions = ["Create", "Delete", "List", "Restart", "Rotate the API key of", "Back up"]
+
+    async def run(target: str = "") -> str:
+        return "ok"
+
+    return [
+        StructuredTool.from_function(
+            coroutine=run,
+            name=f"tool_{i:03d}",
+            description=f"{actions[i % len(actions)]} the {services[i % len(services)]} "
+            f"service in region {i // len(services)}.",
+            args_schema=_IdArgs,
+        )
+        for i in range(n)
+    ]
+
+
+@pytest.fixture(scope="module")
+def big_index() -> ToolIndex:
+    return ToolIndex(_catalogue(200))
 
 
 class TestRequestMoreToolsTool:
