@@ -4,6 +4,18 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## v1.3.1 — unreleased
+
+### Fixed
+- **`trace_tools=True` printed every cross-agent delegation twice** -- each `ask_agent_<name>` (and `broadcast_to_agents`) call and its result were printed, and recorded by an `observer`, once by the delegation hooks and again by the wrapper that traces non-MCP tools, although the peer ran once. Cross-agent tools now report only through their delegation hooks, so each delegation prints once, with the delegation's own arguments (and, for a broadcast, the per-peer results).
+- **A failed `astream_with_tools()` run was not logged** -- the consumer gets a generic `ErrorEvent` and the cause was dropped at every log level (1.2.1 logged it). The failure is logged again as one `ERROR` line on `promptise.agent` (the level the engine logs a failed run at) with the error type, message, agent id, session id and invocation id. The message goes through the observability redaction (API keys, tokens, URL credentials, card numbers, emails) and is truncated; a guardrail violation is summarised, not quoted. `astream()` and `ainvoke()` raise the failure to the caller and are unchanged.
+- **`request_more_tools()` without arguments enabled the whole tool catalogue** -- with semantic tool selection on a large server, the next model call could be offered hundreds of tools and fail on OpenAI's 128-tool limit. An argument-less call now returns the next `semantic_top_k` tools most relevant to the conversation that the model was not offered yet (each further call pages on). One call returns at most 32 tools (a longer `tool_names` list is cut, and the reply says how many were left out), and a model call is offered at most 100 indexed tools.
+
+### Documentation
+- **MCP server OpenTelemetry example** -- the docs showed `OTelMiddleware(endpoint=...)`, which raises `TypeError`: the middleware takes `service_name`, `tracer_provider` and `meter_provider`, and the exporter (and its endpoint) is configured on the provider. The examples now build an OTLP `TracerProvider` and run as written; the span attribute is `mcp.status` (not `mcp.tool.status`). The docs also said `OTelMiddleware` and `PrometheusMiddleware` do nothing without their packages; they raise `ImportError`, whose message now names the extra (`pip install "promptise[all]"`) as well as the packages. The `PrometheusMiddleware` docstring no longer promises a `/metrics` route the server does not add.
+
+---
+
 ## v1.3.0 — 2026-10-11
 
 ### Upgrading from 1.2.x

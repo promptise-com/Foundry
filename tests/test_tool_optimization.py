@@ -335,18 +335,35 @@ class TestToolIndex:
 
 class TestRequestMoreToolsTool:
     @pytest.mark.asyncio
-    async def test_returns_all_tool_names(self):
+    async def test_without_arguments_returns_top_k_not_all(self):
+        tools = [_make_tool(f"tool_{i}", f"Tool number {i}") for i in range(10)]
+        index = ToolIndex(tools)
+        fallback = _RequestMoreToolsTool(tool_index=index, top_k=3)
+
+        result = await fallback._arun()
+        assert "3 of 10 tools are now available" in result
+        assert "call request_more_tools again without arguments for more" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_without_arguments_when_everything_is_offered(self):
+        from types import SimpleNamespace
+
+        from langchain_core.messages import HumanMessage
+
+        from promptise.tool_optimization import _ToolSelector
+
         tools = [
             _make_tool("alpha", "Tool Alpha"),
             _make_tool("beta", "Tool Beta"),
         ]
         index = ToolIndex(tools)
-        fallback = _RequestMoreToolsTool(tool_index=index)
-
-        result = await fallback._arun()
-        assert "2 of 2 tools are now available" in result
-        assert "alpha" in result
-        assert "beta" in result
+        selector = _ToolSelector(
+            index, _resolve_config(ToolOptimizationConfig(level=OptimizationLevel.SEMANTIC))
+        )
+        # The model call offers both tools (top_k=8), so there is nothing more to list.
+        selector(index.all_tools, SimpleNamespace(messages=[HumanMessage(content="hi")]))
+        result = await _RequestMoreToolsTool(tool_index=index)._arun()
+        assert result.startswith("No more tools to list.")
 
     def test_tool_name(self):
         tools = [_make_tool("x", "y")]

@@ -180,13 +180,15 @@ When semantic selection is active, every model call is also offered a fallback t
 Tool: request_more_tools(query?: str, tool_names?: list[str])
 "Call this when none of your current tools can do what is needed. Describe the
  capability in `query` (or give exact `tool_names`); the matching tools are
- returned and you can call them on your next step. Without arguments it lists
- and enables every available tool."
+ returned and you can call them on your next step. Without arguments it returns
+ the next few tools most relevant to the conversation; call it again for more."
 ```
 
 - `query` searches the index and returns the `semantic_top_k` best matches.
-- `tool_names` returns exactly those tools (unknown names are reported).
-- No arguments returns the whole catalogue — the escape hatch, at the cost of offering every tool from then on.
+- `tool_names` returns exactly those tools (unknown names are reported), at most 32 per call; the reply says how many were left out.
+- No arguments returns the next `semantic_top_k` tools most relevant to the conversation that the model was not offered yet. Each further argument-less call pages on to the next `semantic_top_k`. It never enables the whole catalogue: on a server with hundreds of tools that would break the next model call (OpenAI accepts at most 128 tools per request).
+
+One call returns at most 32 tools, and a model call is offered at most 100 of the indexed tools (`preserve_tools` first, then tools already called, then tools `request_more_tools` returned, then the most relevant ones). Tools the index doesn't manage, such as the fallback itself, come on top, so a request stays under OpenAI's 128-tool limit.
 
 Every tool the call returns is offered on the agent's next model call, and stays offered for the rest of that turn and the next one. Nothing is stored on the agent: the selection is recomputed from the `request_more_tools` call in the conversation, so concurrent requests never see each other's tools.
 

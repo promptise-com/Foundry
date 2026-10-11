@@ -1427,6 +1427,9 @@ class PromptiseAgent:
 
             except Exception as exc:
                 _run_error = exc
+                # The consumer only gets a generic ErrorEvent, so this log
+                # line is where the cause of the failure is reported.
+                self._log_stream_failure(exc)
                 yield ErrorEvent(
                     message="An error occurred during processing.",
                     recoverable=False,
@@ -1538,6 +1541,40 @@ class PromptiseAgent:
             self._pop_event_scope(_scope_token)
             _invocation_ctx_var.reset(_inv_token)
             _caller_ctx_var.reset(_ctx_token)
+
+    def _log_stream_failure(self, exc: BaseException) -> None:
+        """Log a streamed run's failure as one ERROR line.
+
+        :meth:`astream_with_tools` turns a failure into a generic
+        :class:`~promptise.streaming.ErrorEvent`, so the cause is logged
+        here, at the level the engine logs a failed run.  The message is
+        scrubbed with the observability redaction (API keys, tokens, URL
+        credentials, card numbers, emails) and truncated; a guardrail
+        violation is summarised, never quoted.
+        """
+        try:
+            from .guardrails import GuardrailViolation
+            from .observability import redact_sensitive
+
+            if isinstance(exc, GuardrailViolation):
+                message = (
+                    f"Guardrail violation ({exc.direction}): "
+                    f"{len(exc.report.blocked)} blocked finding(s)"
+                )
+            else:
+                message = redact_sensitive({"error": str(exc)[:500]})["error"]
+            invocation = _invocation_ctx_var.get()
+            logger.error(
+                "Streamed run failed: %s: %s (agent=%s, session=%s, invocation=%s)",
+                type(exc).__name__,
+                message,
+                self._actor(),
+                _session_ctx_var.get(),
+                invocation.invocation_id if invocation is not None else None,
+            )
+        except Exception:
+            # Logging must never break the stream's error handling.
+            logger.debug("Could not log a streamed run's failure", exc_info=True)
 
     # -----------------------------------------------------------------
     # Lifecycle
@@ -2743,8 +2780,9 @@ class _TracedTool(BaseTool):
     """Fires the agent's tool callbacks around a tool that is not from MCP.
 
     MCP-discovered tools report to ``trace_tools`` / ``observer`` from inside
-    the MCP adapter. Cross-agent, sandbox and ``extra_tools`` are wrapped in
-    this class so they report the same way. Transparent to the LLM: same
+    the MCP adapter, and cross-agent tools from their own delegation hooks.
+    Sandbox tools and ``extra_tools`` are wrapped in this class so they report
+    the same way. Transparent to the LLM: same
     name, description and schema as the inner tool.
     """
 
@@ -3430,11 +3468,9 @@ async def build_agent(
                 f"Failed to initialize agent because tool discovery failed. Details: {exc}"
             ) from exc
 
-    # Tools added from here on are not MCP tools; they are wrapped for
-    # trace_tools / observer further down.
-    _mcp_tool_count = len(tools)
-
-    # Attach cross-agent tools if provided
+    # Attach cross-agent tools if provided. They fire the trace / observer
+    # callbacks themselves (with the delegation's own arguments and, for a
+    # broadcast, the per-peer results).
     if cross_agents:
         tools.extend(
             make_cross_agent_tools(
@@ -3450,6 +3486,11 @@ async def build_agent(
                 requires_approval=getattr(approval, "requires_approval", None),
             )
         )
+
+    # MCP and cross-agent tools report to trace_tools / observer on their own.
+    # Tools added from here on do not; they are wrapped further down. Wrapping
+    # a self-reporting tool again would print and record every call twice.
+    _self_reporting_count = len(tools)
 
     # The code-action pattern REQUIRES a sandbox (the model writes a program we
     # run in a container). Auto-enable one — with no network, since the program
@@ -3571,11 +3612,11 @@ async def build_agent(
     if extra_tools:
         tools.extend(extra_tools)
 
-    # MCP tools report to trace_tools / observer from the MCP adapter; give
-    # every other tool the same callbacks.
-    if (trace_tools or _obs is not None) and len(tools) > _mcp_tool_count:
-        tools[_mcp_tool_count:] = [
-            _TracedTool(t, _before, _after, _error) for t in tools[_mcp_tool_count:]
+    # MCP and cross-agent tools report to trace_tools / observer themselves;
+    # give every other tool (sandbox, extra_tools) the same callbacks.
+    if (trace_tools or _obs is not None) and len(tools) > _self_reporting_count:
+        tools[_self_reporting_count:] = [
+            _TracedTool(t, _before, _after, _error) for t in tools[_self_reporting_count:]
         ]
 
     if not tools:
@@ -3765,7 +3806,11 @@ async def build_agent(
             _semantic_config = resolved
             if resolved.always_include_fallback:
                 tools.append(
-                    _RequestMoreToolsTool(tool_index=_tool_index, top_k=resolved.semantic_top_k)
+                    _RequestMoreToolsTool(
+                        tool_index=_tool_index,
+                        top_k=resolved.semantic_top_k,
+                        context_turns=resolved.semantic_context_turns,
+                    )
                 )
 
     graph = _build_graph(tools)

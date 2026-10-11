@@ -1,17 +1,21 @@
 """Prometheus metrics middleware for MCP servers.
 
 Exposes standard Prometheus metrics for tool calls.  Requires the
-``prometheus-client`` package (optional dependency).
+``prometheus-client`` package (``pip install "promptise[all]"``).
 
 Example::
 
     from promptise.mcp.server import MCPServer, PrometheusMiddleware
 
     server = MCPServer(name="api")
-    server.add_middleware(PrometheusMiddleware())
+    prom = PrometheusMiddleware()
+    server.add_middleware(prom)
 
-    # Metrics available at GET /metrics on the HTTP transport
-    server.run(transport="http", port=8080)
+    # The server adds no /metrics route: serve the text yourself, e.g. as a
+    # resource, or call prometheus_client.start_http_server(9090).
+    @server.resource("metrics://prometheus", mime_type="text/plain")
+    async def prometheus_metrics() -> str:
+        return prom.get_metrics_text()
 """
 
 from __future__ import annotations
@@ -31,7 +35,8 @@ class PrometheusMiddleware:
     - ``mcp_tool_duration_seconds`` — Histogram of call duration (labels: tool)
     - ``mcp_tool_in_flight`` — Gauge of in-flight calls (labels: tool)
 
-    Raises ``ImportError`` if ``prometheus-client`` is not installed.
+    Raises ``ImportError`` if ``prometheus-client`` is not installed
+    (``pip install "promptise[all]"``).
 
     Args:
         namespace: Metric namespace prefix (default ``"mcp"``).
@@ -75,11 +80,11 @@ class PrometheusMiddleware:
                 registry=reg,
             )
             self._enabled = True
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
-                "prometheus-client is required to use PrometheusMiddleware. "
-                "Install with: pip install prometheus-client"
-            )
+                "PrometheusMiddleware requires prometheus-client. Install it with: "
+                'pip install "promptise[all]" (or just the package: pip install prometheus-client)'
+            ) from exc
 
     async def __call__(self, ctx: RequestContext, call_next: Callable[..., Any]) -> Any:
         if not self._enabled:

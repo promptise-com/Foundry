@@ -278,6 +278,78 @@ async def test_trace_tools_prints_ask_agent_calls(capsys: pytest.CaptureFixture[
     assert "✔ Tool result from ask_agent_billing: Team plan, 12 seats" in out
 
 
+async def test_trace_tools_prints_each_delegation_once(capsys: pytest.CaptureFixture[str]) -> None:
+    runs = {"n": 0}
+
+    def peer(payload: dict[str, Any]) -> dict[str, Any]:
+        runs["n"] += 1
+        return _reply("Team plan, 12 seats")
+
+    agent = await build_agent(
+        model=Scripted(mode="tool:ask_agent_billing"),
+        servers={},
+        trace_tools=True,
+        cross_agents={"billing": CrossAgent(agent=RunnableLambda(peer))},
+    )
+    try:
+        await agent.ainvoke({"messages": [{"role": "user", "content": "acme?"}]})
+    finally:
+        await agent.shutdown()
+    out = capsys.readouterr().out
+    assert runs["n"] == 1
+    assert out.count("→ Invoking tool: ask_agent_billing") == 1
+    assert out.count("✔ Tool result from ask_agent_billing") == 1
+    # The delegation's own arguments are kept (no LangChain-filled defaults).
+    assert "→ Invoking tool: ask_agent_billing with {'message': 'What plan is acme on?'}" in out
+
+
+async def test_trace_tools_prints_a_broadcast_once(capsys: pytest.CaptureFixture[str]) -> None:
+    agent = await build_agent(
+        model=Scripted(mode="tool:broadcast_to_agents", args={"message": "status?"}),
+        servers={},
+        trace_tools=True,
+        include_broadcast=True,
+        cross_agents={
+            "a": CrossAgent(agent=RunnableLambda(lambda p: _reply("a ok"))),
+            "b": CrossAgent(agent=RunnableLambda(lambda p: _reply("b ok"))),
+        },
+    )
+    try:
+        await agent.ainvoke({"messages": [{"role": "user", "content": "status"}]})
+    finally:
+        await agent.shutdown()
+    out = capsys.readouterr().out
+    assert out.count("→ Invoking tool: broadcast_to_agents") == 1
+    assert out.count("✔ Tool result from broadcast_to_agents") == 1
+    assert "'a': 'a ok'" in out and "'b': 'b ok'" in out
+
+
+async def test_observer_records_each_delegation_once() -> None:
+    from promptise.observability import ObservabilityCollector, TimelineEventType
+
+    collector = ObservabilityCollector("t")
+    agent = await build_agent(
+        model=Scripted(mode="tool:ask_agent_billing"),
+        servers={},
+        observer=collector,
+        cross_agents={"billing": CrossAgent(agent=RunnableLambda(lambda p: _reply("Team")))},
+    )
+    try:
+        await agent.ainvoke({"messages": [{"role": "user", "content": "acme?"}]})
+    finally:
+        await agent.shutdown()
+
+    def _count(kind: TimelineEventType) -> int:
+        return sum(
+            1
+            for e in collector.get_timeline()
+            if e.event_type == kind and (e.metadata or {}).get("tool_name") == "ask_agent_billing"
+        )
+
+    assert _count(TimelineEventType.TOOL_CALL) == 1
+    assert _count(TimelineEventType.TOOL_RESULT) == 1
+
+
 async def test_hooks_report_errors() -> None:
     events: list[tuple[str, str]] = []
 

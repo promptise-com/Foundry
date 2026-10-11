@@ -84,12 +84,15 @@ The obvious objection to top-K selection is: what if the embedding search misses
 **The `request_more_tools` fallback.** Whenever semantic selection is active, one extra tool is always included:
 
 ```
-Tool: request_more_tools
-Description: "If you need a tool that is not currently available, call this
-             to see all available tools and their descriptions."
+Tool: request_more_tools(query?: str, tool_names?: list[str])
+Description: "Call this when none of your current tools can do what is needed.
+             Describe the capability in `query` (or give exact `tool_names`);
+             the matching tools are returned and you can call them on your
+             next step. Without arguments it returns the next few tools most
+             relevant to the conversation; call it again for more."
 ```
 
-If the top-K set was wrong, the model calls `request_more_tools`, sees the full catalog, and retries with the right one. You trade one cheap recovery round-trip for the large, constant savings on every well-matched call — and the agent self-heals instead of failing.
+If the top-K set was wrong, the model calls `request_more_tools` with a description of what it needs (or pages through the next most relevant tools), gets the matching tools, and retries with the right one. It never unlocks the whole catalogue at once, so a large server can't push a request past a provider's tool limit. You trade one cheap recovery round-trip for the large, constant savings on every well-matched call — and the agent self-heals instead of failing.
 
 **Never gamble on your critical tools.** For tools that must always be present regardless of the similarity score — payment, identity verification, anything irreversible — pin them with `preserve_tools`. Pinned tools skip optimization entirely and are always selected. You can also tune `semantic_top_k` and point `embedding_model` at a local directory for air-gapped deployments:
 
@@ -133,7 +136,7 @@ The rule of thumb: reach for `"semantic"` when you have many tools across severa
 
 ### Does semantic tool selection change my agent's answers?
 
-It changes which tool *definitions* the model sees per call, not the tools' behavior. When the top-K set is right — which top-K=8 covers for most workloads — the answer is identical to sending all tools, just cheaper. When it's wrong, the `request_more_tools` fallback lets the agent fetch the full catalog and retry, so correctness is preserved at the cost of one extra round-trip.
+It changes which tool *definitions* the model sees per call, not the tools' behavior. When the top-K set is right — which top-K=8 covers for most workloads — the answer is identical to sending all tools, just cheaper. When it's wrong, the `request_more_tools` fallback lets the agent search the catalog for the missing tool and retry, so correctness is preserved at the cost of one extra round-trip.
 
 ### How much can I actually save on token cost?
 

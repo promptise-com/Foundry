@@ -1120,3 +1120,65 @@ class TestStreamingAdaptiveStrategy:
             assert _Synthesis.LESSON in prompt
         finally:
             await agent.shutdown()
+
+
+# ---------------------------------------------------------------------------
+# A failed streamed run is logged (the consumer only sees a generic ErrorEvent)
+# ---------------------------------------------------------------------------
+
+
+class _FailingModel(ScriptedModel):
+    """Every call fails with a message that quotes an API key."""
+
+    def _next(self, messages: list[BaseMessage]) -> tuple[AIMessage, float]:
+        self.calls.append(list(messages))
+        raise RuntimeError("upstream rejected key sk-abcdefghijklmnopqrstuvwxyz0123456789")
+
+
+class TestStreamedFailureLogging:
+    async def test_failure_is_logged_once_with_cause_and_ids(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from promptise import build_agent
+        from promptise.streaming import ErrorEvent
+
+        monkeypatch.setenv("PROMPTISE_NO_DOTENV", "1")
+        agent = await build_agent(
+            model=_FailingModel(script=[]), servers={}, observer_agent_id="support-bot"
+        )
+        try:
+            with caplog.at_level("DEBUG", logger="promptise"):
+                events = await _collect(agent, "Where is order A-1001?")
+        finally:
+            await agent.shutdown()
+
+        errors = [e for e in events if isinstance(e, ErrorEvent)]
+        assert [e.message for e in errors] == ["An error occurred during processing."]
+
+        failures = [r for r in caplog.records if "Streamed run failed" in r.getMessage()]
+        assert len(failures) == 1
+        record = failures[0]
+        assert record.levelname == "ERROR"
+        line = record.getMessage()
+        assert "GraphExecutionError" in line
+        assert "RuntimeError: upstream rejected key" in line
+        assert "agent=support-bot" in line
+        assert "invocation=" in line
+        # The observability redaction applies: the key never reaches the log.
+        assert "sk-abcdefghijklmnopqrstuvwxyz0123456789" not in caplog.text
+        assert "[API_KEY]" in line
+
+    async def test_failure_logs_the_chat_session(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from promptise.agent import _session_ctx_var
+
+        agent = await _agent(_FailingModel(script=[]), [], monkeypatch)
+        token = _session_ctx_var.set("sess-42")
+        try:
+            with caplog.at_level("ERROR", logger="promptise.agent"):
+                await _collect(agent, "hi")
+        finally:
+            _session_ctx_var.reset(token)
+            await agent.shutdown()
+        assert "session=sess-42" in caplog.text
