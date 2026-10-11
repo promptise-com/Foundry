@@ -17,6 +17,7 @@ from collections.abc import Callable, Collection
 from typing import Any
 
 from langchain_core.tools import BaseTool, ToolException
+from langchain_core.tools.base import ArgsSchema
 from mcp.types import CallToolResult, ToolAnnotations
 from pydantic import BaseModel, PrivateAttr
 
@@ -217,6 +218,20 @@ class _PromptiseMCPTool(BaseTool):
                 await result
         except Exception:
             logger.warning("on_progress callback failed for tool '%s'", self.name, exc_info=True)
+
+    @property
+    def tool_call_schema(self) -> ArgsSchema:
+        """The schema the model is offered: the args schema itself.
+
+        LangChain's default rebuilds the model from its fields and drops
+        field settings (the constraints shown in ``json_schema_extra``) and
+        the model config (a free-form schema's ``additionalProperties``).
+        An MCP tool has no injected arguments to hide from the model.
+        """
+        schema = self.args_schema
+        if isinstance(schema, type) and issubclass(schema, BaseModel):
+            return schema
+        return super().tool_call_schema
 
     def _to_args_and_kwargs(
         self, tool_input: str | dict[str, Any], tool_call_id: str | None

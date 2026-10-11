@@ -23,11 +23,12 @@ import itertools
 import json
 import logging
 import re
+import types
 from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, cast
+from typing import Annotated, Any, Literal, Union, cast, get_args, get_origin
 
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, create_model
@@ -277,8 +278,18 @@ def _minify_pydantic_model(
     strip_nested: bool = False,
     max_depth: int | None = None,
     _depth: int = 0,
+    _active: frozenset[type[BaseModel]] = frozenset(),
 ) -> type[BaseModel]:
-    """Rebuild a Pydantic model with stripped Field descriptions.
+    """Rebuild a Pydantic model without its field descriptions.
+
+    Only descriptions go.  Everything else the model is offered, and that
+    the tool's argument parsing relies on, is kept: types, required and
+    optional fields with their defaults (an optional field without one
+    stays unset when the model leaves it out), nullability, the
+    constraints shown in the schema (``json_schema_extra``: enum, pattern,
+    bounds, formats...) and other field settings, the model config (a
+    free-form schema keeps accepting any keys) and nested models, which
+    are rebuilt the same way.
 
     Args:
         model: The original Pydantic model to minify.
@@ -287,133 +298,106 @@ def _minify_pydantic_model(
         max_depth: If set, replace nested model fields beyond this
             depth with ``dict``.
         _depth: Internal recursion depth counter.
+        _active: Models being rebuilt (a self-referencing model keeps
+            its original reference).
     """
     if max_depth is not None and _depth >= max_depth:
         # Beyond max depth — this should have been replaced with dict
         # by the parent call.  Return as-is.
         return model
 
+    # Strip descriptions: always at top level (for token savings),
+    # and at nested levels when strip_nested=True.
+    should_strip = strip_nested or _depth == 0
+    active = _active | {model}
+
     fields: dict[str, Any] = {}
-
     for name, field_info in model.model_fields.items():
-        annotation = field_info.annotation
-        default = field_info.default
+        spec = field_info.asdict()
+        annotation = _minify_annotation(
+            spec["annotation"],
+            strip_nested=strip_nested,
+            max_depth=max_depth,
+            depth=_depth,
+            active=active,
+        )
+        if spec["metadata"]:
+            # Constraints given as annotated metadata (``Annotated[int, Gt(0)]``).
+            annotation = _annotated(annotation, spec["metadata"])
+        attributes = dict(spec["attributes"])
+        if should_strip:
+            attributes["description"] = None
+        fields[name] = (annotation, Field(**attributes))
 
-        # Strip descriptions: always at top level (for token savings),
-        # and at nested levels when strip_nested=True.
-        should_strip = strip_nested or _depth == 0
-
-        # Handle nested Pydantic models
-        inner_model = _unwrap_model(annotation)
-        if inner_model is not None and issubclass(inner_model, BaseModel):
-            if max_depth is not None and _depth + 1 >= max_depth:
-                # Flatten to dict at this depth
-                annotation = _replace_model_with_dict(annotation, inner_model)
-            else:
-                # Recurse
-                minified = _minify_pydantic_model(
-                    inner_model,
-                    strip_nested=strip_nested,
-                    max_depth=max_depth,
-                    _depth=_depth + 1,
-                )
-                annotation = _replace_model_in_annotation(
-                    annotation,
-                    inner_model,
-                    minified,
-                )
-
-        # Build field without description (or with it, if not stripping)
-        default_factory = field_info.default_factory
-        desc = None if should_strip else field_info.description
-
-        if field_info.is_required():
-            field_def = Field(..., description=desc)
-        elif default_factory is not None:
-            field_def = Field(default_factory=default_factory, description=desc)
-        elif default is not None:
-            field_def = Field(default=default, description=desc)
-        else:
-            field_def = Field(default=None, description=desc)
-
-        fields[name] = (annotation, field_def)
-
-    new_name = _mini_model_name(model.__name__)
     return cast(
         type[BaseModel],
-        create_model(new_name, **cast(dict[str, Any], fields)),
+        create_model(
+            _mini_model_name(model.__name__),
+            __config__=ConfigDict(**model.model_config),
+            **cast(dict[str, Any], fields),
+        ),
     )
 
 
-def _unwrap_model(annotation: Any) -> type | None:
-    """Extract a BaseModel subclass from a possibly-wrapped annotation.
-
-    Handles ``list[Model]``, ``Optional[Model]``, ``Model`` directly.
-    Returns ``None`` if the annotation doesn't contain a model.
-    """
-    origin = getattr(annotation, "__origin__", None)
-
-    if origin is list:
-        args = getattr(annotation, "__args__", ())
-        if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
-            return args[0]
-        return None
-
-    # Optional[X] is Union[X, None]
-    import typing
-
-    if origin is typing.Union:
-        args = getattr(annotation, "__args__", ())
-        non_none = [a for a in args if a is not type(None)]
-        if (
-            len(non_none) == 1
-            and isinstance(non_none[0], type)
-            and issubclass(non_none[0], BaseModel)
-        ):
-            return non_none[0]
-        return None
-
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return annotation
-
-    return None
+def _annotated(annotation: Any, metadata: Sequence[Any]) -> Any:
+    """``Annotated[annotation, *metadata]``."""
+    params = (annotation, *metadata)
+    return Annotated[params]  # type: ignore[valid-type]
 
 
-def _replace_model_with_dict(annotation: Any, model: type) -> Any:
-    """Replace a model type with ``dict`` in the annotation."""
-    return _replace_model_in_annotation(annotation, model, dict)
-
-
-def _replace_model_in_annotation(
+def _minify_annotation(
     annotation: Any,
-    old: type,
-    new: type,
+    *,
+    strip_nested: bool,
+    max_depth: int | None,
+    depth: int,
+    active: frozenset[type[BaseModel]],
 ) -> Any:
-    """Replace *old* type with *new* in a possibly-wrapped annotation."""
-    origin = getattr(annotation, "__origin__", None)
+    """*annotation* with each model in it minified, or ``dict`` beyond *max_depth*.
 
-    if origin is list:
-        args = getattr(annotation, "__args__", ())
-        if args and args[0] is old:
-            return list[new]  # type: ignore[valid-type]
+    Walks ``Optional``/``Union``, ``list``/``dict`` and other generics, and
+    ``Annotated`` (keeping its metadata), so a nested model is found
+    wherever it sits: ``Optional[list[Model]]``, ``dict[str, Model]``...
+    Returns *annotation* itself when nothing in it changes.
+    """
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        if annotation in active:
+            return annotation
+        if max_depth is not None and depth + 1 >= max_depth:
+            return dict
+        return _minify_pydantic_model(
+            annotation,
+            strip_nested=strip_nested,
+            max_depth=max_depth,
+            _depth=depth + 1,
+            _active=active,
+        )
+
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+    if origin is None or origin is Literal or not args:
         return annotation
 
-    import typing
+    def walk(arg: Any) -> Any:
+        return _minify_annotation(
+            arg, strip_nested=strip_nested, max_depth=max_depth, depth=depth, active=active
+        )
 
-    if origin is typing.Union:
-        args = getattr(annotation, "__args__", ())
-        new_args = tuple(new if a is old else a for a in args)
-        if len(new_args) == 2 and type(None) in new_args:
-            inner = [a for a in new_args if a is not type(None)][0]
-            from typing import Optional
+    if origin is Annotated:
+        inner = walk(args[0])
+        if inner is args[0]:
+            return annotation
+        return _annotated(inner, annotation.__metadata__)
 
-            return Optional[inner]  # type: ignore[valid-type]
-        return typing.Union[new_args]  # type: ignore[valid-type]
-
-    if annotation is old:
-        return new
-
-    return annotation
+    new_args = tuple(walk(arg) for arg in args)
+    if all(new is old for new, old in zip(new_args, args, strict=True)):
+        return annotation
+    if origin is Union or origin is types.UnionType:
+        return Union[new_args]
+    try:
+        return origin[new_args]
+    except TypeError:  # a generic that cannot be rebuilt: leave it whole
+        return annotation
 
 
 # ======================================================================
