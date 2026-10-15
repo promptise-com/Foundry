@@ -11108,6 +11108,7 @@
 <ul>
 <li>Every enabled head runs on the result, the injection model included.</li>
 <li>PII and credentials get their configured action (as on output), so a secret a tool returns is redacted before the model or <code>result["messages"]</code> holds it.</li>
+<li>Redaction keeps the result's structure. When the text is a JSON document, a label replaces text inside a string value only, never the quotes, escapes or punctuation around it: <code>{"db": "postgres://app:pw@db:5432/orders", "region": "eu"}</code> becomes <code>{"db": "[POSTGRES_CONNECTION]", "region": "eu"}</code>, JSON encoded inside a string stays valid, and a number that has to go becomes a quoted label. In any other text, the open-ended patterns (connection strings, <code>password=</code> / <code>secret=</code> values) stop at quotes and backslashes, so a Python repr or <code>KEY="value"</code> keeps its quotes too.</li>
 <li>A blocked result is replaced with a short <code>[Tool result withheld by guardrails: ...]</code> notice the model can see; the raw result is dropped. A <code>guardrail.blocked</code> event is emitted with <code>direction="tool"</code>.</li>
 </ul>
 <p>It is off by default because it adds a model pass to every tool call. A custom guard that sets <code>scan_tool_results = True</code> must implement <code>async check_tool_result(tool_name, result) -&gt; str</code>.</p>
@@ -11151,7 +11152,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 19:41:49 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 15, 2026 12:04:52 UTC">2026-10-15</span>
   </span>
 
     

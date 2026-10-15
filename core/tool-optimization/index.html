@@ -3147,6 +3147,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-tool-summary-in-the-system-prompt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The tool summary in the system prompt
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#combining-with-other-features" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9626,6 +9637,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-tool-summary-in-the-system-prompt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The tool summary in the system prompt
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#combining-with-other-features" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10031,31 +10053,67 @@
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">)</span>
 </span></code></pre></div>
 <hr />
-<h2 id="combining-with-other-features">Combining with Other Features<a class="headerlink" href="#combining-with-other-features" title="Link to this section">&para;</a></h2>
-<p>Tool optimization composes with all other agent features:</p>
+<h2 id="the-tool-summary-in-the-system-prompt">The tool summary in the system prompt<a class="headerlink" href="#the-tool-summary-in-the-system-prompt" title="Link to this section">&para;</a></h2>
+<p>The model always receives each offered tool as a tool definition (name, description and parameter schema), which is what the savings above measure. Promptise can also list the tools in the system prompt, in an "Available tools" block. It repeats the definitions, so it is off by default since 1.3.4 (before that, every node with tools added the <code>"full"</code> block):</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"standard"</span><span class="p">,</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">observe</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># observability still tracks all tool calls</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>        <span class="c1"># memory injection happens before tool selection</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># sandbox tools keep full schemas</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">)</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">tool_summary</span><span class="o">=</span><span class="s2">"names"</span><span class="p">,</span>   <span class="c1"># "off" (default), "names" or "full"</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">)</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>tool_summary</code></th>
+<th>What the system prompt gets</th>
+<th>Tokens on the 40-tool test server</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"off"</code> (default)</td>
+<td>Nothing</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>"names"</code></td>
+<td><code>Available tools: hr_list_employees, hr_get_employee, ...</code></td>
+<td>178</td>
+</tr>
+<tr>
+<td><code>"full"</code></td>
+<td>One line per tool: <code>- hr_get_employee(employee_id: string*): Get detailed...</code> (parameters, <code>*</code> = required, and the first 120 characters of the description)</td>
+<td>997</td>
+</tr>
+</tbody>
+</table>
+<p>Measured with <code>tiktoken</code>'s <code>o200k_base</code> encoding on the first request of a <code>build_agent</code> run against the 40 tools of <code>tests/_e2e_40tool_server.py</code> (one-line descriptions): the tool definitions are 3,043 tokens, so <code>"full"</code> adds a third on top of them. With longer descriptions the block costs more (about 40 tokens a tool on a 48-tool server). The summary lists the tools offered on that call, so with semantic selection it shrinks with the selection. Turn it on only if a model picks tools or parameters better with it. In a custom graph, <code>PromptNode(tool_summary=...)</code> sets it per node and <code>PromptGraphEngine(tool_summary=...)</code> for every node that sets none.</p>
+<hr />
+<h2 id="combining-with-other-features">Combining with Other Features<a class="headerlink" href="#combining-with-other-features" title="Link to this section">&para;</a></h2>
+<p>Tool optimization composes with all other agent features:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="n">servers</span><span class="p">,</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">optimize_tools</span><span class="o">=</span><span class="s2">"standard"</span><span class="p">,</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">observe</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># observability still tracks all tool calls</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">memory</span><span class="o">=</span><span class="n">provider</span><span class="p">,</span>        <span class="c1"># memory injection happens before tool selection</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># sandbox tools keep full schemas</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Static optimization applies to tools discovered from MCP servers. Semantic selection covers every tool the agent has — MCP, <code>extra_tools</code>, sandbox and cross-agent tools — and applies to <code>ainvoke()</code>, <code>chat()</code>, <code>astream()</code> and <code>astream_with_tools()</code>.</p>
 <h3 id="checking-selection-offline-with-toolindex">Checking selection offline with <code>ToolIndex</code><a class="headerlink" href="#checking-selection-offline-with-toolindex" title="Link to this section">&para;</a></h3>
 <p><code>ToolIndex</code> (in <code>promptise.tool_optimization</code>) is the index semantic selection uses. Build one over an agent's tools to check, before paying for any model call, whether each of your typical requests would be offered the right tool — and to compare embedding models or description lengths:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.tool_optimization</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolIndex</span><span class="p">,</span> <span class="n">build_selection_query</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">tools</span> <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s2">"request_more_tools"</span><span class="p">]</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">index</span> <span class="o">=</span> <span class="n">ToolIndex</span><span class="p">(</span><span class="n">tools</span><span class="p">,</span> <span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"all-MiniLM-L6-v2"</span><span class="p">)</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="k">for</span> <span class="n">request</span><span class="p">,</span> <span class="n">expected</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"Suspend user u_42, she left."</span><span class="p">,</span> <span class="s2">"suspend_user"</span><span class="p">)]:</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">offered</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">index</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">8</span><span class="p">)]</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s2">"-&gt;"</span><span class="p">,</span> <span class="s2">"ok"</span> <span class="k">if</span> <span class="n">expected</span> <span class="ow">in</span> <span class="n">offered</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"missed (got </span><span class="si">{</span><span class="n">offered</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># The query the agent would use for a whole conversation:</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="n">query</span> <span class="o">=</span> <span class="n">build_selection_query</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">user_turns</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.tool_optimization</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolIndex</span><span class="p">,</span> <span class="n">build_selection_query</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">tools</span> <span class="k">if</span> <span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s2">"request_more_tools"</span><span class="p">]</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">index</span> <span class="o">=</span> <span class="n">ToolIndex</span><span class="p">(</span><span class="n">tools</span><span class="p">,</span> <span class="n">model_name_or_path</span><span class="o">=</span><span class="s2">"all-MiniLM-L6-v2"</span><span class="p">)</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="k">for</span> <span class="n">request</span><span class="p">,</span> <span class="n">expected</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"Suspend user u_42, she left."</span><span class="p">,</span> <span class="s2">"suspend_user"</span><span class="p">)]:</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>    <span class="n">offered</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">index</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">8</span><span class="p">)]</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="s2">"-&gt;"</span><span class="p">,</span> <span class="s2">"ok"</span> <span class="k">if</span> <span class="n">expected</span> <span class="ow">in</span> <span class="n">offered</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"missed (got </span><span class="si">{</span><span class="n">offered</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># The query the agent would use for a whole conversation:</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="n">query</span> <span class="o">=</span> <span class="n">build_selection_query</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">user_turns</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>index.select(query, top_k=8, preserve=None)</code> returns the <code>top_k</code> most relevant tools followed by the preserved ones (which don't take a relevance slot). Embeddings of repeated queries are cached.</p>
 <hr />
@@ -10095,7 +10153,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 00:57:22 UTC">2026-10-11</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 15, 2026 11:58:24 UTC">2026-10-15</span>
   </span>
 
     

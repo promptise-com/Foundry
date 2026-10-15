@@ -28800,7 +28800,9 @@ blocked call: the value the call <em>would</em> have produced).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Seconds between same anomaly type.</p>
+                <p>Seconds before the same anomaly (same kind and same
+evidence: the same stuck call or loop) is reported again. Set
+0 to report every repeat, e.g. for an in-run guard.</p>
               </div>
             </td>
           </tr>
@@ -28865,7 +28867,15 @@ blocked call: the value the call <em>would</em> have produced).</p>
 
         <p>Lightweight behavioral health analysis.</p>
 <p>All detection methods are pure logic — no I/O, no LLM calls.
-Anomalies respect a configurable cooldown to avoid spam.</p>
+The same anomaly is reported at most once per <code>cooldown</code> seconds, to
+avoid spam.  "The same" means the same kind <em>and</em> the same evidence:
+the same repeated call (stuck), the same repeating sequence (loop), or
+the same signal (empty responses, error rate).  A different stuck call
+or loop is a new anomaly and is reported at once.</p>
+<p>To use the monitor as an in-run guard that acts on <em>every</em> repeat (a
+<code>pre_tool</code> hook that blocks the call while the agent is stuck), set
+<code>cooldown=0</code>: :meth:<code>record_tool_call</code> then returns the anomaly on
+each call that continues it.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

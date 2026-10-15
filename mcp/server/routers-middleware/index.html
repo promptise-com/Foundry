@@ -9927,6 +9927,12 @@
 <div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>AuthMiddleware  -&gt;  LoggingMiddleware  -&gt;  TimeoutMiddleware  -&gt;  handler
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>     &lt;-                  &lt;-                    &lt;-                  &lt;-
 </span></code></pre></div>
+<p>A call whose arguments fail the tool's input model goes through the same chain:
+middleware sees it (authentication, rate limiting and audit count it like any
+other call), and the <code>VALIDATION_ERROR</code> is raised where the handler would run.
+<code>ctx.state["_tool_arguments"]</code> is <code>{}</code> for such a call, so middleware never sees
+the rejected input. The error envelope is bounded: it names the failing fields
+and constraints, never the value.</p>
 <h3 id="router-level-middleware">Router-level middleware<a class="headerlink" href="#router-level-middleware" title="Link to this section">&para;</a></h3>
 <p>Routers can carry their own middleware that runs <strong>after</strong> server-level middleware:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">db_router</span> <span class="o">=</span> <span class="n">MCPRouter</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">"db"</span><span class="p">,</span> <span class="n">middleware</span><span class="o">=</span><span class="p">[</span><span class="n">TimeoutMiddleware</span><span class="p">(</span><span class="n">default_timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)])</span>
@@ -10093,7 +10099,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 10, 2026 20:08:19 UTC">2026-10-10</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 15, 2026 12:04:52 UTC">2026-10-15</span>
   </span>
 
     
