@@ -26654,6 +26654,18 @@ first entry) and <code>hmac</code>.  When <code>log_path</code> already holds en
 the first entry this instance writes continues the chain from the
 file's last entry and is marked <code>"resumed": true</code>.  Run one writer
 per file: two processes appending to the same file fork the chain.</p>
+<p>A failed call has <code>"status": "error"</code>, <code>error</code> (<code>"ClassName:
+message"</code>) and, when it raised an :class:<code>MCPError</code>, <code>error_code</code>:
+the code the client received (<code>ACCESS_DENIED</code> for a role/scope/guard
+denial, <code>AUTHENTICATION_ERROR</code> for a missing or rejected credential,
+<code>VALIDATION_ERROR</code>, <code>RATE_LIMIT_EXCEEDED</code>, ...).  Filter on
+<code>error_code</code>, not the class name: guard denials are raised as
+<code>AuthenticationError</code> too.  Entries written before 1.3.5 have no
+<code>error_code</code> and still verify.</p>
+<p>The middleware only sees requests that reach the MCP layer.  With
+<code>require_auth=True</code> on an HTTP transport, a request whose token
+fails verification is rejected with <code>401</code> before that, so it is in
+the HTTP server's access log, not in this audit log.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

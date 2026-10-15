@@ -7678,6 +7678,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#codeactionbudgeterror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CodeActionBudgetError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CodeActionBudgetError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.engine.execution.CodeActionBudgetError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CodeActionBudgetError
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptgraph" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -13718,6 +13746,34 @@
     <span class="md-ellipsis">
       
         GraphBudgetExceededError
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codeactionbudgeterror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CodeActionBudgetError
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CodeActionBudgetError">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#promptise.engine.execution.CodeActionBudgetError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CodeActionBudgetError
       
     </span>
   </a>
@@ -20649,6 +20705,97 @@ much.</p>
 
     </div>
 
+</div><h3 id="codeactionbudgeterror">CodeActionBudgetError<a class="headerlink" href="#codeactionbudgeterror" title="Link to this section">&para;</a></h3>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h4 id="promptise.engine.execution.CodeActionBudgetError" class="doc doc-heading">
+            <code>promptise.engine.execution.CodeActionBudgetError</code>
+
+
+<a href="#promptise.engine.execution.CodeActionBudgetError" class="headerlink" title="Link to this section">&para;</a></h4>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="promptise.engine.execution.GraphExecutionError" href="#promptise.engine.execution.GraphExecutionError">GraphExecutionError</a></code></p>
+
+
+
+        <p>A code-action run could not do the whole job within <code>max_tool_calls</code>.</p>
+<p>Raised when the last program the model wrote reached the per-program
+tool-call cap, or when, after a program reached it, the model answered
+that the job cannot be done in fewer calls.  The run has no answer: a
+partial result computed from part of the data is never returned.</p>
+<p>A subclass of :class:<code>GraphExecutionError</code>, so existing
+<code>except GraphExecutionError</code> handlers still catch it.  Raise
+<code>max_tool_calls</code> (<code>CodeActionConfig(max_tool_calls=...)</code>), or give
+the agent a tool that returns many records per call.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.engine.execution.CodeActionBudgetError.max_tool_calls">max_tool_calls</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The per-program cap the run hit.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.engine.execution.CodeActionBudgetError.attempts">attempts</span></code></td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How many programs the model wrote.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
 </div><h3 id="promptgraph">PromptGraph<a class="headerlink" href="#promptgraph" title="Link to this section">&para;</a></h3>
 
 
@@ -25322,10 +25469,15 @@ Every call counts: successful, failed, an unknown tool, or one a
 hook blocked. Once reached, further calls raise
 <code>ToolBudgetExceeded</code> in the program instead of executing, a
 warning is logged, and the program's output is discarded: the
-model is asked for a program that needs fewer calls, or, with no
-repairs left, the node fails (<code>GraphExecutionError</code>). A
-hook-independent safety bound so a generated program cannot loop
-a tool unbounded. Set <code>0</code> to disable (not advised).</p>
+model is asked for a program that does the whole job in fewer
+calls (never one over part of the data), or to reply
+<code>CANNOT_FINISH_WITHIN_CALL_CAP</code>. That reply, or a budget hit
+with no repairs left, fails the node, and the engine raises
+<code>CodeActionBudgetError</code> (a <code>GraphExecutionError</code>). The prompt
+says the cap exists but not its value, so the model cannot fit
+the data to it. A hook-independent safety bound so a generated
+program cannot loop a tool unbounded. Set <code>0</code> to disable (not
+advised).</p>
               </div>
             </td>
             <td>
@@ -30236,7 +30388,7 @@ Ideal for ephemeral sessions, caching, or high-throughput scenarios.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 15, 2026 11:58:24 UTC">2026-10-15</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 15, 2026 17:43:35 UTC">2026-10-15</span>
   </span>
 
     
