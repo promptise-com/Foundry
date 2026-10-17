@@ -133,6 +133,28 @@ def redact_target(transport: str, target: str) -> str:
     return " ".join(out)
 
 
+def _with_stream_usage(model: Any) -> Any:
+    """An OpenAI chat model that reports token usage when it streams.
+
+    A ``ChatOpenAI`` whose ``stream_usage`` is off or unset (``None``, which
+    depends on the langchain-openai version and the client options) may
+    stream answers without usage, so the run would count them as 0 tokens.  Only
+    OpenAI's own classes are changed (OpenAI-compatible servers may reject
+    the option), and only a copy: the program's model object is untouched.
+    """
+    if type(model).__name__ not in ("ChatOpenAI", "AzureChatOpenAI"):
+        return model
+    if getattr(model, "stream_usage", None) is True:
+        return model
+    if getattr(model, "openai_api_base", None) not in (None, "", "https://api.openai.com/v1"):
+        if type(model).__name__ == "ChatOpenAI":
+            return model
+    try:
+        return model.model_copy(update={"stream_usage": True})
+    except Exception:
+        return model
+
+
 def _type_name(value: Any) -> str | bool:
     if value is None or value is False:
         return False
@@ -253,6 +275,7 @@ class RunHarness:
         out = dict(args)
         if self.model:
             out["model"] = self.model
+        out["model"] = _with_stream_usage(out["model"])
         if self.observe and args.get("observe") is None:
             from ..observability_config import ObservabilityConfig, ObserveLevel
 

@@ -551,3 +551,22 @@ def test_a_world_writable_manifest_is_refused(tmp_path: Path) -> None:
     sub.mkdir()
     with pytest.raises(ManifestError, match="refusing to use this manifest"):
         find_manifest(sub)
+
+
+def test_openai_models_report_usage_when_streaming(monkeypatch: pytest.MonkeyPatch) -> None:
+    from langchain_openai import ChatOpenAI
+
+    from promptise.models import resolve_model
+    from promptise.run.harness import _with_stream_usage
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    assert resolve_model("openai:gpt-5-mini").stream_usage is True
+    assert resolve_model("openai:gpt-5-mini", stream_usage=False).stream_usage is False
+
+    mine = ChatOpenAI(model="gpt-5-mini", api_key="sk-test", stream_usage=False)
+    copy = _with_stream_usage(mine)
+    assert copy.stream_usage is True and mine.stream_usage is False
+    compatible = ChatOpenAI(model="m", api_key="x", base_url="http://localhost:11434/v1")
+    assert _with_stream_usage(compatible) is compatible
+    unset = ChatOpenAI(model="gpt-5-mini", api_key="sk-test", stream_usage=None)
+    assert _with_stream_usage(unset).stream_usage is True

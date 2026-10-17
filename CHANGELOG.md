@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 — unreleased
+
+### Fixed
+
+- OpenAI and Azure OpenAI models now report token usage when they stream. With recent `langchain-openai` releases, models built from a provider id (`"openai:gpt-5-mini"`) left `stream_usage` unset, so every streamed call (`astream_with_tools`, and the chat, `-i` and terminal UI modes of `promptise run`) was recorded with 0 tokens and no cost. Pass `stream_usage=False` to opt out.
+
 ## 1.4.0 — 2026-10-17
 
 ### Added

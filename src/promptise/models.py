@@ -1307,6 +1307,10 @@ def resolve_model(spec: str, **kwargs: Any) -> Any:
         clients = (
             _fresh_http_clients(extra) if provider.native in ("openai", "azure_openai") else {}
         )
+        if provider.native in ("openai", "azure_openai") and "stream_usage" not in extra:
+            # Without it a streamed answer carries no token usage, and every
+            # streamed call (astream_with_tools, chat UIs) counts as 0 tokens.
+            settings["stream_usage"] = True
         try:
             return init_chat_model(
                 f"{provider.native}:{model}", **{**mapped, **clients, **settings, **extra}
