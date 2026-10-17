@@ -76,7 +76,7 @@ async def _terminate(
     except asyncio.TimeoutError:
         pass
     with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
-        if os.name == "posix":
+        if sys.platform != "win32":
             os.killpg(proc.pid, signal.SIGKILL)
         else:
             proc.kill()

@@ -102,6 +102,7 @@ def _env(**extra: str) -> dict[str, str]:
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(SRC), str(TESTS), env.get("PYTHONPATH", "")])
     env["PROMPTISE_NO_DOTENV"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     env["COLUMNS"] = "200"
     env.pop("PROMPTISE_RUN_CHILD", None)
     env.pop("PROMPTISE_RUN_IPC", None)
@@ -119,6 +120,8 @@ def _run(
         input=input,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
     )
 
@@ -295,6 +298,8 @@ def test_prod_sigterm_shuts_down_gracefully(project: Path) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     assert proc.stdout is not None
     assert proc.stdout.readline().strip() == "READY"
@@ -327,6 +332,8 @@ def test_watch_restarts_on_change(project: Path) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     assert proc.stdout is not None
     try:
@@ -491,6 +498,8 @@ def test_serve_over_http(project: Path) -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     assert proc.stderr is not None
     try:

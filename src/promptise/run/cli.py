@@ -220,15 +220,25 @@ def _run_named_script(manifest: ProjectManifest, name: str, opts: RunOptions) ->
         command = command + " " + " ".join(quote(a) for a in extra)
         shown = shown + " " + " ".join(quote(a) for a in _masked(extra))
     env = dict(os.environ)
-    bin_dir = str(Path(sys.executable).parent)
-    env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
+    # Like node_modules/.bin: this Python's directory and its scripts directory
+    # (where `promptise` and `pytest` live; a separate `Scripts` on Windows) first.
+    import sysconfig
+
+    dirs = [str(Path(sys.executable).parent)]
+    scripts_dir = sysconfig.get_path("scripts")
+    if scripts_dir and scripts_dir not in dirs:
+        dirs.append(scripts_dir)
+    env["PATH"] = os.pathsep.join([*dirs, env.get("PATH", "")])
     env[_DEPTH_ENV] = str(depth + 1)
     env["PROMPTISE_RUN_SCRIPT"] = name
     env["PROMPTISE_PROJECT_ROOT"] = str(manifest.root)
     env.setdefault("PROMPTISE_INIT_CWD", os.getcwd())
     err.print(f"[dim]> {escape(manifest.project_name)} {escape(name)}: {escape(shown)}[/dim]")
     try:
-        proc = subprocess.run(command, shell=True, cwd=str(manifest.root), env=env)
+        # A [scripts] entry is a shell command from the project's own manifest,
+        # run through the shell on purpose (like npm); appended arguments are
+        # quoted above, and refused on Windows when cmd.exe would act on them.
+        proc = subprocess.run(command, shell=True, cwd=str(manifest.root), env=env)  # nosec B602
     except KeyboardInterrupt:
         return 130
     return proc.returncode
@@ -374,9 +384,26 @@ def _env_report(manifest: ProjectManifest) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+def _tolerant_streams() -> None:
+    """Never fail on a character the console cannot encode (a Windows code page).
+
+    The dev tools draw with symbols (●, ⚙, ✓) and agents answer in any
+    language; on a legacy console encoding those are replaced instead of
+    raising ``UnicodeEncodeError``.  Only the error handler changes.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "")
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None and encoding not in ("utf8", "utf8sig"):
+            with contextlib.suppress(Exception):
+                reconfigure(errors="replace")
+
+
 def run_command(opts: RunOptions) -> int:
     """Run ``promptise run`` with *opts*; return the process exit code."""
     from .supervisor import CHILD_ENV
+
+    _tolerant_streams()
 
     is_child = os.environ.get(CHILD_ENV) == "1"
     if opts.mode not in _MODES:
