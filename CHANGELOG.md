@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.4.0 — unreleased
+## 1.4.0 — 2026-10-17
 
 ### Added
 - **`promptise run` runs your project, like `npm start`** -- a project is described by `promptise.toml` (or `[tool.promptise]` in `pyproject.toml`), found from the current directory upwards, the way `package.json` describes a Node project. `promptise run` runs the manifest's `main` file as a normal, complete Python program (`__name__ == "__main__"`, `sys.argv`, exit codes as with `python main.py`), and with `--devtools`, `--tui`, `--prod` observability or in the agent modes, every agent the program builds is instrumented automatically, with no changes to your code (a plain `promptise run` adds nothing to the agents). A `.py` file, `file.py:factory` or `package.module:factory` can be named instead; without a manifest, `promptise run some_file.py` uses the defaults. See docs/core/projects.md.
