@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="The promptise CLI provides commands for listing tools, running interactive agent sessions, serving an MCP server from a module (serve), turning an existing API">
+        <meta name="description" content="The promptise CLI provides commands for running your project (run), creating one (init --project), listing tools, running interactive agent sessions, serving an">
       
       
         <meta name="author" content="Manser Ventures">
@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://docs.promptise.com/core/cli/">
       
       
-        <link rel="prev" href="../exceptions/">
+        <link rel="prev" href="../projects/">
       
       
         <link rel="next" href="../engine/">
@@ -93,7 +93,7 @@
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Foundry">
   <meta property="og:title" content="CLI Reference">
-  <meta property="og:description" content="The promptise CLI provides commands for listing tools, running interactive agent sessions, serving an MCP server from a module (serve), turning an existing API">
+  <meta property="og:description" content="The promptise CLI provides commands for running your project (run), creating one (init --project), listing tools, running interactive agent sessions, serving an">
   <meta property="og:url" content="https://docs.promptise.com/core/cli/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -103,7 +103,7 @@
   
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="CLI Reference">
-  <meta name="twitter:description" content="The promptise CLI provides commands for listing tools, running interactive agent sessions, serving an MCP server from a module (serve), turning an existing API">
+  <meta name="twitter:description" content="The promptise CLI provides commands for running your project (run), creating one (init --project), listing tools, running interactive agent sessions, serving an">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -179,7 +179,7 @@
       "@type": "TechArticle",
       "headline": "CLI Reference",
       "name": "CLI Reference",
-      "description": "The promptise CLI provides commands for listing tools, running interactive agent sessions, serving an MCP server from a module (serve), turning an existing API",
+      "description": "The promptise CLI provides commands for running your project (run), creating one (init --project), listing tools, running interactive agent sessions, serving an",
       "url": "https://docs.promptise.com/core/cli/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -2077,6 +2077,8 @@
       
         
       
+        
+      
     
     
     
@@ -3398,6 +3400,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../projects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects & promptise run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -3511,15 +3541,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#promptise-run-interactive-repl-session" class="md-nav__link">
+  <a href="#promptise-run-run-your-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        promptise run -- Interactive REPL Session
+        promptise run -- Run Your Project
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="promptise run -- Interactive REPL Session">
+    <nav class="md-nav" aria-label="promptise run -- Run Your Project">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3527,6 +3557,17 @@
     <span class="md-ellipsis">
       
         Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inline-repl-model-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inline REPL (--model-id)
       
     </span>
   </a>
@@ -3595,22 +3636,33 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#promptise-init-generate-template-superagent-file" class="md-nav__link">
+  <a href="#promptise-init-generate-a-template-or-a-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        promptise init -- Generate Template .superagent File
+        promptise init -- Generate a Template or a Project
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="promptise init -- Generate Template .superagent File">
+    <nav class="md-nav" aria-label="promptise init -- Generate a Template or a Project">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_4" class="md-nav__link">
+  <a href="#promptise-init-project-create-a-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Options
+        promptise init --project -- Create a Project
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise-init-generate-a-superagent-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        promptise init -- Generate a .superagent File
       
     </span>
   </a>
@@ -3635,7 +3687,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_5" class="md-nav__link">
+  <a href="#options_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Options
@@ -3663,7 +3715,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_6" class="md-nav__link">
+  <a href="#options_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Options
@@ -3719,7 +3771,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_7" class="md-nav__link">
+  <a href="#options_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         Options
@@ -3839,6 +3891,17 @@
   
     <nav class="md-nav" aria-label="Common Workflows">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-a-project-and-run-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start a Project and Run It
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#develop-and-test-an-agent-process" class="md-nav__link">
@@ -9669,15 +9732,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#promptise-run-interactive-repl-session" class="md-nav__link">
+  <a href="#promptise-run-run-your-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        promptise run -- Interactive REPL Session
+        promptise run -- Run Your Project
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="promptise run -- Interactive REPL Session">
+    <nav class="md-nav" aria-label="promptise run -- Run Your Project">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -9685,6 +9748,17 @@
     <span class="md-ellipsis">
       
         Options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inline-repl-model-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inline REPL (--model-id)
       
     </span>
   </a>
@@ -9753,22 +9827,33 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#promptise-init-generate-template-superagent-file" class="md-nav__link">
+  <a href="#promptise-init-generate-a-template-or-a-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        promptise init -- Generate Template .superagent File
+        promptise init -- Generate a Template or a Project
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="promptise init -- Generate Template .superagent File">
+    <nav class="md-nav" aria-label="promptise init -- Generate a Template or a Project">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_4" class="md-nav__link">
+  <a href="#promptise-init-project-create-a-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Options
+        promptise init --project -- Create a Project
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise-init-generate-a-superagent-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        promptise init -- Generate a .superagent File
       
     </span>
   </a>
@@ -9793,7 +9878,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_5" class="md-nav__link">
+  <a href="#options_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Options
@@ -9821,7 +9906,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_6" class="md-nav__link">
+  <a href="#options_5" class="md-nav__link">
     <span class="md-ellipsis">
       
         Options
@@ -9877,7 +9962,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#options_7" class="md-nav__link">
+  <a href="#options_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         Options
@@ -9999,6 +10084,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#start-a-project-and-run-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start a Project and Run It
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#develop-and-test-an-agent-process" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10096,7 +10192,7 @@
 
 
 <h1 id="cli-reference">CLI Reference<a class="headerlink" href="#cli-reference" title="Link to this section">&para;</a></h1>
-<p>The <code>promptise</code> CLI provides commands for listing tools, running interactive agent sessions, serving an MCP server from a module (<code>serve</code>), turning an existing API into an MCP server (<code>mcpcast</code>), checking model providers (<code>models</code>), verifying audit logs (<code>audit verify</code>), and managing runtime processes.</p>
+<p>The <code>promptise</code> CLI provides commands for running your project (<code>run</code>), creating one (<code>init --project</code>), listing tools, running interactive agent sessions, serving an MCP server from a module (<code>serve</code>), turning an existing API into an MCP server (<code>mcpcast</code>), checking model providers (<code>models</code>), verifying audit logs (<code>audit verify</code>), and managing runtime processes.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>promptise<span class="w"> </span>--version
 </span></code></pre></div>
 <hr />
@@ -10222,12 +10318,112 @@
 </table>
 <p>Repeat <code>--stdio</code> or <code>--http</code> for multiple servers.</p>
 <hr />
-<h2 id="promptise-run-interactive-repl-session"><code>promptise run</code> -- Interactive REPL Session<a class="headerlink" href="#promptise-run-interactive-repl-session" title="Link to this section">&para;</a></h2>
-<p>Start an interactive REPL session with inline MCP server specs (no <code>.superagent</code> file needed).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>promptise<span class="w"> </span>run<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=tools url=http://localhost:8000/mcp"</span>
+<h2 id="promptise-run-run-your-project"><code>promptise run</code> -- Run Your Project<a class="headerlink" href="#promptise-run-run-your-project" title="Link to this section">&para;</a></h2>
+<p>Run your project's program, like <code>npm start</code>. The project is described by <code>promptise.toml</code> (or <code>[tool.promptise]</code> in <code>pyproject.toml</code>), found from the current directory upwards. <code>promptise run</code> runs the manifest's <code>main</code> file as a normal Python program and instruments every agent it builds, with no changes to your code. See <a href="../projects/">Projects &amp; promptise run</a> for the manifest and every mode.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>promptise<span class="w"> </span>run<span class="w"> </span><span class="o">[</span>TARGET<span class="o">]</span><span class="w"> </span><span class="o">[</span>ARGS<span class="o">]</span>...<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>promptise<span class="w"> </span>run<span class="w">                          </span><span class="c1"># run `main`, like `python main.py`</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>promptise<span class="w"> </span>run<span class="w"> </span>main.py<span class="w"> </span><span class="s2">"a question"</span><span class="w">     </span><span class="c1"># pass arguments to the program</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>promptise<span class="w"> </span>run<span class="w"> </span>dev<span class="w">                      </span><span class="c1"># a script from [scripts], like `npm run dev`</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>promptise<span class="w"> </span>run<span class="w"> </span>--devtools<span class="w">               </span><span class="c1"># live traces, tool calls, tokens and cost</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>promptise<span class="w"> </span>run<span class="w"> </span>--tui<span class="w">                    </span><span class="c1"># the full terminal UI</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>promptise<span class="w"> </span>run<span class="w"> </span>--watch<span class="w">                  </span><span class="c1"># restart on file changes</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>promptise<span class="w"> </span>run<span class="w"> </span>--prod<span class="w">                   </span><span class="c1"># JSON logs, preflight checks, graceful SIGTERM</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>promptise<span class="w"> </span>run<span class="w"> </span>--serve<span class="w">                  </span><span class="c1"># an HTTP API for the agent factory</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>promptise<span class="w"> </span>run<span class="w"> </span>-i<span class="w"> </span><span class="s2">"a question"</span><span class="w">          </span><span class="c1"># ask the agent factory one question</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>promptise<span class="w"> </span>run<span class="w"> </span>agent.py:create_agent<span class="w">    </span><span class="c1"># chat with the agent a factory builds</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>promptise<span class="w"> </span>run<span class="w"> </span>--list<span class="w">                   </span><span class="c1"># list the scripts</span>
+</span></code></pre></div>
+<p><code>TARGET</code> is a script name from <code>[scripts]</code>, a <code>.py</code> file, <code>file.py:factory</code> or <code>package.module:factory</code>. Without one, <code>promptise run</code> runs the manifest's <code>main</code>. <code>ARGS</code> become the program's <code>sys.argv[1:]</code>, or are appended to a script's command; put <code>--</code> before arguments that look like options.</p>
 <h3 id="options_1">Options<a class="headerlink" href="#options_1" title="Link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-d</code>, <code>--devtools</code></td>
+<td>Live trace of every agent on stderr, and a summary at the end</td>
+</tr>
+<tr>
+<td><code>-t</code>, <code>-tui</code>, <code>--tui</code></td>
+<td>Open the terminal UI</td>
+</tr>
+<tr>
+<td><code>-w</code>, <code>--watch</code></td>
+<td>Restart the program when a project file changes</td>
+</tr>
+<tr>
+<td><code>--prod</code></td>
+<td>Production behavior: JSON logs on stderr, preflight checks, graceful SIGTERM</td>
+</tr>
+<tr>
+<td><code>--check</code></td>
+<td>Check the project and the entry, then exit (0 ready, 2 not ready)</td>
+</tr>
+<tr>
+<td><code>--mode</code></td>
+<td><code>auto</code> (default), <code>script</code>, <code>chat</code>, <code>once</code> or <code>serve</code></td>
+</tr>
+<tr>
+<td><code>--serve</code></td>
+<td>Serve the agent factory over HTTP (<code>--mode serve</code>)</td>
+</tr>
+<tr>
+<td><code>-i</code>, <code>--input</code></td>
+<td>Ask the agent factory one question and print the answer (<code>-</code> reads stdin)</td>
+</tr>
+<tr>
+<td><code>--json</code></td>
+<td>With <code>-i</code>: print the answer and stats as JSON</td>
+</tr>
+<tr>
+<td><code>--host</code></td>
+<td>Serve mode: the address (default from <code>[serve] host</code>, <code>127.0.0.1</code>)</td>
+</tr>
+<tr>
+<td><code>-p</code>, <code>--port</code></td>
+<td>Serve mode: the port (default from <code>[serve] port</code>, <code>8080</code>)</td>
+</tr>
+<tr>
+<td><code>--env-file</code></td>
+<td>Load this <code>.env</code>-style file before the manifest's <code>[env] files</code> (repeatable)</td>
+</tr>
+<tr>
+<td><code>-e</code>, <code>--env</code></td>
+<td>Set a variable for this run, <code>K=V</code>, overriding the environment (repeatable)</td>
+</tr>
+<tr>
+<td><code>--model</code></td>
+<td>Use this model for every agent the program builds</td>
+</tr>
+<tr>
+<td><code>--observe</code></td>
+<td>Recording level: <code>off</code>, <code>basic</code>, <code>standard</code> or <code>full</code></td>
+</tr>
+<tr>
+<td><code>--report</code></td>
+<td>Write a JSON run report to this path on exit</td>
+</tr>
+<tr>
+<td><code>--list</code></td>
+<td>List the scripts in the manifest</td>
+</tr>
+<tr>
+<td><code>-f</code>, <code>--manifest</code></td>
+<td>Use this manifest instead of searching for one</td>
+</tr>
+</tbody>
+</table>
+<p>Exit codes: <code>0</code> success, <code>1</code> runtime error, <code>2</code> configuration or usage error (also a failed <code>--check</code>), <code>130</code> interrupted with Ctrl+C, <code>143</code> stopped by SIGTERM (a script under <code>--prod</code>). <code>--prod</code> cannot be combined with <code>--tui</code> or <code>--watch</code>.</p>
+<h3 id="inline-repl-model-id">Inline REPL (<code>--model-id</code>)<a class="headerlink" href="#inline-repl-model-id" title="Link to this section">&para;</a></h3>
+<p>The inline REPL from earlier versions works unchanged. Any of its flags selects it: start an interactive session with inline MCP server specs, with no project and no <code>.superagent</code> file.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>promptise<span class="w"> </span>run<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=tools url=http://localhost:8000/mcp"</span>
+</span></code></pre></div>
 <table>
 <thead>
 <tr>
@@ -10262,17 +10458,18 @@
 </tr>
 </tbody>
 </table>
+<p>To move an inline session into a project, see <a href="../projects/#migrating-from-promptise-run-model-id">Migrating from <code>promptise run --model-id</code></a>.</p>
 <hr />
 <h2 id="promptise-agent-agent-from-superagent-file"><code>promptise agent</code> -- Agent from .superagent File<a class="headerlink" href="#promptise-agent-agent-from-superagent-file" title="Link to this section">&para;</a></h2>
 <p>Run an interactive agent session from a <code>.superagent</code> configuration file. CLI flags override file settings.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># From a .superagent file</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Override model</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># With additional servers from CLI</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent<span class="w"> </span>--http<span class="w"> </span><span class="s2">"name=extra url=http://localhost:9000/mcp"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># From a .superagent file</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Override model</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># With additional servers from CLI</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent<span class="w"> </span>--http<span class="w"> </span><span class="s2">"name=extra url=http://localhost:9000/mcp"</span>
 </span></code></pre></div>
 <h3 id="options_2">Options<a class="headerlink" href="#options_2" title="Link to this section">&para;</a></h3>
 <table>
@@ -10312,14 +10509,14 @@
 <hr />
 <h2 id="promptise-validate-validate-superagent-file"><code>promptise validate</code> -- Validate .superagent File<a class="headerlink" href="#promptise-validate-validate-superagent-file" title="Link to this section">&para;</a></h2>
 <p>Validate a <code>.superagent</code> configuration file without building the agent.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Full validation</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>promptise<span class="w"> </span>validate<span class="w"> </span>my_agent.superagent
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Skip environment variable checks</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>promptise<span class="w"> </span>validate<span class="w"> </span>my_agent.superagent<span class="w"> </span>--no-check-env
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Skip cross-agent reference checks</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>promptise<span class="w"> </span>validate<span class="w"> </span>my_agent.superagent<span class="w"> </span>--no-check-refs
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Full validation</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>promptise<span class="w"> </span>validate<span class="w"> </span>my_agent.superagent
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Skip environment variable checks</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>promptise<span class="w"> </span>validate<span class="w"> </span>my_agent.superagent<span class="w"> </span>--no-check-env
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Skip cross-agent reference checks</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>promptise<span class="w"> </span>validate<span class="w"> </span>my_agent.superagent<span class="w"> </span>--no-check-refs
 </span></code></pre></div>
 <h3 id="options_3">Options<a class="headerlink" href="#options_3" title="Link to this section">&para;</a></h3>
 <table>
@@ -10342,18 +10539,64 @@
 </table>
 <p>Performs YAML syntax checks, schema validation, environment variable availability checks, and cross-agent reference validation.</p>
 <hr />
-<h2 id="promptise-init-generate-template-superagent-file"><code>promptise init</code> -- Generate Template .superagent File<a class="headerlink" href="#promptise-init-generate-template-superagent-file" title="Link to this section">&para;</a></h2>
-<p>Create a starter <code>.superagent</code> configuration file with common patterns.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Basic template</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>promptise<span class="w"> </span>init
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># HTTP server template with auth headers</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>promptise<span class="w"> </span>init<span class="w"> </span>--output<span class="w"> </span>api_agent.superagent<span class="w"> </span>--template<span class="w"> </span>http
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Full-featured template</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>promptise<span class="w"> </span>init<span class="w"> </span>-o<span class="w"> </span>advanced.superagent<span class="w"> </span>-t<span class="w"> </span>advanced<span class="w"> </span>--force
+<h2 id="promptise-init-generate-a-template-or-a-project"><code>promptise init</code> -- Generate a Template or a Project<a class="headerlink" href="#promptise-init-generate-a-template-or-a-project" title="Link to this section">&para;</a></h2>
+<h3 id="promptise-init-project-create-a-project"><code>promptise init --project</code> -- Create a Project<a class="headerlink" href="#promptise-init-project-create-a-project" title="Link to this section">&para;</a></h3>
+<p>Create a new project for <a href="../projects/"><code>promptise run</code></a>: a manifest, an agent factory and a program that uses it.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>promptise<span class="w"> </span>init<span class="w"> </span>--project<span class="w"> </span><span class="o">[</span>DIR<span class="o">]</span><span class="w"> </span><span class="o">[</span>--name<span class="w"> </span>NAME<span class="o">]</span><span class="w"> </span><span class="o">[</span>--model<span class="w"> </span>MODEL<span class="o">]</span><span class="w"> </span><span class="o">[</span>--force<span class="o">]</span>
 </span></code></pre></div>
-<h3 id="options_4">Options<a class="headerlink" href="#options_4" title="Link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># A project in a new directory</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>promptise<span class="w"> </span>init<span class="w"> </span>--project<span class="w"> </span>my-bot
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># The current directory, with an Anthropic model</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>promptise<span class="w"> </span>init<span class="w"> </span>--project<span class="w"> </span>--model<span class="w"> </span>anthropic:claude-sonnet-4-5
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># Then</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="nb">cd</span><span class="w"> </span>my-bot
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">    </span><span class="c1"># set the API key</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>promptise<span class="w"> </span>run
+</span></code></pre></div>
+<p>It writes <code>promptise.toml</code>, <code>agent.py</code> (the <code>create_agent</code> factory, with one local tool), <code>main.py</code> (a normal script that asks the agent one question), <code>.env.example</code> and <code>README.md</code>, and adds <code>.env</code>, <code>.promptise/</code> and <code>__pycache__/</code> to <code>.gitignore</code> without duplicating lines. Existing files are never overwritten without <code>--force</code>: every conflict is listed and nothing is written. Nothing is fetched from the network.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DIR</code></td>
+<td>Where to create the project (default: the current directory; created if missing)</td>
+</tr>
+<tr>
+<td><code>--project</code></td>
+<td>Create a project instead of a <code>.superagent</code> file</td>
+</tr>
+<tr>
+<td><code>--name</code></td>
+<td>The project name (default: the directory's name)</td>
+</tr>
+<tr>
+<td><code>--model</code></td>
+<td>The model string (default: <code>openai:gpt-5-mini</code>). Also sets <code>[env] required</code> to that provider's API key</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td>Overwrite existing files</td>
+</tr>
+</tbody>
+</table>
+<h3 id="promptise-init-generate-a-superagent-file"><code>promptise init</code> -- Generate a .superagent File<a class="headerlink" href="#promptise-init-generate-a-superagent-file" title="Link to this section">&para;</a></h3>
+<p>Without <code>--project</code>, create a starter <code>.superagent</code> configuration file with common patterns.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Basic template</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>promptise<span class="w"> </span>init
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># HTTP server template with auth headers</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>promptise<span class="w"> </span>init<span class="w"> </span>--output<span class="w"> </span>api_agent.superagent<span class="w"> </span>--template<span class="w"> </span>http
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># Full-featured template</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>promptise<span class="w"> </span>init<span class="w"> </span>-o<span class="w"> </span>advanced.superagent<span class="w"> </span>-t<span class="w"> </span>advanced<span class="w"> </span>--force
+</span></code></pre></div>
 <table>
 <thead>
 <tr>
@@ -10379,20 +10622,20 @@
 <hr />
 <h2 id="promptise-serve-run-an-mcp-server"><code>promptise serve</code> -- Run an MCP Server<a class="headerlink" href="#promptise-serve-run-an-mcp-server" title="Link to this section">&para;</a></h2>
 <p>Run an <code>MCPServer</code> from a Python module over stdio, HTTP or SSE -- the MCP equivalent of <code>uvicorn myapp:app</code>. The target is <code>module.path:attribute</code>; the CLI imports it, checks that it is an <code>MCPServer</code> instance (exit code 1 otherwise) and serves it.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># stdio, for Claude Desktop, Claude Code and Cursor</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp.server:server
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># HTTP on the loopback address, with the live dashboard</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp.server:server<span class="w"> </span>-t<span class="w"> </span>http<span class="w"> </span>--port<span class="w"> </span><span class="m">8080</span><span class="w"> </span>--dashboard
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># A public bind behind a gateway: name the hosts (and browser origins) you serve</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp.server:server<span class="w"> </span>-t<span class="w"> </span>http<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span>--allowed-host<span class="w"> </span>api.example.com<span class="w"> </span>--allowed-origin<span class="w"> </span>https://app.example.com
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="c1"># Development: restart on source changes</span>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp.server:server<span class="w"> </span>-t<span class="w"> </span>http<span class="w"> </span>--reload
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># stdio, for Claude Desktop, Claude Code and Cursor</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp.server:server
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># HTTP on the loopback address, with the live dashboard</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp.server:server<span class="w"> </span>-t<span class="w"> </span>http<span class="w"> </span>--port<span class="w"> </span><span class="m">8080</span><span class="w"> </span>--dashboard
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># A public bind behind a gateway: name the hosts (and browser origins) you serve</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp.server:server<span class="w"> </span>-t<span class="w"> </span>http<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">    </span>--allowed-host<span class="w"> </span>api.example.com<span class="w"> </span>--allowed-origin<span class="w"> </span>https://app.example.com
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="c1"># Development: restart on source changes</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>promptise<span class="w"> </span>serve<span class="w"> </span>myapp.server:server<span class="w"> </span>-t<span class="w"> </span>http<span class="w"> </span>--reload
 </span></code></pre></div>
-<h3 id="options_5">Options<a class="headerlink" href="#options_5" title="Link to this section">&para;</a></h3>
+<h3 id="options_4">Options<a class="headerlink" href="#options_4" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -10439,23 +10682,23 @@
 <hr />
 <h2 id="promptise-mcpcast-generate-an-mcp-server-from-an-api"><code>promptise mcpcast</code> -- Generate an MCP Server from an API<a class="headerlink" href="#promptise-mcpcast-generate-an-mcp-server-from-an-api" title="Link to this section">&para;</a></h2>
 <p>Turn an existing API (OpenAPI 3.x or Swagger 2) into a curated, safe, agent-ready MCP server, emitted as editable code. The command parses the spec, classifies every operation's risk (<code>read</code>, <code>write</code>, <code>destructive</code>, <code>financial</code>), designs the tool surface (with a model, or deterministically with <code>--no-curate</code>), and writes <code>&lt;name&gt;-mcp/</code>: <code>mcpcast.plan.yaml</code> (the editable source of truth), the server as an installable <code>&lt;name&gt;_mcp/</code> package (config, HTTP client, approval gate, one tools module per resource — regenerated from the plan), a <code>server.py</code> launcher, a <code>tests/</code> suite, <code>README.md</code> (Claude Desktop / Claude Code / Cursor install snippets), and — written once — <code>pyproject.toml</code>, <code>Dockerfile</code>, <code>.env.example</code> and <code>.gitignore</code>. Read-only by default: write, destructive and financial tools are only generated under <code>--profile standard</code> / <code>full</code>, and every non-read tool is approval-gated server-side by <code>ApprovalGateMiddleware</code>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># No arguments: the guided setup — a full-screen terminal wizard</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>promptise<span class="w"> </span>mcpcast
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Deterministic, fully offline: one read tool per GET operation</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--no-curate
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># LLM-curated surface, reads + approval-gated writes, review the plan before writing</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>https://api.example.com/openapi.json<span class="w"> </span>--profile<span class="w"> </span>standard<span class="w"> </span>--review
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="c1"># Everything exposed, API-key auth for MCP clients, then score it with a real agent</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--profile<span class="w"> </span>full<span class="w"> </span>--auth<span class="w"> </span>api-key<span class="w"> </span>--eval
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="c1"># Regenerate server.py next to an edited plan, then serve a fresh one over HTTP</span>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>mcpcast.plan.yaml
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--no-curate<span class="w"> </span>--serve<span class="w"> </span>-t<span class="w"> </span>http
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># No arguments: the guided setup — a full-screen terminal wizard</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>promptise<span class="w"> </span>mcpcast
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Deterministic, fully offline: one read tool per GET operation</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--no-curate
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># LLM-curated surface, reads + approval-gated writes, review the plan before writing</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>https://api.example.com/openapi.json<span class="w"> </span>--profile<span class="w"> </span>standard<span class="w"> </span>--review
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># Everything exposed, API-key auth for MCP clients, then score it with a real agent</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--profile<span class="w"> </span>full<span class="w"> </span>--auth<span class="w"> </span>api-key<span class="w"> </span>--eval
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># Regenerate server.py next to an edited plan, then serve a fresh one over HTTP</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>mcpcast.plan.yaml
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--no-curate<span class="w"> </span>--serve<span class="w"> </span>-t<span class="w"> </span>http
 </span></code></pre></div>
-<h3 id="options_6">Options<a class="headerlink" href="#options_6" title="Link to this section">&para;</a></h3>
+<h3 id="options_5">Options<a class="headerlink" href="#options_5" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -10558,19 +10801,19 @@
 <hr />
 <h2 id="promptise-models-model-providers"><code>promptise models</code> -- Model Providers<a class="headerlink" href="#promptise-models-model-providers" title="Link to this section">&para;</a></h2>
 <p>Every place Promptise takes a model -- <code>build_agent(model=...)</code>, <code>.superagent</code> and <code>.agent</code> files, <code>promptise mcpcast --model</code>, <code>--model-id</code> on <code>run</code> / <code>agent</code> / <code>list-tools</code> -- accepts one <code>provider:model</code> string, and every string goes through the same registry (<code>promptise.models</code>). The <code>models</code> subcommand group shows that registry, diagnoses one string before you put it in a config file, and prints the environment variables a provider needs. Friendly aliases are accepted everywhere: <code>azure:</code> for Azure OpenAI, <code>foundry:</code> for the Azure AI Foundry model catalog, <code>gemini:</code>, <code>vertex:</code>, <code>bedrock:</code>, <code>mistral:</code>, <code>grok:</code>, <code>hf:</code>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Every provider: prefixes and aliases, install status, which env vars are set</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>promptise<span class="w"> </span>models<span class="w"> </span>list
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># What one string resolves to and what is missing to use it (exit 1 if not usable).</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1"># Configuration only -- except that a local or keyless server (Ollama, a vLLM on</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="c1"># localhost) is checked for a listener, since it has no credential to check</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>promptise<span class="w"> </span>models<span class="w"> </span>check<span class="w"> </span>azure:chat-prod
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="c1"># The same, plus a real one-token call to the model</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>promptise<span class="w"> </span>models<span class="w"> </span>check<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span>--ping
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="c1"># Export lines for a provider, with placeholders and where to find each value</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>promptise<span class="w"> </span>models<span class="w"> </span>env<span class="w"> </span>azure
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Every provider: prefixes and aliases, install status, which env vars are set</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>promptise<span class="w"> </span>models<span class="w"> </span>list
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># What one string resolves to and what is missing to use it (exit 1 if not usable).</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># Configuration only -- except that a local or keyless server (Ollama, a vLLM on</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># localhost) is checked for a listener, since it has no credential to check</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>promptise<span class="w"> </span>models<span class="w"> </span>check<span class="w"> </span>azure:chat-prod
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="c1"># The same, plus a real one-token call to the model</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>promptise<span class="w"> </span>models<span class="w"> </span>check<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span>--ping
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="c1"># Export lines for a provider, with placeholders and where to find each value</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>promptise<span class="w"> </span>models<span class="w"> </span>env<span class="w"> </span>azure
 </span></code></pre></div>
 <h3 id="subcommands">Subcommands<a class="headerlink" href="#subcommands" title="Link to this section">&para;</a></h3>
 <table>
@@ -10597,66 +10840,66 @@
 </table>
 <p><strong>Exit codes.</strong> <code>models check</code> exits with <code>1</code> when the string is not usable yet (a required env var unset, or <code>native=True</code> without its package), when a local or keyless server is not listening, or when the <code>--ping</code> call fails -- so it works as a preflight step in CI and container entrypoints; <code>0</code> when the configuration is complete (and, for a local server, something is listening). <code>models env</code> exits with <code>2</code> for an unknown provider. <code>models list</code> always exits <code>0</code>.</p>
 <p>With nothing configured, <code>promptise models check azure:chat-prod</code> prints:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>$ promptise models check azure:chat-prod
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>azure:chat-prod → azure_openai:chat-prod  (Azure OpenAI (OpenAI models deployed in Azure AI Foundry))
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>  model part: chat-prod — in the string form, your DEPLOYMENT name (Foundry → Deployments → Name); with Model(...), the model name (gpt-4o) — the deployment goes in deployment=
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>  route: native integration (core)
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>  AZURE_OPENAI_ENDPOINT: MISSING — Azure AI Foundry portal → your resource → Overview → Endpoint (https://&lt;resource&gt;.openai.azure.com/, no path)
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>  AZURE_OPENAI_API_KEY: MISSING — Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>  OPENAI_API_VERSION: MISSING — the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle')
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>  Azure routes requests by deployment name, not model name: Model('gpt-4o', provider='azure', deployment='chat-prod', ...).
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>Not usable yet.
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>  - AZURE_OPENAI_ENDPOINT is not set — Azure AI Foundry portal → your resource → Overview → Endpoint (https://&lt;resource&gt;.openai.azure.com/, no path) (e.g. https://my-resource.openai.azure.com/)
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>  - AZURE_OPENAI_API_KEY is not set — Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>  - OPENAI_API_VERSION is not set — the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle') (e.g. 2024-10-21)
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>  - put AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION in a .env file next to your script (loaded automatically; a variable already exported with a non-empty value wins, an empty one is filled from the file), export it, or pass it in code: Model(..., endpoint=, api_key=, api_version=) — see promptise models env azure
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>$ echo $?
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>1
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>$ promptise models check azure:chat-prod
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>azure:chat-prod → azure_openai:chat-prod  (Azure OpenAI (OpenAI models deployed in Azure AI Foundry))
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  model part: chat-prod — in the string form, your DEPLOYMENT name (Foundry → Deployments → Name); with Model(...), the model name (gpt-4o) — the deployment goes in deployment=
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>  route: native integration (core)
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>  AZURE_OPENAI_ENDPOINT: MISSING — Azure AI Foundry portal → your resource → Overview → Endpoint (https://&lt;resource&gt;.openai.azure.com/, no path)
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>  AZURE_OPENAI_API_KEY: MISSING — Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>  OPENAI_API_VERSION: MISSING — the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle')
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>  Azure routes requests by deployment name, not model name: Model('gpt-4o', provider='azure', deployment='chat-prod', ...).
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>Not usable yet.
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>  - AZURE_OPENAI_ENDPOINT is not set — Azure AI Foundry portal → your resource → Overview → Endpoint (https://&lt;resource&gt;.openai.azure.com/, no path) (e.g. https://my-resource.openai.azure.com/)
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>  - AZURE_OPENAI_API_KEY is not set — Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>  - OPENAI_API_VERSION is not set — the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle') (e.g. 2024-10-21)
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>  - put AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_API_VERSION in a .env file next to your script (loaded automatically; a variable already exported with a non-empty value wins, an empty one is filled from the file), export it, or pass it in code: Model(..., endpoint=, api_key=, api_version=) — see promptise models env azure
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>$ echo $?
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>1
 </span></code></pre></div>
 <p>On a machine where Ollama is not running, <code>promptise models check ollama:llama3.1</code> says so instead of passing:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$ promptise models check ollama:llama3.1
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>ollama:llama3.1 → ollama:llama3.1  (Ollama (local models))
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>  model part: llama3.1 — a model you have pulled (`ollama pull llama3.1`)
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>  route: OpenAI-compatible endpoint http://localhost:11434/v1 (core, nothing to install)
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>  OLLAMA_HOST: unset (optional) — only if Ollama is not on the default http://localhost:11434
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>  No API key. The model must support tool calling to drive MCP tools.
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>Not reachable. The configuration is complete, but nothing is listening at http://localhost:11434 — is Ollama running? (ollama serve) If it runs on another host or port, set OLLAMA_HOST.
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>$ echo $?
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>1
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>$ promptise models check ollama:llama3.1
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>ollama:llama3.1 → ollama:llama3.1  (Ollama (local models))
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>  model part: llama3.1 — a model you have pulled (`ollama pull llama3.1`)
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>  route: OpenAI-compatible endpoint http://localhost:11434/v1 (core, nothing to install)
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>  OLLAMA_HOST: unset (optional) — only if Ollama is not on the default http://localhost:11434
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>  No API key. The model must support tool calling to drive MCP tools.
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>Not reachable. The configuration is complete, but nothing is listening at http://localhost:11434 — is Ollama running? (ollama serve) If it runs on another host or port, set OLLAMA_HOST.
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>$ echo $?
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>1
 </span></code></pre></div>
 <p>and <code>--ping</code> against a server that is down names the cause after the error:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>Pinging… failed
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>OpenAIConnectionError: Connection error.
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>  → nothing is listening at http://localhost:11434 — is Ollama running? (ollama serve) If it runs on another host or port, set OLLAMA_HOST.
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>Pinging… failed
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>OpenAIConnectionError: Connection error.
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  → nothing is listening at http://localhost:11434 — is Ollama running? (ollama serve) If it runs on another host or port, set OLLAMA_HOST.
 </span></code></pre></div>
 <p>A variable that is exported but empty (<code>export OPENAI_API_KEY=</code> left in a shell profile) is reported as such -- <code>OPENAI_API_KEY: MISSING (OPENAI_API_KEY is exported but empty — unset it or give it a value)</code> -- and one the <code>.env</code> file filled names the file: <code>OPENAI_API_KEY: set (from /home/me/project/.env)</code>.</p>
 <p><code>promptise models env azure</code> then gives you the three lines to fill in:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ promptise models env azure
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a># Azure OpenAI (OpenAI models deployed in Azure AI Foundry) — model string example: azure:chat-prod
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>export AZURE_OPENAI_ENDPOINT=https://my-resource.openai.azure.com/
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>#   ↳ Azure AI Foundry portal → your resource → Overview → Endpoint (https://&lt;resource&gt;.openai.azure.com/, no path)
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>export AZURE_OPENAI_API_KEY=...
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>#   ↳ Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>export OPENAI_API_VERSION=2024-10-21
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>#   ↳ the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle')
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>$ promptise models env azure
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a># Azure OpenAI (OpenAI models deployed in Azure AI Foundry) — model string example: azure:chat-prod
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>export AZURE_OPENAI_ENDPOINT=https://my-resource.openai.azure.com/
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>#   ↳ Azure AI Foundry portal → your resource → Overview → Endpoint (https://&lt;resource&gt;.openai.azure.com/, no path)
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>export AZURE_OPENAI_API_KEY=...
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>#   ↳ Azure AI Foundry portal → your resource → Keys and Endpoint → KEY 1 (or Entra ID: pass extra={'azure_ad_token_provider': ...})
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>export OPENAI_API_VERSION=2024-10-21
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>#   ↳ the REST API version your deployment supports, e.g. 2024-10-21 (Azure docs → 'API version lifecycle')
 </span></code></pre></div>
 <p>The same checks run inside <code>build_agent()</code>: a string that <code>models check</code> reports as not usable raises a <code>ModelSetupError</code> with the same text instead of a provider stack trace. See <a href="../../getting-started/model-setup/">Model Setup</a> for every provider and the <a href="../../api/models/">Models API reference</a> for <code>resolve_model()</code> / <code>check_model()</code>.</p>
 <hr />
 <h2 id="promptise-audit-verify-audit-log-integrity"><code>promptise audit verify</code> -- Audit Log Integrity<a class="headerlink" href="#promptise-audit-verify-audit-log-integrity" title="Link to this section">&para;</a></h2>
 <p>Checks the HMAC chain of a log file written by <a href="../../mcp/server/observability/#verifying-a-log-file"><code>AuditMiddleware</code></a> and names the line of the first break and the kind of change: an entry modified, deleted, inserted, duplicated or reordered, or a line that is not JSON.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Key from PROMPTISE_AUDIT_SECRET</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>promptise<span class="w"> </span>audit<span class="w"> </span>verify<span class="w"> </span>audit.jsonl
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Key from another variable; repeat --key-env after a key rotation that kept the file</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>promptise<span class="w"> </span>audit<span class="w"> </span>verify<span class="w"> </span>audit.jsonl<span class="w"> </span>--key-env<span class="w"> </span>AUDIT_KEY<span class="w"> </span>--key-env<span class="w"> </span>AUDIT_KEY_OLD
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># Files a log rotator moved while the server ran: one chain, oldest first</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>promptise<span class="w"> </span>audit<span class="w"> </span>verify<span class="w"> </span>audit.1.jsonl<span class="w"> </span>audit.jsonl
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="c1"># Fail if a hash you recorded earlier is gone (entries cut from the end); JSON report</span>
-</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>promptise<span class="w"> </span>audit<span class="w"> </span>verify<span class="w"> </span>audit.jsonl<span class="w"> </span>--anchor<span class="w"> </span>&lt;last_hash&gt;<span class="w"> </span>--json
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Key from PROMPTISE_AUDIT_SECRET</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>promptise<span class="w"> </span>audit<span class="w"> </span>verify<span class="w"> </span>audit.jsonl
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Key from another variable; repeat --key-env after a key rotation that kept the file</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>promptise<span class="w"> </span>audit<span class="w"> </span>verify<span class="w"> </span>audit.jsonl<span class="w"> </span>--key-env<span class="w"> </span>AUDIT_KEY<span class="w"> </span>--key-env<span class="w"> </span>AUDIT_KEY_OLD
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># Files a log rotator moved while the server ran: one chain, oldest first</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>promptise<span class="w"> </span>audit<span class="w"> </span>verify<span class="w"> </span>audit.1.jsonl<span class="w"> </span>audit.jsonl
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="c1"># Fail if a hash you recorded earlier is gone (entries cut from the end); JSON report</span>
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>promptise<span class="w"> </span>audit<span class="w"> </span>verify<span class="w"> </span>audit.jsonl<span class="w"> </span>--anchor<span class="w"> </span>&lt;last_hash&gt;<span class="w"> </span>--json
 </span></code></pre></div>
-<h3 id="options_7">Options<a class="headerlink" href="#options_7" title="Link to this section">&para;</a></h3>
+<h3 id="options_6">Options<a class="headerlink" href="#options_6" title="Link to this section">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -10700,20 +10943,20 @@
 <p>The <code>runtime</code> subcommand group manages long-running agent processes.</p>
 <h3 id="promptise-runtime-start-start-processes"><code>promptise runtime start</code> -- Start Processes<a class="headerlink" href="#promptise-runtime-start-start-processes" title="Link to this section">&para;</a></h3>
 <p>Start agent process(es) from a <code>.agent</code> manifest file or directory.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Start a single manifest</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/watcher.agent
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Start all manifests in a directory</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># Override process name</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/watcher.agent<span class="w"> </span>--name<span class="w"> </span>custom-watcher
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1"># Run in the background</span>
-</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/watcher.agent<span class="w"> </span>--detach
-</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>
-</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="c1"># Start with live monitoring dashboard</span>
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/<span class="w"> </span>--dashboard
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Start a single manifest</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/watcher.agent
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="c1"># Start all manifests in a directory</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="c1"># Override process name</span>
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/watcher.agent<span class="w"> </span>--name<span class="w"> </span>custom-watcher
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
+</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="c1"># Run in the background</span>
+</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/watcher.agent<span class="w"> </span>--detach
+</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>
+</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="c1"># Start with live monitoring dashboard</span>
+</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>agents/<span class="w"> </span>--dashboard
 </span></code></pre></div>
 <table>
 <thead>
@@ -10739,8 +10982,8 @@
 </table>
 <p>Press <code>Ctrl+C</code> to stop all processes (in foreground mode).</p>
 <h3 id="promptise-runtime-stop-stop-a-process"><code>promptise runtime stop</code> -- Stop a Process<a class="headerlink" href="#promptise-runtime-stop-stop-a-process" title="Link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>stop<span class="w"> </span>data-watcher
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>stop<span class="w"> </span>data-watcher<span class="w"> </span>--force
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>stop<span class="w"> </span>data-watcher
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>stop<span class="w"> </span>data-watcher<span class="w"> </span>--force
 </span></code></pre></div>
 <table>
 <thead>
@@ -10757,14 +11000,14 @@
 </tbody>
 </table>
 <h3 id="promptise-runtime-status-show-status"><code>promptise runtime status</code> -- Show Status<a class="headerlink" href="#promptise-runtime-status-show-status" title="Link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Show status of all processes</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>status
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="c1"># Show status of a specific process</span>
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>status<span class="w"> </span>data-watcher
-</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
-</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="c1"># Output as JSON</span>
-</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>status<span class="w"> </span>--json
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Show status of all processes</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>status
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Show status of a specific process</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>status<span class="w"> </span>data-watcher
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="c1"># Output as JSON</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>status<span class="w"> </span>--json
 </span></code></pre></div>
 <table>
 <thead>
@@ -10782,17 +11025,17 @@
 </table>
 <h3 id="promptise-runtime-logs-view-journal"><code>promptise runtime logs</code> -- View Journal<a class="headerlink" href="#promptise-runtime-logs-view-journal" title="Link to this section">&para;</a></h3>
 <p>Show journal entries for a running process.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Show last 20 entries</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>data-watcher
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Show last 50 entries</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>data-watcher<span class="w"> </span>--lines<span class="w"> </span><span class="m">50</span>
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
-</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># Follow new entries</span>
-</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>data-watcher<span class="w"> </span>--follow
-</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>
-</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="c1"># Custom journal path</span>
-</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>data-watcher<span class="w"> </span>--journal-path<span class="w"> </span>.promptise/journal
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Show last 20 entries</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>data-watcher
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Show last 50 entries</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>data-watcher<span class="w"> </span>--lines<span class="w"> </span><span class="m">50</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="c1"># Follow new entries</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>data-watcher<span class="w"> </span>--follow
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="c1"># Custom journal path</span>
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>data-watcher<span class="w"> </span>--journal-path<span class="w"> </span>.promptise/journal
 </span></code></pre></div>
 <table>
 <thead>
@@ -10817,29 +11060,29 @@
 </tbody>
 </table>
 <h3 id="promptise-runtime-restart-restart-a-process"><code>promptise runtime restart</code> -- Restart a Process<a class="headerlink" href="#promptise-runtime-restart-restart-a-process" title="Link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>restart<span class="w"> </span>data-watcher
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>restart<span class="w"> </span>data-watcher
 </span></code></pre></div>
 <h3 id="promptise-runtime-validate-validate-a-manifest"><code>promptise runtime validate</code> -- Validate a Manifest<a class="headerlink" href="#promptise-runtime-validate-validate-a-manifest" title="Link to this section">&para;</a></h3>
 <p>Check a <code>.agent</code> manifest file for schema errors and warnings.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>validate<span class="w"> </span>agents/watcher.agent
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>validate<span class="w"> </span>agents/watcher.agent
 </span></code></pre></div>
 <p>Outputs a summary table with name, model, version, instructions, server count, and trigger count. Warnings are printed for common issues like missing instructions, triggers, or servers.</p>
 <h3 id="promptise-runtime-init-generate-a-template"><code>promptise runtime init</code> -- Generate a Template<a class="headerlink" href="#promptise-runtime-init-generate-a-template" title="Link to this section">&para;</a></h3>
 <p>Create a template <code>.agent</code> manifest file to get started quickly.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Basic template</span>
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>-o<span class="w"> </span>my-agent.agent
-</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
-</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Cron-based template</span>
-</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>cron<span class="w"> </span>-o<span class="w"> </span>watcher.agent
-</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
-</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="c1"># Webhook template</span>
-</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>webhook<span class="w"> </span>-o<span class="w"> </span>handler.agent
-</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>
-</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="c1"># Full-featured template</span>
-</span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>full<span class="w"> </span>-o<span class="w"> </span>production.agent
-</span><span id="__span-22-12"><a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>
-</span><span id="__span-22-13"><a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="c1"># Overwrite existing file</span>
-</span><span id="__span-22-14"><a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>cron<span class="w"> </span>-o<span class="w"> </span>watcher.agent<span class="w"> </span>--force
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># Basic template</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>-o<span class="w"> </span>my-agent.agent
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="c1"># Cron-based template</span>
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>cron<span class="w"> </span>-o<span class="w"> </span>watcher.agent
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>
+</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="c1"># Webhook template</span>
+</span><span id="__span-26-8"><a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>webhook<span class="w"> </span>-o<span class="w"> </span>handler.agent
+</span><span id="__span-26-9"><a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>
+</span><span id="__span-26-10"><a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="c1"># Full-featured template</span>
+</span><span id="__span-26-11"><a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>full<span class="w"> </span>-o<span class="w"> </span>production.agent
+</span><span id="__span-26-12"><a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a>
+</span><span id="__span-26-13"><a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a><span class="c1"># Overwrite existing file</span>
+</span><span id="__span-26-14"><a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>cron<span class="w"> </span>-o<span class="w"> </span>watcher.agent<span class="w"> </span>--force
 </span></code></pre></div>
 <table>
 <thead>
@@ -10865,58 +11108,72 @@
 </table>
 <hr />
 <h2 id="common-workflows">Common Workflows<a class="headerlink" href="#common-workflows" title="Link to this section">&para;</a></h2>
+<h3 id="start-a-project-and-run-it">Start a Project and Run It<a class="headerlink" href="#start-a-project-and-run-it" title="Link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># 1. Create the project: promptise.toml, agent.py, main.py, .env.example, README.md</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>promptise<span class="w"> </span>init<span class="w"> </span>--project<span class="w"> </span>my-bot<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>my-bot
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="c1"># 2. Set the API key</span>
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="c1"># 3. Develop with live traces, restarting on every save</span>
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>promptise<span class="w"> </span>run<span class="w"> </span>dev
+</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>
+</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="c1"># 4. Check it and run it the way production will</span>
+</span><span id="__span-27-11"><a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a>promptise<span class="w"> </span>run<span class="w"> </span>--prod<span class="w"> </span>--check
+</span><span id="__span-27-12"><a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a>promptise<span class="w"> </span>run<span class="w"> </span>--prod<span class="w"> </span>--serve
+</span></code></pre></div>
 <h3 id="develop-and-test-an-agent-process">Develop and Test an Agent Process<a class="headerlink" href="#develop-and-test-an-agent-process" title="Link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># 1. Generate a template manifest</span>
-</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>cron<span class="w"> </span>-o<span class="w"> </span>watcher.agent
-</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
-</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># 2. Edit the manifest with your instructions and servers</span>
-</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="c1"># (edit watcher.agent)</span>
-</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
-</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="c1"># 3. Validate the manifest</span>
-</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>validate<span class="w"> </span>watcher.agent
-</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>
-</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="c1"># 4. Start the process</span>
-</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>watcher.agent
-</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>
-</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="c1"># 5. View logs in another terminal</span>
-</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>pipeline-watcher<span class="w"> </span>--follow
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="c1"># 1. Generate a template manifest</span>
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>cron<span class="w"> </span>-o<span class="w"> </span>watcher.agent
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="c1"># 2. Edit the manifest with your instructions and servers</span>
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="c1"># (edit watcher.agent)</span>
+</span><span id="__span-28-6"><a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>
+</span><span id="__span-28-7"><a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="c1"># 3. Validate the manifest</span>
+</span><span id="__span-28-8"><a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>validate<span class="w"> </span>watcher.agent
+</span><span id="__span-28-9"><a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a>
+</span><span id="__span-28-10"><a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a><span class="c1"># 4. Start the process</span>
+</span><span id="__span-28-11"><a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>start<span class="w"> </span>watcher.agent
+</span><span id="__span-28-12"><a id="__codelineno-28-12" name="__codelineno-28-12" href="#__codelineno-28-12"></a>
+</span><span id="__span-28-13"><a id="__codelineno-28-13" name="__codelineno-28-13" href="#__codelineno-28-13"></a><span class="c1"># 5. View logs in another terminal</span>
+</span><span id="__span-28-14"><a id="__codelineno-28-14" name="__codelineno-28-14" href="#__codelineno-28-14"></a>promptise<span class="w"> </span>runtime<span class="w"> </span>logs<span class="w"> </span>pipeline-watcher<span class="w"> </span>--follow
 </span></code></pre></div>
 <h3 id="mcpcast-an-existing-api">MCPcast an Existing API<a class="headerlink" href="#mcpcast-an-existing-api" title="Link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># 1. Generate a curated, read-only MCP server from your OpenAPI spec and review the plan</span>
-</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--review
-</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
-</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="c1"># 2. Edit mcpcast.plan.yaml (names, descriptions, hidden params, dropped list), then regenerate</span>
-</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>my-api-mcp/mcpcast.plan.yaml
-</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>
-</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="c1"># 3. Score how well a real agent drives the result</span>
-</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--profile<span class="w"> </span>standard<span class="w"> </span>--eval
-</span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>
-</span><span id="__span-24-10"><a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a><span class="c1"># 4. Serve it for any MCP client</span>
-</span><span id="__span-24-11"><a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a><span class="nb">cd</span><span class="w"> </span>my-api-mcp<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>promptise<span class="w"> </span>serve<span class="w"> </span>server:server<span class="w"> </span>--transport<span class="w"> </span>http
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># 1. Generate a curated, read-only MCP server from your OpenAPI spec and review the plan</span>
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--review
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="c1"># 2. Edit mcpcast.plan.yaml (names, descriptions, hidden params, dropped list), then regenerate</span>
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>my-api-mcp/mcpcast.plan.yaml
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>
+</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="c1"># 3. Score how well a real agent drives the result</span>
+</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>promptise<span class="w"> </span>mcpcast<span class="w"> </span>openapi.yaml<span class="w"> </span>--profile<span class="w"> </span>standard<span class="w"> </span>--eval
+</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a>
+</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a><span class="c1"># 4. Serve it for any MCP client</span>
+</span><span id="__span-29-11"><a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a><span class="nb">cd</span><span class="w"> </span>my-api-mcp<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>promptise<span class="w"> </span>serve<span class="w"> </span>server:server<span class="w"> </span>--transport<span class="w"> </span>http
 </span></code></pre></div>
 <h3 id="switch-to-another-model-provider">Switch to Another Model Provider<a class="headerlink" href="#switch-to-another-model-provider" title="Link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># 1. See what the string needs (exit 1 until it is usable)</span>
-</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>promptise<span class="w"> </span>models<span class="w"> </span>check<span class="w"> </span>azure:chat-prod
-</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
-</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># 2. Get the export lines, fill them in</span>
-</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>promptise<span class="w"> </span>models<span class="w"> </span>env<span class="w"> </span>azure<span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
-</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>
-</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="c1"># 3. Confirm with a real one-token call, then use the same string anywhere</span>
-</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>promptise<span class="w"> </span>models<span class="w"> </span>check<span class="w"> </span>azure:chat-prod<span class="w"> </span>--ping
-</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a>promptise<span class="w"> </span>run<span class="w"> </span>--model-id<span class="w"> </span>azure:chat-prod<span class="w"> </span>--http<span class="w"> </span><span class="s2">"name=tools url=http://localhost:8000/mcp"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="c1"># 1. See what the string needs (exit 1 until it is usable)</span>
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>promptise<span class="w"> </span>models<span class="w"> </span>check<span class="w"> </span>azure:chat-prod
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>
+</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="c1"># 2. Get the export lines, fill them in</span>
+</span><span id="__span-30-5"><a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>promptise<span class="w"> </span>models<span class="w"> </span>env<span class="w"> </span>azure<span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
+</span><span id="__span-30-6"><a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>
+</span><span id="__span-30-7"><a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="c1"># 3. Confirm with a real one-token call, then use the same string anywhere</span>
+</span><span id="__span-30-8"><a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>promptise<span class="w"> </span>models<span class="w"> </span>check<span class="w"> </span>azure:chat-prod<span class="w"> </span>--ping
+</span><span id="__span-30-9"><a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>promptise<span class="w"> </span>run<span class="w"> </span>--model-id<span class="w"> </span>azure:chat-prod<span class="w"> </span>--http<span class="w"> </span><span class="s2">"name=tools url=http://localhost:8000/mcp"</span>
 </span></code></pre></div>
 <h3 id="discover-available-tools">Discover Available Tools<a class="headerlink" href="#discover-available-tools" title="Link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># Check what tools an MCP server exposes</span>
-</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>promptise<span class="w"> </span>list-tools<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=my_tools url=http://localhost:8000/mcp"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="c1"># Check what tools an MCP server exposes</span>
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>promptise<span class="w"> </span>list-tools<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=my_tools url=http://localhost:8000/mcp"</span>
 </span></code></pre></div>
 <h3 id="run-a-quick-interactive-session">Run a Quick Interactive Session<a class="headerlink" href="#run-a-quick-interactive-session" title="Link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Inline servers (no .superagent file)</span>
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>promptise<span class="w"> </span>run<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=tools url=http://localhost:8000/mcp"</span>
-</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>
-</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="c1"># From a .superagent file</span>
-</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="c1"># Inline servers (no .superagent file)</span>
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>promptise<span class="w"> </span>run<span class="w"> </span>--model-id<span class="w"> </span>openai:gpt-5-mini<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="w">    </span>--http<span class="w"> </span><span class="s2">"name=tools url=http://localhost:8000/mcp"</span>
+</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>
+</span><span id="__span-32-5"><a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a><span class="c1"># From a .superagent file</span>
+</span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>promptise<span class="w"> </span>agent<span class="w"> </span>config.superagent
 </span></code></pre></div>
 <hr />
 <div class="admonition tip">
@@ -10926,6 +11183,7 @@
 <hr />
 <h2 id="whats-next">What's Next?<a class="headerlink" href="#whats-next" title="Link to this section">&para;</a></h2>
 <ul>
+<li><a href="../projects/">Projects &amp; promptise run</a> -- the manifest, scripts, dev tools, the TUI, production and serve mode</li>
 <li><a href="../../runtime/">Agent Runtime Overview</a> -- architecture and lifecycle concepts</li>
 <li><a href="../../runtime/manifests/">Agent Manifests</a> -- <code>.agent</code> YAML format reference</li>
 <li><a href="../observability/">Observability</a> -- <code>--observe</code> flag and observability</li>
@@ -10952,7 +11210,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 11, 2026 16:30:20 UTC">2026-10-11</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 17, 2026 12:34:41 UTC">2026-10-17</span>
   </span>
 
     

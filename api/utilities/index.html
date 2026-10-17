@@ -2083,6 +2083,8 @@
       
         
       
+        
+      
     
     
     
@@ -3374,6 +3376,34 @@
           </ul>
         </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../core/projects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Projects & promptise run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -9172,6 +9202,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.events.EventNotifier.add_sink" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_sink
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.events.EventNotifier.emit" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -13749,6 +13790,17 @@
     <span class="md-ellipsis">
       
         sinks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.events.EventNotifier.add_sink" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_sink
       
     </span>
   </a>
@@ -20515,6 +20567,28 @@ await notifier.stop()
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="promptise.events.EventNotifier.add_sink" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">add_sink</span><span class="p">(</span><span class="n">sink</span><span class="p">)</span></code>
+
+<a href="#promptise.events.EventNotifier.add_sink" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Add <em>sink</em>; from now on it receives every event too.</p>
+<p>Idempotent (a sink already added is not added twice).  When the
+notifier is running, the new sink's delivery task starts at once on
+the notifier's loop.  Events emitted before the call are not replayed
+to it.</p>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 
