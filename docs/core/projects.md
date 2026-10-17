@@ -162,6 +162,8 @@ The **project root** is the manifest's directory. Relative paths in the manifest
 
 Without a manifest, `promptise run some_file.py` still works: the root is the current directory and every setting has its default.
 
+A manifest decides what runs, so `promptise run` only uses one found this way if it is a regular file owned by you that other users cannot write (the same rule as for `.env` files). A `promptise.toml` planted in a shared directory such as `/tmp` is refused with an error. `-f/--manifest` uses the file you name.
+
 ### A full example
 
 ```toml
@@ -474,6 +476,8 @@ promptise run --list        # list the scripts
 - The script gets `PROMPTISE_RUN_SCRIPT` (its name), `PROMPTISE_PROJECT_ROOT` and `PROMPTISE_INIT_CWD` (the directory you ran `promptise run` from).
 - `[env]` is applied by `promptise run` itself, so a script that runs `promptise run` gets it. Other commands get the environment you started with.
 - A script that calls itself through `promptise run` stops with an error instead of looping forever.
+- When the command is echoed, the values of `--env KEY=VALUE` are shown as `***`.
+- On Windows, scripts run through `cmd.exe`, which has no quoting that is safe for every character: an appended argument that contains `& | < > ^ % ! "` is refused. Run such a command directly.
 
 ---
 

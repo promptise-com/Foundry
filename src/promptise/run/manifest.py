@@ -264,17 +264,41 @@ def find_manifest(start: Path | None = None) -> Path | None:
     for directory in (here, *here.parents):
         candidate = directory / MANIFEST_FILE
         if candidate.is_file():
+            _check_owner(candidate)
             return candidate
         pyproject = directory / "pyproject.toml"
         if pyproject.is_file():
             try:
-                if _pyproject_table(pyproject) is not None:
-                    return pyproject
+                ours = _pyproject_table(pyproject) is not None
             except ManifestError:
-                pass  # a broken pyproject.toml that isn't ours is not our problem
+                ours = False  # a broken pyproject.toml that isn't ours is not our problem
+            if ours:
+                _check_owner(pyproject)
+                return pyproject
         if (directory / ".git").exists():
             break
     return None
+
+
+def _check_owner(path: Path) -> None:
+    """Refuse a manifest someone else could have written.
+
+    The manifest decides what runs, with which environment.  As for ``.env``
+    files, one found above the working directory (``/tmp/promptise.toml`` on a
+    shared machine) must be a regular file owned by you that others cannot
+    write.
+
+    Raises:
+        ManifestError: The file is someone else's or anyone can write it.
+    """
+    from ..models import _unsafe_dotenv
+
+    try:
+        problem = _unsafe_dotenv(path, path.stat())
+    except OSError as exc:
+        raise ManifestError(path, [f"cannot read: {exc}"]) from exc
+    if problem is not None:
+        raise ManifestError(path, [f"refusing to use this manifest: {problem}"])
 
 
 def _format_errors(exc: ValidationError) -> list[str]:

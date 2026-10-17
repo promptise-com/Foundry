@@ -20,6 +20,7 @@ unobserved, one with its own ``observe`` config keeps it.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from typing import Any
 
@@ -78,6 +79,60 @@ def _schema(tool: Any) -> dict[str, Any] | None:
         return None
 
 
+_SECRET_WORDS = ("key", "token", "secret", "password", "passwd", "auth", "credential", "bearer")
+_LONG_OPAQUE = re.compile(r"^[A-Za-z0-9_\-.~+/=]{24,}$")
+
+
+def _secretish(word: str) -> bool:
+    return any(w in word.lower() for w in _SECRET_WORDS)
+
+
+def redact_target(transport: str, target: str) -> str:
+    """An MCP server's URL or command line, safe to log and show.
+
+    Hosted MCP endpoints often carry the key in the URL (``user:pass@``, a
+    query parameter, an opaque path segment), and stdio servers take keys as
+    arguments.  URLs keep their scheme, host, port and path, with long opaque
+    path segments masked; command lines keep every argument except the value
+    after a secret-looking flag, a secret-looking ``NAME=value`` and long
+    opaque strings.
+    """
+    if transport != "stdio":
+        from urllib.parse import urlsplit, urlunsplit
+
+        try:
+            parts = urlsplit(target)
+            host = parts.hostname or ""
+            if parts.port:
+                host = f"{host}:{parts.port}"
+            path = "/".join(
+                "***" if _LONG_OPAQUE.match(seg) and any(c.isdigit() for c in seg) else seg
+                for seg in parts.path.split("/")
+            )
+            query = "***" if parts.query else ""
+            return urlunsplit((parts.scheme, host, path, query, ""))
+        except ValueError:
+            return "***"
+    out: list[str] = []
+    hide_next = False
+    for arg in target.split():
+        if hide_next:
+            out.append("***")
+            hide_next = False
+            continue
+        name, eq, _ = arg.partition("=")
+        if eq and _secretish(name):
+            out.append(f"{name}=***")
+        elif arg.startswith("-") and _secretish(arg) and not eq:
+            out.append(arg)
+            hide_next = True
+        elif _LONG_OPAQUE.match(arg) and any(c.isdigit() for c in arg) and "/" not in arg:
+            out.append("***")
+        else:
+            out.append(arg)
+    return " ".join(out)
+
+
 def _type_name(value: Any) -> str | bool:
     if value is None or value is False:
         return False
@@ -124,7 +179,7 @@ def describe_agent(agent: Any, label: str) -> dict[str, Any]:
                 {
                     "name": name,
                     "transport": transport,
-                    "target": target,
+                    "target": redact_target(str(transport), target),
                     "tools": sum(1 for owner in owners.values() if owner == name),
                 }
             )

@@ -15,7 +15,6 @@ from typing import Any, ClassVar
 
 from rich.console import Group, RenderableType
 from rich.panel import Panel
-from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -66,7 +65,16 @@ from .theme import (
     severity_style,
     status_style,
 )
-from .widgets import DetailView, FeedTable, FitTable, clock, json_view, pretty_arguments
+from .widgets import (
+    DetailView,
+    FeedTable,
+    FitTable,
+    PlainTable,
+    SafeDataTable,
+    clock,
+    json_view,
+    pretty_arguments,
+)
 
 __all__ = [
     "AgentsPane",
@@ -496,7 +504,7 @@ class TracePane(Pane):
         except ValueError:
             index = 0
         self.agent_filter = options[(index + 1) % len(options)]
-        self.query_one("#trace-agent", Button).label = f"Agent: {self.agent_filter or 'all'}"
+        self.query_one("#trace-agent", Button).label = Text(f"Agent: {self.agent_filter or 'all'}")
         self.query_one("#trace-detail", DetailView).reset()
         self.needs_rebuild = True
         self.sync()
@@ -546,7 +554,7 @@ def _call_cells(call: ToolCall) -> tuple[Any, ...]:
 
 def render_tool_call(call: ToolCall) -> RenderableType:
     """Everything known about one tool call."""
-    head = Table.grid(padding=(0, 2))
+    head = PlainTable.grid(padding=(0, 2))
     head.add_column(style=MUTED)
     head.add_column()
     head.add_row("tool", Text(call.tool, style=f"bold {ACCENT}"))
@@ -706,11 +714,11 @@ class MetricsPane(Pane):
             yield Label("Tokens per LLM call", classes="section", id="metrics-spark-label")
             yield Sparkline([], id="metrics-spark")
             yield Label("Per agent", classes="section")
-            yield DataTable(id="metrics-agents", zebra_stripes=True, cursor_type="none")
+            yield SafeDataTable(id="metrics-agents", zebra_stripes=True, cursor_type="none")
             yield Label("Per model", classes="section")
-            yield DataTable(id="metrics-models", zebra_stripes=True, cursor_type="none")
+            yield SafeDataTable(id="metrics-models", zebra_stripes=True, cursor_type="none")
             yield Label("Per tool", classes="section")
-            yield DataTable(id="metrics-tools", zebra_stripes=True, cursor_type="none")
+            yield SafeDataTable(id="metrics-tools", zebra_stripes=True, cursor_type="none")
 
     def on_mount(self) -> None:
         """Table columns."""
@@ -728,7 +736,7 @@ class MetricsPane(Pane):
         """Redraw from the latest stats."""
         stats = self.state.stats
         totals = stats["totals"]
-        grid = Table.grid(padding=(0, 3))
+        grid = PlainTable.grid(padding=(0, 3))
         for _ in range(5):
             grid.add_column()
 
@@ -900,7 +908,7 @@ _OUTCOME_STYLES = {"approved": SUCCESS, "denied": f"bold {ERROR}", "expired": WA
 
 def render_approval(row: ApprovalRow, now: float) -> RenderableType:
     """Everything about one approval request: tool, arguments, conversation, outcome."""
-    head = Table.grid(padding=(0, 2))
+    head = PlainTable.grid(padding=(0, 2))
     head.add_column(style=MUTED, no_wrap=True)
     head.add_column()
     head.add_row("tool", Text(row.tool, style=f"bold {ACCENT}"))
@@ -1105,7 +1113,7 @@ def render_agent(agent: AgentInfo) -> RenderableType:
     title = Text(agent.id, style=f"bold {ACCENT}")
     if agent.closed:
         title.append("  (closed)", style=MUTED)
-    grid = Table.grid(padding=(0, 2))
+    grid = PlainTable.grid(padding=(0, 2))
     grid.add_column(style=MUTED, no_wrap=True)
     grid.add_column()
     grid.add_row("model", Text(agent.model or "—", style=TEXT))
@@ -1175,7 +1183,7 @@ class McpPane(Pane):
     def compose(self) -> ComposeResult:
         """The servers table."""
         yield Static("No MCP server yet.", id="mcp-empty")
-        yield DataTable(id="mcp-table", cursor_type="row", zebra_stripes=True)
+        yield SafeDataTable(id="mcp-table", cursor_type="row", zebra_stripes=True)
 
     def on_mount(self) -> None:
         """Columns."""
@@ -1349,7 +1357,7 @@ def render_run(state: RunState) -> RenderableType:
     title.append(f"  {state.state_label()}", style=DIM)
     parts.append(title)
 
-    grid = Table.grid(padding=(0, 2))
+    grid = PlainTable.grid(padding=(0, 2))
     grid.add_column(style=MUTED, no_wrap=True)
     grid.add_column()
 
@@ -1385,7 +1393,7 @@ def render_run(state: RunState) -> RenderableType:
     if run.exit is not None:
         parts.append(Text("\nExit", style=f"bold {PRIMARY}"))
         code = run.exit_code
-        exit_grid = Table.grid(padding=(0, 2))
+        exit_grid = PlainTable.grid(padding=(0, 2))
         exit_grid.add_column(style=MUTED, no_wrap=True)
         exit_grid.add_column()
         exit_grid.add_row(
@@ -1403,7 +1411,7 @@ def render_run(state: RunState) -> RenderableType:
 
     if len(state.runs) > 1:
         parts.append(Text("\nRuns", style=f"bold {PRIMARY}"))
-        history = Table.grid(padding=(0, 2))
+        history = PlainTable.grid(padding=(0, 2))
         history.add_column(style=MUTED)
         history.add_column()
         for past in state.runs:
@@ -1419,7 +1427,7 @@ def render_run(state: RunState) -> RenderableType:
     env = info.get("env")
     if isinstance(env, list) and env:
         parts.append(Text("\nEnvironment", style=f"bold {PRIMARY}"))
-        table = Table(box=None, padding=(0, 2), show_edge=False, header_style=MUTED)
+        table = PlainTable(box=None, padding=(0, 2), show_edge=False, header_style=MUTED)
         table.add_column("Name")
         table.add_column("Set")
         table.add_column("Required")
@@ -1440,7 +1448,7 @@ def render_run(state: RunState) -> RenderableType:
     scripts = info.get("scripts")
     if isinstance(scripts, dict) and scripts:
         parts.append(Text("\nScripts", style=f"bold {PRIMARY}"))
-        table = Table(box=None, padding=(0, 2), show_edge=False, show_header=False)
+        table = PlainTable(box=None, padding=(0, 2), show_edge=False, show_header=False)
         table.add_column(style=ACCENT)
         table.add_column()
         for name, command in scripts.items():

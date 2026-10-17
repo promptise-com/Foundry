@@ -18,7 +18,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from .events import EventBus, RunEvent
+from .events import EventBus, RunEvent, strip_controls
 from .pricing import PriceTable
 
 __all__ = ["DevTracer", "format_cost", "print_summary", "write_report"]
@@ -71,6 +71,10 @@ class DevTracer:
 
     def __call__(self, event: RunEvent) -> None:
         kind = event.get("kind")
+        if kind not in ("agent.built", "timeline", "event", "agent.closed"):
+            return
+        # Tool results and model output go to the terminal: no escape sequences.
+        event = strip_controls(event)
         try:
             if kind == "agent.built":
                 self._agent_built(event)
@@ -202,6 +206,7 @@ def print_summary(
 ) -> None:
     """Print the end-of-run summary for a ``stats`` payload."""
     console = console or Console(stderr=True, highlight=False)
+    stats = strip_controls(stats)
     totals = stats.get("totals") or {}
     status = "[green]exit 0[/green]" if code == 0 else f"[red]exit {code}[/red]"
     console.print()

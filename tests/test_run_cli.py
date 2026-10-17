@@ -550,3 +550,9 @@ async def test_child_source_feeds_stdin_and_shows_prompts(project: Path) -> None
     finally:
         await source.close()
     assert outputs[0] == "Name: " and "hello Ada" in outputs
+
+
+def test_script_echo_masks_env_values(project: Path) -> None:
+    proc = _run(project, "checkit", "--env", "SECRET_THING=sk-live-123")
+    assert proc.returncode == 0, proc.stderr
+    assert "sk-live-123" not in proc.stderr and "SECRET_THING=***" in proc.stderr

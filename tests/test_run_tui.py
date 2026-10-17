@@ -1010,3 +1010,49 @@ async def test_a_burst_of_output_is_drawn_over_several_ticks() -> None:
         assert len(pane.console_lines) == 2_500
         assert pane.console_lines[-1] == "line 2499"
         assert not pane.dirty
+
+
+async def test_untrusted_text_is_never_markup() -> None:
+    """Tool output, approval arguments and HTTP paths are shown as text, not parsed as markup."""
+    fake = FakeRunSource()
+    fake.emit("run.start", project="p", mode="chat", main="m.py", pid=1)
+    fake.emit("agent.built", agent="a", model="m", tools=[], servers=[], features={})
+    evil = "[/INST] [@click=app.quit]click me[/] [link=https://evil.example]x[/link] \x1b]0;t\x07"
+    fake.emit(
+        "timeline",
+        agent="a",
+        entry={
+            "entry_id": "e1",
+            "timestamp": time.time(),
+            "event_type": "tool.result",
+            "details": evil,
+            "metadata": {"tool_name": "t", "result_preview": evil, "run_id": "r1"},
+        },
+    )
+    fake.emit(
+        "http",
+        method="GET",
+        path="/[/x][@click=app.quit]y[/]",
+        status=404,
+        duration_ms=1.0,
+        request_id="q",
+    )
+    fake.emit(
+        "approval.pending",
+        agent="a",
+        request={"request_id": "r1", "tool_name": "t", "arguments": {"u": evil}},
+        deadline=time.time() + 60,
+    )
+    app = RunTUI(fake)
+    async with app.run_test(size=SIZE) as pilot:
+        await settle(pilot)
+        for key in ("escape", "2", "3", "5", "6", "0"):
+            await pilot.press(key)
+            await settle(pilot)
+        # Clicking a row must not run an action hidden in its text.
+        await pilot.press("6")
+        await settle(pilot)
+        await pilot.click("#approvals-pending")
+        await settle(pilot)
+        assert app.is_running
+        assert not any(c.get("cmd") == "approval" for c in fake.sent)

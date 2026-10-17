@@ -516,3 +516,38 @@ def test_watch_debounces(tmp_path: Path) -> None:
         w._changed(str(tmp_path / name))
     assert done.wait(2)
     assert fired == [[str(tmp_path / "a.py"), str(tmp_path / "b.py")]]
+
+
+# ---------------------------------------------------------------------------
+# hardening: control characters, redaction, manifest ownership
+# ---------------------------------------------------------------------------
+
+
+def test_strip_controls() -> None:
+    from promptise.run.events import strip_controls
+
+    event = {"a": "ok\x1b]52;c;SGVsbG8=\x07 done", "b": ["x\x1b[2Ky", 3], "c": "line\n\ttab"}
+    clean = strip_controls(event)
+    assert clean == {"a": "ok]52;c;SGVsbG8= done", "b": ["x[2Ky", 3], "c": "line\n\ttab"}
+
+
+def test_mcp_targets_are_redacted() -> None:
+    from promptise.run.harness import redact_target
+
+    url = "https://u:p@mcp.example.com/mcp/sk_live_51HxYz0123456789abcdef/sse?api_key=abc"
+    assert redact_target("http", url) == "https://mcp.example.com/mcp/***/sse?***"
+    assert redact_target("http", "http://127.0.0.1:8000/mcp") == "http://127.0.0.1:8000/mcp"
+    cmd = "npx server --token ghp_abcdefghijklmnopqrstuvwxyz0123 API_KEY=xyz --port 3"
+    assert redact_target("stdio", cmd) == "npx server --token *** API_KEY=*** --port 3"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permissions")
+def test_a_world_writable_manifest_is_refused(tmp_path: Path) -> None:
+    from promptise.run.manifest import ManifestError, find_manifest
+
+    manifest = _write(tmp_path / "promptise.toml", 'main = "x.py"\n')
+    manifest.chmod(0o666)
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    with pytest.raises(ManifestError, match="refusing to use this manifest"):
+        find_manifest(sub)

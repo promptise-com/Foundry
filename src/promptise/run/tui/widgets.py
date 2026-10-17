@@ -9,6 +9,7 @@ from typing import Any
 
 from rich.console import RenderableType
 from rich.json import JSON
+from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -54,7 +55,34 @@ def json_view(data: Any) -> RenderableType:
         return Text(repr(data))
 
 
-class FitTable(DataTable[Any]):
+def plain(value: Any) -> Any:
+    """A table cell that is never read as markup: a ``str`` becomes plain :class:`Text`.
+
+    Textual and Rich parse a ``str`` cell as markup.  The cells here hold what
+    the program, its tools and HTTP clients produced: ``[/x]`` would crash the
+    UI and ``[@click=app.quit]`` would run an action when clicked.
+    """
+    return Text(value) if isinstance(value, str) else value
+
+
+class SafeDataTable(DataTable[Any]):
+    """A :class:`DataTable` whose string cells are plain text (see :func:`plain`)."""
+
+    def add_row(self, *cells: Any, **kwargs: Any) -> Any:
+        return super().add_row(*(plain(c) for c in cells), **kwargs)
+
+    def update_cell(self, row_key: Any, column_key: Any, value: Any, **kwargs: Any) -> None:
+        super().update_cell(row_key, column_key, plain(value), **kwargs)
+
+
+class PlainTable(Table):
+    """A Rich :class:`Table` whose string cells are plain text (see :func:`plain`)."""
+
+    def add_row(self, *renderables: Any, **kwargs: Any) -> None:
+        super().add_row(*(plain(r) for r in renderables), **kwargs)
+
+
+class FitTable(SafeDataTable):
     """A row-cursor table whose last column takes the width the others leave.
 
     Short columns come first and the long preview (details, arguments, …)

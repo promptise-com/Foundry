@@ -21,7 +21,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from .devtools import print_summary
-from .events import EventBus
+from .events import EventBus, strip_controls
 from .harness import RunHarness
 
 __all__ = ["Conversation", "ask_once", "repl"]
@@ -184,6 +184,7 @@ async def repl(
         streamed: list[str] = []
 
         def show(event: dict[str, Any], streamed: list[str] = streamed) -> None:
+            event = strip_controls(event)
             kind = event.get("type")
             if kind == "token" and not devtools:
                 # With dev tools on, the trace prints while the agent works;
@@ -214,7 +215,7 @@ async def repl(
             out.print()
         elif output:
             out.print("[bold green]agent ›[/bold green] ", end="")
-            out.print(output, markup=False, highlight=False)
+            out.print(strip_controls(output), markup=False, highlight=False)
         if error is not None:
             err.print(f"[red]error:[/red] {escape(error)}")
     return 0

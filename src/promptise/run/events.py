@@ -46,13 +46,14 @@ Kinds and their payload fields:
 from __future__ import annotations
 
 import itertools
+import re
 import threading
 import time
 from collections import deque
 from collections.abc import Callable, Iterable
 from typing import Any
 
-__all__ = ["EVENT_VERSION", "EventBus", "RunEvent", "Subscriber", "make_event"]
+__all__ = ["EVENT_VERSION", "EventBus", "RunEvent", "Subscriber", "make_event", "strip_controls"]
 
 EVENT_VERSION = 1
 
@@ -63,6 +64,27 @@ Subscriber = Callable[[RunEvent], None]
 """A function called with every published event, in the publishing thread.
 
 It must return quickly and never raise: hand slow work to a queue."""
+
+
+_CONTROLS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def strip_controls(value: Any) -> Any:
+    """*value* with terminal control characters removed from every string in it.
+
+    Tool results, model output and HTTP paths end up on the developer's
+    terminal (the dev tools, the terminal UI).  An escape sequence in them
+    could rewrite what is shown, set the window title or the clipboard, so
+    everything but newlines and tabs is dropped.  Dicts, lists and tuples are
+    copied; other values are returned as they are.
+    """
+    if isinstance(value, str):
+        return _CONTROLS.sub("", value) if _CONTROLS.search(value) else value
+    if isinstance(value, dict):
+        return {k: strip_controls(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [strip_controls(v) for v in value]
+    return value
 
 
 def make_event(kind: str, seq: int, **payload: Any) -> RunEvent:

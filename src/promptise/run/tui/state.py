@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from itertools import islice
 from typing import Any, Generic, Protocol, TypeVar
 
+from ..events import strip_controls
 from ..stats import RunStats
 
 __all__ = [
@@ -752,6 +753,9 @@ class RunState:
         if handler is None:
             self.ignored_count += 1
             return set()
+        # Everything shown comes from the program, its tools and HTTP clients:
+        # no terminal control sequence gets through to the screen.
+        event = strip_controls(event)
         seq = _int(event.get("seq"))
         if seq is not None:
             self.last_seq = max(self.last_seq, seq)

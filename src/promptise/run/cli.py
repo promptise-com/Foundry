@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields, replace
 from importlib.metadata import version as _version
 from pathlib import Path
@@ -158,6 +159,28 @@ def _forwarded_flags(opts: RunOptions) -> list[str]:
     return replace(opts, target=None, args=[], manifest=None, list_scripts=False).to_args()
 
 
+_CMD_SPECIAL = ("&", "|", "<", ">", "^", "%", "!", '"', "\n", "\r")
+
+
+def _masked(args: list[str]) -> list[str]:
+    """*args* for display: the value of every ``--env KEY=VALUE`` hidden."""
+    out: list[str] = []
+    hide = False
+    for arg in args:
+        if hide:
+            key = arg.partition("=")[0]
+            out.append(f"{key}=***")
+            hide = False
+            continue
+        if arg in ("--env", "-e"):
+            hide = True
+        elif arg.startswith("--env="):
+            out.append("--env=" + arg[len("--env=") :].partition("=")[0] + "=***")
+            continue
+        out.append(arg)
+    return out
+
+
 def _run_named_script(manifest: ProjectManifest, name: str, opts: RunOptions) -> int:
     """Run a ``[scripts]`` entry through the shell, like ``npm run``."""
     depth = int(os.environ.get(_DEPTH_ENV, "0") or 0)
@@ -172,13 +195,30 @@ def _run_named_script(manifest: ProjectManifest, name: str, opts: RunOptions) ->
             extra += ours
         else:
             err.print(
-                f"[yellow]ignoring {escape(' '.join(ours))}: script {escape(name)!r} is not a "
-                "promptise command[/yellow]"
+                f"[yellow]ignoring {escape(' '.join(_masked(ours)))}: script {escape(name)!r} "
+                "is not a promptise command[/yellow]"
             )
     extra += opts.args
+    shown = command
     if extra:
-        quote = shlex.quote if os.name == "posix" else lambda s: subprocess.list2cmdline([s])
+        quote: Callable[[str], str]
+        if os.name == "posix":
+            quote = shlex.quote
+        else:
+            # cmd.exe has no quoting that is safe for every character: refuse
+            # the ones it would act on rather than run something else.
+            unsafe = [a for a in extra if any(c in a for c in _CMD_SPECIAL)]
+            if unsafe:
+                return _problem(
+                    f"argument {unsafe[0]!r} has a character cmd.exe would interpret "
+                    f"({' '.join(_CMD_SPECIAL)}); run the command directly instead"
+                )
+
+            def quote(arg: str) -> str:  # type: ignore[misc]  # the Windows variant
+                return subprocess.list2cmdline([arg])
+
         command = command + " " + " ".join(quote(a) for a in extra)
+        shown = shown + " " + " ".join(quote(a) for a in _masked(extra))
     env = dict(os.environ)
     bin_dir = str(Path(sys.executable).parent)
     env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
@@ -186,7 +226,7 @@ def _run_named_script(manifest: ProjectManifest, name: str, opts: RunOptions) ->
     env["PROMPTISE_RUN_SCRIPT"] = name
     env["PROMPTISE_PROJECT_ROOT"] = str(manifest.root)
     env.setdefault("PROMPTISE_INIT_CWD", os.getcwd())
-    err.print(f"[dim]> {escape(manifest.project_name)} {escape(name)}: {escape(command)}[/dim]")
+    err.print(f"[dim]> {escape(manifest.project_name)} {escape(name)}: {escape(shown)}[/dim]")
     try:
         proc = subprocess.run(command, shell=True, cwd=str(manifest.root), env=env)
     except KeyboardInterrupt:
@@ -707,6 +747,13 @@ async def _agent_main(
                         f"{url}  [dim]POST /v1/invoke · POST /v1/stream · GET /v1/info · "
                         "Ctrl+C to stop[/dim]"
                     )
+                    token_env = manifest.serve.auth_token_env
+                    if not (token_env and os.environ.get(token_env)):
+                        err.print(
+                            "[yellow]no auth token: any process on this machine can call the "
+                            f"agent. Set {escape(token_env or '[serve] auth_token_env')} to "
+                            "require one.[/yellow]"
+                        )
                 bus.publish("state", state="idle", detail=f"serving on {url}")
 
             return await run_serve(
