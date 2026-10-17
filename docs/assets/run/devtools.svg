@@ -1,0 +1,157 @@
+<svg class="rich-terminal" viewBox="0 0 1458 635.5999999999999" xmlns="http://www.w3.org/2000/svg">
+    <!-- Generated with Rich https://www.textualize.io -->
+    <style>
+
+    @font-face {
+        font-family: "Fira Code";
+        src: local("FiraCode-Regular"),
+                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff2/FiraCode-Regular.woff2") format("woff2"),
+                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff/FiraCode-Regular.woff") format("woff");
+        font-style: normal;
+        font-weight: 400;
+    }
+    @font-face {
+        font-family: "Fira Code";
+        src: local("FiraCode-Bold"),
+                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff2/FiraCode-Bold.woff2") format("woff2"),
+                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff/FiraCode-Bold.woff") format("woff");
+        font-style: bold;
+        font-weight: 700;
+    }
+
+    .terminal-2470255665-matrix {
+        font-family: Fira Code, monospace;
+        font-size: 20px;
+        line-height: 24.4px;
+        font-variant-east-asian: full-width;
+    }
+
+    .terminal-2470255665-title {
+        font-size: 18px;
+        font-weight: bold;
+        font-family: arial;
+    }
+
+    .terminal-2470255665-r1 { fill: #c5c8c6;font-weight: bold }
+.terminal-2470255665-r2 { fill: #c5c8c6 }
+.terminal-2470255665-r3 { fill: #68a0b3;font-weight: bold }
+.terminal-2470255665-r4 { fill: #c5c8c6;font-style: italic; }
+.terminal-2470255665-r5 { fill: #98729f }
+.terminal-2470255665-r6 { fill: #868887 }
+.terminal-2470255665-r7 { fill: #d0b344 }
+.terminal-2470255665-r8 { fill: #98a84b }
+    </style>
+
+    <defs>
+    <clipPath id="terminal-2470255665-clip-terminal">
+      <rect x="0" y="0" width="1438.6" height="584.5999999999999" />
+    </clipPath>
+    <clipPath id="terminal-2470255665-line-0">
+    <rect x="0" y="1.5" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-1">
+    <rect x="0" y="25.9" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-2">
+    <rect x="0" y="50.3" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-3">
+    <rect x="0" y="74.7" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-4">
+    <rect x="0" y="99.1" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-5">
+    <rect x="0" y="123.5" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-6">
+    <rect x="0" y="147.9" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-7">
+    <rect x="0" y="172.3" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-8">
+    <rect x="0" y="196.7" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-9">
+    <rect x="0" y="221.1" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-10">
+    <rect x="0" y="245.5" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-11">
+    <rect x="0" y="269.9" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-12">
+    <rect x="0" y="294.3" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-13">
+    <rect x="0" y="318.7" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-14">
+    <rect x="0" y="343.1" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-15">
+    <rect x="0" y="367.5" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-16">
+    <rect x="0" y="391.9" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-17">
+    <rect x="0" y="416.3" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-18">
+    <rect x="0" y="440.7" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-19">
+    <rect x="0" y="465.1" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-20">
+    <rect x="0" y="489.5" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-21">
+    <rect x="0" y="513.9" width="1439.6" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-2470255665-line-22">
+    <rect x="0" y="538.3" width="1439.6" height="24.65"/>
+            </clipPath>
+    </defs>
+
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1456" height="633.6" rx="8"/><text class="terminal-2470255665-title" fill="#c5c8c6" text-anchor="middle" x="728" y="27">promptise&#160;run&#160;--devtools</text>
+            <g transform="translate(26,22)">
+            <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
+            <circle cx="22" cy="0" r="7" fill="#febc2e"/>
+            <circle cx="44" cy="0" r="7" fill="#28c840"/>
+            </g>
+        
+    <g transform="translate(9, 41)" clip-path="url(#terminal-2470255665-clip-terminal)">
+    
+    <g class="terminal-2470255665-matrix">
+    <text class="terminal-2470255665-r1" x="0" y="20" textLength="817.4" clip-path="url(#terminal-2470255665-line-0)">$&#160;promptise&#160;run&#160;--devtools&#160;main.py&#160;&quot;Hi,&#160;where&#160;is&#160;my&#160;order&#160;A1002?&#160;…&quot;</text><text class="terminal-2470255665-r2" x="1439.6" y="20" textLength="12.2" clip-path="url(#terminal-2470255665-line-0)">
+</text><text class="terminal-2470255665-r3" x="0" y="44.4" textLength="158.6" clip-path="url(#terminal-2470255665-line-1)">promptise&#160;run</text><text class="terminal-2470255665-r2" x="158.6" y="44.4" textLength="732" clip-path="url(#terminal-2470255665-line-1)">&#160;support-bot&#160;·&#160;main.py&#160;·&#160;script&#160;·&#160;devtools&#160;on&#160;(observe&#160;full)</text><text class="terminal-2470255665-r2" x="1439.6" y="44.4" textLength="12.2" clip-path="url(#terminal-2470255665-line-1)">
+</text><text class="terminal-2470255665-r3" x="0" y="68.8" textLength="85.4" clip-path="url(#terminal-2470255665-line-2)">●&#160;agent</text><text class="terminal-2470255665-r2" x="85.4" y="68.8" textLength="97.6" clip-path="url(#terminal-2470255665-line-2)">&#160;&#160;model&#160;</text><text class="terminal-2470255665-r1" x="183" y="68.8" textLength="122" clip-path="url(#terminal-2470255665-line-2)">gpt-5-mini</text><text class="terminal-2470255665-r2" x="305" y="68.8" textLength="512.4" clip-path="url(#terminal-2470255665-line-2)">&#160;&#160;3&#160;tool(s)&#160;&#160;0&#160;MCP&#160;server(s)&#160;&#160;observe&#160;full</text><text class="terminal-2470255665-r2" x="1439.6" y="68.8" textLength="12.2" clip-path="url(#terminal-2470255665-line-2)">
+</text><text class="terminal-2470255665-r2" x="0" y="93.2" textLength="927.2" clip-path="url(#terminal-2470255665-line-3)">---&#160;Ticket&#160;1:&#160;Hi,&#160;where&#160;is&#160;my&#160;order&#160;A1002?&#160;It&#160;was&#160;supposed&#160;to&#160;arrive&#160;by&#160;now.</text><text class="terminal-2470255665-r2" x="1439.6" y="93.2" textLength="12.2" clip-path="url(#terminal-2470255665-line-3)">
+</text><text class="terminal-2470255665-r1" x="0" y="117.6" textLength="85.4" clip-path="url(#terminal-2470255665-line-4)">▸&#160;agent</text><text class="terminal-2470255665-r4" x="109.8" y="117.6" textLength="756.4" clip-path="url(#terminal-2470255665-line-4)">Hi,&#160;where&#160;is&#160;my&#160;order&#160;A1002?&#160;It&#160;was&#160;supposed&#160;to&#160;arrive&#160;by&#160;now.</text><text class="terminal-2470255665-r2" x="1439.6" y="117.6" textLength="12.2" clip-path="url(#terminal-2470255665-line-4)">
+</text><text class="terminal-2470255665-r5" x="24.4" y="142" textLength="61" clip-path="url(#terminal-2470255665-line-5)">◆&#160;llm</text><text class="terminal-2470255665-r2" x="85.4" y="142" textLength="244" clip-path="url(#terminal-2470255665-line-5)">&#160;gpt-5-mini&#160;&#160;0.35s&#160;&#160;</text><text class="terminal-2470255665-r6" x="329.4" y="142" textLength="24.4" clip-path="url(#terminal-2470255665-line-5)">in</text><text class="terminal-2470255665-r2" x="353.8" y="142" textLength="61" clip-path="url(#terminal-2470255665-line-5)">&#160;775&#160;</text><text class="terminal-2470255665-r6" x="414.8" y="142" textLength="36.6" clip-path="url(#terminal-2470255665-line-5)">out</text><text class="terminal-2470255665-r2" x="451.4" y="142" textLength="390.4" clip-path="url(#terminal-2470255665-line-5)">&#160;13&#160;tok&#160;&#160;$0.0002&#160;&#160;→&#160;lookup_order</text><text class="terminal-2470255665-r2" x="1439.6" y="142" textLength="12.2" clip-path="url(#terminal-2470255665-line-5)">
+</text><text class="terminal-2470255665-r7" x="24.4" y="166.4" textLength="170.8" clip-path="url(#terminal-2470255665-line-6)">⚙&#160;lookup_order</text><text class="terminal-2470255665-r2" x="195.2" y="166.4" textLength="280.6" clip-path="url(#terminal-2470255665-line-6)">({&#x27;order_id&#x27;:&#160;&#x27;A1002&#x27;})</text><text class="terminal-2470255665-r2" x="1439.6" y="166.4" textLength="12.2" clip-path="url(#terminal-2470255665-line-6)">
+</text><text class="terminal-2470255665-r8" x="24.4" y="190.8" textLength="170.8" clip-path="url(#terminal-2470255665-line-7)">✓&#160;lookup_order</text><text class="terminal-2470255665-r6" x="207.4" y="190.8" textLength="36.6" clip-path="url(#terminal-2470255665-line-7)">2ms</text><text class="terminal-2470255665-r2" x="244" y="190.8" textLength="1122.4" clip-path="url(#terminal-2470255665-line-7)">&#160;&#160;→&#160;{&quot;order_id&quot;:&#160;&quot;A1002&quot;,&#160;&quot;item&quot;:&#160;&quot;Hiking&#160;boots&quot;,&#160;&quot;status&quot;:&#160;&quot;in&#160;transit&quot;,&#160;&quot;carrier&quot;:&#160;&quot;DHL&quot;,&#160;</text><text class="terminal-2470255665-r2" x="1439.6" y="190.8" textLength="12.2" clip-path="url(#terminal-2470255665-line-7)">
+</text><text class="terminal-2470255665-r2" x="0" y="215.2" textLength="341.6" clip-path="url(#terminal-2470255665-line-8)">&quot;expected_on&quot;:&#160;&quot;2026-10-19&quot;}</text><text class="terminal-2470255665-r2" x="1439.6" y="215.2" textLength="12.2" clip-path="url(#terminal-2470255665-line-8)">
+</text><text class="terminal-2470255665-r5" x="24.4" y="239.6" textLength="61" clip-path="url(#terminal-2470255665-line-9)">◆&#160;llm</text><text class="terminal-2470255665-r2" x="85.4" y="239.6" textLength="244" clip-path="url(#terminal-2470255665-line-9)">&#160;gpt-5-mini&#160;&#160;0.45s&#160;&#160;</text><text class="terminal-2470255665-r6" x="329.4" y="239.6" textLength="24.4" clip-path="url(#terminal-2470255665-line-9)">in</text><text class="terminal-2470255665-r2" x="353.8" y="239.6" textLength="61" clip-path="url(#terminal-2470255665-line-9)">&#160;805&#160;</text><text class="terminal-2470255665-r6" x="414.8" y="239.6" textLength="36.6" clip-path="url(#terminal-2470255665-line-9)">out</text><text class="terminal-2470255665-r2" x="451.4" y="239.6" textLength="195.2" clip-path="url(#terminal-2470255665-line-9)">&#160;39&#160;tok&#160;&#160;$0.0003</text><text class="terminal-2470255665-r2" x="1439.6" y="239.6" textLength="12.2" clip-path="url(#terminal-2470255665-line-9)">
+</text><text class="terminal-2470255665-r1" x="0" y="264" textLength="85.4" clip-path="url(#terminal-2470255665-line-10)">◂&#160;agent</text><text class="terminal-2470255665-r6" x="97.6" y="264" textLength="683.2" clip-path="url(#terminal-2470255665-line-10)">done&#160;·&#160;0.81s&#160;·&#160;2&#160;llm&#160;call(s)&#160;·&#160;1&#160;tool&#160;call(s)&#160;·&#160;1632&#160;tok</text><text class="terminal-2470255665-r2" x="1439.6" y="264" textLength="12.2" clip-path="url(#terminal-2470255665-line-10)">
+</text><text class="terminal-2470255665-r2" x="0" y="288.4" textLength="1366.4" clip-path="url(#terminal-2470255665-line-11)">Your&#160;hiking&#160;boots&#160;(A1002)&#160;are&#160;on&#160;the&#160;way&#160;with&#160;DHL&#160;and&#160;should&#160;arrive&#160;by&#160;2026-10-19.&#160;The&#160;tracking&#160;link&#160;is&#160;in&#160;your&#160;</text><text class="terminal-2470255665-r2" x="1439.6" y="288.4" textLength="12.2" clip-path="url(#terminal-2470255665-line-11)">
+</text><text class="terminal-2470255665-r2" x="0" y="312.8" textLength="341.6" clip-path="url(#terminal-2470255665-line-12)">shipping&#160;confirmation&#160;email.</text><text class="terminal-2470255665-r2" x="1439.6" y="312.8" textLength="12.2" clip-path="url(#terminal-2470255665-line-12)">
+</text><text class="terminal-2470255665-r2" x="1439.6" y="337.2" textLength="12.2" clip-path="url(#terminal-2470255665-line-13)">
+</text><text class="terminal-2470255665-r2" x="0" y="361.6" textLength="207.4" clip-path="url(#terminal-2470255665-line-14)">Trailhead&#160;Support</text><text class="terminal-2470255665-r2" x="1439.6" y="361.6" textLength="12.2" clip-path="url(#terminal-2470255665-line-14)">
+</text><text class="terminal-2470255665-r2" x="1439.6" y="386" textLength="12.2" clip-path="url(#terminal-2470255665-line-15)">
+</text><text class="terminal-2470255665-r6" x="0" y="410.4" textLength="207.4" clip-path="url(#terminal-2470255665-line-16)">■&#160;agent&#160;shut&#160;down</text><text class="terminal-2470255665-r2" x="1439.6" y="410.4" textLength="12.2" clip-path="url(#terminal-2470255665-line-16)">
+</text><text class="terminal-2470255665-r2" x="1439.6" y="434.8" textLength="12.2" clip-path="url(#terminal-2470255665-line-17)">
+</text><text class="terminal-2470255665-r1" x="0" y="459.2" textLength="158.6" clip-path="url(#terminal-2470255665-line-18)">promptise&#160;run</text><text class="terminal-2470255665-r2" x="158.6" y="459.2" textLength="36.6" clip-path="url(#terminal-2470255665-line-18)">&#160;·&#160;</text><text class="terminal-2470255665-r8" x="195.2" y="459.2" textLength="73.2" clip-path="url(#terminal-2470255665-line-18)">exit&#160;0</text><text class="terminal-2470255665-r2" x="268.4" y="459.2" textLength="439.2" clip-path="url(#terminal-2470255665-line-18)">&#160;·&#160;0.9s&#160;·&#160;2&#160;llm&#160;call(s)&#160;·&#160;1632&#160;tok&#160;(</text><text class="terminal-2470255665-r6" x="707.6" y="459.2" textLength="24.4" clip-path="url(#terminal-2470255665-line-18)">in</text><text class="terminal-2470255665-r2" x="732" y="459.2" textLength="73.2" clip-path="url(#terminal-2470255665-line-18)">&#160;1580&#160;</text><text class="terminal-2470255665-r6" x="805.2" y="459.2" textLength="36.6" clip-path="url(#terminal-2470255665-line-18)">out</text><text class="terminal-2470255665-r2" x="841.8" y="459.2" textLength="597.8" clip-path="url(#terminal-2470255665-line-18)">&#160;52)&#160;·&#160;1&#160;tool&#160;call(s)&#160;·&#160;0&#160;error(s)&#160;·&#160;cost&#160;$0.0005</text><text class="terminal-2470255665-r2" x="1439.6" y="459.2" textLength="12.2" clip-path="url(#terminal-2470255665-line-18)">
+</text><text class="terminal-2470255665-r1" x="0" y="483.6" textLength="61" clip-path="url(#terminal-2470255665-line-19)">agent</text><text class="terminal-2470255665-r1" x="85.4" y="483.6" textLength="122" clip-path="url(#terminal-2470255665-line-19)">model&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-2470255665-r1" x="231.8" y="483.6" textLength="109.8" clip-path="url(#terminal-2470255665-line-19)">llm&#160;calls</text><text class="terminal-2470255665-r1" x="366" y="483.6" textLength="73.2" clip-path="url(#terminal-2470255665-line-19)">tokens</text><text class="terminal-2470255665-r1" x="463.6" y="483.6" textLength="122" clip-path="url(#terminal-2470255665-line-19)">tool&#160;calls</text><text class="terminal-2470255665-r1" x="610" y="483.6" textLength="73.2" clip-path="url(#terminal-2470255665-line-19)">errors</text><text class="terminal-2470255665-r1" x="707.6" y="483.6" textLength="85.4" clip-path="url(#terminal-2470255665-line-19)">&#160;&#160;&#160;cost</text><text class="terminal-2470255665-r2" x="1439.6" y="483.6" textLength="12.2" clip-path="url(#terminal-2470255665-line-19)">
+</text><text class="terminal-2470255665-r2" x="0" y="508" textLength="793" clip-path="url(#terminal-2470255665-line-20)">agent&#160;&#160;gpt-5-mini&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;2&#160;&#160;&#160;&#160;1632&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;1&#160;&#160;&#160;&#160;&#160;&#160;&#160;0&#160;&#160;$0.0005</text><text class="terminal-2470255665-r2" x="1439.6" y="508" textLength="12.2" clip-path="url(#terminal-2470255665-line-20)">
+</text><text class="terminal-2470255665-r1" x="0" y="532.4" textLength="146.4" clip-path="url(#terminal-2470255665-line-21)">tool&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-2470255665-r1" x="170.8" y="532.4" textLength="61" clip-path="url(#terminal-2470255665-line-21)">calls</text><text class="terminal-2470255665-r1" x="256.2" y="532.4" textLength="73.2" clip-path="url(#terminal-2470255665-line-21)">errors</text><text class="terminal-2470255665-r1" x="353.8" y="532.4" textLength="73.2" clip-path="url(#terminal-2470255665-line-21)">avg&#160;ms</text><text class="terminal-2470255665-r2" x="1439.6" y="532.4" textLength="12.2" clip-path="url(#terminal-2470255665-line-21)">
+</text><text class="terminal-2470255665-r2" x="0" y="556.8" textLength="427" clip-path="url(#terminal-2470255665-line-22)">lookup_order&#160;&#160;&#160;&#160;&#160;&#160;1&#160;&#160;&#160;&#160;&#160;&#160;&#160;0&#160;&#160;&#160;&#160;&#160;&#160;&#160;2</text><text class="terminal-2470255665-r2" x="1439.6" y="556.8" textLength="12.2" clip-path="url(#terminal-2470255665-line-22)">
+</text><text class="terminal-2470255665-r6" x="0" y="581.2" textLength="390.4" clip-path="url(#terminal-2470255665-line-23)">report:&#160;.promptise/last-run.json</text><text class="terminal-2470255665-r2" x="1439.6" y="581.2" textLength="12.2" clip-path="url(#terminal-2470255665-line-23)">
+</text>
+    </g>
+    </g>
+</svg>

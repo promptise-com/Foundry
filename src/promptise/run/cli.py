@@ -714,7 +714,10 @@ def _run_here(
             try:
                 written = write_report(path, bus, extra={"project": manifest.project_name})
                 if devtools:
-                    err.print(f"[dim]report: {escape(str(written))}[/dim]")
+                    shown = os.path.relpath(written, os.environ.get("PROMPTISE_INIT_CWD", "."))
+                    if shown.startswith(".." + os.sep + ".."):
+                        shown = str(written)
+                    err.print(f"[dim]report: {escape(shown)}[/dim]")
             except OSError as exc:
                 err.print(f"[yellow]could not write the report {escape(str(path))}: {exc}[/yellow]")
         if log_bridge is not None:
@@ -835,7 +838,7 @@ async def _remote_chat(convo: Any, router: _CommandRouter) -> int:
     convo.bus.publish("state", state="idle", detail="ready")
 
     async def do_turn(text: str, turn_id: str) -> None:
-        convo.bus.publish("state", state="busy", detail=turn_id)
+        convo.bus.publish("state", state="busy", detail="")
         try:
             await convo.turn(text, turn_id=turn_id)
         finally:

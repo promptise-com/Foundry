@@ -102,6 +102,8 @@ promptise run --prod              # JSON logs, preflight checks, graceful SIGTER
 
 `[scripts]` work like npm scripts (`promptise run dev`), and `--watch` restarts on every save. → [Projects & promptise run](https://docs.promptise.com/core/projects/)
 
+<img alt="promptise run --tui: the chat with an agent, its tool calls inline, and live tokens and cost in the header" src="https://raw.githubusercontent.com/promptise-com/foundry/main/docs/assets/run/tui-chat-approved.svg" width="100%">
+
 <br/>
 
 ## One request, through the whole system

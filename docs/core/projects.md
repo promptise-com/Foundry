@@ -517,6 +517,11 @@ promptise run --devtools     # or -d
 
 When the run ends, a summary table lists the totals per agent, per model and per tool: LLM calls, tokens, tool calls, errors, latency and cost.
 
+<figure markdown>
+  <img class="screenshot" src="../../assets/run/devtools.svg" alt="promptise run --devtools on the support bot example: the agent is built, the LLM asks for lookup_order, the tool returns the order, the answer is printed, and the summary lists 2 LLM calls, 1,632 tokens and a cost of $0.0005." />
+  <figcaption><code>promptise run --devtools</code> on the support bot example. The trace goes to stderr; the program's answer is its own output.</figcaption>
+</figure>
+
 | Setting | Effect |
 |---|---|
 | `[dev] observe` / `--observe LEVEL` | How much is recorded: `basic`, `standard` or `full` (default). |
@@ -553,6 +558,11 @@ promptise run ui         # the `ui` script of a new project
 
 In script mode, the first tab is a console: it shows the program's output, and a line you type is sent to the program's standard input. In the agent modes (`--mode chat`, `--serve`), the first tab is a chat with the agent.
 
+<figure markdown>
+  <img class="screenshot" src="../../assets/run/tui-chat-approved.svg" alt="The Chat tab: three support tickets, each answer with the tool calls it made inline (lookup_order, search_help_center, open_ticket), their arguments, results and timings. The header shows 7 LLM calls, 6,188 tokens and a cost of $0.0019." />
+  <figcaption>The Chat tab of the support bot example (<code>promptise run --tui --mode chat</code>). Tool calls show inline, with their arguments, results and timings.</figcaption>
+</figure>
+
 | Key | Tab | Shows |
 |---|---|---|
 | `1` | Console / Chat | The program's output and input, or the chat with the agent (streamed answers, tool calls inline) |
@@ -577,6 +587,37 @@ In script mode, the first tab is a console: it shows the program's output, and a
 | `l` | Logs tab: filter by level |
 | `?` | Help |
 | `q`, Ctrl+C | Quit |
+
+
+<figure markdown>
+  <img class="screenshot" src="../../assets/run/tui-trace.svg" alt="The Trace tab: every timeline entry with time, agent, event type, latency, tokens and details, and the full entry as JSON beside it." />
+  <figcaption>Trace: every LLM call and tool call of every agent, with the full entry beside the table.</figcaption>
+</figure>
+
+<figure markdown>
+  <img class="screenshot" src="../../assets/run/tui-tools.svg" alt="The Tools tab: each tool call with status, latency and arguments, the selected call's arguments and result, and the tools each agent has." />
+  <figcaption>Tools: every call with its arguments and result, and the tools each agent can use.</figcaption>
+</figure>
+
+<figure markdown>
+  <img class="screenshot" src="../../assets/run/tui-metrics.svg" alt="The Metrics tab: LLM calls, prompt and completion tokens, cost, tool calls, errors, latency p50 and p95, tokens per LLM call as a chart, and tables per agent, model and tool." />
+  <figcaption>Metrics: totals, latency, tokens per call, and the breakdown per agent, model and tool.</figcaption>
+</figure>
+
+<figure markdown>
+  <img class="screenshot" src="../../assets/run/tui-approvals.svg" alt="The Approvals tab: open_ticket is waiting for a decision, with the time left, its arguments (the email redacted) and the conversation that led to it; a approves, d denies." />
+  <figcaption>Approvals: a tool call waiting for a person. <code>a</code> approves, <code>d</code> denies. Personal data in the arguments is redacted.</figcaption>
+</figure>
+
+<figure markdown>
+  <img class="screenshot" src="../../assets/run/tui-agents.svg" alt="The Agents tab: the agent's model, observability level, features such as approval, its tools and its instructions." />
+  <figcaption>Agents: what each agent was built with.</figcaption>
+</figure>
+
+<figure markdown>
+  <img class="screenshot" src="../../assets/run/tui-run.svg" alt="The Run tab: project, entry, mode, process, Python and Promptise versions, flags, environment variables (set or missing, never their values), scripts and the manifest." />
+  <figcaption>Run: the project, the process, the environment (names only) and the manifest.</figcaption>
+</figure>
 
 The Approvals tab answers requests from agents whose approval policy uses a `QueueApprovalHandler`. Other handlers (webhooks, callbacks) already have someone answering them and are left alone. See [Approval (HITL)](approval.md).
 
