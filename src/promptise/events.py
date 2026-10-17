@@ -655,6 +655,38 @@ class EventNotifier:
         """Whether delivery tasks are running."""
         return self._started
 
+    def add_sink(self, sink: EventSink) -> None:
+        """Add *sink*; from now on it receives every event too.
+
+        Idempotent (a sink already added is not added twice).  When the
+        notifier is running, the new sink's delivery task starts at once on
+        the notifier's loop.  Events emitted before the call are not replayed
+        to it.
+        """
+        if any(existing is sink for existing in self._sinks):
+            return
+        self._sinks.append(sink)
+        self._queues.append(asyncio.Queue(maxsize=self._max_queue_size))
+        self._in_flight.append(None)
+        index = len(self._sinks) - 1
+        loop = self._loop
+        if not self._started or loop is None or loop.is_closed():
+            return
+
+        def _start_worker() -> None:
+            if self._started and index < len(self._sinks):
+                self._workers.append(
+                    loop.create_task(
+                        self._worker(index),
+                        name=f"promptise-events-{type(sink).__name__}-{index}",
+                    )
+                )
+
+        if _running_loop() is loop:
+            _start_worker()
+        else:
+            loop.call_soon_threadsafe(_start_worker)
+
     # -- lifecycle ------------------------------------------------------
 
     async def start(self) -> None:

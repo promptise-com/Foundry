@@ -1,0 +1,41 @@
+# The support bot's manifest: how `promptise run` runs this project.
+# Reference: https://docs.promptise.com/core/projects/
+
+name = "support-bot"
+version = "0.1.0"
+description = "Answers customer support tickets for a small online shop"
+main = "main.py"                    # the program `promptise run` runs
+agent = "agent.py:create_agent"     # the agent factory for --serve, -i and chat mode
+
+[scripts]                           # `promptise run <name> [args]`, like `npm run`
+dev = "promptise run --devtools --watch"
+ui = "promptise run --tui"
+chat = "promptise run --tui --mode chat"
+start = "promptise run --prod"
+serve = "promptise run --serve"
+check = "promptise run --prod --check"
+
+[env]
+files = [".env"]                    # loaded in order; never overrides a variable already set
+required = ["OPENAI_API_KEY"]
+vars = { SUPPORT_BOT_MODEL = "openai:gpt-5-mini" }   # a default; set the variable to change it
+
+[dev]                               # with --devtools, --tui and --watch
+observe = "full"
+watch = ["."]
+report = ".promptise/last-run.json" # a JSON run report, written on exit
+
+[prod]                              # with --prod
+log_format = "json"
+log_level = "INFO"
+shutdown_timeout = 20
+
+[serve]                             # with --serve
+host = "127.0.0.1"
+port = 8080
+max_concurrency = 4
+
+# USD per 1M tokens, for the cost estimates in --devtools and --tui.
+# Check your provider's current prices before you rely on these numbers.
+[pricing]
+"gpt-5-mini*" = { input = 0.25, output = 2.0 }

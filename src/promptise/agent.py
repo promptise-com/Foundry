@@ -21,6 +21,7 @@ from pydantic import PrivateAttr, ValidationError
 
 from promptise.engine import PromptGraph, PromptGraphEngine
 
+from . import _harness
 from .config import HTTPServerSpec, ServerSpec
 from .cross_agent import DEFAULT_MAX_DELEGATION_DEPTH, CrossAgent, make_cross_agent_tools
 from .identity import AgentIdentity, IdentityError
@@ -367,6 +368,11 @@ class PromptiseAgent:
         # Resolved attribution id (the agent's identifier, computed once by
         # build_agent). Used to attribute event notifications to the agent.
         self._actor_id: str | None = None
+
+        # The `promptise run` harness that instrumented this agent (set by
+        # build_agent; told about shutdown).  Set here so __getattr__ does
+        # not forward the lookup to the inner graph.
+        self._run_harness: Any | None = None
 
         # Peer agents built for this agent (a .superagent team); shut down
         # with it.
@@ -1696,6 +1702,13 @@ class PromptiseAgent:
                 await peer.shutdown()
             except Exception:
                 logger.debug("Peer agent shutdown error", exc_info=True)
+
+        if self._run_harness is not None:
+            harness, self._run_harness = self._run_harness, None
+            try:
+                harness.agent_closed(self)
+            except Exception:
+                logger.debug("promptise run harness error during shutdown", exc_info=True)
 
     # -----------------------------------------------------------------
     # Observability accessors
@@ -3252,6 +3265,23 @@ async def build_agent(
     """
     if model is None:  # Defensive check; CLI/code must always pass a model now.
         raise ValueError("A model is required. Provide a model instance or a provider id string.")
+    # Under `promptise run`, the run may observe this agent and swap its model;
+    # outside it no harness is installed and nothing changes.
+    _run_harness = _harness.current()
+    if _run_harness is not None:
+        _ov = _run_harness.build_overrides(
+            {
+                "model": model,
+                "observe": observe,
+                "observer_agent_id": observer_agent_id,
+                "events": events,
+                "identity": identity,
+            }
+        )
+        model = _ov["model"]
+        observe = _ov["observe"]
+        observer_agent_id = _ov["observer_agent_id"]
+        events = _ov["events"]
     # A cache that cannot run fails the build, before any server is connected,
     # instead of warning on every request while caching nothing.
     if cache is not None and hasattr(cache, "check_dependencies"):
@@ -4082,6 +4112,10 @@ async def build_agent(
         agent._sandbox_session = sandbox_session
     if sandbox_manager is not None:
         agent._sandbox_manager = sandbox_manager
+
+    if _run_harness is not None:
+        agent._run_harness = _run_harness
+        _run_harness.agent_built(agent)
 
     return agent
 

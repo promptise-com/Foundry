@@ -87,6 +87,23 @@ One call. The agent discovers its tools on the MCP server by itself; memory, gua
 
 <br/>
 
+## Run your project
+
+`promptise.toml` is to an agent project what `package.json` is to a Node project: it names the `main` file, the scripts and the environment the project needs. `promptise run` runs your program like `python main.py`; with dev tools, the terminal UI or the HTTP API it also instruments every agent the program builds, with no code changes.
+
+```bash
+promptise init --project my-bot   # promptise.toml, agent.py, main.py, .env.example
+promptise run                     # run main.py with the project's environment
+promptise run --devtools          # live traces, tool calls, tokens and cost
+promptise run --tui               # the full terminal UI
+promptise run --serve             # an HTTP API for your agent
+promptise run --prod              # JSON logs, preflight checks, graceful SIGTERM
+```
+
+`[scripts]` work like npm scripts (`promptise run dev`), and `--watch` restarts on every save. → [Projects & promptise run](https://docs.promptise.com/core/projects/)
+
+<br/>
+
 ## One request, through the whole system
 
 A customer writes in at three in the morning. The runtime wakes the agent, its identity is established, the input is checked, it gathers context, plans, calls a tool through MCP, a person approves the refund, it checks its own work, answers, and every step lands in the audit trail.

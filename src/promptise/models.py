@@ -76,6 +76,7 @@ __all__ = [
     "env_template",
     "find_provider",
     "load_dotenv_if_present",
+    "load_env_file",
     "parse_model",
     "resolve_model",
 ]
@@ -220,6 +221,36 @@ def load_dotenv_if_present(*, cwd: str | os.PathLike[str] | None = None) -> str 
         if any(os.path.exists(os.path.join(directory, m)) for m in _PROJECT_ROOT_MARKERS):
             break  # the project root: a .env above it is not this project's
     return None
+
+
+def load_env_file(path: str | os.PathLike[str]) -> list[str]:
+    """Load one ``.env``-style file at *path*; return the names of the variables it set.
+
+    The same rules as :func:`load_dotenv_if_present`: a variable that already
+    holds a non-empty value is never overwritten, the file must be a regular
+    file (on POSIX owned by you and not world-writable), and nothing is loaded
+    when ``PROMPTISE_NO_DOTENV=1``.  A missing file loads nothing.  Used by
+    ``promptise run`` for the files a project's manifest lists.
+
+    Raises:
+        ModelSetupError: When the file is unsafe, cannot be read, or is not UTF-8.
+    """
+    if os.environ.get("PROMPTISE_NO_DOTENV"):
+        return []
+    candidate = Path(path).absolute()
+    st = _stat_dotenv(candidate)
+    if st is None:
+        return []
+    problem = _unsafe_dotenv(candidate, st)
+    if problem is not None:
+        raise ModelSetupError(f"refusing to load {candidate}: {problem} ({_DOTENV_FIX})")
+    loaded: list[str] = []
+    for key, value in _read_dotenv(str(candidate)).items():
+        if value and not os.environ.get(key):
+            os.environ[key] = value
+            _dotenv_filled[key] = (str(candidate), value)
+            loaded.append(key)
+    return loaded
 
 
 def dotenv_origin(name: str) -> str | None:

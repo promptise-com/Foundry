@@ -1,6 +1,6 @@
 # CLI Reference
 
-The `promptise` CLI provides commands for listing tools, running interactive agent sessions, serving an MCP server from a module (`serve`), turning an existing API into an MCP server (`mcpcast`), checking model providers (`models`), verifying audit logs (`audit verify`), and managing runtime processes.
+The `promptise` CLI provides commands for running your project (`run`), creating one (`init --project`), listing tools, running interactive agent sessions, serving an MCP server from a module (`serve`), turning an existing API into an MCP server (`mcpcast`), checking model providers (`models`), verifying audit logs (`audit verify`), and managing runtime processes.
 
 ```bash
 promptise --version
@@ -71,16 +71,63 @@ Repeat `--stdio` or `--http` for multiple servers.
 
 ---
 
-## `promptise run` -- Interactive REPL Session
+## `promptise run` -- Run Your Project
 
-Start an interactive REPL session with inline MCP server specs (no `.superagent` file needed).
+Run your project's program, like `npm start`. The project is described by `promptise.toml` (or `[tool.promptise]` in `pyproject.toml`), found from the current directory upwards. `promptise run` runs the manifest's `main` file as a normal Python program and instruments every agent it builds, with no changes to your code. See [Projects & promptise run](projects.md) for the manifest and every mode.
+
+```bash
+promptise run [TARGET] [ARGS]... [OPTIONS]
+```
+
+```bash
+promptise run                          # run `main`, like `python main.py`
+promptise run main.py "a question"     # pass arguments to the program
+promptise run dev                      # a script from [scripts], like `npm run dev`
+promptise run --devtools               # live traces, tool calls, tokens and cost
+promptise run --tui                    # the full terminal UI
+promptise run --watch                  # restart on file changes
+promptise run --prod                   # JSON logs, preflight checks, graceful SIGTERM
+promptise run --serve                  # an HTTP API for the agent factory
+promptise run -i "a question"          # ask the agent factory one question
+promptise run agent.py:create_agent    # chat with the agent a factory builds
+promptise run --list                   # list the scripts
+```
+
+`TARGET` is a script name from `[scripts]`, a `.py` file, `file.py:factory` or `package.module:factory`. Without one, `promptise run` runs the manifest's `main`. `ARGS` become the program's `sys.argv[1:]`, or are appended to a script's command; put `--` before arguments that look like options.
+
+### Options
+
+| Flag | Description |
+|---|---|
+| `-d`, `--devtools` | Live trace of every agent on stderr, and a summary at the end |
+| `-t`, `-tui`, `--tui` | Open the terminal UI |
+| `-w`, `--watch` | Restart the program when a project file changes |
+| `--prod` | Production behavior: JSON logs on stderr, preflight checks, graceful SIGTERM |
+| `--check` | Check the project and the entry, then exit (0 ready, 2 not ready) |
+| `--mode` | `auto` (default), `script`, `chat`, `once` or `serve` |
+| `--serve` | Serve the agent factory over HTTP (`--mode serve`) |
+| `-i`, `--input` | Ask the agent factory one question and print the answer (`-` reads stdin) |
+| `--json` | With `-i`: print the answer and stats as JSON |
+| `--host` | Serve mode: the address (default from `[serve] host`, `127.0.0.1`) |
+| `-p`, `--port` | Serve mode: the port (default from `[serve] port`, `8080`) |
+| `--env-file` | Load this `.env`-style file before the manifest's `[env] files` (repeatable) |
+| `-e`, `--env` | Set a variable for this run, `K=V`, overriding the environment (repeatable) |
+| `--model` | Use this model for every agent the program builds |
+| `--observe` | Recording level: `off`, `basic`, `standard` or `full` |
+| `--report` | Write a JSON run report to this path on exit |
+| `--list` | List the scripts in the manifest |
+| `-f`, `--manifest` | Use this manifest instead of searching for one |
+
+Exit codes: `0` success, `1` runtime error, `2` configuration or usage error (also a failed `--check`), `130` interrupted with Ctrl+C, `143` stopped by SIGTERM (a script under `--prod`). `--prod` cannot be combined with `--tui` or `--watch`.
+
+### Inline REPL (`--model-id`)
+
+The inline REPL from earlier versions works unchanged. Any of its flags selects it: start an interactive session with inline MCP server specs, with no project and no `.superagent` file.
 
 ```bash
 promptise run --model-id openai:gpt-5-mini \
     --http "name=tools url=http://localhost:8000/mcp"
 ```
-
-### Options
 
 | Flag | Description |
 |---|---|
@@ -90,6 +137,8 @@ promptise run --model-id openai:gpt-5-mini \
 | `--instructions` | Optional system prompt override |
 | `--trace/--no-trace` | Print tool invocations and results (default: `--trace`) |
 | `--raw/--no-raw` | Also print raw result object (default: `--no-raw`) |
+
+To move an inline session into a project, see [Migrating from `promptise run --model-id`](projects.md#migrating-from-promptise-run-model-id).
 
 ---
 
@@ -147,9 +196,42 @@ Performs YAML syntax checks, schema validation, environment variable availabilit
 
 ---
 
-## `promptise init` -- Generate Template .superagent File
+## `promptise init` -- Generate a Template or a Project
 
-Create a starter `.superagent` configuration file with common patterns.
+### `promptise init --project` -- Create a Project
+
+Create a new project for [`promptise run`](projects.md): a manifest, an agent factory and a program that uses it.
+
+```bash
+promptise init --project [DIR] [--name NAME] [--model MODEL] [--force]
+```
+
+```bash
+# A project in a new directory
+promptise init --project my-bot
+
+# The current directory, with an Anthropic model
+promptise init --project --model anthropic:claude-sonnet-4-5
+
+# Then
+cd my-bot
+cp .env.example .env    # set the API key
+promptise run
+```
+
+It writes `promptise.toml`, `agent.py` (the `create_agent` factory, with one local tool), `main.py` (a normal script that asks the agent one question), `.env.example` and `README.md`, and adds `.env`, `.promptise/` and `__pycache__/` to `.gitignore` without duplicating lines. Existing files are never overwritten without `--force`: every conflict is listed and nothing is written. Nothing is fetched from the network.
+
+| Flag | Description |
+|---|---|
+| `DIR` | Where to create the project (default: the current directory; created if missing) |
+| `--project` | Create a project instead of a `.superagent` file |
+| `--name` | The project name (default: the directory's name) |
+| `--model` | The model string (default: `openai:gpt-5-mini`). Also sets `[env] required` to that provider's API key |
+| `--force` | Overwrite existing files |
+
+### `promptise init` -- Generate a .superagent File
+
+Without `--project`, create a starter `.superagent` configuration file with common patterns.
 
 ```bash
 # Basic template
@@ -161,8 +243,6 @@ promptise init --output api_agent.superagent --template http
 # Full-featured template
 promptise init -o advanced.superagent -t advanced --force
 ```
-
-### Options
 
 | Flag | Description |
 |---|---|
@@ -525,6 +605,23 @@ promptise runtime init --template cron -o watcher.agent --force
 
 ## Common Workflows
 
+### Start a Project and Run It
+
+```bash
+# 1. Create the project: promptise.toml, agent.py, main.py, .env.example, README.md
+promptise init --project my-bot && cd my-bot
+
+# 2. Set the API key
+cp .env.example .env
+
+# 3. Develop with live traces, restarting on every save
+promptise run dev
+
+# 4. Check it and run it the way production will
+promptise run --prod --check
+promptise run --prod --serve
+```
+
 ### Develop and Test an Agent Process
 
 ```bash
@@ -602,6 +699,7 @@ promptise agent config.superagent
 
 ## What's Next?
 
+- [Projects & promptise run](projects.md) -- the manifest, scripts, dev tools, the TUI, production and serve mode
 - [Agent Runtime Overview](../runtime/index.md) -- architecture and lifecycle concepts
 - [Agent Manifests](../runtime/manifests.md) -- `.agent` YAML format reference
 - [Observability](observability.md) -- `--observe` flag and observability

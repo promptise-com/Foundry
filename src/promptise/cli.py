@@ -246,18 +246,115 @@ def list_tools(
     asyncio.run(_run())
 
 
-@app.command()
+_RUN_HELP = """Run your project, a Python file, or an agent factory.
+
+\b
+  promptise run                  run the project's main file (promptise.toml)
+  promptise run main.py [ARGS]   run a file like `python main.py`
+  promptise run dev              run a script from \\[scripts], like `npm run dev`
+  promptise run agent.py:create_agent   chat with the agent a factory builds
+  promptise run --devtools       live traces, tool calls, tokens, cost, summary
+  promptise run --tui            the full terminal UI (also -t / -tui)
+  promptise run --watch          restart when files change
+  promptise run --prod           JSON logs, preflight checks, graceful SIGTERM
+  promptise run --serve          HTTP API for the agent factory
+  promptise run -i "question"    ask once and print the answer
+
+Arguments after the target go to the program (use -- before flags meant for it).
+The old form `promptise run --model-id MODEL [--stdio ...] [--http ...]` still
+starts the inline MCP chat."""
+
+
+@app.command(
+    help=_RUN_HELP,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 def run(
-    model_id: Annotated[
+    target: Annotated[
+        str | None,
+        typer.Argument(
+            help="A script name from \\[scripts], a .py file, file.py:factory or "
+            "package.module:factory. Default: the manifest's main.",
+            show_default=False,
+        ),
+    ] = None,
+    args: Annotated[
+        list[str] | None,
+        typer.Argument(help="Arguments for the program (sys.argv[1:]).", show_default=False),
+    ] = None,
+    devtools: Annotated[
+        bool, typer.Option("--devtools", "-d", help="Live traces, tool calls, tokens and cost.")
+    ] = False,
+    tui: Annotated[
+        bool, typer.Option("--tui", "-t", "-tui", help="Open the full terminal UI.")
+    ] = False,
+    prod: Annotated[
+        bool, typer.Option("--prod", help="Production: JSON logs, preflight, graceful SIGTERM.")
+    ] = False,
+    watch: Annotated[
+        bool, typer.Option("--watch", "-w", help="Restart when project files change.")
+    ] = False,
+    mode: Annotated[
         str,
-        typer.Option(..., help="REQUIRED model provider id (e.g., 'openai:gpt-4.1')."),
-    ],
+        typer.Option("--mode", help="auto, script, chat, once or serve."),
+    ] = "auto",
+    serve_api: Annotated[
+        bool, typer.Option("--serve", help="Serve the agent factory over HTTP.")
+    ] = False,
+    input_text: Annotated[
+        str | None,
+        typer.Option("--input", "-i", help="Ask once and print the answer ('-' reads stdin)."),
+    ] = None,
+    json_output: Annotated[
+        bool, typer.Option("--json", help="With --input: print the answer and usage as JSON.")
+    ] = False,
+    host: Annotated[str | None, typer.Option("--host", help="Serve: the address to bind.")] = None,
+    port: Annotated[int | None, typer.Option("--port", "-p", help="Serve: the port.")] = None,
+    env_file: Annotated[
+        list[str] | None,
+        typer.Option("--env-file", help="Load this .env file first (repeatable)."),
+    ] = None,
+    env: Annotated[
+        list[str] | None,
+        typer.Option("--env", "-e", help="Set KEY=VALUE for the program (repeatable)."),
+    ] = None,
+    model: Annotated[
+        str | None,
+        typer.Option("--model", help="Use this model for every agent the program builds."),
+    ] = None,
+    observe: Annotated[
+        str | None,
+        typer.Option("--observe", help="Record agents at this level: off, basic, standard, full."),
+    ] = None,
+    report: Annotated[
+        str | None, typer.Option("--report", help="Write a JSON run report to this path.")
+    ] = None,
+    check: Annotated[
+        bool, typer.Option("--check", help="Check the project and the entry, then exit.")
+    ] = False,
+    list_scripts: Annotated[
+        bool, typer.Option("--list", help="List the project's scripts.")
+    ] = False,
+    manifest: Annotated[
+        str | None,
+        typer.Option(
+            "--manifest", "-f", help="The manifest to use (promptise.toml or pyproject.toml)."
+        ),
+    ] = None,
+    # The inline MCP chat (the original `promptise run`).
+    model_id: Annotated[
+        str | None,
+        typer.Option(
+            "--model-id",
+            help="Start the inline MCP chat with this model (e.g. 'openai:gpt-4.1').",
+        ),
+    ] = None,
     stdio: Annotated[
         list[str] | None,
         typer.Option(
             "--stdio",
             help=(
-                "Block string: \"name=... command=... args='...' "
+                "Inline chat: block string \"name=... command=... args='...' "
                 '[env.X=Y] [cwd=...] [keep_alive=true|false]". Repeatable.'
             ),
         ),
@@ -267,26 +364,82 @@ def run(
         typer.Option(
             "--http",
             help=(
-                'Block string: "name=... url=... [transport=http|streamable-http|sse] '
+                'Inline chat: block string "name=... url=... [transport=http|streamable-http|sse] '
                 '[header.X=Y] [bearer_token=...] [api_key=...]". Repeatable.'
             ),
         ),
     ] = None,
     instructions: Annotated[
         str,
-        typer.Option("--instructions", help="Optional system prompt override."),
+        typer.Option("--instructions", help="Inline chat: system prompt override."),
     ] = "",
     # IMPORTANT: don't duplicate defaults in Option() and the parameter!
     trace: Annotated[
         bool,
-        typer.Option("--trace/--no-trace", help="Print tool invocations & results."),
+        typer.Option("--trace/--no-trace", help="Inline chat: print tool invocations & results."),
     ] = True,
     raw: Annotated[
         bool,
-        typer.Option("--raw/--no-raw", help="Also print raw result object."),
+        typer.Option("--raw/--no-raw", help="Inline chat: also print the raw result object."),
     ] = False,
 ) -> None:
-    """Start an interactive agent that uses only MCP tools."""
+    if model_id is None:
+        if stdio or http or instructions:
+            console.print(
+                "[red]--stdio, --http and --instructions belong to the inline chat: "
+                "add --model-id MODEL[/red]"
+            )
+            raise typer.Exit(2)
+        from .run.cli import RunOptions, run_command
+
+        code = run_command(
+            RunOptions(
+                target=target,
+                args=list(args or []),
+                manifest=manifest,
+                devtools=devtools,
+                tui=tui,
+                prod=prod,
+                watch=watch,
+                mode=mode,
+                serve=serve_api,
+                input=input_text,
+                json_output=json_output,
+                host=host,
+                port=port,
+                env_files=list(env_file or []),
+                env=list(env or []),
+                model=model,
+                observe=observe,
+                report=report,
+                check=check,
+                list_scripts=list_scripts,
+            )
+        )
+        raise typer.Exit(code)
+    if target is not None or args:
+        console.print("[red]--model-id starts the inline chat; it takes no target file[/red]")
+        raise typer.Exit(2)
+    _inline_chat(
+        model_id=model_id,
+        stdio=stdio,
+        http=http,
+        instructions=instructions,
+        trace=trace,
+        raw=raw,
+    )
+
+
+def _inline_chat(
+    *,
+    model_id: str,
+    stdio: list[str] | None,
+    http: list[str] | None,
+    instructions: str,
+    trace: bool,
+    raw: bool,
+) -> None:
+    """The original `promptise run --model-id`: an interactive agent that uses only MCP tools."""
     servers = _merge_servers(stdio or [], http or [])
 
     async def _chat() -> None:
@@ -733,10 +886,34 @@ def init(
         bool,
         typer.Option("--force/--no-force", help="Overwrite existing file"),
     ] = False,
+    project: Annotated[
+        bool,
+        typer.Option(
+            "--project",
+            help="Create a promptise run project (promptise.toml, agent.py, main.py) instead.",
+        ),
+    ] = False,
+    directory: Annotated[
+        str | None,
+        typer.Argument(
+            help="With --project: the project directory (default: here).", show_default=False
+        ),
+    ] = None,
+    name: Annotated[
+        str | None,
+        typer.Option("--name", help="With --project: the project name (default: the directory's)."),
+    ] = None,
+    model: Annotated[
+        str,
+        typer.Option("--model", help="With --project: the model the agent uses."),
+    ] = "openai:gpt-5-mini",
 ) -> None:
-    """Generate a template .superagent configuration file.
+    """Generate a template .superagent file, or a new project with --project.
 
     Creates a starter .superagent file with common patterns and best practices.
+    With ``--project [DIR]`` it creates a project for ``promptise run`` instead:
+    ``promptise.toml`` (like package.json), an agent factory, a main script,
+    ``.env.example`` and a README.
 
     Templates:
       basic       - Minimal HTTP server configuration
@@ -746,11 +923,37 @@ def init(
       advanced    - Full-featured example with all options
 
     Examples:
+        promptise init --project my-bot
         promptise init
         promptise init --output my_agent.superagent --template http
         promptise init -o advanced.superagent -t advanced --force
     """
     from pathlib import Path
+
+    if project:
+        from .run.scaffold import scaffold_project
+
+        target = Path(directory or ".")
+        try:
+            created = scaffold_project(target, name=name, model=model, force=force)
+        except (FileExistsError, NotADirectoryError) as exc:
+            console.print(f"[yellow]{escape(str(exc))}[/yellow]")
+            console.print("Use --force to overwrite")
+            raise typer.Exit(1) from None
+        for path in created:
+            console.print(f"[green]✓[/green] {escape(str(path))}")
+        where = "" if target == Path(".") else f"cd {target} && "
+        console.print(
+            f"\n[bold]Next:[/bold] {escape(where)}cp .env.example .env  (add your key), then\n"
+            "  promptise run            run main.py\n"
+            "  promptise run dev        dev tools + restart on change\n"
+            "  promptise run --tui      the terminal UI\n"
+            "  promptise run --serve    an HTTP API for the agent"
+        )
+        return
+    if directory is not None or name is not None:
+        console.print("[red]A directory and --name need --project[/red]")
+        raise typer.Exit(2)
 
     output_path = Path(output)
 

@@ -194,6 +194,7 @@ nav:
           - Tools & Schema Helpers: core/tools.md
           - Environment Resolver: core/env-resolver.md
           - Exceptions: core/exceptions.md
+      - "Projects & promptise run": core/projects.md
       - CLI Reference: core/cli.md
 
   - Reasoning Graph:
