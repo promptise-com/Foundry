@@ -23,6 +23,11 @@ class TestShellInterpolationDisabledByDefault:
         assert "!`whoami`" in out
 
 
+# These tests check what a command returns, not how fast: a loaded Windows
+# runner can take seconds just to start cmd.exe.
+_GENEROUS = 30.0
+
+
 class TestShellInterpolationOptIn:
     def test_explicit_executor_runs_command(self):
         engine = TemplateEngine(
@@ -32,17 +37,17 @@ class TestShellInterpolationOptIn:
         assert out == "Today is <date>. Branch: <git branch>."
 
     def test_subprocess_executor_basic_echo(self):
-        engine = TemplateEngine(shell_executor=SubprocessShellExecutor(timeout=2.0))
+        engine = TemplateEngine(shell_executor=SubprocessShellExecutor(timeout=_GENEROUS))
         out = engine.render("hello !`echo world`", {})
         assert out == "hello world"
 
     def test_subprocess_executor_multiple_commands(self):
-        engine = TemplateEngine(shell_executor=SubprocessShellExecutor(timeout=2.0))
+        engine = TemplateEngine(shell_executor=SubprocessShellExecutor(timeout=_GENEROUS))
         out = engine.render("a=!`echo 1`, b=!`echo 2`", {})
         assert out == "a=1, b=2"
 
     def test_subprocess_executor_failure_raises(self):
-        engine = TemplateEngine(shell_executor=SubprocessShellExecutor(timeout=2.0))
+        engine = TemplateEngine(shell_executor=SubprocessShellExecutor(timeout=_GENEROUS))
         with pytest.raises(ShellExecutionError, match="exited"):
             engine.render("oops: !`false`", {})
 
