@@ -57,12 +57,31 @@ def _no_animations(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(constants, "TEXTUAL_ANIMATIONS", "none")
 
 
-async def settle(pilot: Any) -> None:
-    """Let the workers move commands and events, apply them now, and let the UI draw."""
+def in_flight(app: RunTUI) -> bool:
+    """A command waits to be sent, or an event the fake emitted is not applied yet."""
+    source = app.source
+    assert isinstance(source, FakeRunSource)
+    unread = not app.stream_ended and (
+        not source._waiters or any(not queue.empty() for queue in source._waiters)
+    )
+    return unread or app.pending_events > 0 or not app._outbox.empty()
+
+
+async def settle(pilot: Any, timeout: float = 10.0) -> None:
+    """Let the workers move commands and events, apply them all now, and let the UI draw.
+
+    The event worker hands events over 500 per loop turn, so on a slow or busy
+    runner a burst takes more than a few turns: flush until nothing is in flight.
+    """
     app: RunTUI = pilot.app
-    for _ in range(3):
+    deadline = time.monotonic() + timeout
+    turns = 0
+    while turns < 3 or in_flight(app):
+        if time.monotonic() > deadline:
+            pytest.fail(f"still in flight after {timeout}s ({app.pending_events} events queued)")
         await asyncio.sleep(0.01)
         app.flush_events()
+        turns += 1
     await pilot.pause()
 
 
