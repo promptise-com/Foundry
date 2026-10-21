@@ -547,10 +547,22 @@ def _late_pipes_source(
             if stream is not None and delay:
                 loop = asyncio.get_running_loop()
                 feed_data, feed_eof = stream.feed_data, stream.feed_eof
-                monkeypatch.setattr(
-                    stream, "feed_data", lambda data: loop.call_later(delay, feed_data, data)
-                )
-                monkeypatch.setattr(stream, "feed_eof", lambda: loop.call_later(delay, feed_eof))
+                # Hand chunks over strictly in arrival order. Timers that are due
+                # at the same moment can fire in any order, and on Windows the
+                # clock ticks every ~15 ms, so "hello" and the "\r\n" written
+                # right after it would otherwise swap now and then.
+                late: list[Any] = []
+
+                def hand_over() -> None:
+                    feed, *data = late.pop(0)
+                    feed(*data)
+
+                def later(feed: Any, *data: bytes) -> None:
+                    late.append((feed, *data))
+                    loop.call_later(delay, hand_over)
+
+                monkeypatch.setattr(stream, "feed_data", lambda data: later(feed_data, data))
+                monkeypatch.setattr(stream, "feed_eof", lambda: later(feed_eof))
             await super()._pump(stream, name)
 
     for key, value in _env().items():
