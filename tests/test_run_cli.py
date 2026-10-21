@@ -531,29 +531,49 @@ def test_serve_over_http(project: Path) -> None:
     assert proc.returncode == 0
 
 
-async def test_child_source_feeds_stdin_and_shows_prompts(project: Path) -> None:
+def _late_pipes_source(
+    args: list[str], project: Path, delay: float, monkeypatch: pytest.MonkeyPatch
+) -> Any:
+    """A ``ChildRunSource`` whose pipes hand over what the child prints *delay* late.
+
+    As on a busy machine, the child's run events (over its channel) then get
+    to the parent before the lines it printed last (over the pipes).  The
+    environment stays set for the test, so a restart's child gets it too.
+    """
     from promptise.run.supervisor import ChildRunSource
 
+    class LatePipes(ChildRunSource):
+        async def _pump(self, stream: asyncio.StreamReader | None, name: str) -> None:
+            if stream is not None and delay:
+                loop = asyncio.get_running_loop()
+                feed_data, feed_eof = stream.feed_data, stream.feed_eof
+                monkeypatch.setattr(
+                    stream, "feed_data", lambda data: loop.call_later(delay, feed_data, data)
+                )
+                monkeypatch.setattr(stream, "feed_eof", lambda: loop.call_later(delay, feed_eof))
+            await super()._pump(stream, name)
+
+    for key, value in _env().items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("PROMPTISE_RUN_CHILD", raising=False)
+    monkeypatch.delenv("PROMPTISE_RUN_IPC", raising=False)
+    return LatePipes(args, cwd=project)
+
+
+@pytest.mark.parametrize("pipe_delay", [0.0, 0.5], ids=["pipes-on-time", "pipes-late"])
+async def test_child_source_feeds_stdin_and_shows_prompts(
+    project: Path, pipe_delay: float, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _write(project / "ask.py", "name = input('Name: ')\nprint(f'hello {name}')\n")
-    old = dict(os.environ)
-    os.environ.update(_env())
-    try:
-        source = ChildRunSource(["ask.py"], cwd=project)
-        await source.start()
-    finally:
-        os.environ.clear()
-        os.environ.update(old)
-    outputs: list[str] = []
+    source = _late_pipes_source(["ask.py"], project, pipe_delay, monkeypatch)
+    await source.start()
+    events: list[dict[str, Any]] = []
 
     async def read() -> None:
         async for event in source.events():
-            if event["kind"] == "output":
-                outputs.append(event["text"])
-                if event["text"] == "Name: ":
-                    await source.send({"cmd": "stdin", "text": "Ada"})
-            # Not run.exit: the child sends that over its channel, which can
-            # arrive before the pipes hand over the last line.  "exited"
-            # comes after the process ended and both pipes were read.
+            events.append(event)
+            if event["kind"] == "output" and event["text"] == "Name: ":
+                await source.send({"cmd": "stdin", "text": "Ada"})
             if event["kind"] == "state" and event.get("state") == "exited":
                 return
 
@@ -561,7 +581,57 @@ async def test_child_source_feeds_stdin_and_shows_prompts(project: Path) -> None
         await asyncio.wait_for(read(), 60)
     finally:
         await source.close()
-    assert outputs[0] == "Name: " and "hello Ada" in outputs
+    outputs = [(e["stream"], e["text"]) for e in events if e["kind"] == "output"]
+    assert outputs == [("stdout", "Name: "), ("stdout", "hello Ada")]
+    # The run ends after its last line, however late the pipes deliver it:
+    # one run.exit (the child's own, with its duration), then one "exited".
+    ends = [e["kind"] for e in events if e["kind"] in ("output", "run.exit", "state")]
+    assert ends[-3:] == ["output", "run.exit", "state"]
+    exits = [e for e in events if e["kind"] == "run.exit"]
+    assert len(exits) == 1 and exits[0]["code"] == 0 and exits[0]["duration_s"] is not None
+    assert [e for e in events if e.get("state") == "exited"] == [events[-1]]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="SIGTERM semantics")
+async def test_child_source_restart_ends_the_old_run_after_its_output(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write(
+        project / "ask.py",
+        """
+        try:
+            input("Name: ")
+        except KeyboardInterrupt:
+            print("stopped")
+            raise
+        """,
+    )
+    source = _late_pipes_source(["ask.py"], project, 0.5, monkeypatch)
+    await source.start()
+    events: list[dict[str, Any]] = []
+
+    async def read() -> None:
+        prompts = 0
+        async for event in source.events():
+            events.append(event)
+            if event["kind"] == "output" and event["text"] == "Name: ":
+                prompts += 1
+                if prompts == 1:
+                    await source.restart()
+                else:
+                    return
+
+    try:
+        await asyncio.wait_for(read(), 60)
+    finally:
+        await source.close()
+    first = events[: next(i for i, e in enumerate(events) if e.get("state") == "starting" and i)]
+    kinds = [e["kind"] for e in first if e["kind"] in ("output", "run.exit")]
+    assert kinds == ["output", "output", "run.exit"]
+    assert [e["text"] for e in first if e["kind"] == "output"] == ["Name: ", "stopped"]
+    exit_event = next(e for e in first if e["kind"] == "run.exit")
+    assert exit_event["code"] == 143 and exit_event["duration_s"] is not None
+    assert [e["kind"] for e in events].count("run.exit") == 1
 
 
 def test_script_echo_masks_env_values(project: Path) -> None:
