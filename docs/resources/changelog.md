@@ -9,6 +9,19 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## v1.5.3 — 2026-10-21
+
+A `promptise run --tui` run now ends after its program's last output line, with one exit, and every docs page has a title and description that say what it covers.
+
+### Fixed
+
+- **A `--tui` run could say it had exited before its program's last lines.** `ChildRunSource` gets the child's run events over its IPC channel and its output over the stdout/stderr pipes, and forwarded both as they arrived. The child publishes `state: exited` and `run.exit` just before it exits, so on a busy machine the stream said the run had ended before its last printed lines, and every run had two `exited` states. It now holds the child's `run.exit`, reads both pipes to the end once the process has ended, waits for the channel to deliver `run.exit` or close (each wait at most 2 s, as before), then publishes `run.exit` and a single `exited`. A restart ends the old run the same way, so the old run's last lines no longer show up after the new run started.
+
+### Changed
+
+- Docs: every page on docs.promptise.com has a title that names what it covers ("Agent Memory: Vector Search, Chroma and Mem0" rather than "Memory"), followed by "| Promptise Docs", and a description; generic page headings are more specific.
+- Docs: the `InjectionDetector` page no longer says it detects jailbreaks. Its default model's card says it handles English only and does not detect jailbreak attacks, and the model's project is archived; the page says so and how to pass another classifier.
+
 ## v1.5.2 — 2026-10-21
 
 `MCPClient` no longer reports a server's own error as a lost connection (a regression in 1.5.1), a stdio server answers the requests still running when its client closes stdin, `get_node_status()` reports an unreachable node as `NodeUnreachableError`, and an event or message trigger dead-letters every event its full buffer drops, also before its listener runs.
