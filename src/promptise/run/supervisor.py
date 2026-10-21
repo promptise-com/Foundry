@@ -39,6 +39,8 @@ CHILD_ENV = "PROMPTISE_RUN_CHILD"
 
 _TERM_TIMEOUT = 8.0
 _PARTIAL_LINE_DELAY = 0.15
+_DRAIN_TIMEOUT = 2.0
+"""How long the pipes and the channel get to hand over the rest once the child exited."""
 
 
 def child_command(args: Sequence[str]) -> list[str]:
@@ -83,6 +85,22 @@ async def _terminate(
     with contextlib.suppress(Exception):
         return await asyncio.wait_for(proc.wait(), 5)
     return None
+
+
+async def _drain_pipes(readers: Sequence[asyncio.Task[Any]]) -> None:
+    """Let *readers* read the pipes of an exited child to the end; cancel them after a while.
+
+    A pipe can stay open after the child exited (a process it started holds
+    it), so the wait is bounded.
+    """
+    if not readers:
+        return
+    done, pending = await asyncio.wait(readers, timeout=_DRAIN_TIMEOUT)
+    for task in pending:
+        task.cancel()
+    for task in done:
+        if not task.cancelled():
+            task.exception()  # retrieved: a failed reader only loses its output
 
 
 async def supervise_watch(
@@ -160,6 +178,13 @@ async def supervise_watch(
 class ChildRunSource:
     """A :class:`~promptise.run.source.RunSource` backed by a child process.
 
+    The child's run events come over the channel and its output over the
+    pipes, so the two arrive in no fixed order.  The end of a run is put in
+    order here: the child's ``run.exit`` is held until the process ended and
+    both pipes were read to the end, then published, followed by
+    ``state: exited``.  So every ``output`` line of a run comes before its
+    ``run.exit``, and a run has one ``run.exit`` and one ``exited``.
+
     Args:
         args: The child's ``promptise run`` arguments.
         cwd: The child's working directory.
@@ -180,10 +205,15 @@ class ChildRunSource:
         self._seq = itertools.count(1)
         self._history: list[RunEvent] = []
         self._waiters: list[asyncio.Queue[RunEvent | None]] = []
-        self._ipc = IpcServer(self._from_child)
+        self._ipc = IpcServer(self._from_child, on_disconnect=self._channel_closed)
         self._proc: asyncio.subprocess.Process | None = None
+        self._readers: list[asyncio.Task[Any]] = []
         self._tasks: set[asyncio.Task[Any]] = set()
-        self._run_exited = False
+        self._exit_event: RunEvent | None = None
+        """The child's own ``run.exit``, held until its output has been read."""
+        self._exit_reported = False
+        """Whether the current child's ``run.exit`` was published."""
+        self._channel_changed = asyncio.Event()
         self._lock = asyncio.Lock()
         self.last_code: int | None = None
         self.closed = False
@@ -204,12 +234,23 @@ class ChildRunSource:
         self._push(event)
 
     def _from_child(self, event: RunEvent) -> None:
-        if event.get("kind") == "run.exit":
-            self._run_exited = True
+        kind = event.get("kind")
+        if kind == "run.exit":
+            # The child sends this just before it exits, while its last lines
+            # may still be in the pipes: _report_exit publishes it after them.
             code = event.get("code")
             if isinstance(code, int):
                 self.last_code = code
+            if not self._exit_reported:
+                self._exit_event = event
+            self._channel_changed.set()
+            return
+        if kind == "state" and event.get("state") == "exited":
+            return  # said by _wait, after the last line
         self._push(event)
+
+    def _channel_closed(self) -> None:
+        self._channel_changed.set()
 
     async def events(self) -> AsyncIterator[RunEvent]:
         queue: asyncio.Queue[RunEvent | None] = asyncio.Queue()
@@ -257,7 +298,8 @@ class ChildRunSource:
         await self._spawn()
 
     async def _spawn(self) -> None:
-        self._run_exited = False
+        self._exit_event = None
+        self._exit_reported = False
         self._emit("state", state="starting", detail="")
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -278,6 +320,7 @@ class ChildRunSource:
             self._task(self._pump(proc.stdout, "stdout")),
             self._task(self._pump(proc.stderr, "stderr")),
         ]
+        self._readers = readers
         self._task(self._wait(proc, readers))
 
     async def _pump(self, stream: asyncio.StreamReader | None, name: str) -> None:
@@ -310,13 +353,43 @@ class ChildRunSource:
         self, proc: asyncio.subprocess.Process, readers: list[asyncio.Task[Any]]
     ) -> None:
         code = await proc.wait()
-        with contextlib.suppress(Exception):
-            await asyncio.wait_for(asyncio.gather(*readers), 2)
+        await _drain_pipes(readers)
+        if self._proc is proc:
+            await self._drain_channel()
         self.last_code = code
         if self._proc is proc:
-            if not self._run_exited:
-                self._emit("run.exit", code=code, error=None, traceback=None, duration_s=None)
+            self._report_exit(code)
             self._emit("state", state="exited", detail=f"exit code {code}")
+
+    async def _drain_channel(self) -> None:
+        """Wait until the child's ``run.exit`` came over the channel, or the channel closed.
+
+        Call it once the child exited: what it sent is then on its way, and
+        the channel closes right after it (or at once, when the child died
+        without saying goodbye).
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _DRAIN_TIMEOUT
+        while self._exit_event is None and self._ipc.connected:
+            self._channel_changed.clear()
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return
+            try:
+                await asyncio.wait_for(self._channel_changed.wait(), remaining)
+            except asyncio.TimeoutError:
+                return
+
+    def _report_exit(self, code: int | None) -> None:
+        """Publish the current child's ``run.exit`` once: the one it sent, or one from *code*."""
+        if self._exit_reported:
+            return
+        self._exit_reported = True
+        event, self._exit_event = self._exit_event, None
+        if event is not None:
+            self._push(event)
+        else:
+            self._emit("run.exit", code=code, error=None, traceback=None, duration_s=None)
 
     async def send(self, command: dict[str, Any]) -> None:
         if command.get("cmd") == "stdin":
@@ -340,14 +413,9 @@ class ChildRunSource:
             proc, self._proc = self._proc, None
             if proc is not None:
                 await _terminate(proc)
-                if not self._run_exited:
-                    self._emit(
-                        "run.exit",
-                        code=proc.returncode,
-                        error=None,
-                        traceback=None,
-                        duration_s=None,
-                    )
+                await _drain_pipes(self._readers)
+                await self._drain_channel()
+                self._report_exit(proc.returncode)
             await self._spawn()
 
     async def stop(self) -> None:
