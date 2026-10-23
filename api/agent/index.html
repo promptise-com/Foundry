@@ -23654,6 +23654,22 @@ reused call is reported like any other (<code>trace_tools</code>,
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.engine.compaction.ContextCompaction.max_result_chars">max_result_chars</span></code></td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Cut every new tool result longer than this many
+characters, and end it with a marker that tells the model the
+result was cut, its full length, and to ask for less.  Without
+the marker a model tends to call the same tool again and again.
+<code>None</code> (the default) passes results in full.  Applies even
+when <code>enabled</code> is <code>False</code>.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -26757,7 +26773,9 @@ other.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Cap the size of a successful tool result.</p>
+                <p>Cap the size of a successful tool result.  A
+longer result is cut and ends with a marker that gives its full
+length and tells the model to ask for less.</p>
               </div>
             </td>
             <td>

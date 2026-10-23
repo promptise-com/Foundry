@@ -9757,7 +9757,7 @@ client (the server owner's explicit choice).</p>
 <p>The gate only acts on tools declared with <code>requires_approval=True</code>; every other call passes through.</p>
 <h2 id="the-three-approvers">The three approvers<a class="headerlink" href="#the-three-approvers" title="Link to this section">&para;</a></h2>
 <h3 id="pendingapprover-independent-four-eyes-review"><code>PendingApprover</code>: independent four-eyes review<a class="headerlink" href="#pendingapprover-independent-four-eyes-review" title="Link to this section">&para;</a></h3>
-<p><code>PendingApprover(server=None, *, approver_role="approver", max_pending=100, max_pending_per_client=None, max_pending_per_tenant=None)</code>. Gated calls block in a pending store. A human holding <code>approver_role</code>
+<p><code>PendingApprover(server=None, *, approver_role="approver", max_pending=100, max_pending_per_client=None, max_pending_per_tenant=None, same_tenant_reviewers=True)</code>. Gated calls block in a pending store. A human holding <code>approver_role</code>
 reviews them through two auto-registered, role-guarded admin tools:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>approvals_list()                          → pending requests: tool, args,
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                                            caller, tenant, age
@@ -9767,7 +9767,14 @@ reviews them through two auto-registered, role-guarded admin tools:</p>
 <p><strong>Separation of duties is enforced:</strong> <code>approvals_decide</code> rejects an
 <em>approval</em> whose reviewer <code>client_id</code> equals the request's original caller:
 you cannot approve your own call, even if you also hold <code>approver_role</code>
-(denying your own is always allowed). The store is process-local (like the
+(denying your own is always allowed).</p>
+<p><strong>Reviewers see only their own tenant:</strong> <code>approvals_list</code> returns only the
+requests whose <code>tenant_id</code> matches the reviewer's, and <code>approvals_decide</code>
+answers another tenant's request id exactly like an unknown one. A reviewer
+can neither read another tenant's arguments nor release its call. A reviewer
+without a tenant sees only requests without one. For one platform-wide review
+team that decides for every tenant, pass <code>same_tenant_reviewers=False</code>.</p>
+<p>The store is process-local (like the
 in-memory job queue); calls that outlive the gate timeout are denied by
 default. Three caps bound the store, and beyond any of them a call is denied
 immediately rather than parked:</p>
@@ -9859,8 +9866,9 @@ reviewer.</p>
 <h2 id="combining-with-tenancy">Combining with tenancy<a class="headerlink" href="#combining-with-tenancy" title="Link to this section">&para;</a></h2>
 <p>Approval requests carry <code>tenant_id</code>, and the admin tools are ordinary
 guarded tools, so on a <code>require_tenant=True</code> server, reviewers themselves
-must present tenant identity, and <code>approvals_list</code> shows which tenant each
-pending call belongs to.</p>
+must present tenant identity. Each reviewer then lists and decides only their
+own tenant's calls (see <code>same_tenant_reviewers</code> above), so give every tenant
+its own approver keys.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Link to this section">&para;</a></h2>
 <ul>
 <li><strong>Argument modification is not supported</strong> server-side: approve or deny
@@ -9907,7 +9915,7 @@ pending call belongs to.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 07:37:10 UTC">2026-10-23</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 15:36:01 UTC">2026-10-23</span>
   </span>
 
     

@@ -13091,6 +13091,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#promptise.mcp.server.PendingApprover.tenant_of" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tenant_of
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.mcp.server.PendingApprover.was_decided" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -20562,6 +20573,17 @@
     <span class="md-ellipsis">
       
         tenant_key
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#promptise.mcp.server.PendingApprover.tenant_of" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tenant_of
       
     </span>
   </a>
@@ -34742,7 +34764,9 @@ a pre-parsed dict.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Override the server base URL from the spec.</p>
+                <p>Override the server base URL from the spec. Required
+when the spec has no <code>servers</code> entry, or a relative one and
+the spec was not loaded from a URL.</p>
               </div>
             </td>
             <td>
@@ -34828,6 +34852,25 @@ a pre-parsed dict.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>allow_private</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Allow the spec URL and the API base URL to be on a
+loopback, private or link-local address. Off by default, so a
+spec cannot point the generated tools at internal services (SSRF
+protection). Turn it on only for an internal API you trust.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>
@@ -37721,6 +37764,29 @@ client ≤ tenant ≤ store.</p>
                   <code>None</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>same_tenant_reviewers</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Scope the reviewer tools to the reviewer's
+tenant (default <code>True</code>).  <code>approvals_list</code> shows only requests
+whose <code>tenant_id</code> matches the reviewer's, and
+<code>approvals_decide</code> treats another tenant's request as unknown,
+so a reviewer can neither read nor release another tenant's call.
+A reviewer without a tenant sees only requests without one.  Set
+<code>False</code> for one platform-wide review team that decides for
+every tenant.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -37815,7 +37881,7 @@ bucket.</p>
 
 
 <h5 id="promptise.mcp.server.PendingApprover.pending" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">pending</span><span class="p">()</span></code>
+            <code class="highlight language-python"><span class="n">pending</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="n">_ANY_TENANT</span><span class="p">)</span></code>
 
 <a href="#promptise.mcp.server.PendingApprover.pending" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -37823,6 +37889,38 @@ bucket.</p>
     <div class="doc doc-contents ">
 
         <p>Summaries of requests currently awaiting a decision.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>tenant_id</code>
+            </td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Only requests from this tenant (<code>None</code>: requests
+without a tenant).  Omit for every request.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="promptise.mcp.server._approval_gate._ANY_TENANT">_ANY_TENANT</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -37903,6 +38001,24 @@ admin tools on <em>server</em>.</p>
 <p>The <code>tenant_id</code> the server-side gate records in the request
 metadata; <code>""</code> for a request without one — all such requests
 share one bucket.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h5 id="promptise.mcp.server.PendingApprover.tenant_of" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">tenant_of</span><span class="p">(</span><span class="n">request_id</span><span class="p">)</span></code>
+
+<a href="#promptise.mcp.server.PendingApprover.tenant_of" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The <code>tenant_id</code> a pending request was made under, or <code>None</code>.</p>
 
 
     </div>
