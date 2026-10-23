@@ -30501,6 +30501,25 @@ default model id.  Anything else raises a <code>ValidationError</code>.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="promptise.runtime.config.ProcessConfig.agent_pattern">agent_pattern</span></code></td>
+            <td>
+                  <code><span title="typing.Any">Any</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The reasoning pattern the agent runs, as in
+:func:<code>~promptise.agent.build_agent</code>: a pattern name from
+<code>promptise.agent.AGENT_PATTERNS</code> (<code>"react"</code>, <code>"managed"</code>,
+<code>"code-action"</code>, <code>"verify"</code>, <code>"peoatr"</code>, <code>"research"</code>,
+<code>"autonomous"</code>, <code>"deliberate"</code>, <code>"debate"</code>) or, in code,
+a :class:<code>~promptise.engine.PromptGraph</code>.  <code>None</code> (default)
+runs ReAct.  An unknown name raises a <code>ValidationError</code> when
+the config is created.  A graph object is code only, like a
+model object: <code>model_dump()</code> and <code>to_dict()</code> leave it out.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="promptise.runtime.config.ProcessConfig.servers">servers</span></code></td>
             <td>
                   <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
@@ -43946,6 +43965,19 @@ they are empty and only <code>plan</code> is set.</p>
             <td>
               <div class="doc-md-description">
                 <p>System prompt.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.runtime.manifest.AgentManifestSchema.agent_pattern">agent_pattern</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Reasoning pattern name, as in
+:class:<code>~promptise.runtime.config.ProcessConfig.agent_pattern</code>
+(<code>react</code>, <code>peoatr</code>, <code>research</code>, ...).  Unset runs ReAct.</p>
               </div>
             </td>
           </tr>

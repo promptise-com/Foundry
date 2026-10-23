@@ -32844,7 +32844,10 @@ response text unless <code>record_prompts=False</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>Record tool arguments and result previews.  When
-<code>False</code>, only their lengths are recorded.</p>
+<code>False</code>, only their lengths are recorded.  A <code>tool.call</code>
+event's <code>arguments</code> are JSON data: a dict for a structured
+call (nested models as objects, long strings cut at 2,000
+characters), the text for a tool given plain text.</p>
               </div>
             </td>
             <td>

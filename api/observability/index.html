@@ -7815,6 +7815,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#promptise.observability.TimelineEntry.isolation_key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        isolation_key
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.observability.TimelineEntry.to_dict" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10968,6 +10979,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#promptise.observability.TimelineEntry.isolation_key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        isolation_key
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#promptise.observability.TimelineEntry.to_dict" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -12381,17 +12403,19 @@ entry = collector.record(
 
 
 <h5 id="promptise.observability.ObservabilityCollector.for_user" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">for_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">for_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.observability.ObservabilityCollector.for_user" class="headerlink" title="Link to this section">&para;</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>Return all entries owned by <code>user_id</code> (sorted by timestamp).</p>
-<p>Convenience wrapper over :meth:<code>query</code> for the common
-multi-tenant case: "show me everything user X did in this
-session."  Returns an empty list when the user has no events.</p>
+        <p>Return all entries owned by one caller (sorted by timestamp).</p>
+<p>Pass the <code>user_id</code> and <code>tenant_id</code> the caller had, or its
+isolation key (<code>"acme::alice"</code>) as <code>user_id</code>.  Without a
+tenant, only the user's events recorded without a tenant match:
+<code>for_user("alice")</code> never returns <code>acme</code>'s Alice.  Returns an
+empty list when the user has no events.</p>
 
 
     </div>
@@ -12588,9 +12612,12 @@ session."  Returns an empty list when the user has no events.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Return sorted unique <code>user_id</code> values seen in the timeline.</p>
-<p>Events without a user_id (e.g. system events recorded outside of
-an invocation) are excluded.</p>
+        <p>Return the sorted unique owners seen in the timeline.</p>
+<p>Each owner is its isolation key: the <code>user_id</code>, or
+<code>"{tenant_id}::{user_id}"</code> for a user with a tenant, the form
+:meth:<code>for_user</code> and :meth:<code>purge_user</code> take.  Events without a
+user_id (e.g. system events recorded outside of an invocation)
+are excluded.</p>
 
 
     </div>
@@ -12601,14 +12628,20 @@ an invocation) are excluded.</p>
 
 
 <h5 id="promptise.observability.ObservabilityCollector.purge_user" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">purge_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">purge_user</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.observability.ObservabilityCollector.purge_user" class="headerlink" title="Link to this section">&para;</a></h5>
 
 
     <div class="doc doc-contents ">
 
-        <p>Delete every timeline entry owned by <code>user_id</code> from the buffer.</p>
+        <p>Delete every timeline entry owned by one caller from the buffer.</p>
+<p>Pass the <code>user_id</code> and <code>tenant_id</code> the caller had, or its
+isolation key (<code>"acme::alice"</code>) as <code>user_id</code>, as for
+:meth:<code>for_user</code>.  Another tenant's user with the same id is not
+touched, and <code>purge_user("alice")</code> without a tenant removes only
+Alice's events recorded without one (a warning says how many
+events of a tenant's <code>alice</code> were kept).</p>
 <p>Does not propagate to already-flushed transporters (e.g. a
 writable JSON file on disk) — those are external sinks and must
 be purged by their owners.  Returns the number of in-memory
@@ -12624,7 +12657,7 @@ entries removed.</p>
 
 
 <h5 id="promptise.observability.ObservabilityCollector.query" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">query</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">event_types</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">agent_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">user_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">session_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_value</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">query</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">event_types</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">agent_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">user_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">session_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tenant_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_key</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_value</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.observability.ObservabilityCollector.query" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -12687,7 +12720,9 @@ entries removed.</p>
             <td>
               <div class="doc-md-description">
                 <p>Restrict to events owned by these users (matches
-:attr:<code>TimelineEntry.user_id</code>).</p>
+:attr:<code>TimelineEntry.user_id</code>, in any tenant; combine with
+<code>tenant_ids</code>, or use :meth:<code>for_user</code>, for one tenant's
+user).</p>
               </div>
             </td>
             <td>
@@ -12705,6 +12740,24 @@ entries removed.</p>
               <div class="doc-md-description">
                 <p>Restrict to events tied to these session IDs
 (matches :attr:<code>TimelineEntry.session_id</code>).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tenant_ids</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span> | None] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Restrict to events of these tenants (matches
+:attr:<code>TimelineEntry.tenant_id</code>; <code>None</code> in the list
+selects events without a tenant).</p>
               </div>
             </td>
             <td>
@@ -12815,7 +12868,7 @@ entries removed.</p>
 
 
 <h5 id="promptise.observability.ObservabilityCollector.record" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">record</span><span class="p">(</span><span class="n">event_type</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">agent_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">details</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parent_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">record</span><span class="p">(</span><span class="n">event_type</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">agent_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">details</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parent_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">user_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#promptise.observability.ObservabilityCollector.record" class="headerlink" title="Link to this section">&para;</a></h5>
 
@@ -12945,7 +12998,9 @@ omitted and an agent run is being observed (see
               <div class="doc-md-description">
                 <p>Explicit owning user for this event.  When omitted,
 the collector reads :func:<code>promptise.agent.get_current_caller</code>
-and attaches <code>caller.user_id</code> automatically.</p>
+and attaches <code>caller.user_id</code> and <code>caller.tenant_id</code>
+automatically.  An isolation key (<code>"acme::alice"</code>) is
+split into user and tenant.</p>
               </div>
             </td>
             <td>
@@ -12962,7 +13017,9 @@ and attaches <code>caller.user_id</code> automatically.</p>
             <td>
               <div class="doc-md-description">
                 <p>Conversation session associated with this event.
-Falls back to <code>caller.metadata['session_id']</code>.</p>
+Falls back to <code>caller.metadata['session_id']</code>, then to the
+session of the running :meth:<code>~promptise.agent.PromptiseAgent.chat</code>
+call.</p>
               </div>
             </td>
             <td>
@@ -12979,6 +13036,23 @@ Falls back to <code>caller.metadata['session_id']</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>Arbitrary structured data.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tenant_id</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit tenant of the owning user.  When omitted
+with <code>user_id</code>, it is read from the caller as well.</p>
               </div>
             </td>
             <td>
@@ -13583,7 +13657,7 @@ plus a <code>session_name</code> key.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Owning user for this event (from
+                <p>Owning user for this event (<code>user_id</code> of the
 :class:<code>~promptise.agent.CallerContext</code>).  <code>None</code> means
 the event was produced outside of a per-caller invocation.</p>
               </div>
@@ -13602,8 +13676,10 @@ the event was produced outside of a per-caller invocation.</p>
             <td>
               <div class="doc-md-description">
                 <p>Conversation session associated with the event,
-when available.  Populated from <code>caller.metadata['session_id']</code>
-or an explicit <code>session_id</code> kwarg to :meth:<code>record</code>.</p>
+when available: an explicit <code>session_id</code> kwarg to
+:meth:<code>~ObservabilityCollector.record</code>, else
+<code>caller.metadata['session_id']</code>, else the session of the
+:meth:<code>~promptise.agent.PromptiseAgent.chat</code> call that is running.</p>
               </div>
             </td>
             <td>
@@ -13626,6 +13702,25 @@ or an explicit <code>session_id</code> kwarg to :meth:<code>record</code>.</p>
                   <code><span title="dict">dict</span>()</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tenant_id</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tenant of the owning user (<code>tenant_id</code> of the
+:class:<code>~promptise.agent.CallerContext</code>), or <code>None</code>.  Two
+tenants' users with the same <code>user_id</code> are told apart by it;
+:attr:<code>isolation_key</code> joins the two.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -13646,6 +13741,30 @@ or an explicit <code>session_id</code> kwarg to :meth:<code>record</code>.</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h5 id="promptise.observability.TimelineEntry.isolation_key" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">isolation_key</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#promptise.observability.TimelineEntry.isolation_key" class="headerlink" title="Link to this section">&para;</a></h5>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The owner's key, as :attr:<code>CallerContext.isolation_key
+&lt;promptise.agent.CallerContext.isolation_key&gt;</code> builds it:
+<code>"{tenant_id}::{user_id}"</code> with a tenant, else <code>user_id</code>.</p>
+
+    </div>
+
+</div>
 
 
 
@@ -13886,6 +14005,55 @@ can report per-invocation totals.</p>
             <td>
               <div class="doc-md-description">
                 <p>Whether the run was answered from the semantic cache.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.observability.AgentRun.collector">collector</span></code></td>
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The collector the run is recorded on, so code running
+inside the run (the autonomy budget, approval gates) can add
+entries to it.  <code>None</code> for a run created by hand.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.observability.AgentRun.agent_id">agent_id</span></code></td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The <code>agent_id</code> the run's entries carry.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.observability.AgentRun.record_tool_io">record_tool_io</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether tool arguments may be recorded (the
+handler's <code>record_tool_io</code>).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="promptise.observability.AgentRun.denied_tool_runs">denied_tool_runs</span></code></td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Tool runs (LangChain run ids) an approval gate
+denied, with the denial's fields, until their <code>tool.result</code>
+is recorded.</p>
               </div>
             </td>
           </tr>
@@ -16432,7 +16600,10 @@ response text unless <code>record_prompts=False</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>Record tool arguments and result previews.  When
-<code>False</code>, only their lengths are recorded.</p>
+<code>False</code>, only their lengths are recorded.  A <code>tool.call</code>
+event's <code>arguments</code> are JSON data: a dict for a structured
+call (nested models as objects, long strings cut at 2,000
+characters), the text for a tool given plain text.</p>
               </div>
             </td>
             <td>

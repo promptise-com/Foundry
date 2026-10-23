@@ -28684,7 +28684,9 @@ entries are only kept in memory and emitted via Python logging.</p>
             <td>
               <div class="doc-md-description">
                 <p>Log tool arguments (default <code>False</code> — may
-contain PII).</p>
+contain PII).  They are logged as the tool validated them, as
+JSON: a Pydantic model argument (or one nested in a list or
+dict) is a JSON object, a <code>datetime</code> an ISO string.</p>
               </div>
             </td>
             <td>

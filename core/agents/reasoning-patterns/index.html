@@ -1675,6 +1675,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How It Integrates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-an-agent-runtime-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In an Agent Runtime process
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -9803,6 +9820,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="How It Integrates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-an-agent-runtime-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In an Agent Runtime process
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -10239,6 +10273,18 @@ of a plain reply).</p>
 </ul>
 </li>
 </ol>
+<h3 id="in-an-agent-runtime-process">In an Agent Runtime process<a class="headerlink" href="#in-an-agent-runtime-process" title="Link to this section">&para;</a></h3>
+<p>A process started by a cron schedule, a webhook or another trigger picks its pattern in its config. <code>ProcessConfig(agent_pattern=...)</code> takes the same pattern names, or a <code>PromptGraph</code> in code, and every agent the process builds uses it (after a restart, a hot reload or new instructions):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">TriggerConfig</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="n">instructions</span><span class="o">=</span><span class="s2">"Review yesterday's failed orders and plan the fixes."</span><span class="p">,</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    <span class="n">agent_pattern</span><span class="o">=</span><span class="s2">"peoatr"</span><span class="p">,</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="n">triggers</span><span class="o">=</span><span class="p">[</span><span class="n">TriggerConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"cron"</span><span class="p">,</span> <span class="n">cron_expression</span><span class="o">=</span><span class="s2">"0 7 * * *"</span><span class="p">)],</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>In a <code>.agent</code> manifest it is the top-level <code>agent_pattern:</code> key. See <a href="../../../runtime/processes/#the-agents-reasoning-pattern">The agent's reasoning pattern</a>.</p>
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Link to this section">&para;</a></h2>
 <ul>
 <li><a href="../../engine/">Reasoning Graph Overview</a>: Architecture and engine details</li>
@@ -10278,7 +10324,7 @@ of a plain reply).</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 22:30:10 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 17:34:02 UTC">2026-10-23</span>
   </span>
 
     

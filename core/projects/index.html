@@ -10584,7 +10584,7 @@
 <td><code>python_path</code></td>
 <td>list of strings</td>
 <td><code>["."]</code></td>
-<td>Directories added to <code>sys.path</code>, relative to the root.</td>
+<td>Directories added to <code>sys.path</code>, relative to the root. The run and <code>--check</code> both use them to import the agent factory.</td>
 </tr>
 </tbody>
 </table>
@@ -11262,8 +11262,10 @@ that need the project's settings:</p>
 </ul>
 <p>If anything is wrong, it exits with code 2 and starts nothing.</p>
 <p><code>--check</code> runs the same checks and also checks the entry itself: a script must compile, and a factory's module must import and define the factory. Then it exits: 0 when the project is ready, 2 when it is not. Importing a factory module runs its module-level code; a script is only compiled, never run.</p>
+<p>The factory is imported the way the real run imports it: the project root and the <code>python_path</code> entries come first on <code>sys.path</code>. A factory in a package (<code>agent = "customer_agent.agent:create_agent"</code>) passes <code>--check</code> from any directory of the project.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>promptise<span class="w"> </span>run<span class="w"> </span>--check<span class="w">                    </span><span class="c1"># main</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>promptise<span class="w"> </span>run<span class="w"> </span>--prod<span class="w"> </span>--serve<span class="w"> </span>--check<span class="w">     </span><span class="c1"># what the container will run</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>promptise<span class="w"> </span>run<span class="w"> </span>--mode<span class="w"> </span>chat<span class="w"> </span>--check<span class="w">        </span><span class="c1"># the agent factory</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>promptise<span class="w"> </span>run<span class="w"> </span>--prod<span class="w"> </span>--serve<span class="w"> </span>--check<span class="w">     </span><span class="c1"># what the container will run</span>
 </span></code></pre></div>
 <h3 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Link to this section">&para;</a></h3>
 <table>
@@ -11643,7 +11645,7 @@ that need the project's settings:</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 20:41:32 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 17:32:50 UTC">2026-10-23</span>
   </span>
 
     
