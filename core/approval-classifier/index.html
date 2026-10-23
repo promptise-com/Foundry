@@ -1869,6 +1869,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#a-rule-that-raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A rule that raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#argument_contains-matches-json" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9487,6 +9498,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#a-rule-that-raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A rule that raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#argument_contains-matches-json" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9786,10 +9808,35 @@
 </tr>
 <tr>
 <td><code>predicate</code></td>
-<td><code>await predicate(request)</code> is truthy. A predicate that raises counts as <em>no match</em> (and is logged).</td>
+<td><code>await predicate(request)</code> is truthy. See <a href="#a-rule-that-raises">A rule that raises</a> for what happens when it raises.</td>
 </tr>
 </tbody>
 </table>
+<h3 id="a-rule-that-raises">A rule that raises<a class="headerlink" href="#a-rule-that-raises" title="Link to this section">&para;</a></h3>
+<p>A rule that cannot be evaluated (its predicate raises, or the arguments cannot be serialized for <code>argument_contains</code>) never lets a call through. The classifier logs a warning on the <code>promptise.approval.classifier</code> logger and counts it in <code>stats.errors</code>, then:</p>
+<table>
+<thead>
+<tr>
+<th>Rule list</th>
+<th>What happens to the call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deny_rules</code></td>
+<td>Denied. <code>decided_by="classifier"</code>, <code>trace.layer="deny_rule"</code>, <code>trace.matched_rule</code> is the broken rule, and the reason names the exception type.</td>
+</tr>
+<tr>
+<td><code>ask_rules</code></td>
+<td>Sent to the fallback handler, as if the rule had matched.</td>
+</tr>
+<tr>
+<td><code>allow_rules</code></td>
+<td>Not allowed. Sent to the fallback handler straight away (<code>trace.layer="error"</code>), so the read-only check and the LLM classifier don't decide it either.</td>
+</tr>
+</tbody>
+</table>
+<p>Only rules whose <code>tool</code> and <code>user</code> filters match the call run their predicate, so a broken rule for <code>delete_*</code> does not affect other tools. <code>ApprovalRule.matches()</code> called on its own still returns <code>False</code> for a rule that raises; <code>ApprovalRule.evaluate()</code> raises <code>RuleEvaluationError</code> instead, with the original exception in <code>error</code>.</p>
 <h3 id="argument_contains-matches-json"><code>argument_contains</code> matches JSON<a class="headerlink" href="#argument_contains-matches-json" title="Link to this section">&para;</a></h3>
 <p>The arguments are serialized as JSON with sorted keys and the default separators, so write the substring the way JSON prints it:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># {"customer_id": "C-7", "force": True}  →  '{"customer_id": "C-7", "force": true}'</span>
@@ -9866,7 +9913,7 @@
 </tr>
 <tr>
 <td><code>"reviewer"</code> (the fallback's decision)</td>
-<td><code>"ask_rule"</code>, <code>"llm_escalate_then_fallback"</code>, <code>"fallback"</code>, <code>"error"</code> (the classifier raised and fell back)</td>
+<td><code>"ask_rule"</code>, <code>"llm_escalate_then_fallback"</code>, <code>"fallback"</code>, <code>"error"</code> (the classifier or an allow rule raised and the fallback decided)</td>
 </tr>
 </tbody>
 </table>
@@ -9965,7 +10012,7 @@ with the counters <code>allow_rule_hits</code>, <code>deny_rule_hits</code>, <co
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 20:41:32 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 07:29:59 UTC">2026-10-23</span>
   </span>
 
     

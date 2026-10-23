@@ -10921,34 +10921,37 @@ When such a gate asks the calling client for confirmation, the agent's
 </span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>     X-Promptise-Request-Id: &lt;request_id&gt;
 </span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
 </span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>4. Your API responds with 200 + decision when ready:
-</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>   {"approved": true, "reviewer_id": "alice", "reason": "Looks good"}
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>   {"request_id": "...", "approved": true, "reviewer_id": "alice", "reason": "Looks good"}
 </span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
 </span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>   Or 202 if still pending (handler continues polling)
 </span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>
 </span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>5. On timeout: handler raises TimeoutError → on_timeout action triggers
 </span></code></pre></div>
+<p>Include <code>request_id</code> in the decision you return. When it is there, the handler only accepts a decision for the request it is waiting on: a response for another request id (a stale decision behind a fixed <code>poll_url</code>, or a replayed one) is logged and ignored, and polling continues. Responses without <code>request_id</code> are still accepted. The handler takes one decision per request id: asked again about an id it already decided, it raises <code>ApprovalReplayError</code> and the gate denies the call.</p>
 <h4 id="hmac-verification-on-your-approval-service">HMAC verification on your approval service<a class="headerlink" href="#hmac-verification-on-your-approval-service" title="Link to this section">&para;</a></h4>
 <p>Verify <code>X-Promptise-Signature</code> with <code>verify_webhook_signature()</code>. Pass it the raw request body, the header and the handler's <code>secret</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span><span class="p">,</span> <span class="n">Request</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.approval</span><span class="w"> </span><span class="kn">import</span> <span class="n">verify_webhook_signature</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.approval</span><span class="w"> </span><span class="kn">import</span> <span class="n">RequestIdCache</span><span class="p">,</span> <span class="n">verify_webhook_signature</span>
 </span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
 </span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/requests"</span><span class="p">)</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">receive_approval_request</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="n">body</span> <span class="o">=</span> <span class="k">await</span> <span class="n">request</span><span class="o">.</span><span class="n">body</span><span class="p">()</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">verify_webhook_signature</span><span class="p">(</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>        <span class="n">body</span><span class="p">,</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"X-Promptise-Signature"</span><span class="p">),</span>
-</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"APPROVAL_WEBHOOK_SECRET"</span><span class="p">],</span>
-</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>        <span class="n">max_age</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>  <span class="c1"># also reject requests older than 5 minutes (replay protection)</span>
-</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>    <span class="p">):</span>
-</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">)</span>
-</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>    <span class="o">...</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="n">seen_requests</span> <span class="o">=</span> <span class="n">RequestIdCache</span><span class="p">()</span>  <span class="c1"># one per process, shared by every request</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/requests"</span><span class="p">)</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">receive_approval_request</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">):</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="n">body</span> <span class="o">=</span> <span class="k">await</span> <span class="n">request</span><span class="o">.</span><span class="n">body</span><span class="p">()</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">verify_webhook_signature</span><span class="p">(</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="n">body</span><span class="p">,</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"X-Promptise-Signature"</span><span class="p">),</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"APPROVAL_WEBHOOK_SECRET"</span><span class="p">],</span>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>        <span class="n">max_age</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>  <span class="c1"># reject requests whose timestamp is more than 5 minutes off</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>        <span class="n">replay_cache</span><span class="o">=</span><span class="n">seen_requests</span><span class="p">,</span>  <span class="c1"># reject a request_id that already passed</span>
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>    <span class="p">):</span>
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">)</span>
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>    <span class="o">...</span>
 </span></code></pre></div>
-<p>It returns <code>True</code> only when the body is a JSON object with every signed field and the signature matches. With <code>max_age</code> set, the <code>timestamp</code> must also be within that many seconds of now. To verify without Promptise installed, compute the same value yourself. The signature is HMAC-SHA256 over sorted-key JSON of the six signed fields:</p>
+<p>It returns <code>True</code> only when the body is a JSON object with every signed field and the signature matches. With <code>max_age</code> set, the <code>timestamp</code> must also be within that many seconds of now. With <code>replay_cache</code>, the <code>request_id</code> must not have passed before: a replayed copy of a signed request is rejected and logged on the <code>promptise.approval</code> logger. The cache remembers an id for twice <code>max_age</code> (the longest a timestamp stays within <code>max_age</code> of now), or for its own <code>ttl</code> without <code>max_age</code>, and keeps at most <code>max_size</code> ids (10,000 by default), dropping the oldest first. It lives in memory: when several processes receive webhooks, check <code>request_id</code> against a shared store yourself. To verify without Promptise installed, compute the same value yourself. The signature is HMAC-SHA256 over sorted-key JSON of the six signed fields:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span><span class="o">,</span><span class="w"> </span><span class="nn">hmac</span><span class="o">,</span><span class="w"> </span><span class="nn">json</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">SIGNED_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"request_id"</span><span class="p">,</span> <span class="s2">"tool_name"</span><span class="p">,</span> <span class="s2">"arguments"</span><span class="p">,</span> <span class="s2">"agent_id"</span><span class="p">,</span> <span class="s2">"caller_user_id"</span><span class="p">,</span> <span class="s2">"timestamp"</span><span class="p">)</span>
@@ -11041,7 +11044,7 @@ When such a gate asks the calling client for confirmation, the agent's
 </tr>
 <tr>
 <td><code>handler.submit_decision(request_id, decision)</code></td>
-<td>Submit a decision for a pending request. Raises <code>KeyError</code> if the request_id is unknown or already resolved.</td>
+<td>Submit a decision for a pending request. Raises <code>KeyError</code> if the request_id is unknown or timed out, and <code>ApprovalReplayError</code> (a <code>KeyError</code> subclass) if it already has a decision: the first decision stands, and the second is logged.</td>
 </tr>
 </tbody>
 </table>
@@ -11242,9 +11245,44 @@ run instead of approving.</p>
 <li>Payload: sorted-key JSON of <code>request_id</code>, <code>tool_name</code>, <code>arguments</code>, <code>agent_id</code>, <code>caller_user_id</code> and <code>timestamp</code> (<code>promptise.approval.SIGNED_FIELDS</code>)</li>
 <li>Secret: Your <code>secret</code> parameter</li>
 </ul>
-<p>Verify this in your approval API with <a href="#hmac-verification-on-your-approval-service"><code>verify_webhook_signature()</code></a> to reject spoofed requests, and pass <code>max_age</code> to reject replayed ones.</p>
+<p>Verify this in your approval API with <a href="#hmac-verification-on-your-approval-service"><code>verify_webhook_signature()</code></a> to reject spoofed requests. Pass <code>max_age</code> to reject old ones and <code>replay_cache</code> to reject a request that already passed.</p>
 <h3 id="single-use-request-ids">Single-Use Request IDs<a class="headerlink" href="#single-use-request-ids" title="Link to this section">&para;</a></h3>
-<p>Every <code>request_id</code> is generated with <code>secrets.token_hex(16)</code>: 128 bits of cryptographic randomness. Request IDs are tracked per-agent to prevent replay attacks.</p>
+<p>Every <code>request_id</code> is generated with <code>secrets.token_hex(16)</code>: 128 bits of cryptographic randomness. Each id takes exactly one decision. A second decision for an id is refused and logged as a warning on the <code>promptise.approval</code> logger (<code>promptise.server.approval</code> on an MCP server):</p>
+<table>
+<thead>
+<tr>
+<th>Where</th>
+<th>A second decision for the same <code>request_id</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The agent's gate (<code>ApprovalPolicy</code>)</td>
+<td>Denied by the gate (<code>decided_by="gate"</code>), without asking the reviewer.</td>
+</tr>
+<tr>
+<td><code>QueueApprovalHandler.submit_decision()</code></td>
+<td>Raises <code>ApprovalReplayError</code>; the first decision stands.</td>
+</tr>
+<tr>
+<td><code>WebhookApprovalHandler</code></td>
+<td>A poll response carrying another request's <code>request_id</code> is ignored; asking again about a decided id raises <code>ApprovalReplayError</code>, which the gate turns into a denial.</td>
+</tr>
+<tr>
+<td><code>verify_webhook_signature(..., replay_cache=...)</code></td>
+<td>Returns <code>False</code>.</td>
+</tr>
+<tr>
+<td>MCP server: <code>PendingApprover.decide()</code> / <code>approvals_decide</code></td>
+<td>Returns <code>False</code> / <code>{"resolved": false, "error": "... already decided ..."}</code>.</td>
+</tr>
+<tr>
+<td>MCP server: <code>ApprovalGateMiddleware</code></td>
+<td>The call is denied with <code>APPROVAL_DENIED</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Decided ids are kept in a <code>RequestIdCache</code>: in memory, per gate or handler, for the approval <code>timeout</code> (an id is only useful while its request can still be decided), at most 10,000 at a time with the oldest dropped first. They are not shared between processes and do not survive a restart.</p>
 <h3 id="argument-redaction">Argument Redaction<a class="headerlink" href="#argument-redaction" title="Link to this section">&para;</a></h3>
 <p>When <code>redact_sensitive=True</code> (default), tool arguments and <code>context_summary</code> are processed through the guardrails PII and credential detectors before being sent to the reviewer:</p>
 <ul>
@@ -11399,7 +11437,11 @@ run instead of approving.</p>
 </tr>
 <tr>
 <td><strong>Approval arrives after timeout</strong></td>
-<td>Discarded. Agent already received the timeout decision. Late approvals are logged.</td>
+<td>Discarded. Agent already received the timeout decision. <code>QueueApprovalHandler.submit_decision()</code> raises <code>KeyError</code> for it.</td>
+</tr>
+<tr>
+<td><strong>A second decision for the same request</strong></td>
+<td>Refused and logged; the first decision stands. See <a href="#single-use-request-ids">Single-Use Request IDs</a>.</td>
 </tr>
 <tr>
 <td><strong>Agent crash during pending approval</strong></td>
@@ -11504,6 +11546,16 @@ run instead of approving.</p>
 <td>Check <code>X-Promptise-Signature</code> on your approval service</td>
 </tr>
 <tr>
+<td><code>RequestIdCache</code></td>
+<td><code>from promptise.approval import RequestIdCache</code></td>
+<td>Request ids that already had their decision (TTL and size bounded); pass to <code>verify_webhook_signature(replay_cache=...)</code></td>
+</tr>
+<tr>
+<td><code>ApprovalReplayError</code></td>
+<td><code>from promptise.approval import ApprovalReplayError</code></td>
+<td>Raised for a second decision on the same request id (a <code>KeyError</code> subclass)</td>
+</tr>
+<tr>
 <td><code>wrap_tools_with_approval</code></td>
 <td><code>from promptise.approval import wrap_tools_with_approval</code></td>
 <td>Gate a list of tools without <code>build_agent()</code></td>
@@ -11600,7 +11652,7 @@ run instead of approving.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 22:30:10 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 07:37:10 UTC">2026-10-23</span>
   </span>
 
     

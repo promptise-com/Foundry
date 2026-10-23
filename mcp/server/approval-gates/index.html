@@ -9716,6 +9716,10 @@ client (the server owner's explicit choice).</p>
 <td>Handler crash</td>
 <td>Denied via the error pipeline</td>
 </tr>
+<tr>
+<td>A second decision for the same request id</td>
+<td><strong>Denied</strong> (<code>APPROVAL_DENIED</code>) and logged; each request id takes one decision</td>
+</tr>
 </tbody>
 </table>
 <p><code>ApprovalGateMiddleware(handler, *, timeout=300.0, on_timeout="deny", include_arguments=True)</code>:</p>
@@ -9802,6 +9806,13 @@ The caps nest (<code>max_pending_per_client</code> ≤ <code>max_pending_per_ten
 reason names the cap that was hit (<code>per-tenant pending approval cap reached
 for tenant 'acme' (40 per tenant)</code>, <code>per-client pending approval cap reached
 for 'alice' (20 per client)</code>).</p>
+<p><strong>Each request id takes one decision.</strong> A second <code>decide()</code> for an id that
+was already decided returns <code>False</code> and logs a warning on the
+<code>promptise.server.approval</code> logger; <code>approvals_decide</code> answers
+<code>{"resolved": false, "error": "approval request '...' was already decided; ..."}</code>,
+and the first decision stands. <code>approver.was_decided(request_id)</code> tells you
+whether an id already had its decision. Decided ids are remembered in memory
+for the request's <code>timeout</code> (at most 10,000 of them).</p>
 <h3 id="elicitationapprover-confirm-with-the-human-behind-the-client"><code>ElicitationApprover</code>: confirm with the human behind the client<a class="headerlink" href="#elicitationapprover-confirm-with-the-human-behind-the-client" title="Link to this section">&para;</a></h3>
 <p><code>ElicitationApprover(*, message_template=None)</code>. The message shown to the user defaults to <code>"Approval required: call tool '{tool_name}' with arguments {arguments}. Approve?"</code>; pass <code>message_template</code> with the same <code>{tool_name}</code> and <code>{arguments}</code> placeholders to change it. Uses MCP elicitation (<code>ServerSession.elicit</code>) to ask the <em>calling</em> client's
 user to confirm (<code>{"approve": bool, "reason": str}</code>). Right for
@@ -9896,7 +9907,7 @@ pending call belongs to.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 21:00:46 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 07:37:10 UTC">2026-10-23</span>
   </span>
 
     

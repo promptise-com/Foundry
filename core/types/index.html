@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="The types module: ModelLike, the type for every way to specify a language model for build_agent, plus the ServerSpec and CrossAgent types it re-exports.">
+        <meta name="description" content="ModelLike, the type for every way to give build_agent a model (provider string, Model, chat model, runnable), plus the ServerSpec and CrossAgent types.">
       
       
         <meta name="author" content="Promptise Team">
@@ -29,7 +29,7 @@
     
     
   
-    <title>ModelLike and Core Type Aliases | Promptise Docs</title>
+    <title>ModelLike: the Model Type for build_agent | Promptise Docs</title>
   
 
     
@@ -92,8 +92,8 @@
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Docs">
-  <meta property="og:title" content="ModelLike and Core Type Aliases | Promptise Docs">
-  <meta property="og:description" content="The types module: ModelLike, the type for every way to specify a language model for build_agent, plus the ServerSpec and CrossAgent types it re-exports.">
+  <meta property="og:title" content="ModelLike: the Model Type for build_agent | Promptise Docs">
+  <meta property="og:description" content="ModelLike, the type for every way to give build_agent a model (provider string, Model, chat model, runnable), plus the ServerSpec and CrossAgent types.">
   <meta property="og:url" content="https://docs.promptise.com/core/types/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -102,8 +102,8 @@
 
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ModelLike and Core Type Aliases | Promptise Docs">
-  <meta name="twitter:description" content="The types module: ModelLike, the type for every way to specify a language model for build_agent, plus the ServerSpec and CrossAgent types it re-exports.">
+  <meta name="twitter:title" content="ModelLike: the Model Type for build_agent | Promptise Docs">
+  <meta name="twitter:description" content="ModelLike, the type for every way to give build_agent a model (provider string, Model, chat model, runnable), plus the ServerSpec and CrossAgent types.">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -177,9 +177,9 @@
     {
       "@context": "https://schema.org",
       "@type": "TechArticle",
-      "headline": "ModelLike and Core Type Aliases",
-      "name": "ModelLike and Core Type Aliases",
-      "description": "The types module: ModelLike, the type for every way to specify a language model for build_agent, plus the ServerSpec and CrossAgent types it re-exports.",
+      "headline": "ModelLike: the Model Type for build_agent",
+      "name": "ModelLike: the Model Type for build_agent",
+      "description": "ModelLike, the type for every way to give build_agent a model (provider string, Model, chat model, runnable), plus the ServerSpec and CrossAgent types.",
       "url": "https://docs.promptise.com/core/types/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -245,7 +245,7 @@
       ,{
         "@type": "ListItem",
         "position": 4,
-        "name": "ModelLike and Core Type Aliases",
+        "name": "ModelLike: the Model Type for build_agent",
         "item": "https://docs.promptise.com/core/types/"
       }
     ]
@@ -272,7 +272,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#types-modellike" class="md-skip">
+        <a href="#modellike-and-core-types" class="md-skip">
           Skip to content
         </a>
       
@@ -9677,10 +9677,10 @@
   
 
 
-<h1 id="types-modellike">Types &amp; ModelLike<a class="headerlink" href="#types-modellike" title="Link to this section">&para;</a></h1>
+<h1 id="modellike-and-core-types">ModelLike and Core Types<a class="headerlink" href="#modellike-and-core-types" title="Link to this section">&para;</a></h1>
 <p>The <code>types</code> module provides the central type aliases and re-exports used across
 the Promptise framework.  Its most important export is <code>ModelLike</code>, which
-defines the three ways you can specify a language model.</p>
+defines the four ways you can specify a language model.</p>
 <p><strong>Source:</strong> <code>src/promptise/types.py</code></p>
 <h2 id="quick-example">Quick example<a class="headerlink" href="#quick-example" title="Link to this section">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
@@ -9906,7 +9906,7 @@ agent.  The actual tool behaviour (ask, broadcast) is implemented by
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 20:41:32 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 06:50:58 UTC">2026-10-23</span>
   </span>
 
     

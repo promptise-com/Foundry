@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="The default system prompt every build_agent agent receives: tool-first behaviour, schema awareness and citing tool results, and how to override or extend it.">
+        <meta name="description" content="DEFAULT_SYSTEM_PROMPT, the system prompt build_agent agents get without instructions: tool-first rules, schema checks, citing results, how to override it.">
       
       
         <meta name="author" content="Promptise Team">
@@ -29,7 +29,7 @@
     
     
   
-    <title>Default System Prompt for build_agent | Promptise Docs</title>
+    <title>DEFAULT_SYSTEM_PROMPT: the Default System Prompt | Promptise Docs</title>
   
 
     
@@ -92,8 +92,8 @@
   
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="Promptise Docs">
-  <meta property="og:title" content="Default System Prompt for build_agent | Promptise Docs">
-  <meta property="og:description" content="The default system prompt every build_agent agent receives: tool-first behaviour, schema awareness and citing tool results, and how to override or extend it.">
+  <meta property="og:title" content="DEFAULT_SYSTEM_PROMPT: the Default System Prompt | Promptise Docs">
+  <meta property="og:description" content="DEFAULT_SYSTEM_PROMPT, the system prompt build_agent agents get without instructions: tool-first rules, schema checks, citing results, how to override it.">
   <meta property="og:url" content="https://docs.promptise.com/core/default-prompt/">
   <meta property="og:image" content="https://docs.promptise.com//assets/social-preview.png">
   <meta property="og:image:width" content="1280">
@@ -102,8 +102,8 @@
 
   
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Default System Prompt for build_agent | Promptise Docs">
-  <meta name="twitter:description" content="The default system prompt every build_agent agent receives: tool-first behaviour, schema awareness and citing tool results, and how to override or extend it.">
+  <meta name="twitter:title" content="DEFAULT_SYSTEM_PROMPT: the Default System Prompt | Promptise Docs">
+  <meta name="twitter:description" content="DEFAULT_SYSTEM_PROMPT, the system prompt build_agent agents get without instructions: tool-first rules, schema checks, citing results, how to override it.">
   <meta name="twitter:image" content="https://docs.promptise.com//assets/social-preview.png">
 
   
@@ -177,9 +177,9 @@
     {
       "@context": "https://schema.org",
       "@type": "TechArticle",
-      "headline": "Default System Prompt for build_agent",
-      "name": "Default System Prompt for build_agent",
-      "description": "The default system prompt every build_agent agent receives: tool-first behaviour, schema awareness and citing tool results, and how to override or extend it.",
+      "headline": "DEFAULT_SYSTEM_PROMPT: the Default System Prompt",
+      "name": "DEFAULT_SYSTEM_PROMPT: the Default System Prompt",
+      "description": "DEFAULT_SYSTEM_PROMPT, the system prompt build_agent agents get without instructions: tool-first rules, schema checks, citing results, how to override it.",
       "url": "https://docs.promptise.com/core/default-prompt/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
       "isPartOf": {
@@ -245,7 +245,7 @@
       ,{
         "@type": "ListItem",
         "position": 4,
-        "name": "Default System Prompt for build_agent",
+        "name": "DEFAULT_SYSTEM_PROMPT: the Default System Prompt",
         "item": "https://docs.promptise.com/core/default-prompt/"
       }
     ]
@@ -272,7 +272,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#default-system-prompt" class="md-skip">
+        <a href="#default-system-prompt-default_system_prompt" class="md-skip">
           Skip to content
         </a>
       
@@ -2368,10 +2368,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-default-prompt" class="md-nav__link">
+  <a href="#the-default_system_prompt-constant" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The default prompt
+        The DEFAULT_SYSTEM_PROMPT constant
       
     </span>
   </a>
@@ -9465,10 +9465,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-default-prompt" class="md-nav__link">
+  <a href="#the-default_system_prompt-constant" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The default prompt
+        The DEFAULT_SYSTEM_PROMPT constant
       
     </span>
   </a>
@@ -9621,9 +9621,9 @@
   
 
 
-<h1 id="default-system-prompt">Default System Prompt<a class="headerlink" href="#default-system-prompt" title="Link to this section">&para;</a></h1>
+<h1 id="default-system-prompt-default_system_prompt">Default System Prompt (DEFAULT_SYSTEM_PROMPT)<a class="headerlink" href="#default-system-prompt-default_system_prompt" title="Link to this section">&para;</a></h1>
 <p>An agent built with <code>build_agent</code> without <code>instructions</code> receives a default system
-prompt that establishes baseline behaviour: tool usage discipline, schema inspection, and
+prompt, <code>DEFAULT_SYSTEM_PROMPT</code> from <code>promptise.prompt</code>, that establishes baseline behaviour: tool usage discipline, schema inspection, and
 result citation.  The default prompt lives in a single module so it can be
 reviewed, overridden, or extended without touching any builder logic.</p>
 <p><strong>Source:</strong> <code>src/promptise/prompt.py</code></p>
@@ -9645,7 +9645,7 @@ reviewed, overridden, or extended without touching any builder logic.</p>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Link to this section">&para;</a></h2>
-<h3 id="the-default-prompt">The default prompt<a class="headerlink" href="#the-default-prompt" title="Link to this section">&para;</a></h3>
+<h3 id="the-default_system_prompt-constant">The DEFAULT_SYSTEM_PROMPT constant<a class="headerlink" href="#the-default_system_prompt-constant" title="Link to this section">&para;</a></h3>
 <p>The <code>DEFAULT_SYSTEM_PROMPT</code> constant contains the following instructions:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>You are a capable deep agent. Use available tools from connected MCP servers
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>to plan and execute tasks. Always inspect tool descriptions and input schemas
@@ -9806,7 +9806,7 @@ errors.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 20:41:32 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 06:50:58 UTC">2026-10-23</span>
   </span>
 
     
