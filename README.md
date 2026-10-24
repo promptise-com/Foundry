@@ -83,7 +83,7 @@ asyncio.run(main())
 
 One call. The agent discovers its tools on the MCP server by itself; memory, guardrails, cache and tracing are one argument each, and the ones you leave out cost nothing. Vector memory and the ML guardrails need the extras: `pip install "promptise[all]"`.
 
-**Any model, one string.** `openai:gpt-5-mini` · `anthropic:claude-sonnet-4-5` · `azure:chat-prod` · `gemini:gemini-2.5-pro` · `bedrock:…` · `ollama:llama3.1`. The same string works in `build_agent()`, `.superagent` files and every CLI command, and `promptise models check <string>` tells you exactly what a provider still needs. → [Model setup](https://docs.promptise.com/getting-started/model-setup/)
+**Any model, one string.** `openai:gpt-5-mini` · `anthropic:claude-sonnet-5-5` · `azure:chat-prod` · `gemini:gemini-3.8-flash` · `bedrock:…` · `ollama:llama3.1`. The same string works in `build_agent()`, `.superagent` files and every CLI command, and `promptise models check <string>` tells you exactly what a provider still needs. → [Model setup](https://docs.promptise.com/getting-started/model-setup/)
 
 <br/>
 

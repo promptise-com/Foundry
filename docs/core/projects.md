@@ -502,7 +502,7 @@ promptise run --list        # list the scripts
 
 - A script runs through the shell, from the project root. Its exit code is the exit code of `promptise run`.
 - Arguments after the script name are appended to the command. Put `--` before arguments that look like `promptise run` options: `promptise run eval -- --limit 10`.
-- `promptise run` options given with the script name are passed on when the script is itself a `promptise` command: `promptise run dev --model anthropic:claude-sonnet-4-5` runs `promptise run --devtools --watch --model anthropic:claude-sonnet-4-5`. For any other command they are ignored, with a warning.
+- `promptise run` options given with the script name are passed on when the script is itself a `promptise` command: `promptise run dev --model anthropic:claude-sonnet-5-5` runs `promptise run --devtools --watch --model anthropic:claude-sonnet-5-5`. For any other command they are ignored, with a warning.
 - The directory of the Python that runs `promptise` comes first on `PATH`, so `python`, `pytest` and `promptise` in a script are the ones from the same environment. This works like `node_modules/.bin` in npm.
 - The script gets `PROMPTISE_RUN_SCRIPT` (its name), `PROMPTISE_PROJECT_ROOT` and `PROMPTISE_INIT_CWD` (the directory you ran `promptise run` from).
 - `[env]` is applied by `promptise run` itself, so a script that runs `promptise run` gets it. Other commands get the environment you started with.

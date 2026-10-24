@@ -117,7 +117,7 @@ result = await agent.ainvoke({"messages": [{"role": "user", "content": "Hello"}]
 ```python
 agent = await build_agent(
     servers=servers,
-    model=FallbackChain(["openai:gpt-5-mini", "anthropic:claude-sonnet-4-20250514"]),
+    model=FallbackChain(["openai:gpt-5-mini", "anthropic:claude-sonnet-5-5"]),
     guardrails=PromptiseSecurityScanner.default(),
     cache=SemanticCache(),
     events=EventNotifier(sinks=[WebhookSink(url="https://hooks.slack.com/...")]),
