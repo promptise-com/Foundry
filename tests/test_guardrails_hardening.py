@@ -660,17 +660,34 @@ class TestInputRedaction:
         with pytest.raises(GuardrailViolation):
             await scanner.check_input("my key is AKIAIOSFODNN7EXAMPLE")
 
-    def test_block_without_redact_input_warns_at_construction(self, caplog):
+    @pytest.mark.asyncio
+    async def test_block_without_redact_input_warns_once_on_input(self, caplog):
+        scanner = PromptiseSecurityScanner(
+            detectors=[PIIDetector(action=Action.BLOCK), CredentialDetector(action=Action.BLOCK)]
+        )
         with caplog.at_level("WARNING", logger="promptise.guardrails"):
-            PromptiseSecurityScanner(
-                detectors=[
-                    PIIDetector(action=Action.BLOCK),
-                    CredentialDetector(action=Action.BLOCK),
-                ]
-            )
+            await scanner.check_input("nothing sensitive here")
+            assert caplog.records == []
+            message = "mail me at maria.keller@example.com, key AKIAIOSFODNN7EXAMPLE"
+            assert await scanner.check_input(message) == message
+            await scanner.check_input(message)
         (record,) = caplog.records
-        assert record.getMessage().startswith("PII and credential findings are set to BLOCK")
+        assert record.getMessage().startswith(
+            "Input had PII and credential findings, which are set to BLOCK"
+        )
         assert "redact_input=True" in record.getMessage()
+
+    @pytest.mark.asyncio
+    async def test_block_on_output_and_tool_results_does_not_warn(self, caplog):
+        scanner = PromptiseSecurityScanner(
+            detectors=[CredentialDetector(action=Action.BLOCK)], scan_tool_results=True
+        )
+        with caplog.at_level("WARNING", logger="promptise.guardrails"):
+            with pytest.raises(GuardrailViolation):
+                await scanner.check_tool_result("cfg", "key AKIAIOSFODNN7EXAMPLE")
+            with pytest.raises(GuardrailViolation):
+                await scanner.check_output("key AKIAIOSFODNN7EXAMPLE")
+        assert [r for r in caplog.records if "set to BLOCK" in r.getMessage()] == []
 
     @pytest.mark.parametrize(
         "kwargs",
@@ -678,12 +695,23 @@ class TestInputRedaction:
             {"detectors": [CredentialDetector()]},  # REDACT, the default
             {"detectors": [CredentialDetector(action=Action.BLOCK)], "redact_input": True},
             {"on_credentials": Action.WARN},
+            {"detectors": [CredentialDetector(action=Action.BLOCK)]},  # warns only on input
         ],
     )
-    def test_no_warning_when_input_behaves_as_configured(self, caplog, kwargs):
+    def test_no_warning_at_construction(self, caplog, kwargs):
         with caplog.at_level("WARNING", logger="promptise.guardrails"):
             PromptiseSecurityScanner(**kwargs)
         assert caplog.records == []
+
+    @pytest.mark.asyncio
+    async def test_no_input_warning_when_input_behaves_as_configured(self, caplog):
+        for scanner in (
+            PromptiseSecurityScanner(detectors=[CredentialDetector()]),
+            _regex_scanner(on_credentials=Action.WARN),
+        ):
+            with caplog.at_level("WARNING", logger="promptise.guardrails"):
+                await scanner.check_input("key AKIAIOSFODNN7EXAMPLE")
+        assert [r for r in caplog.records if "set to BLOCK" in r.getMessage()] == []
 
     @pytest.mark.asyncio
     async def test_agent_sends_redacted_message_to_model(self):
