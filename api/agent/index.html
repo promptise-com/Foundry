@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
   
@@ -33,10 +33,10 @@
   
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -18772,7 +18772,8 @@ going out unauthenticated. The identity is exposed as
                 <p>Print each tool invocation and result to stdout. Covers
 MCP tools, cross-agent tools, sandbox tools and <code>extra_tools</code>,
 and calls answered from an earlier result
-(<code>ContextCompaction(reuse_results=...)</code>), marked as reused.</p>
+(<code>ContextCompaction(reuse_results=...)</code>, or a repeat in one
+model turn of a <code>ToolNode(deduplicate=True)</code>), marked as reused.</p>
               </div>
             </td>
             <td>
@@ -20420,6 +20421,9 @@ returns.  Input guardrails run first (a violation raises), an answer
 is checked by the output guardrails before its chunk is yielded,
 and memory and observability work as in :meth:<code>ainvoke</code>.  The
 semantic cache is not consulted.</p>
+<p><code>max_invocation_time</code> covers the whole stream, as in
+:meth:<code>ainvoke</code>: when it passes, the stream stops and
+<code>TimeoutError</code> is raised.</p>
 <p>For token-by-token output and tool activity, use
 :meth:<code>astream_with_tools</code>.</p>
 
@@ -20618,6 +20622,9 @@ ambient caller is inherited, as in :meth:<code>ainvoke</code>.</p>
           </tr>
       </tbody>
     </table>
+        <p><code>max_invocation_time</code> covers the whole stream, as in
+:meth:<code>ainvoke</code>: when it passes, the stream stops and
+<code>TimeoutError</code> is raised.</p>
 
 
     <p><span class="doc-section-title">Yields:</span></p>
@@ -33621,10 +33628,10 @@ e.g. <code>"sess_a1b2c3d4e5f6..."</code>.  Unpredictable and non-enumerable.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

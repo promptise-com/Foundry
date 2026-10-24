@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
   
@@ -33,10 +33,10 @@
   
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -9287,10 +9287,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gitleaks-for-ai-96-credential-patterns-that-run-locally" class="md-nav__link">
+  <a href="#gitleaks-for-ai-97-credential-patterns-that-run-locally" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Gitleaks for AI: 96 credential patterns that run locally
+        Gitleaks for AI: 97 credential patterns that run locally
       
     </span>
   </a>
@@ -9501,8 +9501,8 @@
 <li><strong>Sandboxed code.</strong> An agent writes a script containing a hardcoded key, and your executor runs it — potentially with network access to the very service that key unlocks.</li>
 </ul>
 <p>None of these paths pass through git, so CI scanning never sees them. Credential detection AI systems have to move the check to runtime, sitting directly in the request/response path of the agent. That is a different job from repository scanning, and it needs a detector wired into agent I/O rather than a pre-commit hook.</p>
-<h2 id="gitleaks-for-ai-96-credential-patterns-that-run-locally">Gitleaks for AI: 96 credential patterns that run locally<a class="headerlink" href="#gitleaks-for-ai-96-credential-patterns-that-run-locally" title="Link to this section">&para;</a></h2>
-<p>Promptise Foundry ships <code>CredentialDetector</code>, one of six composable detection heads in the <a href="../../core/guardrails/">security guardrails</a> scanner. It brings the accuracy of repo-scanning tooling to runtime traffic by reusing the same battle-tested rules: 96 regex patterns derived from <a href="https://github.com/gitleaks/gitleaks">gitleaks</a> and <a href="https://github.com/trufflesecurity/trufflehog">trufflehog</a>, covering 62 credential categories across 60+ services.</p>
+<h2 id="gitleaks-for-ai-97-credential-patterns-that-run-locally">Gitleaks for AI: 97 credential patterns that run locally<a class="headerlink" href="#gitleaks-for-ai-97-credential-patterns-that-run-locally" title="Link to this section">&para;</a></h2>
+<p>Promptise Foundry ships <code>CredentialDetector</code>, one of six composable detection heads in the <a href="../../core/guardrails/">security guardrails</a> scanner. It brings the accuracy of repo-scanning tooling to runtime traffic by reusing the same battle-tested rules: 97 regex patterns derived from <a href="https://github.com/gitleaks/gitleaks">gitleaks</a> and <a href="https://github.com/trufflesecurity/trufflehog">trufflehog</a>, covering 62 credential categories across 60+ services.</p>
 <p>That includes the credentials most likely to show up in an agent conversation:</p>
 <ul>
 <li><strong>Cloud providers</strong> — AWS access and secret keys, GCP service accounts and API keys, Azure storage and AD client secrets.</li>
@@ -9565,7 +9565,7 @@
 </ul>
 <p>Combining the two heads is the whole point of composable guardrails: <code>CredentialDetector</code> decides <em>what</em> is a secret, and the sandbox decides <em>what a leaked secret can do</em>. For the broader picture of how these detection heads fit together, see <a href="https://www.promptise.com/guides/view/ai-agent-guardrails-python">AI Agent Guardrails in Python: Block Injection, Redact PII</a>.</p>
 <h2 id="tune-categories-exclusions-and-standalone-scans">Tune categories, exclusions, and standalone scans<a class="headerlink" href="#tune-categories-exclusions-and-standalone-scans" title="Link to this section">&para;</a></h2>
-<p>Running all 96 patterns on every message is cheap, but you can narrow the surface when you know your threat model. Pass a set of <code>CredentialCategory</code> values to scan only what matters, or <code>exclude</code> specific pattern names that produce noise in your domain:</p>
+<p>Running all 97 patterns on every message is cheap, but you can narrow the surface when you know your threat model. Pass a set of <code>CredentialCategory</code> values to scan only what matters, or <code>exclude</code> specific pattern names that produce noise in your domain:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">PromptiseSecurityScanner</span><span class="p">,</span> <span class="n">CredentialDetector</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise</span><span class="w"> </span><span class="kn">import</span> <span class="n">CredentialCategory</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
@@ -9590,7 +9590,7 @@
 <p>Use both. CI scanning stops secrets from being committed; runtime detection stops secrets from being <em>spoken</em> — pasted into a prompt, echoed in an answer, or embedded in code an agent is about to execute. They cover disjoint surfaces, and mature systems need coverage on both.</p>
 <h2 id="frequently-asked-questions">Frequently asked questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this section">&para;</a></h2>
 <h3 id="does-scanning-for-secrets-send-my-prompts-to-a-third-party">Does scanning for secrets send my prompts to a third party?<a class="headerlink" href="#does-scanning-for-secrets-send-my-prompts-to-a-third-party" title="Link to this section">&para;</a></h3>
-<p>No. <code>CredentialDetector</code> is 96 local regex patterns with a 0 MB footprint, executed in-process. Nothing about a scan leaves your infrastructure — which is the entire point, since a hosted "secret checker" would have to receive the secret to inspect it. This makes it safe for air-gapped and no-egress environments.</p>
+<p>No. <code>CredentialDetector</code> is 97 local regex patterns with a 0 MB footprint, executed in-process. Nothing about a scan leaves your infrastructure — which is the entire point, since a hosted "secret checker" would have to receive the secret to inspect it. This makes it safe for air-gapped and no-egress environments.</p>
 <h3 id="what-happens-when-a-credential-is-detected">What happens when a credential is detected?<a class="headerlink" href="#what-happens-when-a-credential-is-detected" title="Link to this section">&para;</a></h3>
 <p>By default the matched span is redacted and replaced with a descriptive label (for example <code>AKIAIOSFODNN7EXAMPLE</code> becomes <code>[AWS_ACCESS_KEY]</code>), so the conversation continues without the raw key. Set <code>CredentialDetector(action=Action.BLOCK)</code> to reject the message outright with a <code>GuardrailViolation</code> instead. Every match is recorded as a structured <code>SecurityFinding</code> you can log or alert on.</p>
 <h3 id="can-i-detect-secrets-in-code-an-agent-writes-before-it-runs">Can I detect secrets in code an agent writes before it runs?<a class="headerlink" href="#can-i-detect-secrets-in-code-an-agent-writes-before-it-runs" title="Link to this section">&para;</a></h3>
@@ -9619,7 +9619,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 20, 2026 20:38:11 UTC">2026-10-20</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 01:36:39 UTC">2026-10-24</span>
   </span>
 
     
@@ -9710,10 +9710,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

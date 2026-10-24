@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
   
@@ -33,10 +33,10 @@
   
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -10111,7 +10111,7 @@
 </tr>
 <tr>
 <td>Approval gate</td>
-<td>as for any call</td>
+<td>as for any call, then the same denial fields as the <code>tool.result</code> once the gate decides</td>
 <td><code>status="denied"</code>, <code>denied_by="approval"</code>, <code>reason</code>, <code>decided_by</code> (<code>reviewer</code>, <code>classifier</code>, <code>gate</code>), <code>request_id</code></td>
 </tr>
 </tbody>
@@ -10123,6 +10123,7 @@
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">denied</span><span class="p">:</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"tool_name"</span><span class="p">],</span> <span class="n">e</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"denied_by"</span><span class="p">],</span> <span class="n">e</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"reason"</span><span class="p">])</span>
 </span></code></pre></div>
+<p>The gate decides after a gated call's <code>tool.call</code> is recorded, so the entry is marked in place: the collector's entries and a <code>CALLBACK</code> transporter's entry objects have the fields, while a transporter that wrote the entry out when the call started (a log or a file) has it without them.</p>
 <p><code>get_stats()</code> counts them as <code>tool_denied_count</code>, not as errors, and the <a href="#what-gets-recorded"><code>approval.*</code> events</a> of the gate are on the timeline next to the call, with the same <code>parent_id</code>. <code>promptise run --devtools</code> prints each refusal once (<code>⊘ wire_money refused (budget) ...</code>), and its summary adds a <code>refused</code> count; the TUI shows the call with status <code>denied</code>.</p>
 <p>Whatever is recorded is scrubbed first: with <code>redact_sensitive=True</code> (the default) every event's metadata and details pass through <code>promptise.observability.redact_sensitive</code> before they are stored or reach a transporter, so the HTML report, the NDJSON stream, log files, webhooks and OpenTelemetry spans all get the redacted text:</p>
 <table>
@@ -10693,7 +10694,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 23, 2026 17:47:02 UTC">2026-10-23</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 01:36:39 UTC">2026-10-24</span>
   </span>
 
     
@@ -10782,10 +10783,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

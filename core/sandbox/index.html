@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
   
@@ -33,10 +33,10 @@
   
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -10512,29 +10512,39 @@ gVisor runtime is reported as such rather than as "Docker is not running".</p>
 <p>If <code>runsc</code> is not registered with Docker, <code>create_session()</code> raises
 <code>RuntimeError: ... gVisor runtime 'runsc' is not registered with Docker
 (available runtimes: ...)</code>. The sandbox never falls back to the default runtime.</p>
+<p>The first session pulls <code>SandboxConfig.image</code> when Docker doesn't have it yet.
+That can take a few minutes, so the backend logs the pull as warnings, with a
+progress line every 10 seconds:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>Pulling Docker image python:3.11-slim (first use, this can take a few minutes)
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>Pulling python:3.11-slim: 18 of 41 MB downloaded
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>Pulled Docker image python:3.11-slim
+</span></code></pre></div>
+<p>To skip the wait, run <code>docker pull &lt;image&gt;</code> when you deploy, before the first
+session. A failed pull raises <code>RuntimeError: Failed to create container:
+Pulling image ... failed: ...</code>.</p>
 <hr />
 <h2 id="integration-with-build_agent">Integration with build_agent<a class="headerlink" href="#integration-with-build_agent" title="Link to this section">&para;</a></h2>
 <h3 id="simple-boolean">Simple Boolean<a class="headerlink" href="#simple-boolean" title="Link to this section">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Uses SandboxConfig defaults</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p">)</span>
-</span></code></pre></div>
-<h3 id="detailed-configuration">Detailed Configuration<a class="headerlink" href="#detailed-configuration" title="Link to this section">&para;</a></h3>
-<p>Pass a dict to customize sandbox settings:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>        <span class="s2">"image"</span><span class="p">:</span> <span class="s2">"node:22-slim"</span><span class="p">,</span>  <span class="c1"># an image with the tools the code needs</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>        <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>        <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>        <span class="s2">"pids_limit"</span><span class="p">:</span> <span class="mi">128</span><span class="p">,</span>
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>        <span class="s2">"timeout"</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>        <span class="c1"># "network": "full",      # only if the code must reach the network</span>
-</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="p">},</span>
-</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="p">)</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Uses SandboxConfig defaults</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="detailed-configuration">Detailed Configuration<a class="headerlink" href="#detailed-configuration" title="Link to this section">&para;</a></h3>
+<p>Pass a dict to customize sandbox settings:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    <span class="n">servers</span><span class="o">=</span><span class="p">{</span><span class="s2">"tools"</span><span class="p">:</span> <span class="n">HTTPServerSpec</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"http://localhost:8000/mcp"</span><span class="p">)},</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>        <span class="s2">"image"</span><span class="p">:</span> <span class="s2">"node:22-slim"</span><span class="p">,</span>  <span class="c1"># an image with the tools the code needs</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>        <span class="s2">"memory_limit"</span><span class="p">:</span> <span class="s2">"512M"</span><span class="p">,</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>        <span class="s2">"cpu_limit"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>        <span class="s2">"pids_limit"</span><span class="p">:</span> <span class="mi">128</span><span class="p">,</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>        <span class="s2">"timeout"</span><span class="p">:</span> <span class="mi">120</span><span class="p">,</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>        <span class="c1"># "network": "full",      # only if the code must reach the network</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>    <span class="p">},</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>When the sandbox is enabled, five tools are added to the agent:
 <code>sandbox_exec</code>, <code>sandbox_read_file</code>, <code>sandbox_write_file</code>, <code>sandbox_list_files</code>
@@ -10605,22 +10615,22 @@ writable, and <code>pip install</code> installs into the workspace as before. Co
 that writes outside them, or a custom image that expects a particular
 user, needs <code>user=</code> set: the image's user name, or <code>user="root"</code> for the
 old behaviour.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span><span class="s2">"user"</span><span class="p">:</span> <span class="s2">"root"</span><span class="p">})</span>  <span class="c1"># 1.5.0 behaviour</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="k">await</span> <span class="n">build_agent</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">sandbox</span><span class="o">=</span><span class="p">{</span><span class="s2">"user"</span><span class="p">:</span> <span class="s2">"root"</span><span class="p">})</span>  <span class="c1"># 1.5.0 behaviour</span>
 </span></code></pre></div>
 </div>
 <hr />
 <h2 id="open-mode-sandboxing">Open Mode Sandboxing<a class="headerlink" href="#open-mode-sandboxing" title="Link to this section">&para;</a></h2>
 <p>When using <a href="../../runtime/meta-tools/">Open Mode</a>, agent-created tools can be sandboxed automatically:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">ExecutionMode</span><span class="p">,</span> <span class="n">OpenModeConfig</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">execution_mode</span><span class="o">=</span><span class="n">ExecutionMode</span><span class="o">.</span><span class="n">OPEN</span><span class="p">,</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="n">open_mode</span><span class="o">=</span><span class="n">OpenModeConfig</span><span class="p">(</span>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>        <span class="n">allow_tool_creation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>        <span class="n">sandbox_custom_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Agent-written code runs in sandbox</span>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="p">),</span>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">promptise.runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProcessConfig</span><span class="p">,</span> <span class="n">ExecutionMode</span><span class="p">,</span> <span class="n">OpenModeConfig</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ProcessConfig</span><span class="p">(</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="n">model</span><span class="o">=</span><span class="s2">"openai:gpt-5-mini"</span><span class="p">,</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">execution_mode</span><span class="o">=</span><span class="n">ExecutionMode</span><span class="o">.</span><span class="n">OPEN</span><span class="p">,</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="n">open_mode</span><span class="o">=</span><span class="n">OpenModeConfig</span><span class="p">(</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>        <span class="n">allow_tool_creation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>        <span class="n">sandbox_custom_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Agent-written code runs in sandbox</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    <span class="p">),</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>When <code>sandbox_custom_tools=True</code>, any Python tools the agent creates at runtime are executed inside the sandbox with restricted builtins, preventing access to the host filesystem, network, and system resources.</p>
 <div class="admonition warning">
@@ -10662,7 +10672,7 @@ old behaviour.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 20:07:10 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 01:40:31 UTC">2026-10-24</span>
   </span>
 
     
@@ -10751,10 +10761,10 @@ old behaviour.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

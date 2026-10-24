@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
   
@@ -33,10 +33,10 @@
   
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -9993,7 +9993,7 @@
 </span></code></pre></div>
 <hr />
 <h2 id="event-taxonomy">Event Taxonomy<a class="headerlink" href="#event-taxonomy" title="Link to this section">&para;</a></h2>
-<p>25 event types across 9 categories. Events marked <em>runtime</em> come from an <a href="../../runtime/"><code>AgentProcess</code></a>; the rest come from any agent built with <code>events=</code>.</p>
+<p>29 event types across 9 categories. Events marked <em>runtime</em> come from an <a href="../../runtime/"><code>AgentProcess</code></a>; the rest come from any agent built with <code>events=</code>.</p>
 <table>
 <thead>
 <tr>
@@ -10026,7 +10026,7 @@
 <td></td>
 <td><code>invocation.timeout</code></td>
 <td>error</td>
-<td>Invocation exceeded <code>max_invocation_time</code></td>
+<td>Invocation exceeded <code>max_invocation_time</code> (<code>data</code>: <code>timeout_seconds</code>, and <code>streaming: true</code> for <code>astream()</code> / <code>astream_with_tools()</code>)</td>
 </tr>
 <tr>
 <td><strong>Tools</strong></td>
@@ -10146,7 +10146,31 @@
 <td></td>
 <td><code>process.restarted</code></td>
 <td>warning</td>
-<td>Restart policy is restarting the process (<code>attempt</code>, <code>max_restarts</code>, <code>reason</code>)</td>
+<td>Restart policy is restarting the process (<code>attempt</code>, <code>max_restarts</code>, <code>reason</code>), or a <code>max_lifetime</code> recycle</td>
+</tr>
+<tr>
+<td></td>
+<td><code>process.restart_exhausted</code></td>
+<td>critical</td>
+<td>The process failed with <code>max_restarts</code> already used up; it stays <code>FAILED</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>process.suspended</code></td>
+<td>warning</td>
+<td>The process entered <code>SUSPENDED</code>: <code>suspend()</code>, <code>idle_timeout</code>, a budget limit with <code>on_exceeded="pause"</code> or <code>"escalate"</code> (reason <code>"budget"</code>), a health anomaly with <code>on_anomaly="pause"</code> or <code>"escalate"</code>, or a rewind</td>
+</tr>
+<tr>
+<td></td>
+<td><code>process.resumed</code></td>
+<td>info</td>
+<td>The process left <code>SUSPENDED</code>: <code>resume()</code>, a trigger event for an idle-suspended process, or the end of a rewind</td>
+</tr>
+<tr>
+<td></td>
+<td><code>process.rewound</code></td>
+<td>warning</td>
+<td><code>rewind()</code> applied a rewind</td>
 </tr>
 <tr>
 <td><strong>Cache</strong></td>
@@ -10264,7 +10288,23 @@
 </tr>
 <tr>
 <td><code>process.restarted</code></td>
-<td><code>process_name</code>, <code>process_id</code>, <code>reason</code>, <code>attempt</code>, <code>max_restarts</code></td>
+<td><code>process_name</code>, <code>process_id</code>, <code>reason</code>, <code>attempt</code> (<code>None</code> for a <code>max_lifetime</code> recycle), <code>max_restarts</code></td>
+</tr>
+<tr>
+<td><code>process.restart_exhausted</code></td>
+<td><code>process_name</code>, <code>process_id</code>, <code>reason</code>, <code>restarts</code>, <code>max_restarts</code>, <code>error</code></td>
+</tr>
+<tr>
+<td><code>process.suspended</code></td>
+<td><code>process_name</code>, <code>process_id</code>, <code>reason</code> (<code>"manual"</code>, <code>"idle"</code>, <code>"budget"</code>, <code>"health"</code> or <code>"rewind"</code>)</td>
+</tr>
+<tr>
+<td><code>process.resumed</code></td>
+<td><code>process_name</code>, <code>process_id</code>, <code>reason</code> (<code>"manual"</code>, <code>"trigger"</code> or <code>"rewind"</code>), <code>suspended_for</code> (the reason of the suspension)</td>
+</tr>
+<tr>
+<td><code>process.rewound</code></td>
+<td><code>process_name</code>, <code>process_id</code>, <code>target_entry_id</code>, <code>mode</code>, <code>actor</code>, <code>entries_affected</code></td>
 </tr>
 <tr>
 <td><code>cache.purged</code></td>
@@ -10273,6 +10313,7 @@
 </tbody>
 </table>
 <p>Approvals that an MCP server requests through elicitation (server-side gates) emit the same <code>approval.*</code> events with <code>source: "mcp_elicitation"</code> and <code>server</code>.</p>
+<p><a href="../../runtime/lifecycle/#lifecycle-events">Lifecycle events</a> lists the same <code>process.*</code> events next to the process states and transitions they belong to.</p>
 <hr />
 <h2 id="sinks">Sinks<a class="headerlink" href="#sinks" title="Link to this section">&para;</a></h2>
 <h3 id="webhooksink">WebhookSink<a class="headerlink" href="#webhooksink" title="Link to this section">&para;</a></h3>
@@ -10832,7 +10873,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 19:09:20 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 01:36:39 UTC">2026-10-24</span>
   </span>
 
     
@@ -10921,10 +10962,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

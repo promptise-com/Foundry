@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
   
@@ -33,10 +33,10 @@
   
 
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -11281,8 +11281,9 @@ on and off. See <a href="../../guardrails/">Guardrails</a>.</p>
 </tbody>
 </table>
 <h4 id="max_invocation_time"><code>max_invocation_time</code><a class="headerlink" href="#max_invocation_time" title="Link to this section">&para;</a></h4>
-<p>Optional top-level number. Seconds one invocation may take; <code>0</code> (the default) means no
-limit. A longer run raises <code>TimeoutError</code>.</p>
+<p>Optional top-level number. Seconds one invocation may take (<code>ainvoke()</code>, <code>chat()</code>,
+<code>invoke()</code>, <code>astream()</code> and <code>astream_with_tools()</code>); <code>0</code> (the default) means no limit. A
+longer run raises <code>TimeoutError</code>.</p>
 <h2 id="environment-variable-resolution">Environment Variable Resolution<a class="headerlink" href="#environment-variable-resolution" title="Link to this section">&para;</a></h2>
 <p>All string values in the YAML support environment variable substitution:</p>
 <table>
@@ -11309,7 +11310,7 @@ limit. A longer run raises <code>TimeoutError</code>.</p>
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"${API_URL:-http://localhost:8000/mcp}"</span>
 </span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="nt">bearer_token</span><span class="p">:</span><span class="w"> </span><span class="s">"${API_TOKEN}"</span>
 </span></code></pre></div>
-<p>Before resolving, the loader loads the nearest <code>.env</code> file -- the same file, by the same rule, as the <code>promptise</code> CLI and model setup: the working directory or a parent up to the project root (the folder with <code>pyproject.toml</code> or <code>.git</code>), never overriding a variable that is already set. <code>PROMPTISE_NO_DOTENV=1</code> turns it off. So <code>python run_agent.py</code> and <code>promptise agent</code> see the same variables.</p>
+<p>Before resolving, the loader loads the nearest <code>.env</code> file -- the same file, by the same rule, as the <code>promptise</code> CLI and model setup: the working directory or a parent up to the project root (the nearest folder with <code>promptise.toml</code>, <code>pyproject.toml</code> or <code>.git</code>, or the working directory itself when there is none), never overriding a variable that is already set. <code>PROMPTISE_NO_DOTENV=1</code> turns it off. So <code>python run_agent.py</code> and <code>promptise agent</code> see the same variables.</p>
 <p>Call <code>loader.validate_env_vars()</code> to check which variables are missing before resolving:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">SuperAgentLoader</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">"agent.superagent"</span><span class="p">)</span>
 </span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">missing</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">validate_env_vars</span><span class="p">()</span>
@@ -11506,7 +11507,7 @@ least one of <code>servers</code>, <code>cross_agents</code> or <code>sandbox</c
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 23:50:36 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 01:36:39 UTC">2026-10-24</span>
   </span>
 
     
@@ -11595,10 +11596,10 @@ least one of <code>servers</code>, <code>cross_agents</code> or <code>sandbox</c
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

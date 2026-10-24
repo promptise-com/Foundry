@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
   
@@ -33,10 +33,10 @@
   
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -26478,6 +26478,13 @@ roles, scopes and a tenant, store the verified claims as a dict in
 <code>ctx.state["jwt_payload"]</code>: <code>AuthMiddleware</code> builds <code>ctx.client</code>
 from them as it does for a JWT (<code>roles</code>, <code>scope</code>, the tenant claim,
 <code>iss</code> / <code>aud</code> / <code>sub</code> / <code>iat</code> / <code>exp</code>).</p>
+<p>Refuse a request by raising :class:<code>AuthenticationError</code>; a return of
+<code>None</code>, a bool or an empty string is refused too.  Either way the
+call ends with <code>AUTHENTICATION_ERROR</code> before the tool runs.  With
+<code>MCPServer(require_auth=True)</code> the HTTP auth gate also refuses a bad
+credential with <code>401</code> before any MCP request, but only for a provider
+that has <code>async def averify_token(credential) -&gt; bool</code> (or a sync
+<code>verify_token</code>), as the built-in providers do.</p>
 
 
 
@@ -26736,7 +26743,8 @@ server hides tools the caller may not call.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Missing or invalid credentials.</p>
+                <p>Missing or invalid credentials, or the
+provider returned no client id (<code>None</code>, a bool, <code>""</code>).</p>
               </div>
             </td>
           </tr>
@@ -27784,8 +27792,8 @@ The innermost function is the actual handler.</p>
 - <code>duration_ms</code>: Execution time (on completion)
 - <code>status</code>: <code>"ok"</code> or <code>"error"</code>
 - <code>error</code>: Error message (on failure)
-- <code>args</code>: The validated arguments (on <code>tool_call_start</code>, with
-  <code>include_args=True</code>)</p>
+- <code>args</code>: The validated arguments, or for a rejected call the ones
+  the caller sent (on <code>tool_call_start</code>, with <code>include_args=True</code>)</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -27832,7 +27840,10 @@ of a credential key (<code>password</code>, <code>api_key</code>, <code>token</c
 and credentials or PII in strings (API keys, JWTs, card
 numbers, email addresses...) are replaced with placeholders.
 Pattern matching can't recognise every kind of personal data,
-so leave this off for tools that take it.</p>
+so leave this off for tools that take it.  A call whose
+arguments fail validation logs the arguments as the caller
+sent them, redacted the same way, with long strings and lists
+clipped and marked.</p>
               </div>
             </td>
             <td>
@@ -28686,7 +28697,10 @@ entries are only kept in memory and emitted via Python logging.</p>
                 <p>Log tool arguments (default <code>False</code> — may
 contain PII).  They are logged as the tool validated them, as
 JSON: a Pydantic model argument (or one nested in a list or
-dict) is a JSON object, a <code>datetime</code> an ISO string.</p>
+dict) is a JSON object, a <code>datetime</code> an ISO string.  A call
+whose arguments fail validation (<code>error_code</code> is
+<code>VALIDATION_ERROR</code>) is logged with the arguments as the
+caller sent them, with long strings and lists clipped.</p>
               </div>
             </td>
             <td>
@@ -39561,10 +39575,10 @@ LangChain.js) cannot resolve <code>$ref</code> references.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

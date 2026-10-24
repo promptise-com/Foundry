@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
   
@@ -33,10 +33,10 @@
   
 
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -10732,7 +10732,7 @@
 <td><code>GET</code></td>
 <td><code>/processes/{name}/triggers</code></td>
 <td>Config and agent-added triggers with stable IDs; <code>hmac_secret</code>, credential-like <code>custom_config</code> values and URL user info masked</td>
-<td>:</td>
+<td>Read only</td>
 <td><code>200</code></td>
 </tr>
 <tr>
@@ -11028,7 +11028,7 @@
 <tr>
 <td>Remove an agent-added trigger</td>
 <td>Stopped at once: <code>live: true</code>, <code>"immediate"</code></td>
-<td>:</td>
+<td><code>404 TRIGGER_NOT_FOUND</code>: stopping a process drops its agent-added triggers</td>
 </tr>
 </tbody>
 </table>
@@ -11198,12 +11198,37 @@
 <p>All four exception classes are in <code>promptise.runtime.inbox</code> and subclass <code>InboxError</code>, a <code>ValueError</code>. Refused messages are not counted against the sender's rate limit.</p>
 <p>When the inbox holds <code>max_messages</code> messages, a new message first replaces an answered question if there is one; otherwise it evicts the <strong>oldest message of the lowest priority</strong> present. Critical messages are never evicted, and a message never evicts one of higher priority: if every message is critical, or the new message has a lower priority than every evictable one, the new message is refused with <code>INBOX_FULL</code>. The inbox never holds more than <code>max_messages</code>. An <code>/ask</code> call waiting on an evicted question ends with <code>410 QUESTION_REMOVED</code>.</p>
 <h3 id="guardrail-scanning">Guardrail scanning<a class="headerlink" href="#guardrail-scanning" title="Link to this section">&para;</a></h3>
-<p>With <code>scan_with_guardrails: true</code> (the default), each message is scanned when it arrives, in overlapping 500-character windows, and a flagged message is refused (<code>422 MESSAGE_REJECTED</code>). The scanner is, in order:</p>
+<p>With <code>scan_with_guardrails: true</code> (the default), each message is scanned when it arrives, and a flagged message is refused (<code>422 MESSAGE_REJECTED</code>). The whole message is scanned at once, so pattern detectors (credentials, PII) see every match, however long. A <code>PromptiseSecurityScanner</code> splits the text into windows for its models itself. Any other scanner also gets the message in overlapping 500-character windows, for models that read only a limited length. The scanner is, in order:</p>
 <ol>
 <li><code>ProcessConfig.guardrails</code>, when it can scan text (a <code>PromptiseSecurityScanner</code> or any object with <code>scan_text()</code> or <code>check_input()</code>).</li>
 <li>The trigger payload scanner, when <code>trigger_delivery.scan_payloads</code> is on. It is loaded when the process starts; messages that arrived before (a created process already takes messages) are scanned then, and flagged ones are removed (an <code>/ask</code> waiting on one gets <code>422 MESSAGE_REJECTED</code>).</li>
 </ol>
 <p>With neither, messages are <strong>not scanned</strong>: the process logs a one-time warning and accepts them. Set <code>guardrails</code> (for example <code>PromptiseSecurityScanner(detectors=[InjectionDetector()])</code>) or <code>trigger_delivery.scan_payloads=True</code> to scan them, or <code>scan_with_guardrails: false</code> to accept messages unscanned without the warning. Only give inbox access to people you trust with the agent's instructions: a message lands in the agent's prompt.</p>
+<p><strong>Credentials and personal data.</strong> The inbox applies the scanner's input policy, the same one <code>check_input()</code> applies to an agent's input. This covers messages scanned on arrival and messages scanned at start. Credentials are only found when the scanner has a credential detector. The default payload scanner checks for prompt injection only.</p>
+<table>
+<thead>
+<tr>
+<th>Scanner</th>
+<th>A message with an API key in it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PromptiseSecurityScanner(detectors=[CredentialDetector()])</code></td>
+<td>Accepted as sent. On input a credential is a warning, so the process logs one warning naming the finding categories and the message ID, never the key.</td>
+</tr>
+<tr>
+<td>The same with <code>redact_input=True</code></td>
+<td>Accepted with the key masked. The inbox stores the scanner's redacted text, so the agent never sees the value. PII the scanner redacts is masked the same way.</td>
+</tr>
+<tr>
+<td><code>redact_input=True</code> and <code>CredentialDetector(action=Action.BLOCK)</code></td>
+<td>Refused with <code>422 MESSAGE_REJECTED</code>. The reason names the credential category.</td>
+</tr>
+</tbody>
+</table>
+<p>Without <code>redact_input=True</code>, <code>CredentialDetector(action=Action.BLOCK)</code> is still a warning on input, so the message is accepted as in the first row.</p>
+<p>To hand an agent a secret it needs, use the process's <a href="../governance/secrets/">secrets</a> instead of sending it in a message.</p>
 <h3 id="from-python">From Python<a class="headerlink" href="#from-python" title="Link to this section">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">msg_id</span> <span class="o">=</span> <span class="k">await</span> <span class="n">process</span><span class="o">.</span><span class="n">send_message</span><span class="p">(</span>
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="s2">"Ignore staging alerts for 1 hour"</span><span class="p">,</span>
@@ -11942,7 +11967,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 21:03:30 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 01:36:39 UTC">2026-10-24</span>
   </span>
 
     
@@ -12031,10 +12056,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>
