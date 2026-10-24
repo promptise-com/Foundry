@@ -27,8 +27,10 @@ audit_app = typer.Typer(
     no_args_is_help=True,
     help="Check the HMAC-chained audit logs written by AuditMiddleware.",
 )
-_console = Console()
-_err = Console(stderr=True)
+# soft_wrap: a line is never broken to fit the width, so output piped to a
+# script keeps "last_hash <hash> (seq N)" and "<file>:<line>: ..." on one line.
+_console = Console(soft_wrap=True)
+_err = Console(stderr=True, soft_wrap=True)
 
 
 @audit_app.command("verify")

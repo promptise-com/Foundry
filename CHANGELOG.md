@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`promptise audit verify` wrapped its output at 80 columns when piped** -- a script reading the output got `last_hash <hash> (seq` and `N)` on separate lines, which broke extracting the hash for `--anchor`. Lines are no longer broken to fit the width.
+
 ## 1.10.1 — 2026-10-24
 
 ### Security
