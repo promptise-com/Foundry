@@ -3857,7 +3857,8 @@ the model.
     ```
 
     The signed-in identity needs the *Cognitive Services OpenAI User* role on
-    the resource.
+    the resource. `AZURE_OPENAI_API_KEY` is not needed: the token is the
+    credential, and the request carries only `Authorization: Bearer <token>`.
 
 ### Other models in the Foundry catalog — `provider="foundry"`
 

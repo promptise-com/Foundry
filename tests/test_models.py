@@ -476,6 +476,31 @@ class TestEveryProviderWithCoreOnly:
             == "chat-prod"
         )
 
+    @pytest.mark.parametrize("extra_key", ["azure_ad_token_provider", "azure_ad_token"])
+    def test_azure_entra_id_needs_no_api_key(self, clean_env, extra_key):
+        """The keyless (Entra ID) setup in the docs used to fail: AZURE_OPENAI_API_KEY is not set."""
+        credential = (lambda: "entra-token") if extra_key == "azure_ad_token_provider" else "t"
+        llm = Model(
+            "gpt-4o",
+            provider="azure",
+            deployment="chat-prod",
+            endpoint="https://r.openai.azure.com/",
+            api_version="2024-10-21",
+            extra={extra_key: credential},
+        ).resolve()
+        assert type(llm).__name__ == "AzureChatOpenAI"
+        assert llm.openai_api_key is None
+
+    def test_azure_without_key_or_token_still_names_the_key(self, clean_env):
+        with pytest.raises(ModelSetupError, match="AZURE_OPENAI_API_KEY"):
+            Model(
+                "gpt-4o",
+                provider="azure",
+                deployment="chat-prod",
+                endpoint="https://r.openai.azure.com/",
+                api_version="2024-10-21",
+            ).resolve()
+
     def test_self_hosted_endpoints(self, clean_env):
         vllm = Model(
             "qwen2.5", provider="openai", endpoint="http://gpu:8000/v1", api_key="none"
