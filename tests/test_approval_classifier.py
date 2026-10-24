@@ -51,6 +51,35 @@ def _make_request(tool: str, **kwargs) -> ApprovalRequest:
 # ---------------------------------------------------------------------------
 
 
+class TestFunctionFallback:
+    """A bare function as fallback used to be accepted, then fail at the first escalation."""
+
+    @pytest.mark.asyncio
+    async def test_async_function_is_called_on_escalation(self):
+        seen: list[str] = []
+
+        async def ask_human(request: ApprovalRequest) -> ApprovalDecision:
+            seen.append(request.tool_name)
+            return ApprovalDecision(approved=False, reason="not today")
+
+        classifier = AutoApprovalClassifier(read_only_auto_allow=False, fallback=ask_human)
+        decision = await classifier.request_approval(_make_request("delete_user"))
+        assert seen == ["delete_user"]
+        assert decision.approved is False and decision.reason == "not today"
+
+    @pytest.mark.asyncio
+    async def test_plain_function_returning_bool(self):
+        classifier = AutoApprovalClassifier(
+            read_only_auto_allow=False, fallback=lambda request: True
+        )
+        decision = await classifier.request_approval(_make_request("delete_user"))
+        assert decision.approved is True
+
+    def test_non_callable_fallback_is_rejected_up_front(self):
+        with pytest.raises(TypeError, match="fallback must be an ApprovalHandler or a function"):
+            AutoApprovalClassifier(fallback="https://approvals.example.com")
+
+
 class TestApprovalRule:
     @pytest.mark.asyncio
     async def test_glob_tool_match(self):

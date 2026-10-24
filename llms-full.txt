@@ -9836,6 +9836,8 @@ policy = ApprovalPolicy(
 )
 ```
 
+`fallback` takes any approval handler, or a function (plain or `async`) that receives the request and returns an `ApprovalDecision` or a bool, the same as `ApprovalPolicy(handler=...)`.
+
 ---
 
 ## The 6-layer hierarchy
