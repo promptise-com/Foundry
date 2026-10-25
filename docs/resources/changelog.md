@@ -9,6 +9,12 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **Azure OpenAI with Entra ID (keyless) failed with "AZURE_OPENAI_API_KEY is not set"** -- the keyless setup the docs show, `Model(..., provider="azure", extra={"azure_ad_token_provider": ...})`, was refused unless an API key was also set, although the request only uses the token. A token provider or token in `extra` now counts as the credential.
+
 ## v1.10.1 — 2026-10-24
 
 ### Security
