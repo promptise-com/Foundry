@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **The warning for PII or credential `BLOCK` without `redact_input=True` now comes when input has such a finding, once per scanner** -- 1.10.1 logged it when the scanner was created, so a scanner used only for output or tool results, where `BLOCK` works, warned for nothing. It now warns the first time a message has a PII or credential finding that is only logged on input.
+
 ## 1.10.1 — 2026-10-24
 
 ### Security

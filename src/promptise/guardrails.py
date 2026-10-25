@@ -2764,23 +2764,17 @@ class PromptiseSecurityScanner:
                 )
 
         # On input, PII and credential findings are warnings unless
-        # redact_input=True: say so when a BLOCK was asked for explicitly.
-        if not redact_input:
-            blocked = [
-                name
-                for name, enabled, action in (
-                    ("PII", self.detect_pii, self._on_pii),
-                    ("credential", self.detect_credentials, self._on_credentials),
-                )
-                if enabled and action == Action.BLOCK
-            ]
-            if blocked:
-                logger.warning(
-                    "%s findings are set to BLOCK, which applies to output and tool "
-                    "results; on input they are only logged. Pass redact_input=True "
-                    "to block them on input too.",
-                    " and ".join(blocked),
-                )
+        # redact_input=True.  When a BLOCK was asked for explicitly, the first
+        # input that has such a finding says so (see scan_text).
+        self._block_on_output_only = {
+            head: label
+            for head, label, enabled, action in (
+                ("pii", "PII", self.detect_pii, self._on_pii),
+                ("credential", "credential", self.detect_credentials, self._on_credentials),
+            )
+            if enabled and action == Action.BLOCK
+        }
+        self._input_block_noted = False
 
     # ── Guard protocol ────────────────────────────────────────────────
 
@@ -2951,6 +2945,9 @@ class PromptiseSecurityScanner:
             scanners_run.append("custom")
             findings.extend(self._scan_custom(text))
 
+        if direction == "input" and not self.redact_input:
+            self._note_input_block(findings)
+
         # Build redacted text for output direction
         redacted_text = None
         redact_findings = [f for f in findings if f.action == Action.REDACT]
@@ -3016,6 +3013,25 @@ class PromptiseSecurityScanner:
                 metadata={"reason": reason, "fail_open": False},
             )
         ]
+
+    def _note_input_block(self, findings: list[SecurityFinding]) -> None:
+        """Warn once when input had a finding set to BLOCK that input only logs."""
+        if self._input_block_noted or not self._block_on_output_only:
+            return
+        heads = [
+            label
+            for head, label in self._block_on_output_only.items()
+            if any(f.detector == head for f in findings)
+        ]
+        if not heads:
+            return
+        self._input_block_noted = True
+        logger.warning(
+            "Input had %s findings, which are set to BLOCK; on input they are only "
+            "logged. Pass redact_input=True to block them on input too. This "
+            "warning is shown once per scanner.",
+            " and ".join(heads),
+        )
 
     # ── Detection heads ───────────────────────────────────────────────
 
