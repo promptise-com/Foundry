@@ -9,6 +9,12 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **`AutoApprovalClassifier(fallback=<function>)` failed at the first escalation** -- a bare function was accepted when the classifier was built, then the first request that reached the fallback raised `AttributeError: 'function' object has no attribute 'request_approval'`. A function (plain or async) is now wrapped as `ApprovalPolicy(handler=...)` wraps one, and anything else is refused with a `TypeError` when the classifier is built.
+
 ## v1.10.1 — 2026-10-24
 
 ### Security
