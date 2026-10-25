@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -357,6 +358,16 @@ def _cli(*args: str, env: dict[str, Any] | None = None) -> Any:
 
 
 class TestCli:
+    def test_piped_output_keeps_each_line_whole(self, log: Path) -> None:
+        """At the 80 columns of a pipe, the last_hash line used to wrap."""
+        runner = CliRunner(
+            env={"COLUMNS": "80", "PROMPTISE_NO_DOTENV": "1", "PROMPTISE_AUDIT_SECRET": KEY}
+        )
+        result = runner.invoke(app, ["audit", "verify", str(log)])
+        assert result.exit_code == 0, result.output
+        [line] = [ln for ln in result.output.splitlines() if ln.startswith("last_hash ")]
+        assert re.fullmatch(r"last_hash [0-9a-f]{64} \(seq \d+\)", line), line
+
     def test_intact_log_exits_zero_and_never_prints_the_key(self, log: Path) -> None:
         result = _cli(str(log), env={"PROMPTISE_AUDIT_SECRET": KEY})
         assert result.exit_code == 0, result.output
