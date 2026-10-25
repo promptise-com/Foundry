@@ -40,7 +40,7 @@ Any other provider works the same way: see [Model Setup](../getting-started/mode
 - **Tools come from two places.** Python functions you decorate with `@tool`, and the
   tools of the MCP servers you connect. The agent treats both the same way.
 - **The model is a string or a `Model`.** `"openai:gpt-5-mini"`,
-  `"anthropic:claude-sonnet-4-5"`, `"ollama:llama3.1"`, or
+  `"anthropic:claude-sonnet-5-5"`, `"ollama:llama3.1"`, or
   `Model("gpt-5-mini", provider="openai", api_key=...)`. Changing it changes nothing else.
 
 ---

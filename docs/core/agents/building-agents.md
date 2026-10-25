@@ -559,7 +559,7 @@ See the full [Agent Runtime](../../runtime/index.md) docs for architecture, stat
 | `PromptiseSecurityScanner` | `from promptise import PromptiseSecurityScanner` | Composable security scanner for input/output guardrails. |
 
 !!! tip "Model strings"
-    Promptise uses LangChain's `init_chat_model()` under the hood, so any provider string it accepts works here: `"openai:gpt-5-mini"`, `"anthropic:claude-sonnet-4-20250514"`, `"ollama:llama3"`, etc.
+    Promptise uses LangChain's `init_chat_model()` under the hood, so any provider string it accepts works here: `"openai:gpt-5-mini"`, `"anthropic:claude-sonnet-5-5"`, `"ollama:llama3"`, etc.
 
 !!! tip "Empty server dict"
     Passing an empty `servers={}` is valid. The agent runs without MCP tools: useful when you only need `extra_tools` or `cross_agents`.

@@ -297,7 +297,7 @@ Provider docs: <https://learn.microsoft.com/azure/ai-foundry/>
 **Provider:** `anthropic`, `claude` · **Route:** its native LangChain integration (core) · **Model:** the model name.
 
 ```python
-Model("claude-sonnet-4-5", provider="anthropic", api_key="sk-ant-...")
+Model("claude-sonnet-5-5", provider="anthropic", api_key="sk-ant-...")
 ```
 
 | Environment variable | Required | Where to find it |
@@ -311,7 +311,7 @@ Provider docs: <https://docs.anthropic.com/en/docs/about-claude/models>
 **Provider:** `google_genai`, `gemini`, `google`, `google-genai`, `genai` · **Route:** its OpenAI-compatible endpoint `https://generativelanguage.googleapis.com/v1beta/openai/` · **Model:** the model name.
 
 ```python
-Model("gemini-2.5-pro", provider="gemini", api_key="AIza...")
+Model("gemini-3.8-flash", provider="gemini", api_key="AIza...")
 ```
 
 | Environment variable | Required | Where to find it |
@@ -673,7 +673,7 @@ agent = await build_agent(
     model=FallbackChain(
         [
             Model("gpt-4o", provider="azure", deployment="chat-prod", endpoint=..., api_key=..., api_version="2024-10-21"),
-            "anthropic:claude-sonnet-4-5",
+            "anthropic:claude-sonnet-5-5",
             "groq:llama-3.3-70b-versatile",
         ],
         timeout_per_model=20,

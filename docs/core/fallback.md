@@ -12,9 +12,9 @@ from promptise import build_agent, FallbackChain
 
 agent = await build_agent(
     model=FallbackChain([
-        "openai:gpt-5-mini",           # Primary
-        "anthropic:claude-sonnet-4-20250514",    # Fallback 1
-        "ollama:llama3",                # Fallback 2 (local, always up)
+        "openai:gpt-5-mini",             # Primary
+        "anthropic:claude-sonnet-5-5",   # Fallback 1
+        "ollama:llama3",                 # Fallback 2 (local, always up)
     ]),
     servers=servers,
 )
@@ -44,7 +44,7 @@ Single-provider agents are a single point of failure. When OpenAI has an outage 
 ## Keys and Setup
 
 Only the primary model needs its key when the agent is built. A fallback given as a
-string (`"anthropic:claude-sonnet-4-5"`) or a `Model(...)` is set up the first time
+string (`"anthropic:claude-sonnet-5-5"`) or a `Model(...)` is set up the first time
 it is tried:
 
 - **Primary without its key**: `build_agent()` raises `ModelSetupError`, naming the
@@ -52,13 +52,13 @@ it is tried:
 - **Fallback without its key**: the chain builds and the primary serves every request.
   When the primary fails and the chain reaches that fallback, its setup error is one
   more failed attempt: the next model is tried, and if none can answer, the
-  `RuntimeError` lists it (`anthropic:claude-sonnet-4-5: ModelSetupError: ...
+  `RuntimeError` lists it (`anthropic:claude-sonnet-5-5: ModelSetupError: ...
   ANTHROPIC_API_KEY is not set`). It counts toward that model's circuit breaker.
 - **Model instances** (`ChatOpenAI(...)` and other `BaseChatModel`s) are used as
   given.
 
 So a chain written for production runs locally with only the primary's key. Check a
-fallback before you rely on it: `promptise models check anthropic:claude-sonnet-4-5`.
+fallback before you rely on it: `promptise models check anthropic:claude-sonnet-5-5`.
 
 ---
 
@@ -105,7 +105,7 @@ A [`SemanticCache`](cache.md) keys answers by the model that wrote them: an answ
 
 ```python
 FallbackChain(
-    models=["openai:gpt-5-mini", "anthropic:claude-sonnet-4-20250514", "ollama:llama3"],
+    models=["openai:gpt-5-mini", "anthropic:claude-sonnet-5-5", "ollama:llama3"],
     timeout_per_model=15.0,   # 15s max per model attempt (0 = no limit)
     global_timeout=30.0,      # 30s max across ALL attempts (0 = no limit)
     failure_threshold=3,      # Circuit opens after 3 consecutive failures
@@ -162,7 +162,7 @@ def on_fallback(primary, fallback, error):
 
 agent = await build_agent(
     model=FallbackChain(
-        ["openai:gpt-5-mini", "anthropic:claude-sonnet-4-20250514"],
+        ["openai:gpt-5-mini", "anthropic:claude-sonnet-5-5"],
         on_fallback=on_fallback,
     ),
     events=EventNotifier(sinks=[

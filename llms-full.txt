@@ -236,7 +236,7 @@ The simplest possible agent, just an LLM with instructions:
 That's it. `build_agent()` handles model initialization, message formatting, and execution.
 
 !!! note "Any provider, one string or one object"
-    `"azure:<deployment>"`, `"foundry:<model>"`, `"bedrock:<model-id>"`, `"gemini:gemini-2.5-pro"`, `"ollama:llama3.1"`, or the same as `Model("...", provider="...")` with the credentials in code. [Model Setup](model-setup.md) covers every provider; `promptise models check <string>` tells you what is missing before you run.
+    `"azure:<deployment>"`, `"foundry:<model>"`, `"bedrock:<model-id>"`, `"gemini:gemini-3.8-flash"`, `"ollama:llama3.1"`, or the same as `Model("...", provider="...")` with the credentials in code. [Model Setup](model-setup.md) covers every provider; `promptise models check <string>` tells you what is missing before you run.
 
 ## Add Tools (2 minutes)
 
@@ -594,7 +594,7 @@ result = await agent.ainvoke({"messages": [{"role": "user", "content": "Hello"}]
 ```python
 agent = await build_agent(
     servers=servers,
-    model=FallbackChain(["openai:gpt-5-mini", "anthropic:claude-sonnet-4-20250514"]),
+    model=FallbackChain(["openai:gpt-5-mini", "anthropic:claude-sonnet-5-5"]),
     guardrails=PromptiseSecurityScanner.default(),
     cache=SemanticCache(),
     events=EventNotifier(sinks=[WebhookSink(url="https://hooks.slack.com/...")]),
@@ -2549,7 +2549,7 @@ See the full [Agent Runtime](../../runtime/index.md) docs for architecture, stat
 | `PromptiseSecurityScanner` | `from promptise import PromptiseSecurityScanner` | Composable security scanner for input/output guardrails. |
 
 !!! tip "Model strings"
-    Promptise uses LangChain's `init_chat_model()` under the hood, so any provider string it accepts works here: `"openai:gpt-5-mini"`, `"anthropic:claude-sonnet-4-20250514"`, `"ollama:llama3"`, etc.
+    Promptise uses LangChain's `init_chat_model()` under the hood, so any provider string it accepts works here: `"openai:gpt-5-mini"`, `"anthropic:claude-sonnet-5-5"`, `"ollama:llama3"`, etc.
 
 !!! tip "Empty server dict"
     Passing an empty `servers={}` is valid. The agent runs without MCP tools: useful when you only need `extra_tools` or `cross_agents`.
@@ -3970,7 +3970,7 @@ Provider docs: <https://learn.microsoft.com/azure/ai-foundry/>
 **Provider:** `anthropic`, `claude` · **Route:** its native LangChain integration (core) · **Model:** the model name.
 
 ```python
-Model("claude-sonnet-4-5", provider="anthropic", api_key="sk-ant-...")
+Model("claude-sonnet-5-5", provider="anthropic", api_key="sk-ant-...")
 ```
 
 | Environment variable | Required | Where to find it |
@@ -3984,7 +3984,7 @@ Provider docs: <https://docs.anthropic.com/en/docs/about-claude/models>
 **Provider:** `google_genai`, `gemini`, `google`, `google-genai`, `genai` · **Route:** its OpenAI-compatible endpoint `https://generativelanguage.googleapis.com/v1beta/openai/` · **Model:** the model name.
 
 ```python
-Model("gemini-2.5-pro", provider="gemini", api_key="AIza...")
+Model("gemini-3.8-flash", provider="gemini", api_key="AIza...")
 ```
 
 | Environment variable | Required | Where to find it |
@@ -4346,7 +4346,7 @@ agent = await build_agent(
     model=FallbackChain(
         [
             Model("gpt-4o", provider="azure", deployment="chat-prod", endpoint=..., api_key=..., api_version="2024-10-21"),
-            "anthropic:claude-sonnet-4-5",
+            "anthropic:claude-sonnet-5-5",
             "groq:llama-3.3-70b-versatile",
         ],
         timeout_per_model=20,
@@ -10914,9 +10914,9 @@ from promptise import build_agent, FallbackChain
 
 agent = await build_agent(
     model=FallbackChain([
-        "openai:gpt-5-mini",           # Primary
-        "anthropic:claude-sonnet-4-20250514",    # Fallback 1
-        "ollama:llama3",                # Fallback 2 (local, always up)
+        "openai:gpt-5-mini",             # Primary
+        "anthropic:claude-sonnet-5-5",   # Fallback 1
+        "ollama:llama3",                 # Fallback 2 (local, always up)
     ]),
     servers=servers,
 )
@@ -10946,7 +10946,7 @@ Single-provider agents are a single point of failure. When OpenAI has an outage 
 ## Keys and Setup
 
 Only the primary model needs its key when the agent is built. A fallback given as a
-string (`"anthropic:claude-sonnet-4-5"`) or a `Model(...)` is set up the first time
+string (`"anthropic:claude-sonnet-5-5"`) or a `Model(...)` is set up the first time
 it is tried:
 
 - **Primary without its key**: `build_agent()` raises `ModelSetupError`, naming the
@@ -10954,13 +10954,13 @@ it is tried:
 - **Fallback without its key**: the chain builds and the primary serves every request.
   When the primary fails and the chain reaches that fallback, its setup error is one
   more failed attempt: the next model is tried, and if none can answer, the
-  `RuntimeError` lists it (`anthropic:claude-sonnet-4-5: ModelSetupError: ...
+  `RuntimeError` lists it (`anthropic:claude-sonnet-5-5: ModelSetupError: ...
   ANTHROPIC_API_KEY is not set`). It counts toward that model's circuit breaker.
 - **Model instances** (`ChatOpenAI(...)` and other `BaseChatModel`s) are used as
   given.
 
 So a chain written for production runs locally with only the primary's key. Check a
-fallback before you rely on it: `promptise models check anthropic:claude-sonnet-4-5`.
+fallback before you rely on it: `promptise models check anthropic:claude-sonnet-5-5`.
 
 ---
 
@@ -11007,7 +11007,7 @@ A [`SemanticCache`](cache.md) keys answers by the model that wrote them: an answ
 
 ```python
 FallbackChain(
-    models=["openai:gpt-5-mini", "anthropic:claude-sonnet-4-20250514", "ollama:llama3"],
+    models=["openai:gpt-5-mini", "anthropic:claude-sonnet-5-5", "ollama:llama3"],
     timeout_per_model=15.0,   # 15s max per model attempt (0 = no limit)
     global_timeout=30.0,      # 30s max across ALL attempts (0 = no limit)
     failure_threshold=3,      # Circuit opens after 3 consecutive failures
@@ -11064,7 +11064,7 @@ def on_fallback(primary, fallback, error):
 
 agent = await build_agent(
     model=FallbackChain(
-        ["openai:gpt-5-mini", "anthropic:claude-sonnet-4-20250514"],
+        ["openai:gpt-5-mini", "anthropic:claude-sonnet-5-5"],
         on_fallback=on_fallback,
     ),
     events=EventNotifier(sinks=[
@@ -12807,7 +12807,7 @@ from promptise import build_agent, HTTPServerSpec
 from promptise.identity import AgentIdentity
 
 agent = await build_agent(
-    model="anthropic:claude-sonnet-4-5",
+    model="anthropic:claude-sonnet-5-5",
     identity=AgentIdentity.from_entra("billing-bot"),
     servers={
         "billing": HTTPServerSpec(url="https://billing.internal/mcp",
@@ -13001,7 +13001,7 @@ async def main():
     agent = await build_agent(model="openai:gpt-5-mini", servers={})
 
     # Anthropic
-    agent = await build_agent(model="anthropic:claude-sonnet-4-20250514", servers={})
+    agent = await build_agent(model="anthropic:claude-sonnet-5-5", servers={})
 
 asyncio.run(main())
 ```
@@ -14327,7 +14327,7 @@ promptise run --list        # list the scripts
 
 - A script runs through the shell, from the project root. Its exit code is the exit code of `promptise run`.
 - Arguments after the script name are appended to the command. Put `--` before arguments that look like `promptise run` options: `promptise run eval -- --limit 10`.
-- `promptise run` options given with the script name are passed on when the script is itself a `promptise` command: `promptise run dev --model anthropic:claude-sonnet-4-5` runs `promptise run --devtools --watch --model anthropic:claude-sonnet-4-5`. For any other command they are ignored, with a warning.
+- `promptise run` options given with the script name are passed on when the script is itself a `promptise` command: `promptise run dev --model anthropic:claude-sonnet-5-5` runs `promptise run --devtools --watch --model anthropic:claude-sonnet-5-5`. For any other command they are ignored, with a warning.
 - The directory of the Python that runs `promptise` comes first on `PATH`, so `python`, `pytest` and `promptise` in a script are the ones from the same environment. This works like `node_modules/.bin` in npm.
 - The script gets `PROMPTISE_RUN_SCRIPT` (its name), `PROMPTISE_PROJECT_ROOT` and `PROMPTISE_INIT_CWD` (the directory you ran `promptise run` from).
 - `[env]` is applied by `promptise run` itself, so a script that runs `promptise run` gets it. Other commands get the environment you started with.
@@ -14967,7 +14967,7 @@ promptise init --project [DIR] [--name NAME] [--model MODEL] [--force]
 promptise init --project my-bot
 
 # The current directory, with an Anthropic model
-promptise init --project --model anthropic:claude-sonnet-4-5
+promptise init --project --model anthropic:claude-sonnet-5-5
 
 # Then
 cd my-bot
@@ -26441,11 +26441,11 @@ async def summarize_document(
 ```python
 result = await sampler.create_message(
     messages=[{"role": "user", "content": "..."}],
-    max_tokens=1024,          # Maximum tokens to generate
-    model="claude-sonnet-4-20250514",      # Model hint (client may ignore)
-    system="You are...",      # System prompt
-    temperature=0.7,          # Sampling temperature
-    stop_sequences=["\n\n"],  # Stop sequences
+    max_tokens=1024,             # Maximum tokens to generate
+    model="claude-sonnet-5-5",   # Model hint (client may ignore)
+    system="You are...",         # System prompt
+    temperature=0.7,             # Sampling temperature
+    stop_sequences=["\n\n"],     # Stop sequences
 )
 ```
 
@@ -29527,7 +29527,7 @@ command to run instead.
 **Curation** (a model reads every operation and designs the tool surface) or
 **Offline** (one tool per operation, deterministic, `--no-curate`). The model
 field takes any provider string (`openai:gpt-5-mini`, `azure:<deployment>`,
-`anthropic:claude-sonnet-4.5`, `ollama:llama3`) and is checked *as you type*,
+`anthropic:claude-sonnet-5-5`, `ollama:llama3`) and is checked *as you type*,
 without calling anything: the wizard reports whether the provider's variables
 are set, and if not, which variable, where its value lives, and that `.env`
 in the working directory is where it goes. You cannot continue with a model
