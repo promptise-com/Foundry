@@ -51,37 +51,49 @@ Start with one agent on your laptop and grow it into a fleet running real work, 
 
 ```bash
 pip install promptise
+export OPENAI_API_KEY=sk-...
 ```
 
 ```python
 import asyncio
-from promptise import build_agent, PromptiseSecurityScanner, SemanticCache
-from promptise.config import HTTPServerSpec
-from promptise.memory import ChromaProvider
+from promptise import build_agent, tool
+
+
+@tool
+def order_status(order_id: str) -> dict:
+    """Look up the status of an order."""
+    return {"order_id": order_id, "status": "shipped", "eta": "Friday"}
+
 
 async def main():
     agent = await build_agent(
         model="openai:gpt-5-mini",
-        servers={
-            "tools": HTTPServerSpec(url="http://localhost:8000/mcp"),
-        },
-        instructions="You are a helpful assistant.",
-        memory=ChromaProvider(persist_directory="./memory"),  # remembers across calls
-        guardrails=PromptiseSecurityScanner.default(),          # blocks injection, redacts PII
-        cache=SemanticCache(),                                  # serves similar queries instantly
-        observe=True,                                           # traces every step
+        instructions="You are a helpful support assistant.",
+        extra_tools=[order_status],
+        observe=True,  # traces every step, token and cost
     )
-
-    result = await agent.ainvoke({
-        "messages": [{"role": "user", "content": "What's the status of our pipeline?"}]
-    })
+    result = await agent.ainvoke(
+        {"messages": [{"role": "user", "content": "Where is order A-1001?"}]}
+    )
     print(result["messages"][-1].content)
     await agent.shutdown()
+
 
 asyncio.run(main())
 ```
 
-One call. The agent discovers its tools on the MCP server by itself; memory, guardrails, cache and tracing are one argument each, and the ones you leave out cost nothing. Vector memory and the ML guardrails need the extras: `pip install "promptise[all]"`.
+Any Python function with `@tool` becomes a tool; its type hints are the schema. To give the agent the tools of an MCP server, add it to `servers`; the agent discovers its tools by itself:
+
+```python
+from promptise.config import HTTPServerSpec
+
+agent = await build_agent(
+    model="openai:gpt-5-mini",
+    servers={"tools": HTTPServerSpec(url="http://localhost:8000/mcp")},
+)
+```
+
+To start a full project instead, run `promptise init --project my-bot`.
 
 **Any model, one string.** `openai:gpt-5-mini` · `anthropic:claude-sonnet-4-5` · `azure:chat-prod` · `gemini:gemini-2.5-pro` · `bedrock:…` · `ollama:llama3.1`. The same string works in `build_agent()`, `.superagent` files and every CLI command, and `promptise models check <string>` tells you exactly what a provider still needs. → [Model setup](https://docs.promptise.com/getting-started/model-setup/)
 
