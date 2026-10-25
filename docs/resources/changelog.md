@@ -9,6 +9,12 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
+## Unreleased
+
+### Docs
+
+- Model string examples in the docs, the README and `promptise models env` use current models: `anthropic:claude-sonnet-5-5` and `gemini:gemini-3.8-flash` instead of retired or restricted ones. Bedrock, Vertex and OpenRouter examples are unchanged.
+
 ## v1.10.1 — 2026-10-24
 
 ### Security

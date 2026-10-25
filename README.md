@@ -95,7 +95,7 @@ agent = await build_agent(
 
 To start a full project instead, run `promptise init --project my-bot`.
 
-**Any model, one string.** `openai:gpt-5-mini` · `anthropic:claude-sonnet-4-5` · `azure:chat-prod` · `gemini:gemini-2.5-pro` · `bedrock:…` · `ollama:llama3.1`. The same string works in `build_agent()`, `.superagent` files and every CLI command, and `promptise models check <string>` tells you exactly what a provider still needs. → [Model setup](https://docs.promptise.com/getting-started/model-setup/)
+**Any model, one string.** `openai:gpt-5-mini` · `anthropic:claude-sonnet-5-5` · `azure:chat-prod` · `gemini:gemini-3.8-flash` · `bedrock:…` · `ollama:llama3.1`. The same string works in `build_agent()`, `.superagent` files and every CLI command, and `promptise models check <string>` tells you exactly what a provider still needs. → [Model setup](https://docs.promptise.com/getting-started/model-setup/)
 
 <br/>
 

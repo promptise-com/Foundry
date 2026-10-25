@@ -217,7 +217,7 @@ promptise init --project [DIR] [--name NAME] [--model MODEL] [--force]
 promptise init --project my-bot
 
 # The current directory, with an Anthropic model
-promptise init --project --model anthropic:claude-sonnet-4-5
+promptise init --project --model anthropic:claude-sonnet-5-5
 
 # Then
 cd my-bot

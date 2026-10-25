@@ -112,7 +112,7 @@ The simplest possible agent, just an LLM with instructions:
 That's it. `build_agent()` handles model initialization, message formatting, and execution.
 
 !!! note "Any provider, one string or one object"
-    `"azure:<deployment>"`, `"foundry:<model>"`, `"bedrock:<model-id>"`, `"gemini:gemini-2.5-pro"`, `"ollama:llama3.1"`, or the same as `Model("...", provider="...")` with the credentials in code. [Model Setup](model-setup.md) covers every provider; `promptise models check <string>` tells you what is missing before you run.
+    `"azure:<deployment>"`, `"foundry:<model>"`, `"bedrock:<model-id>"`, `"gemini:gemini-3.8-flash"`, `"ollama:llama3.1"`, or the same as `Model("...", provider="...")` with the credentials in code. [Model Setup](model-setup.md) covers every provider; `promptise models check <string>` tells you what is missing before you run.
 
 ## Add Tools (2 minutes)
 
