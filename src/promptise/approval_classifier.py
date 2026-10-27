@@ -80,6 +80,7 @@ from ._approval_types import (
     ApprovalHandler,
     ApprovalRequest,
     ApprovalRule,
+    CallbackApprovalHandler,
     ClassifierDecisionTrace,
     RuleEvaluationError,
 )
@@ -302,8 +303,6 @@ class AutoApprovalClassifier:
                 )
             # A bare function, as ApprovalPolicy(handler=...) accepts; it used
             # to pass here and fail at the first escalation.
-            from .approval import CallbackApprovalHandler
-
             fallback = CallbackApprovalHandler(fallback)
         self._allow_rules = list(allow_rules or [])
         self._deny_rules = list(deny_rules or [])
