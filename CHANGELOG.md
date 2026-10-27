@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.11.0 — 2026-10-27
+
+Fixes from the full guide review on 1.10.1 and from building the demo system on `promptise run`: keyless Azure OpenAI, a function as approval-classifier fallback, the input `BLOCK` warning where it applies, whole lines from `promptise audit verify`, the TUI's MCP tab for runtime agents, and current model examples.
+
+### Changed
+
+- **The warning for PII or credential `BLOCK` without `redact_input=True` now comes when input has such a finding, once per scanner** -- 1.10.1 logged it when the scanner was created, so a scanner used only for output or tool results, where `BLOCK` works, warned for nothing. It now warns the first time a message has a PII or credential finding that is only logged on input.
+
+### Fixed
+
+- **Azure OpenAI with Entra ID (keyless) failed with "AZURE_OPENAI_API_KEY is not set"** -- the keyless setup the docs show, `Model(..., provider="azure", extra={"azure_ad_token_provider": ...})`, was refused unless an API key was also set, although the request only uses the token. A token provider or token in `extra` now counts as the credential.
+- **`AutoApprovalClassifier(fallback=<function>)` failed at the first escalation** -- a bare function was accepted when the classifier was built, then the first request that reached the fallback raised `AttributeError: 'function' object has no attribute 'request_approval'`. A function (plain or async) is now wrapped as `ApprovalPolicy(handler=...)` wraps one, and anything else is refused with a `TypeError` when the classifier is built.
+- **`promptise audit verify` wrapped its output at 80 columns when piped** -- a script reading the output got `last_hash <hash> (seq` and `N)` on separate lines, which broke extracting the hash for `--anchor`. Lines are no longer broken to fit the width.
+- **The `promptise run --tui` MCP tab was empty for runtime agents** -- an `AgentProcess` connects its MCP servers itself and hands the agent ready-made tools, so the agent has no MCP client of its own and the tab listed no servers, and each tool showed no server. The servers and each tool's server now come from the MCP clients behind the agent's tools.
+
+### Docs
+
+- Model string examples in the docs, the README and `promptise models env` use current models: `anthropic:claude-sonnet-5-5` and `gemini:gemini-3.8-flash` instead of retired or restricted ones. Bedrock, Vertex and OpenRouter examples are unchanged.
+- The README quickstart runs after a plain `pip install promptise`.
+
 ## 1.10.1 — 2026-10-24
 
 ### Security

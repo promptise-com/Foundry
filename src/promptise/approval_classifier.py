@@ -80,6 +80,7 @@ from ._approval_types import (
     ApprovalHandler,
     ApprovalRequest,
     ApprovalRule,
+    CallbackApprovalHandler,
     ClassifierDecisionTrace,
     RuleEvaluationError,
 )
@@ -259,9 +260,11 @@ class AutoApprovalClassifier:
             ``"escalate"``. ``escalate`` defers to the fallback
             handler.  It receives the real (unredacted) arguments.
         fallback: The :class:`ApprovalHandler` to delegate to as a
-            last resort. Required.  It receives the reviewer's copy of
-            the request (``arguments`` redacted per the policy, no
-            ``raw_arguments``).
+            last resort, or a function (plain or ``async``) taking the
+            request and returning an :class:`ApprovalDecision` or a bool,
+            wrapped as ``ApprovalPolicy(handler=...)`` does. Required.  It receives
+            the reviewer's copy of the request (``arguments`` redacted per
+            the policy, no ``raw_arguments``).
         reviewer_id: Identifier recorded on auto-decisions. Defaults
             to ``"auto-classifier"``.
 
@@ -287,11 +290,20 @@ class AutoApprovalClassifier:
         destructive_verbs: tuple[str, ...] | list[str] | None = None,
         use_tool_annotations: bool = True,
         llm_classifier: LLMClassifierFn | None = None,
-        fallback: ApprovalHandler,
+        fallback: ApprovalHandler | Callable[..., Any],
         reviewer_id: str = "auto-classifier",
     ) -> None:
         if fallback is None:
             raise ValueError("AutoApprovalClassifier requires a fallback handler")
+        if not isinstance(fallback, ApprovalHandler):
+            if not callable(fallback):
+                raise TypeError(
+                    "fallback must be an ApprovalHandler or a function, "
+                    f"got {type(fallback).__name__}"
+                )
+            # A bare function, as ApprovalPolicy(handler=...) accepts; it used
+            # to pass here and fail at the first escalation.
+            fallback = CallbackApprovalHandler(fallback)
         self._allow_rules = list(allow_rules or [])
         self._deny_rules = list(deny_rules or [])
         self._ask_rules = list(ask_rules or [])

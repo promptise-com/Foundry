@@ -67,6 +67,7 @@ from ._approval_types import (
     ApprovalDecision,
     ApprovalHandler,
     ApprovalRequest,
+    CallbackApprovalHandler,
     _signature_payload,
 )
 from ._outbound import pin_target
@@ -276,35 +277,6 @@ async def _wait_for_decision(awaitable: Awaitable[Any], timeout: float | None) -
 # ---------------------------------------------------------------------------
 # Built-in handlers
 # ---------------------------------------------------------------------------
-
-
-class CallbackApprovalHandler:
-    """Approval handler that delegates to an async Python callable.
-
-    The simplest handler — pass any ``async def handler(request) -> decision``
-    function and it will be called for each approval request.
-
-    Args:
-        callback: Async callable that receives an :class:`ApprovalRequest`
-            and returns an :class:`ApprovalDecision`.
-    """
-
-    def __init__(self, callback: Callable[..., Any]) -> None:
-        self._callback = callback
-
-    async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
-        """Delegate to the user-provided callback."""
-        result = self._callback(request)
-        if asyncio.iscoroutine(result) or asyncio.isfuture(result):
-            result = await result
-        if isinstance(result, ApprovalDecision):
-            return result
-        # Allow returning a plain bool for convenience
-        if isinstance(result, bool):
-            return ApprovalDecision(approved=result)
-        raise TypeError(
-            f"Approval callback must return ApprovalDecision or bool, got {type(result).__name__}"
-        )
 
 
 class WebhookApprovalHandler:

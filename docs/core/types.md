@@ -63,7 +63,7 @@ async def main():
     agent = await build_agent(model="openai:gpt-5-mini", servers={})
 
     # Anthropic
-    agent = await build_agent(model="anthropic:claude-sonnet-4-20250514", servers={})
+    agent = await build_agent(model="anthropic:claude-sonnet-5-5", servers={})
 
 asyncio.run(main())
 ```

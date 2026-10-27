@@ -113,7 +113,7 @@ from promptise import build_agent, HTTPServerSpec
 from promptise.identity import AgentIdentity
 
 agent = await build_agent(
-    model="anthropic:claude-sonnet-4-5",
+    model="anthropic:claude-sonnet-5-5",
     identity=AgentIdentity.from_entra("billing-bot"),
     servers={
         "billing": HTTPServerSpec(url="https://billing.internal/mcp",

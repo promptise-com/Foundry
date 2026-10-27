@@ -503,7 +503,7 @@ PROVIDERS: tuple[Provider, ...] = (
         "Anthropic Claude",
         ("claude",),
         env=(_key("ANTHROPIC_API_KEY", "console.anthropic.com → API keys", example="sk-ant-..."),),
-        example="anthropic:claude-sonnet-4-5",
+        example="anthropic:claude-sonnet-5-5",
         model_hint="the model name",
         docs="https://docs.anthropic.com/en/docs/about-claude/models",
         native="anthropic",
@@ -521,7 +521,7 @@ PROVIDERS: tuple[Provider, ...] = (
                 aliases=("GEMINI_API_KEY",),
             ),
         ),
-        example="gemini:gemini-2.5-pro",
+        example="gemini:gemini-3.8-flash",
         model_hint="the model name",
         notes="For Gemini through Google Cloud (no API key, ADC) use provider='vertex'.",
         docs="https://ai.google.dev/gemini-api/docs/openai",
@@ -1256,6 +1256,10 @@ def route_url(provider: Provider, words: dict[str, Any] | None = None) -> str | 
     return provider.base_url.format_map(_Placeholders({k: str(v) for k, v in filled.items()}))
 
 
+# Extras that authenticate instead of an API key (Azure OpenAI with Entra ID).
+_TOKEN_CREDENTIALS = ("azure_ad_token_provider", "azure_ad_token", "azure_ad_async_token_provider")
+
+
 def resolve_model(spec: str, **kwargs: Any) -> Any:
     """Turn a ``"provider:model"`` string (plus optional words) into a chat model.
 
@@ -1282,7 +1286,12 @@ def resolve_model(spec: str, **kwargs: Any) -> Any:
         kwargs.pop(s, None)
     extra = kwargs
 
-    result = check_model(spec, set(words), native=native)
+    provided = set(words)
+    if any(extra.get(k) is not None for k in _TOKEN_CREDENTIALS):
+        # Entra ID (Azure): a token or token provider is the credential, so
+        # no API key is required.
+        provided.add("api_key")
+    result = check_model(spec, provided, native=native)
     provider, model = result.provider, result.model
 
     if provider is None:  # no prefix we know: LangChain's own inference

@@ -29,7 +29,7 @@ _GITIGNORE_LINES = (".env", ".promptise/", "__pycache__/")
 def provider_env_vars(model: str) -> list[str]:
     """The environment variables the provider of *model* requires.
 
-    ``"anthropic:claude-sonnet-4-5"`` → ``["ANTHROPIC_API_KEY"]``.  A provider
+    ``"anthropic:claude-sonnet-5-5"`` → ``["ANTHROPIC_API_KEY"]``.  A provider
     that needs no key (a local Ollama) gives ``[]``.  A model string without a
     known provider prefix gives ``["OPENAI_API_KEY"]``.
     """

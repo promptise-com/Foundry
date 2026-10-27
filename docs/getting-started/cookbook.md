@@ -58,7 +58,7 @@ async for event in agent.astream_with_tools({"messages": [{"role": "user", "cont
 Needs only the primary's key (`OPENAI_API_KEY` here): a fallback is set up the first time it is tried, so one without its key (`ANTHROPIC_API_KEY`) is skipped with its setup error, and the chain still builds and answers.
 ```python
 from promptise import FallbackChain
-agent = await build_agent(model=FallbackChain(["openai:gpt-5-mini", "anthropic:claude-sonnet-4-5"]), servers=srv)
+agent = await build_agent(model=FallbackChain(["openai:gpt-5-mini", "anthropic:claude-sonnet-5-5"]), servers=srv)
 ```
 → [Model Fallback](../core/fallback.md)
 

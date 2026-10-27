@@ -588,11 +588,11 @@ async def summarize_document(
 ```python
 result = await sampler.create_message(
     messages=[{"role": "user", "content": "..."}],
-    max_tokens=1024,          # Maximum tokens to generate
-    model="claude-sonnet-4-20250514",      # Model hint (client may ignore)
-    system="You are...",      # System prompt
-    temperature=0.7,          # Sampling temperature
-    stop_sequences=["\n\n"],  # Stop sequences
+    max_tokens=1024,             # Maximum tokens to generate
+    model="claude-sonnet-5-5",   # Model hint (client may ignore)
+    system="You are...",         # System prompt
+    temperature=0.7,             # Sampling temperature
+    stop_sequences=["\n\n"],     # Stop sequences
 )
 ```
 

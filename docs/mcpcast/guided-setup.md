@@ -102,7 +102,7 @@ command to run instead.
 **Curation** (a model reads every operation and designs the tool surface) or
 **Offline** (one tool per operation, deterministic, `--no-curate`). The model
 field takes any provider string (`openai:gpt-5-mini`, `azure:<deployment>`,
-`anthropic:claude-sonnet-4.5`, `ollama:llama3`) and is checked *as you type*,
+`anthropic:claude-sonnet-5-5`, `ollama:llama3`) and is checked *as you type*,
 without calling anything: the wizard reports whether the provider's variables
 are set, and if not, which variable, where its value lives, and that `.env`
 in the working directory is where it goes. You cannot continue with a model

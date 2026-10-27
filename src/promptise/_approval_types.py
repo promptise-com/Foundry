@@ -10,6 +10,7 @@ other.  Import them from the public modules; this one is private.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac as _hmac_mod
 import json
@@ -168,6 +169,38 @@ class ApprovalHandler(Protocol):
 
     async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
         """Ask for a decision on *request* and return it."""
+
+
+# It lives here, next to the protocol, so that approval_classifier can wrap a
+# function fallback without importing promptise.approval (an import cycle);
+# promptise.approval re-exports it.
+class CallbackApprovalHandler:
+    """Approval handler that delegates to an async Python callable.
+
+    The simplest handler — pass any ``async def handler(request) -> decision``
+    function and it will be called for each approval request.
+
+    Args:
+        callback: Async callable that receives an :class:`ApprovalRequest`
+            and returns an :class:`ApprovalDecision`.
+    """
+
+    def __init__(self, callback: Callable[..., Any]) -> None:
+        self._callback = callback
+
+    async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
+        """Delegate to the user-provided callback."""
+        result = self._callback(request)
+        if asyncio.iscoroutine(result) or asyncio.isfuture(result):
+            result = await result
+        if isinstance(result, ApprovalDecision):
+            return result
+        # Allow returning a plain bool for convenience
+        if isinstance(result, bool):
+            return ApprovalDecision(approved=result)
+        raise TypeError(
+            f"Approval callback must return ApprovalDecision or bool, got {type(result).__name__}"
+        )
 
 
 def _arguments_json(arguments: Any) -> str:
