@@ -172,10 +172,21 @@ def describe_agent(agent: Any, label: str) -> dict[str, Any]:
         level = getattr(cfg, "level", None)
         info["observe_level"] = getattr(level, "value", None) if cfg is not None else "off"
 
-        multi = getattr(agent, "_mcp_multi", None)
-        owners: dict[str, str] = dict(getattr(multi, "_tool_to_server", None) or {})
+        agent_tools = list(getattr(agent, "tools", None) or [])
+        # The MCP clients behind the agent's tools: the one build_agent()
+        # connected, and the ones an AgentProcess connected itself before
+        # handing the agent its ready-made MCP tools (each knows its client).
+        multis: list[Any] = []
+        for multi in [getattr(agent, "_mcp_multi", None)] + [
+            getattr(t, "_multi", None) for t in agent_tools
+        ]:
+            if multi is not None and all(multi is not m for m in multis):
+                multis.append(multi)
+        owners: dict[str, str] = {}
+        for multi in multis:
+            owners.update(getattr(multi, "_tool_to_server", None) or {})
         tools = []
-        for tool in list(getattr(agent, "tools", None) or []):
+        for tool in agent_tools:
             name = str(getattr(tool, "name", "?"))
             tools.append(
                 {
@@ -188,7 +199,10 @@ def describe_agent(agent: Any, label: str) -> dict[str, Any]:
         info["tools"] = tools
 
         servers = []
-        clients = getattr(multi, "_clients", None) or {}
+        clients: dict[str, Any] = {}
+        for multi in multis:
+            for name, client in (getattr(multi, "_clients", None) or {}).items():
+                clients.setdefault(name, client)
         for name, client in clients.items():
             transport = getattr(client, "_transport", None) or "?"
             if transport == "stdio":
