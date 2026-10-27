@@ -649,3 +649,36 @@ def test_list_scripts_names_the_scripts_table_literally(monkeypatch, tmp_path: P
     monkeypatch.setattr(run_cli, "err", Console(file=out, width=200))
     assert run_cli._list_scripts(default_manifest(tmp_path)) == 0
     assert "no [scripts] in this project" in out.getvalue()
+
+
+def test_describe_agent_lists_the_servers_behind_ready_made_mcp_tools() -> None:
+    """An AgentProcess connects its MCP servers itself and hands the agent the
+    finished tools, so the agent has no ``_mcp_multi``: the servers are found
+    through the tools (the TUI's MCP tab was empty for runtime agents)."""
+    from types import SimpleNamespace
+
+    from promptise.run.harness import describe_agent
+
+    files = SimpleNamespace(_transport="http", _url="http://127.0.0.1:9321/mcp")
+    search = SimpleNamespace(_transport="http", _url="http://127.0.0.1:9322/mcp")
+    multi = SimpleNamespace(
+        _clients={"files": files, "search": search},
+        _tool_to_server={"read_file": "files", "write_file": "files", "web_search": "search"},
+    )
+    mcp_tools = [
+        SimpleNamespace(name=n, description="", _multi=multi) for n in multi._tool_to_server
+    ]
+    agent = SimpleNamespace(model_name="m", tools=[*mcp_tools, get_account])
+
+    info = describe_agent(agent, "writer")
+
+    assert [(s["name"], s["transport"], s["tools"]) for s in info["servers"]] == [
+        ("files", "http", 2),
+        ("search", "http", 1),
+    ]
+    assert {t["name"]: t["server"] for t in info["tools"]} == {
+        "read_file": "files",
+        "write_file": "files",
+        "web_search": "search",
+        "get_account": None,
+    }
