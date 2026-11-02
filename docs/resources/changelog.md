@@ -9,7 +9,7 @@ All notable changes to Promptise Foundry are documented here.
 
 ---
 
-## v1.11.0 — 2026-10-27
+## v1.11.0 — 2026-11-02
 
 Fixes from the full guide review on 1.10.1 and from building the demo system on `promptise run`: keyless Azure OpenAI, a function as approval-classifier fallback, the input `BLOCK` warning where it applies, whole lines from `promptise audit verify`, the TUI's MCP tab for runtime agents, and current model examples.
 
