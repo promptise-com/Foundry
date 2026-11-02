@@ -21057,14 +21057,16 @@ handler.  It receives the real (unredacted) arguments.</p>
                 <code>fallback</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="promptise.approval.ApprovalHandler (promptise._approval_types.ApprovalHandler)" href="#promptise.approval.ApprovalHandler">ApprovalHandler</a></code>
+                  <code><a class="autorefs autorefs-internal" title="promptise.approval.ApprovalHandler (promptise._approval_types.ApprovalHandler)" href="#promptise.approval.ApprovalHandler">ApprovalHandler</a> | <span title="collections.abc.Callable">Callable</span>[..., <span title="typing.Any">Any</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>The :class:<code>ApprovalHandler</code> to delegate to as a
-last resort. Required.  It receives the reviewer's copy of
-the request (<code>arguments</code> redacted per the policy, no
-<code>raw_arguments</code>).</p>
+last resort, or a function (plain or <code>async</code>) taking the
+request and returning an :class:<code>ApprovalDecision</code> or a bool,
+wrapped as <code>ApprovalPolicy(handler=...)</code> does. Required.  It receives
+the reviewer's copy of the request (<code>arguments</code> redacted per
+the policy, no <code>raw_arguments</code>).</p>
               </div>
             </td>
             <td>

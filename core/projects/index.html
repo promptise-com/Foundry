@@ -11011,7 +11011,7 @@ that need the project's settings:</p>
 <ul>
 <li>A script runs through the shell, from the project root. Its exit code is the exit code of <code>promptise run</code>.</li>
 <li>Arguments after the script name are appended to the command. Put <code>--</code> before arguments that look like <code>promptise run</code> options: <code>promptise run eval -- --limit 10</code>.</li>
-<li><code>promptise run</code> options given with the script name are passed on when the script is itself a <code>promptise</code> command: <code>promptise run dev --model anthropic:claude-sonnet-4-5</code> runs <code>promptise run --devtools --watch --model anthropic:claude-sonnet-4-5</code>. For any other command they are ignored, with a warning.</li>
+<li><code>promptise run</code> options given with the script name are passed on when the script is itself a <code>promptise</code> command: <code>promptise run dev --model anthropic:claude-sonnet-5-5</code> runs <code>promptise run --devtools --watch --model anthropic:claude-sonnet-5-5</code>. For any other command they are ignored, with a warning.</li>
 <li>The directory of the Python that runs <code>promptise</code> comes first on <code>PATH</code>, so <code>python</code>, <code>pytest</code> and <code>promptise</code> in a script are the ones from the same environment. This works like <code>node_modules/.bin</code> in npm.</li>
 <li>The script gets <code>PROMPTISE_RUN_SCRIPT</code> (its name), <code>PROMPTISE_PROJECT_ROOT</code> and <code>PROMPTISE_INIT_CWD</code> (the directory you ran <code>promptise run</code> from).</li>
 <li><code>[env]</code> is applied by <code>promptise run</code> itself, so a script that runs <code>promptise run</code> gets it. Other commands get the environment you started with.</li>
@@ -11645,7 +11645,7 @@ that need the project's settings:</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 01:36:39 UTC">2026-10-24</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 22:32:29 UTC">2026-10-24</span>
   </span>
 
     

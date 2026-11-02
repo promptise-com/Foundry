@@ -10558,7 +10558,8 @@ Promptise extra — <code>pip install azure-identity</code>):</p>
 </span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>The signed-in identity needs the <em>Cognitive Services OpenAI User</em> role on
-the resource.</p>
+the resource. <code>AZURE_OPENAI_API_KEY</code> is not needed: the token is the
+credential, and the request carries only <code>Authorization: Bearer &lt;token&gt;</code>.</p>
 </div>
 </div>
 </div>
@@ -10732,7 +10733,7 @@ Bedrock) — Promptise never installs anything for you.</p>
 <p>Provider docs: <a href="https://learn.microsoft.com/azure/ai-foundry/">https://learn.microsoft.com/azure/ai-foundry/</a></p>
 <h3 id="anthropic-claude">Anthropic Claude<a class="headerlink" href="#anthropic-claude" title="Link to this section">&para;</a></h3>
 <p><strong>Provider:</strong> <code>anthropic</code>, <code>claude</code> · <strong>Route:</strong> its native LangChain integration (core) · <strong>Model:</strong> the model name.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">Model</span><span class="p">(</span><span class="s2">"claude-sonnet-4-5"</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="s2">"anthropic"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"sk-ant-..."</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">Model</span><span class="p">(</span><span class="s2">"claude-sonnet-5-5"</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="s2">"anthropic"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"sk-ant-..."</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -10753,7 +10754,7 @@ Bedrock) — Promptise never installs anything for you.</p>
 <p>Provider docs: <a href="https://docs.anthropic.com/en/docs/about-claude/models">https://docs.anthropic.com/en/docs/about-claude/models</a></p>
 <h3 id="google-gemini-ai-studio-api-key">Google Gemini (AI Studio API key)<a class="headerlink" href="#google-gemini-ai-studio-api-key" title="Link to this section">&para;</a></h3>
 <p><strong>Provider:</strong> <code>google_genai</code>, <code>gemini</code>, <code>google</code>, <code>google-genai</code>, <code>genai</code> · <strong>Route:</strong> its OpenAI-compatible endpoint <code>https://generativelanguage.googleapis.com/v1beta/openai/</code> · <strong>Model:</strong> the model name.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">Model</span><span class="p">(</span><span class="s2">"gemini-2.5-pro"</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="s2">"gemini"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"AIza..."</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">Model</span><span class="p">(</span><span class="s2">"gemini-3.8-flash"</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="s2">"gemini"</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="s2">"AIza..."</span><span class="p">)</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -11284,7 +11285,7 @@ timeout and a circuit breaker:</p>
 </span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>    <span class="n">model</span><span class="o">=</span><span class="n">FallbackChain</span><span class="p">(</span>
 </span><span id="__span-32-5"><a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>        <span class="p">[</span>
 </span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>            <span class="n">Model</span><span class="p">(</span><span class="s2">"gpt-4o"</span><span class="p">,</span> <span class="n">provider</span><span class="o">=</span><span class="s2">"azure"</span><span class="p">,</span> <span class="n">deployment</span><span class="o">=</span><span class="s2">"chat-prod"</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=...</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=...</span><span class="p">,</span> <span class="n">api_version</span><span class="o">=</span><span class="s2">"2024-10-21"</span><span class="p">),</span>
-</span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a>            <span class="s2">"anthropic:claude-sonnet-4-5"</span><span class="p">,</span>
+</span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a>            <span class="s2">"anthropic:claude-sonnet-5-5"</span><span class="p">,</span>
 </span><span id="__span-32-8"><a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>            <span class="s2">"groq:llama-3.3-70b-versatile"</span><span class="p">,</span>
 </span><span id="__span-32-9"><a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>        <span class="p">],</span>
 </span><span id="__span-32-10"><a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a>        <span class="n">timeout_per_model</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
@@ -11416,7 +11417,7 @@ listening).</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 22, 2026 20:58:33 UTC">2026-10-22</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 22:45:17 UTC">2026-10-24</span>
   </span>
 
     

@@ -11310,7 +11310,7 @@
 </span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="k">await</span> <span class="n">scanner</span><span class="o">.</span><span class="n">check_input</span><span class="p">(</span><span class="s2">"Email me at maria.keller@example.com"</span><span class="p">)</span>
 </span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="c1"># "Email me at [EMAIL]"</span>
 </span></code></pre></div>
-<p>The same goes for <code>BLOCK</code>: <code>CredentialDetector(action=Action.BLOCK)</code> refuses a message carrying a key only with <code>redact_input=True</code>. Without it, the scanner logs a warning when it is created, and on input the finding is only logged.</p>
+<p>The same goes for <code>BLOCK</code>: <code>CredentialDetector(action=Action.BLOCK)</code> refuses a message carrying a key only with <code>redact_input=True</code>. Without it, on input the finding is only logged, and the first message with such a finding logs a warning that says so.</p>
 <p>A custom guard can do the same: whatever string <code>check_input</code> returns replaces the user's message. Only plain-text messages are rewritten; multimodal content is scanned but sent unchanged.</p>
 <hr />
 <h2 id="scanning-tool-results">Scanning tool results<a class="headerlink" href="#scanning-tool-results" title="Link to this section">&para;</a></h2>
@@ -11374,7 +11374,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 16:33:15 UTC">2026-10-24</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="October 24, 2026 19:58:24 UTC">2026-10-24</span>
   </span>
 
     
