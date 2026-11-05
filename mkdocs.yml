@@ -6,6 +6,8 @@ site_author: Promptise Team
 hooks:
   # Search titles from each page's own heading, not its nav label.
   - hooks/seo.py
+  # Real 301s for moved pages, from the redirects plugin's map.
+  - hooks/vercel_redirects.py
 
 theme:
   name: material
