@@ -42,7 +42,7 @@
 
   {# Author & publisher #}
   <meta name="author" content="Promptise Team">
-  <meta name="publisher" content="Promptise Team">
+  <meta name="publisher" content="Promptise">
 
   {# Keywords (only if explicitly set on a page) #}
   {% if has_page and page.meta.keywords %}
@@ -71,38 +71,32 @@
   {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "Promptise Team",
+    "@id": "https://www.promptise.com/#organization",
+    "name": "Promptise",
+    "alternateName": ["Promptise Foundry"],
     "url": "https://www.promptise.com/",
-    "logo": "{{ config.site_url }}/assets/logo.png",
+    "logo": "https://www.promptise.com/images/promptise-logo.png",
     "sameAs": [
       "https://github.com/promptise-com",
-      "https://promptise.com"
+      "https://github.com/promptise-com/Foundry",
+      "https://pypi.org/project/promptise/",
+      "https://docs.promptise.com"
     ]
   }
   </script>
 
-  {# JSON-LD: WebSite + SearchAction — gives Google a sitelinks search box #}
+  {# JSON-LD: WebSite. Its name is the site name Google shows above results. #}
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "Promptise Foundry Documentation",
-    "alternateName": ["Promptise Docs", "Promptise Foundry Docs"],
+    "@id": "{{ config.site_url }}/#website",
+    "name": "Promptise Docs",
+    "alternateName": ["Promptise Foundry Documentation", "Promptise Foundry Docs", "Promptise Documentation"],
     "url": "{{ config.site_url }}/",
     "description": {{ config.site_description | tojson }},
-    "publisher": {
-      "@type": "Organization",
-      "name": "Promptise Team",
-      "url": "https://www.promptise.com/"
-    },
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": {
-        "@type": "EntryPoint",
-        "urlTemplate": "{{ config.site_url }}/?q={search_term_string}"
-      },
-      "query-input": "required name=search_term_string"
-    }
+    "publisher": { "@id": "https://www.promptise.com/#organization" },
+    "inLanguage": "en"
   }
   </script>
 
@@ -117,7 +111,7 @@
     "programmingLanguage": "Python",
     "runtimePlatform": "Python 3.10+",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
-    "url": "https://promptise.com",
+    "url": "https://www.promptise.com/",
     "author": {
       "@type": "Organization",
       "name": "Promptise Team",
@@ -133,8 +127,6 @@
       {% set page_schema = page.meta.schema %}
     {% elif page_src.startswith("api/") %}
       {% set page_schema = "APIReference" %}
-    {% elif page_src.startswith("getting-started/") or page_src == "index.md" %}
-      {% set page_schema = "HowTo" %}
     {% else %}
       {% set page_schema = "TechArticle" %}
     {% endif %}
@@ -148,11 +140,7 @@
       "description": {{ page_description | tojson }},
       "url": "{{ page_url }}",
       "image": "{{ og_image }}",
-      "isPartOf": {
-        "@type": "WebSite",
-        "name": "Promptise Foundry Documentation",
-        "url": "{{ config.site_url }}/"
-      },
+      "isPartOf": { "@id": "{{ config.site_url }}/#website" },
       "about": {
         "@type": "SoftwareSourceCode",
         "name": "Promptise Foundry",
@@ -166,10 +154,11 @@
       },
       "publisher": {
         "@type": "Organization",
-        "name": "Promptise Team",
+        "@id": "https://www.promptise.com/#organization",
+        "name": "Promptise",
         "logo": {
           "@type": "ImageObject",
-          "url": "{{ config.site_url }}/assets/logo.png"
+          "url": "https://www.promptise.com/images/promptise-logo.png"
         }
       },
       {% if page.meta.git_revision_date_localized_iso %}
