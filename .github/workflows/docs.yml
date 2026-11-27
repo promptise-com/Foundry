@@ -38,6 +38,6 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          npx --yes vercel@64.7.0 project add promptise-docs --scope promptise --token "$VERCEL_TOKEN" || true
-          npx --yes vercel@64.7.0 link --yes --project promptise-docs --scope promptise --token "$VERCEL_TOKEN"
-          npx --yes vercel@64.7.0 deploy --prod --yes --scope promptise --token "$VERCEL_TOKEN"
+          npx --yes vercel@64.7.0 project add promptise-docs --scope manser-ventures-projects --token "$VERCEL_TOKEN" || true
+          npx --yes vercel@64.7.0 link --yes --project promptise-docs --scope manser-ventures-projects --token "$VERCEL_TOKEN"
+          npx --yes vercel@64.7.0 deploy --prod --yes --scope manser-ventures-projects --token "$VERCEL_TOKEN"
