@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DISABLE_MKDOCS_2_WARNING: "true"
+      HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -28,3 +29,15 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: mkdocs gh-deploy --force
+      # GitHub Pages can't send a real 301, so docs.promptise.com is served from
+      # Vercel. Skipped until the VERCEL_TOKEN secret exists.
+      # The token only reaches this step, not the install and build steps above.
+      - name: Deploy to Vercel
+        if: env.HAS_VERCEL_TOKEN == 'true'
+        working-directory: site
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx --yes vercel@64.7.0 project add promptise-docs --scope promptise --token "$VERCEL_TOKEN" || true
+          npx --yes vercel@64.7.0 link --yes --project promptise-docs --scope promptise --token "$VERCEL_TOKEN"
+          npx --yes vercel@64.7.0 deploy --prod --yes --scope promptise --token "$VERCEL_TOKEN"
