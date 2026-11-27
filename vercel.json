@@ -1,0 +1,502 @@
+{
+  "trailingSlash": true,
+  "redirects": [
+    {
+      "source": "/blog/agent-reasoning-patterns/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-reasoning-patterns",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/agent-stuck-in-tool-loop/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-stuck-in-loop",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/agent-token-usage-observability/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-cost-tracking",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-audit-logging/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-audit-log",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-behavioral-anomaly-detection/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-health-monitoring",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-compliance-audit-trail/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-audit-log",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-crash-recovery/",
+      "destination": "https://www.promptise.com/guides/view/durable-ai-agent-crash-recovery",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-duplicate-actions-after-restart/",
+      "destination": "https://www.promptise.com/guides/view/durable-ai-agent-crash-recovery",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-identity/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-identity-authentication",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-memory/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-memory-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-observability-vs-audit-trail/",
+      "destination": "https://www.promptise.com/guides/view/best-ai-agent-observability-tools",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/ai-agent-stuck-repeating-tool-call/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-stuck-in-loop",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/api-keys-vs-jwt-for-ai-agents/",
+      "destination": "https://www.promptise.com/guides/view/mcp-server-authentication-jwt-oauth",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/auto-stop-runaway-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-health-monitoring",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/autogen-docker-code-executor-isolation/",
+      "destination": "https://www.promptise.com/guides/view/autogen-docker-code-executor",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/autonomous-agent-goal-completion/",
+      "destination": "https://www.promptise.com/guides/view/goal-driven-ai-agent-mission",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/autonomous-ai-agent-runtime/",
+      "destination": "https://www.promptise.com/guides/view/autonomous-ai-agent-runtime",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/behavioral-anomaly-detection-for-ai-agents/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-health-monitoring",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/best-ai-agent-framework-2026/",
+      "destination": "https://www.promptise.com/guides/view/python-ai-agent-frameworks-compared",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/best-llm-for-ai-agents/",
+      "destination": "https://www.promptise.com/guides/view/best-llm-for-ai-agents",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/cache-mcp-tool-results/",
+      "destination": "https://www.promptise.com/guides/view/mcp-server-caching-circuit-breaker",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/cap-ai-agent-tool-calls-per-run/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-cost-control-budget",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/category/compliance--audit/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-audit-log",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/choosing-an-agent-framework/",
+      "destination": "https://www.promptise.com/guides/view/python-ai-agent-frameworks-compared",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/circuit-breakers-for-tools/",
+      "destination": "https://www.promptise.com/guides/view/mcp-server-caching-circuit-breaker",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/code-action-agent/",
+      "destination": "https://www.promptise.com/guides/view/code-action-agent-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/confidence-threshold-to-stop-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/goal-driven-ai-agent-mission",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/connect-ai-agent-to-mcp-tools/",
+      "destination": "https://www.promptise.com/guides/view/connect-mcp-servers-to-ai-agent-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/context-window-management/",
+      "destination": "https://www.promptise.com/guides/view/context-engineering-ai-agents",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/conversation-persistence/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-memory-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/crewai-alternative/",
+      "destination": "https://www.promptise.com/guides/view/crewai-alternatives",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/daily-budget-for-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-cost-control-budget",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/delete-one-tenant-s-data-gdpr/",
+      "destination": "https://www.promptise.com/guides/view/multi-tenant-ai-agent",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/detect-a-tampered-agent-audit-trail/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-audit-log",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/durable-execution-for-ai-agents/",
+      "destination": "https://www.promptise.com/guides/view/durable-ai-agent-crash-recovery",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/escalate-ai-agent-to-human/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-health-monitoring",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/eu-ai-act-agent-logging/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-audit-log",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/event-driven-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/event-driven-ai-agents-webhook-cron-triggers",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/fastmcp-alternative-for-production/",
+      "destination": "https://www.promptise.com/guides/view/fastmcp-alternatives",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/gdpr-delete-cached-llm-responses/",
+      "destination": "https://www.promptise.com/guides/view/llm-semantic-cache-fallback-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/gdpr-delete-user-data-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-memory-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/give-each-ai-agent-its-own-identity/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-identity-authentication",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/guardrails-ai-vs-nemo-guardrails/",
+      "destination": "https://www.promptise.com/guides/view/guardrails-ai-vs-nemo-guardrails",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/hipaa-ai-agent-audit/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-audit-log",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/how-does-an-ai-agent-authenticate-to-an-api/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-identity-authentication",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/how-to-build-an-ai-agent-in-python/",
+      "destination": "https://www.promptise.com/guides/view/how-to-build-ai-agent-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/human-in-the-loop-approval/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-human-in-the-loop-approval",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/human-in-the-loop-llm-approval/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-human-in-the-loop-approval",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/jwt-authentication-for-mcp-servers/",
+      "destination": "https://www.promptise.com/guides/view/mcp-server-authentication-jwt-oauth",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/know-when-ai-agent-achieved-its-goal/",
+      "destination": "https://www.promptise.com/guides/view/goal-driven-ai-agent-mission",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/langchain-alternative/",
+      "destination": "https://www.promptise.com/guides/view/langchain-alternatives",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/llm-content-moderation/",
+      "destination": "https://www.promptise.com/guides/view/best-llm-guardrails-tools",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/llm-guardrails-python/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-guardrails-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/llm-long-term-memory/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-memory-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/llm-tool-rate-limiting/",
+      "destination": "https://www.promptise.com/guides/view/mcp-rate-limiting-per-client",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/long-running-agent-context-bloat/",
+      "destination": "https://www.promptise.com/guides/view/context-engineering-ai-agents",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/long-running-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/deploy-ai-agents-in-production",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/long-running-mcp-tool-job-queue/",
+      "destination": "https://www.promptise.com/guides/view/mcp-long-running-tasks-background-jobs",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/mcp-authentication/",
+      "destination": "https://www.promptise.com/guides/view/mcp-server-authentication-jwt-oauth",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/mcp-client/",
+      "destination": "https://www.promptise.com/guides/view/connect-mcp-servers-to-ai-agent-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/mcp-server-python/",
+      "destination": "https://www.promptise.com/guides/view/build-production-mcp-server-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/migrating-off-langchain/",
+      "destination": "https://www.promptise.com/guides/view/langchain-alternatives",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/multi-agent-systems-python/",
+      "destination": "https://www.promptise.com/guides/view/multi-agent-system-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/multi-tenant-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/multi-tenant-ai-agent",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/openapi-to-mcp/",
+      "destination": "https://www.promptise.com/guides/view/openapi-to-mcp-server-rest-api",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/per-tenant-data-isolation/",
+      "destination": "https://www.promptise.com/guides/view/multi-tenant-ai-agent",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/pii-redaction-for-ai/",
+      "destination": "https://www.promptise.com/guides/view/llm-pii-redaction",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/plan-and-execute-agent/",
+      "destination": "https://www.promptise.com/guides/view/plan-and-execute-agent-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/production-ai-agent-checklist/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-production-checklist",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/production-mcp-server/",
+      "destination": "https://www.promptise.com/guides/view/fastmcp-alternatives",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/prompt-injection-detection/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-prompt-injection-defense",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/python-ai-agent-framework-comparison/",
+      "destination": "https://www.promptise.com/guides/view/python-ai-agent-frameworks-compared",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/python-ai-agent-framework/",
+      "destination": "https://www.promptise.com/guides/view/python-ai-agent-frameworks-compared",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/react-agent-pattern/",
+      "destination": "https://www.promptise.com/guides/view/build-reliable-reason-and-act-agent-loops-react-from-scratch",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/react-vs-plan-and-execute/",
+      "destination": "https://www.promptise.com/guides/view/plan-and-execute-agent-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/reduce-llm-token-cost/",
+      "destination": "https://www.promptise.com/guides/view/too-many-mcp-tools-llm-tool-selection",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/rotate-ai-agent-secret-without-restart/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-secrets-management",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/route-ai-agent-approvals-to-slack/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-human-in-the-loop-approval",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/run-ai-generated-code-safely/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-code-execution-sandbox-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/sandboxed-code-execution-for-ai/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-code-execution-sandbox-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/scheduled-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-cron-schedule",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/secure-mcp-server-on-public-internet/",
+      "destination": "https://www.promptise.com/guides/view/mcp-security-best-practices",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/self-modifying-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/self-modifying-ai-agent-open-mode",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/semantic-cache-for-llms/",
+      "destination": "https://www.promptise.com/guides/view/llm-semantic-cache-fallback-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/server-side-vs-agent-side-ai-approval/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-human-in-the-loop-approval",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/single-agent-vs-multi-agent/",
+      "destination": "https://www.promptise.com/guides/view/multi-agent-system-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/soc-2-audit-trail-for-ai-agents/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-audit-log",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/sovereign-ai-agent-eu-data-residency/",
+      "destination": "https://www.promptise.com/guides/view/ollama-ai-agent-mcp",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/spiffe-svid-identity-for-ai-agents/",
+      "destination": "https://www.promptise.com/guides/view/spiffe-ai-agent-identity",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/testing-mcp-servers/",
+      "destination": "https://www.promptise.com/guides/view/test-mcp-server-python",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/tool-calling-in-python/",
+      "destination": "https://www.promptise.com/guides/view/what-is-tool-calling",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/verify-webhook-signature-ai-agent/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-webhook-trigger",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/watched-folder-ingestion-agent/",
+      "destination": "https://www.promptise.com/guides/view/ai-agent-file-watcher",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/what-is-mcp/",
+      "destination": "https://www.promptise.com/guides/view/what-is-model-context-protocol",
+      "statusCode": 301
+    },
+    {
+      "source": "/core/agents/network-server/",
+      "destination": "/runtime/",
+      "statusCode": 301
+    },
+    {
+      "source": "/getting-started/best-llms-for-agents/",
+      "destination": "https://www.promptise.com/guides/view/best-llm-for-ai-agents",
+      "statusCode": 301
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": ".*\\.vercel\\.app"
+        }
+      ],
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    }
+  ]
+}
