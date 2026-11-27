@@ -199,11 +199,20 @@ def _columns(text: str) -> int:
     Every fit decision in this module uses it, so a description in Japanese
     is laid out exactly as the formatter would lay it out.
     """
+    plain_text = type(text) is str
+    if plain_text and text.isascii():
+        return len(text)
+    combining = unicodedata.combining
+    category = unicodedata.category
+    east_asian_width = unicodedata.east_asian_width
     width = 0
     for ch in text:
-        if unicodedata.combining(ch) or unicodedata.category(ch) in ("Mn", "Me", "Cf"):
+        if plain_text and ch <= "\x7f":
+            width += 1
             continue
-        width += 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+        if combining(ch) or category(ch) in ("Mn", "Me", "Cf"):
+            continue
+        width += 2 if east_asian_width(ch) in ("W", "F") else 1
     return width
 
 
