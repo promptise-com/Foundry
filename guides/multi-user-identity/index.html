@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
   
@@ -84,7 +84,7 @@
 
   
   <meta name="author" content="Promptise Team">
-  <meta name="publisher" content="Promptise Team">
+  <meta name="publisher" content="Promptise">
 
   
   
@@ -111,12 +111,16 @@
   {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "Promptise Team",
+    "@id": "https://www.promptise.com/#organization",
+    "name": "Promptise",
+    "alternateName": ["Promptise Foundry"],
     "url": "https://www.promptise.com/",
-    "logo": "https://docs.promptise.com//assets/logo.png",
+    "logo": "https://www.promptise.com/images/promptise-logo.png",
     "sameAs": [
       "https://github.com/promptise-com",
-      "https://promptise.com"
+      "https://github.com/promptise-com/Foundry",
+      "https://pypi.org/project/promptise/",
+      "https://docs.promptise.com"
     ]
   }
   </script>
@@ -126,23 +130,13 @@
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "Promptise Foundry Documentation",
-    "alternateName": ["Promptise Docs", "Promptise Foundry Docs"],
+    "@id": "https://docs.promptise.com//#website",
+    "name": "Promptise Docs",
+    "alternateName": ["Promptise Foundry Documentation", "Promptise Foundry Docs", "Promptise Documentation"],
     "url": "https://docs.promptise.com//",
     "description": "Promptise Foundry documentation: build AI agents, MCP servers and autonomous agent runtimes in Python, with quickstarts, guides and the full API reference.",
-    "publisher": {
-      "@type": "Organization",
-      "name": "Promptise Team",
-      "url": "https://www.promptise.com/"
-    },
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": {
-        "@type": "EntryPoint",
-        "urlTemplate": "https://docs.promptise.com//?q={search_term_string}"
-      },
-      "query-input": "required name=search_term_string"
-    }
+    "publisher": { "@id": "https://www.promptise.com/#organization" },
+    "inLanguage": "en"
   }
   </script>
 
@@ -157,7 +151,7 @@
     "programmingLanguage": "Python",
     "runtimePlatform": "Python 3.10+",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
-    "url": "https://promptise.com",
+    "url": "https://www.promptise.com/",
     "author": {
       "@type": "Organization",
       "name": "Promptise Team",
@@ -182,11 +176,7 @@
       "description": "Carry user identity from your app through the agent to MCP tools with CallerContext: JWT propagation, server-side auth, role guards and per-user isolation.",
       "url": "https://docs.promptise.com/guides/multi-user-identity/",
       "image": "https://docs.promptise.com//assets/social-preview.png",
-      "isPartOf": {
-        "@type": "WebSite",
-        "name": "Promptise Foundry Documentation",
-        "url": "https://docs.promptise.com//"
-      },
+      "isPartOf": { "@id": "https://docs.promptise.com//#website" },
       "about": {
         "@type": "SoftwareSourceCode",
         "name": "Promptise Foundry",
@@ -200,10 +190,11 @@
       },
       "publisher": {
         "@type": "Organization",
-        "name": "Promptise Team",
+        "@id": "https://www.promptise.com/#organization",
+        "name": "Promptise",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://docs.promptise.com//assets/logo.png"
+          "url": "https://www.promptise.com/images/promptise-logo.png"
         }
       },
       
@@ -10265,7 +10256,7 @@ entries, and the <code>RequireTenant</code>/<code>HasTenant</code> guards read i
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.path", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
